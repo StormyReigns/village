@@ -30,6 +30,15 @@ try { await db.exec(migration); } catch (e) {
   process.exit(1);
 }
 ok('migration applied');
+if (process.argv[3]) {
+  const seed = readFileSync(process.argv[3], 'utf8');
+  await db.exec(seed);
+  await db.exec(seed); // running it twice must be harmless
+  const g = await db.query(`select count(*)::int as n from public.games`);
+  const b = await db.query(`select count(*)::int as n from public.game_blocks`);
+  g.rows[0].n === 2 && b.rows[0].n === 16 ? ok('seed applied (2 games, 16 blocks) and is safe to re-run') : bad('seed ' + JSON.stringify([g.rows, b.rows]));
+  await db.exec(`delete from public.game_blocks; delete from public.games;`);
+}
 
 const A = '11111111-1111-1111-1111-111111111111', B = '22222222-2222-2222-2222-222222222222';
 await db.exec(`insert into auth.users (id, raw_user_meta_data) values ('${A}', '{"full_name":"Matt"}'), ('${B}', '{}');`);
