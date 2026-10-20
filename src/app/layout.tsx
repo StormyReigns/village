@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fredoka, Nunito } from "next/font/google";
 import "./globals.css";
 
@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   title: { default: "Village", template: "%s · Village" },
   description: "Community-built companion apps for the games you love.",
 };
+
+// Always light, even when the device is in dark mode.
+export const viewport: Viewport = { colorScheme: "light", themeColor: "#f7f8fa" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

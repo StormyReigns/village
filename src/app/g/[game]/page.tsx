@@ -1,10 +1,13 @@
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArrowLeft, Hammer } from 'lucide-react';
 import { GAMES, blocksFor, getGame } from '@/data/games';
 import { BlockIcon } from '@/components/Icon';
 import { Countdown } from '@/components/Countdown';
+import { GameCover } from '@/components/GameCover';
+import { withCovers } from '@/lib/pictures';
 
 export function generateStaticParams() {
   return GAMES.map((g) => ({ game: g.id }));
@@ -16,9 +19,19 @@ export async function generateMetadata({ params }: PageProps<'/g/[game]'>): Prom
 }
 
 // The game app: what players use mid-game. Built from the game's blocks.
-export default async function GameApp({ params }: PageProps<'/g/[game]'>) {
-  const game = getGame((await params).game);
-  if (!game) notFound();
+// The URL is read inside <Suspense> so navigation can show the shell instantly.
+export default function GamePage({ params }: PageProps<'/g/[game]'>) {
+  return (
+    <Suspense fallback={<main className="mx-auto w-full max-w-5xl px-4 pt-6 sm:px-6"><div className="surface aspect-[3/1] animate-pulse rounded-[2rem]" /></main>}>
+      <GameApp params={params} />
+    </Suspense>
+  );
+}
+
+async function GameApp({ params }: { params: PageProps<'/g/[game]'>['params'] }) {
+  const found = getGame((await params).game);
+  if (!found) notFound();
+  const [game] = withCovers([found]);
   const blocks = blocksFor(game);
 
   return (
@@ -27,7 +40,9 @@ export default async function GameApp({ params }: PageProps<'/g/[game]'>) {
         <ArrowLeft size={16} aria-hidden="true" /> Village square
       </Link>
 
-      <section className="mt-4 rounded-[2rem] bg-card p-6 shadow-soft ring-1 ring-line sm:p-8">
+      <section className="surface mt-4 overflow-hidden rounded-[2rem]">
+        <GameCover game={game} className="!aspect-[3/1] !rounded-none" />
+        <div className="p-6 sm:p-8">
         <p className="text-sm text-muted">{game.platform}</p>
         <h1 className="font-display text-3xl sm:text-4xl">{game.title}</h1>
         <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -37,6 +52,7 @@ export default async function GameApp({ params }: PageProps<'/g/[game]'>) {
           {game.status === 'prelaunch' && (
             <span className="text-sm text-muted"><Countdown date={game.releaseDate} before="Comes out" after="Out now" /></span>
           )}
+        </div>
         </div>
       </section>
 

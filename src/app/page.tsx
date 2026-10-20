@@ -1,17 +1,15 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { Landmark, Store } from 'lucide-react';
 import { GAMES } from '@/data/games';
 import { VillageScene } from '@/components/VillageScene';
 import { MarketDay } from '@/components/Countdown';
 import { GameBrowser } from '@/components/GameBrowser';
+import { findPicture, withCovers } from '@/lib/pictures';
 
-// Drop a picture at public/village/hero.webp (wide, about 2400×600) and it replaces the
+// Save a wide picture as public/village/hero.png (or .webp/.jpg) and it replaces the
 // drawn village automatically.
-const HERO = '/village/hero.webp';
-const hasHero = existsSync(join(process.cwd(), 'public', HERO));
+const HERO = findPicture('/village/hero');
 
 export default function VillageSquare() {
   return (
@@ -26,7 +24,7 @@ export default function VillageSquare() {
 
       <section className="surface mt-5 overflow-hidden rounded-[2rem]">
         <div className="relative">
-          {hasHero ? (
+          {HERO ? (
             <div className="relative aspect-[4/1] min-h-36 w-full">
               <Image src={HERO} alt="The village" fill priority sizes="(min-width: 1024px) 1024px, 100vw" className="object-cover" />
             </div>
@@ -43,7 +41,7 @@ export default function VillageSquare() {
         </div>
       </section>
 
-      <GameBrowser games={GAMES} />
+      <GameBrowser games={withCovers(GAMES)} />
 
       <section className="mt-10 grid gap-4 sm:grid-cols-2">
         <Link href="/town-hall" className="surface lift flex gap-4 rounded-3xl p-5">

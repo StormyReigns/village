@@ -23,27 +23,9 @@
   --gloss: linear-gradient(180deg, rgb(255 255 255 / 0.55) 0%, rgb(255 255 255 / 0.08) 48%, rgb(255 255 255 / 0) 52%);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #111318;
-    --card: #1a1d24;
-    --card-2: #222630;
-    --ink: #eef0f4;
-    --muted: #9aa1ad;
-    --line: #2c313c;
-    --leaf: #6cc47a;
-    --leaf-soft: #1d3324;
-    --berry: #f07f97;
-    --berry-soft: #3a1f28;
-    --sky: #6fb4ea;
-    --sky-soft: #182b3b;
-    --sun: #f1b74e;
-    --sun-soft: #352a17;
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 30px -14px rgb(0 0 0 / 0.8);
-    --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.45), 0 20px 44px -16px rgb(0 0 0 / 0.9);
-    --gloss: linear-gradient(180deg, rgb(255 255 255 / 0.18) 0%, rgb(255 255 255 / 0.03) 48%, rgb(255 255 255 / 0) 52%);
-  }
-}
+/* Always light: the village is a clean white place by design. (A dark theme can come
+   back later as an opt-in setting.) */
+:root { color-scheme: light; }
 
 @theme inline {
   --color-paper: var(--paper);
