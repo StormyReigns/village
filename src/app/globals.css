@@ -1,43 +1,47 @@
 @import "tailwindcss";
 
-/* Village palette: soft parchment and meadow by day, lantern-lit by night.
-   The village look lives in the frame (squares, Workshop chrome); game cards inside it
-   can carry their own game's colors later. */
+/* Village look: clean white surfaces with subtle shadows and a touch of gloss.
+   Color comes from village content (the village picture, avatars, game covers, badges),
+   not from the frame. Game cards inside a game app can carry that game's colors. */
 :root {
-  --paper: #f5f0e4;
-  --card: #fffdf7;
-  --card-2: #f9f4e8;
-  --ink: #3a3027;
-  --muted: #7d6f60;
-  --line: #e8dfcc;
-  --leaf: #4f8d4a;
-  --leaf-soft: #e3f0d9;
-  --berry: #c8566b;
-  --berry-soft: #f8e1e4;
-  --sky: #3f86ad;
-  --sky-soft: #ddeef6;
-  --sun: #c88a1e;
-  --sun-soft: #f9ecd0;
-  --shadow: 0 1px 0 rgb(120 96 60 / 0.06), 0 10px 24px -12px rgb(120 96 60 / 0.35);
+  --paper: #f7f8fa;          /* page */
+  --card: #ffffff;           /* raised surfaces */
+  --card-2: #f3f4f7;         /* inset fields, rows inside cards */
+  --ink: #1f2430;
+  --muted: #6b7280;
+  --line: #e7e9ee;
+  --leaf: #3f9a4e;
+  --leaf-soft: #e6f5e9;
+  --berry: #d9506d;
+  --berry-soft: #fde8ed;
+  --sky: #2f86c9;
+  --sky-soft: #e4f1fb;
+  --sun: #d48a10;
+  --sun-soft: #fdf1da;
+  --shadow: 0 1px 2px rgb(16 24 40 / 0.05), 0 10px 28px -14px rgb(16 24 40 / 0.22);
+  --shadow-lift: 0 2px 4px rgb(16 24 40 / 0.06), 0 18px 40px -16px rgb(16 24 40 / 0.3);
+  --gloss: linear-gradient(180deg, rgb(255 255 255 / 0.55) 0%, rgb(255 255 255 / 0.08) 48%, rgb(255 255 255 / 0) 52%);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #1c1a22;
-    --card: #26232d;
-    --card-2: #2d2935;
-    --ink: #f1e9da;
-    --muted: #b3a690;
-    --line: #3b3644;
-    --leaf: #8cc785;
-    --leaf-soft: #2c3a2d;
-    --berry: #ef8fa0;
-    --berry-soft: #43293a;
-    --sky: #8ec5e3;
-    --sky-soft: #233646;
-    --sun: #f0c062;
-    --sun-soft: #3d3222;
-    --shadow: 0 1px 0 rgb(0 0 0 / 0.3), 0 12px 28px -14px rgb(0 0 0 / 0.7);
+    --paper: #111318;
+    --card: #1a1d24;
+    --card-2: #222630;
+    --ink: #eef0f4;
+    --muted: #9aa1ad;
+    --line: #2c313c;
+    --leaf: #6cc47a;
+    --leaf-soft: #1d3324;
+    --berry: #f07f97;
+    --berry-soft: #3a1f28;
+    --sky: #6fb4ea;
+    --sky-soft: #182b3b;
+    --sun: #f1b74e;
+    --sun-soft: #352a17;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 30px -14px rgb(0 0 0 / 0.8);
+    --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.45), 0 20px 44px -16px rgb(0 0 0 / 0.9);
+    --gloss: linear-gradient(180deg, rgb(255 255 255 / 0.18) 0%, rgb(255 255 255 / 0.03) 48%, rgb(255 255 255 / 0) 52%);
   }
 }
 
@@ -59,6 +63,7 @@
   --font-display: var(--font-fredoka), ui-rounded, system-ui, sans-serif;
   --font-sans: var(--font-nunito), ui-rounded, system-ui, sans-serif;
   --shadow-soft: var(--shadow);
+  --shadow-lift: var(--shadow-lift);
 }
 
 body {
@@ -71,11 +76,41 @@ body {
   outline-offset: 2px;
 }
 
+/* Gloss: a soft highlight across the top half of a colored surface (buttons, badges).
+   It layers over the element's own background color. Covers use .shine instead. */
+.gloss { background-image: var(--gloss); }
+/* A highlight overlay for surfaces whose background is already a picture or gradient. */
+.shine { position: absolute; inset: 0; border-radius: inherit; background: var(--gloss); pointer-events: none; }
+
+/* Primary button: colored, glossy, with an inner top highlight. */
+.btn-primary {
+  background-color: var(--leaf);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 1px 2px rgb(16 24 40 / 0.12), 0 6px 14px -6px color-mix(in srgb, var(--leaf) 70%, transparent);
+}
+.btn-primary:hover { filter: brightness(1.05); }
+.btn-quiet {
+  background-color: var(--card);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--line), 0 1px 2px rgb(16 24 40 / 0.05);
+}
+.btn-quiet:hover { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--leaf) 45%, var(--line)), 0 1px 2px rgb(16 24 40 / 0.05); }
+
+/* Raised white card with a hairline edge. */
+.surface {
+  background: var(--card);
+  box-shadow: var(--shadow), inset 0 0 0 1px var(--line);
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .rise { animation: rise 0.22s ease-out; }
   @keyframes rise { from { transform: translateY(10px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+  .lift { transition: transform 0.18s ease, box-shadow 0.18s ease; }
+  .lift:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift), inset 0 0 0 1px var(--line); }
 }
 
-/* Hide the scrollbar on the block-chip strip but keep it scrollable. */
-.chip-strip { scrollbar-width: none; }
-.chip-strip::-webkit-scrollbar { display: none; }
+/* Hide scrollbars on horizontal strips but keep them scrollable. */
+.chip-strip, .swipe { scrollbar-width: none; }
+.chip-strip::-webkit-scrollbar, .swipe::-webkit-scrollbar { display: none; }
+.swipe { scroll-snap-type: x mandatory; scroll-padding-inline: 1rem; overscroll-behavior-x: contain; }
+.swipe > * { scroll-snap-align: start; }

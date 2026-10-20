@@ -23,6 +23,14 @@ export interface Game {
   next?: string;
   /** Hue for this game's accents, from the village palette. */
   hue: 'berry' | 'sky' | 'leaf' | 'sun';
+  genre: string;
+  /**
+   * Cover picture in /public, e.g. '/games/fortunes-weave/cover.webp' (16:9, our own art).
+   * Until there is one, the tile shows a colored placeholder.
+   */
+  cover?: string;
+  /** Lower comes first in "Popular right now", until real activity numbers exist. */
+  popularity: number;
 }
 
 export const GAMES: Game[] = [
@@ -37,6 +45,8 @@ export const GAMES: Game[] = [
     blockTitles: { progress: 'Chapters', people: 'Units', builds: 'Classes and builds' },
     next: 'Expansion Pass Wave 2 this holiday',
     hue: 'berry',
+    genre: 'Tactics RPG',
+    popularity: 1,
   },
   {
     id: 'ocarina-of-time',
@@ -49,6 +59,8 @@ export const GAMES: Game[] = [
     blockTitles: { progress: 'Dungeons', collections: 'Hearts and Skulltulas' },
     next: 'Workshop opens before launch',
     hue: 'leaf',
+    genre: 'Action-adventure',
+    popularity: 2,
   },
 ];
 
