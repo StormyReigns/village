@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+/* Village palette: soft parchment and meadow by day, lantern-lit by night.
+   The village look lives in the frame (squares, Workshop chrome); game cards inside it
+   can carry their own game's colors later. */
+:root {
+  --paper: #f5f0e4;
+  --card: #fffdf7;
+  --card-2: #f9f4e8;
+  --ink: #3a3027;
+  --muted: #7d6f60;
+  --line: #e8dfcc;
+  --leaf: #4f8d4a;
+  --leaf-soft: #e3f0d9;
+  --berry: #c8566b;
+  --berry-soft: #f8e1e4;
+  --sky: #3f86ad;
+  --sky-soft: #ddeef6;
+  --sun: #c88a1e;
+  --sun-soft: #f9ecd0;
+  --shadow: 0 1px 0 rgb(120 96 60 / 0.06), 0 10px 24px -12px rgb(120 96 60 / 0.35);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #1c1a22;
+    --card: #26232d;
+    --card-2: #2d2935;
+    --ink: #f1e9da;
+    --muted: #b3a690;
+    --line: #3b3644;
+    --leaf: #8cc785;
+    --leaf-soft: #2c3a2d;
+    --berry: #ef8fa0;
+    --berry-soft: #43293a;
+    --sky: #8ec5e3;
+    --sky-soft: #233646;
+    --sun: #f0c062;
+    --sun-soft: #3d3222;
+    --shadow: 0 1px 0 rgb(0 0 0 / 0.3), 0 12px 28px -14px rgb(0 0 0 / 0.7);
+  }
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-card: var(--card);
+  --color-card-2: var(--card-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-leaf: var(--leaf);
+  --color-leaf-soft: var(--leaf-soft);
+  --color-berry: var(--berry);
+  --color-berry-soft: var(--berry-soft);
+  --color-sky: var(--sky);
+  --color-sky-soft: var(--sky-soft);
+  --color-sun: var(--sun);
+  --color-sun-soft: var(--sun-soft);
+  --font-display: var(--font-fredoka), ui-rounded, system-ui, sans-serif;
+  --font-sans: var(--font-nunito), ui-rounded, system-ui, sans-serif;
+  --shadow-soft: var(--shadow);
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 3px solid var(--sky);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .rise { animation: rise 0.22s ease-out; }
+  @keyframes rise { from { transform: translateY(10px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+}
+
+/* Hide the scrollbar on the block-chip strip but keep it scrollable. */
+.chip-strip { scrollbar-width: none; }
+.chip-strip::-webkit-scrollbar { display: none; }
