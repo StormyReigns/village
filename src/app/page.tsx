@@ -5,6 +5,7 @@ import { GAMES } from '@/data/games';
 import { VillageScene } from '@/components/VillageScene';
 import { MarketDay } from '@/components/Countdown';
 import { GameBrowser } from '@/components/GameBrowser';
+import { AccountButton } from '@/components/AccountButton';
 import { findPicture, withCovers } from '@/lib/pictures';
 
 // Save a wide picture as public/village/hero.png (or .webp/.jpg) and it replaces the
@@ -19,7 +20,10 @@ export default function VillageSquare() {
           <span className="gloss btn-primary grid size-9 place-items-center rounded-2xl">V</span>
           Village
         </div>
-        <span className="surface rounded-full px-3 py-1 text-sm font-bold text-sun"><MarketDay /></span>
+        <div className="flex items-center gap-2">
+          <span className="surface hidden rounded-full px-3 py-1 text-sm font-bold text-sun sm:inline-block"><MarketDay /></span>
+          <AccountButton />
+        </div>
       </header>
 
       <section className="surface mt-5 overflow-hidden rounded-[2rem]">

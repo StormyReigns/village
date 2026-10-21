@@ -10,6 +10,7 @@ import type { GameBlock } from '@/data/games';
 import { BlockIcon } from '@/components/Icon';
 import { CardPreview, type CardContent } from '@/components/CardPreview';
 import { MarketDay } from '@/components/Countdown';
+import { AccountButton } from '@/components/AccountButton';
 import { sortStandouts, type DraftStats } from '@/lib/standouts';
 
 type Sort = 'standouts' | 'new' | 'needs' | 'shipped';
@@ -82,9 +83,12 @@ export function Workshop({ game, blocks }: { game: { id: string; shortTitle: str
           <h1 className="font-display text-2xl leading-tight">{game.shortTitle}</h1>
         </div>
         <span className="rounded-full bg-sun-soft px-3 py-1 text-sm font-bold text-sun"><MarketDay /></span>
-        <Link href={`/g/${game.id}`} className="ml-auto inline-flex items-center gap-2 rounded-full bg-leaf px-4 py-2 font-bold text-paper hover:opacity-90">
-          Open the app <ExternalLink size={16} aria-hidden="true" />
-        </Link>
+        <div className="ml-auto flex items-center gap-2">
+          <Link href={`/g/${game.id}`} className="gloss btn-primary inline-flex items-center gap-2 rounded-full px-4 py-2 font-bold">
+            Open the app <ExternalLink size={16} aria-hidden="true" />
+          </Link>
+          <AccountButton />
+        </div>
       </header>
 
       {/* Block chips */}

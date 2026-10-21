@@ -8,6 +8,7 @@ import { cardsFor } from '@/data/content';
 import { Countdown } from '@/components/Countdown';
 import { GameCover } from '@/components/GameCover';
 import { GameAppView } from '@/components/GameAppView';
+import { AccountButton } from '@/components/AccountButton';
 import { withCovers } from '@/lib/pictures';
 
 export function generateStaticParams() {
@@ -42,9 +43,12 @@ async function GameApp({ params }: { params: PageProps<'/g/[game]'>['params'] })
         <Link href="/" className="inline-flex items-center gap-1 text-sm font-bold text-muted hover:text-ink">
           <ArrowLeft size={16} aria-hidden="true" /> Village square
         </Link>
-        <Link href={`/g/${game.id}/workshop`} className="btn-quiet inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold">
-          <Hammer size={16} className="text-leaf" aria-hidden="true" /> Workshop
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href={`/g/${game.id}/workshop`} className="btn-quiet inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold">
+            <Hammer size={16} className="text-leaf" aria-hidden="true" /> Workshop
+          </Link>
+          <AccountButton />
+        </div>
       </div>
 
       <section className="surface mt-4 overflow-hidden rounded-[2rem]">
