@@ -99,3 +99,23 @@ await expectFail(B, `insert into public.chat_messages (game_id, author_id, body)
 await db.exec(`update public.drafts set status = 'removed'`);
 const gone = await db.query(`select count(*)::int as n from public.draft_scores`);
 gone.rows[0].n === 0 ? ok('removed Drafts leave Standouts') : bad('removed draft still scored');
+
+// Reports and moderation. B is a villager, A is a moderator.
+await db.exec(`update public.drafts set status = 'open'; insert into auth.users (id) values ('55555555-5555-5555-5555-555555555555');`);
+const C = '55555555-5555-5555-5555-555555555555';
+const msg = (await db.query(`select id from public.chat_messages where body = 'Hello village'`)).rows[0].id;
+await expectOk(C, `insert into public.flags (message_id, reason, reporter_id) values (${msg}, 'rude', '${C}')`, 'villager can report a message');
+await expectFail(C, `insert into public.flags (message_id, reason, reporter_id) values (${msg}, 'spam', '${C}')`, 'one report per person per message');
+const fg = await db.query(`select game_id from public.flags`);
+fg.rows[0]?.game_id === 'fortunes-weave' ? ok('reports are filed under the right game') : bad('flag game ' + JSON.stringify(fg.rows));
+const seenByB = await asUser(B, `select count(*)::int as n from public.flags`);
+seenByB.rows[0].n === 0 ? ok("villagers can't see other people's reports") : bad('flags visible to B');
+const seenByA = await asUser(A, `select count(*)::int as n from public.flags`);
+seenByA.rows[0].n === 1 ? ok('moderators see reports') : bad('flags hidden from A');
+await expectFail(B, `update public.flags set status = 'dismissed'`, 'villager cannot dismiss reports');
+await expectOk(A, `update public.flags set status = 'resolved', handled_by = '${A}', handled_at = now()`, 'moderator can resolve a report');
+await expectFail(B, `update public.chat_messages set removed_at = now() where id = ${msg}`, "villager cannot remove others' messages");
+await expectOk(A, `update public.chat_messages set removed_at = now(), removed_by = '${A}' where id = ${msg}`, 'moderator can remove a message');
+const hidden = await asUser(C, `select count(*)::int as n from public.chat_messages where id = ${msg}`);
+hidden.rows[0].n === 0 ? ok('removed messages disappear for villagers') : bad('removed message still visible');
+await expectOk(A, `update public.drafts set status = 'declined', decline_reason = 'Duplicate', decided_by = '${A}', decided_at = now()`, 'moderator can decline a Draft with a reason');

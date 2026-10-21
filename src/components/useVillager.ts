@@ -13,6 +13,8 @@ export interface Villager {
   isFounder: boolean;
   /** A moderator for any game, or the whole village. */
   isModerator: boolean;
+  /** Games they moderate; null means every game. */
+  modGames: (string | null)[];
   /** A moderator seeing the site as a villager: their own posts are treated as someone else's. */
   practice?: boolean;
 }
@@ -46,6 +48,7 @@ export function useAccount(): Villager | null | undefined {
         avatarUrl: data?.avatar_url || meta.avatar_url,
         isFounder: Boolean(data?.is_founder),
         isModerator: Boolean(mods.data?.length),
+        modGames: (mods.data ?? []).map((m) => m.game_id as string | null),
       });
     };
     db.auth.getUser().then(({ data }) => load(data.user));
@@ -65,7 +68,12 @@ export function hasPowers(v: Villager | null | undefined): v is Villager {
 export function seenAs(real: Villager | null | undefined, view: ViewAs): Villager | null | undefined {
   if (!hasPowers(real) || view === 'self') return real;
   if (view === 'visitor') return null;
-  return { ...real, isModerator: false, practice: true };
+  return { ...real, isModerator: false, modGames: [], practice: true };
+}
+
+/** Whether these moderator tools apply on this game (never while seeing the site as someone else). */
+export function canModerate(v: Villager | null | undefined, gameId: string): boolean {
+  return Boolean(v && !v.practice && v.modGames.some((g) => g === null || g === gameId));
 }
 
 /**

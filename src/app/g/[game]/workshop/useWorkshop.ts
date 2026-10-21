@@ -1,14 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { browserClient } from '@/lib/supabase/browser';
-import type { Villager } from '@/components/useVillager';
+import { canModerate, type Villager } from '@/components/useVillager';
 import type { CardContent } from '@/components/CardPreview';
 import type { DraftStats } from '@/lib/standouts';
 
-// Everything the Workshop reads and writes: chat, Drafts, votes and views, kept live
-// with Supabase Realtime. Row-level security in the database decides what's allowed;
-// this file only asks.
+// Everything the Workshop reads and writes: chat, Drafts, votes, views, reports and
+// moderator actions, kept live with Supabase Realtime. Row-level security in the
+// database decides what's allowed; this file only asks.
 
 export interface Author { id: string; name: string; username: string; avatarUrl?: string | null }
 
@@ -18,6 +19,8 @@ export interface ChatMessage {
   blockKey: string | null;
   draftId: string | null;
   spoiler: boolean;
+  /** Only moderators ever see removed messages. */
+  removed: boolean;
   createdAt: string;
   author: Author;
 }
@@ -30,6 +33,7 @@ export interface LiveDraft extends DraftStats {
   source: string | null;
   theory: boolean;
   status: string;
+  declineReason: string | null;
   author: Author;
   myVote: 0 | 1 | -1;
 }
@@ -43,8 +47,34 @@ export interface NewDraft {
   theory: boolean;
 }
 
+export type ReportReason = 'spam' | 'rude' | 'spoiler' | 'wrong' | 'other';
+export const REASONS: { key: ReportReason; label: string }[] = [
+  { key: 'spam', label: 'Spam' },
+  { key: 'rude', label: 'Rude or hurtful' },
+  { key: 'spoiler', label: 'Unmarked spoiler' },
+  { key: 'wrong', label: 'Wrong or made up' },
+  { key: 'other', label: 'Something else' },
+];
+
+/** What's being reported: a chat message or a Draft. */
+export type Target = { messageId: number } | { draftId: string };
+export const targetKey = (t: Target) => ('messageId' in t ? `m:${t.messageId}` : `d:${t.draftId}`);
+
+/** Open reports about one thing, gathered for the Notice Board. */
+export interface ReportGroup {
+  key: string;
+  target: Target;
+  reasons: ReportReason[];
+  notes: { by: string; note: string }[];
+  count: number;
+  firstAt: string;
+  message?: { body: string; author: Author; removed: boolean; spoiler: boolean };
+  draft?: { title: string; status: string; blockKey: string };
+}
+
 type Row = Record<string, unknown>;
 const PROFILE = 'id, username, display_name, avatar_url';
+const MESSAGE = `id, body, block_key, linked_draft_id, spoiler, removed_at, created_at, author_id, author:profiles!chat_messages_author_id_fkey(${PROFILE})`;
 
 function toAuthor(p: Row | null | undefined, id: string): Author {
   const username = (p?.username as string) ?? 'villager';
@@ -54,13 +84,15 @@ function toAuthor(p: Row | null | undefined, id: string): Author {
 function toMessage(r: Row, author: Author): ChatMessage {
   return {
     id: r.id as number, body: r.body as string, blockKey: (r.block_key as string) ?? null,
-    draftId: (r.linked_draft_id as string) ?? null, spoiler: Boolean(r.spoiler), createdAt: r.created_at as string, author,
+    draftId: (r.linked_draft_id as string) ?? null, spoiler: Boolean(r.spoiler), removed: Boolean(r.removed_at),
+    createdAt: r.created_at as string, author,
   };
 }
 
 /** Turns database errors into words a villager can act on. */
 export function plainError(message: string): string {
   if (/slow down/i.test(message)) return message.replace(/^.*?(Slow down)/i, '$1');
+  if (/duplicate key|unique/i.test(message)) return "You've already reported this. A moderator will take a look.";
   if (/row-level security|permission/i.test(message)) return "That wasn't allowed. Try signing in again.";
   if (/fetch|network/i.test(message)) return "Couldn't reach the village. Check your connection and try again.";
   return message;
@@ -69,9 +101,14 @@ export function plainError(message: string): string {
 export function useWorkshop(gameId: string, me: Villager | null | undefined) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [drafts, setDrafts] = useState<LiveDraft[]>([]);
+  const [reports, setReports] = useState<ReportGroup[]>([]);
+  const [myReports, setMyReports] = useState<Set<string>>(new Set());
   const [state, setState] = useState<'loading' | 'ready' | 'offline'>('loading');
   const authors = useRef(new Map<string, Author>());
+  const channel = useRef<RealtimeChannel | null>(null);
   const meId = me?.id ?? null;
+  const mod = canModerate(me, gameId);
+
   // A moderator seeing the site as a villager can vote on their own Drafts. Those
   // votes stay in this browser: the database never lets authors vote for themselves.
   const practicing = Boolean(me?.practice);
@@ -81,13 +118,29 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     return v ? { ...d, ups: d.ups + (v === 1 ? 1 : 0), downs: d.downs + (v === -1 ? 1 : 0), myVote: v } : d;
   })), [drafts, practice, practicing, meId]);
 
+  const loadMessages = useCallback(async () => {
+    const db = browserClient();
+    if (!db) return;
+    let q = db.from('chat_messages').select(MESSAGE).eq('game_id', gameId).order('id', { ascending: false }).limit(300);
+    if (!mod) q = q.is('removed_at', null);
+    const { data, error } = await q;
+    if (error) throw error;
+    setMessages((data ?? []).reverse().map((r: Row) => {
+      const a = toAuthor(r.author as Row, r.author_id as string);
+      authors.current.set(a.id, a);
+      return toMessage(r, a);
+    }));
+  }, [gameId, mod]);
+
   const loadDrafts = useCallback(async () => {
     const db = browserClient();
     if (!db) return;
+    let q = db.from('drafts')
+      .select(`id, block_key, kind, title, content, source, theory, status, decline_reason, created_at, author_id, author:profiles!drafts_author_id_fkey(${PROFILE})`)
+      .eq('game_id', gameId).order('created_at', { ascending: false }).limit(200);
+    if (!mod) q = q.neq('status', 'removed');
     const [d, s, v] = await Promise.all([
-      db.from('drafts')
-        .select(`id, block_key, kind, title, content, source, theory, status, created_at, author_id, author:profiles!drafts_author_id_fkey(${PROFILE})`)
-        .eq('game_id', gameId).neq('status', 'removed').order('created_at', { ascending: false }).limit(200),
+      q,
       db.from('draft_scores').select('draft_id, ups, downs, viewers').eq('game_id', gameId),
       meId ? db.from('draft_votes').select('draft_id, value').eq('voter_id', meId) : Promise.resolve({ data: [] as Row[] }),
     ]);
@@ -99,13 +152,52 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
       return {
         id: r.id as string, blockKey: r.block_key as string, kind: r.kind === 'opinion' ? 'opinion' : 'fact',
         title: r.title as string, content: (r.content ?? {}) as CardContent, source: (r.source as string) ?? null,
-        theory: Boolean(r.theory), status: r.status as string, createdAt: r.created_at as string,
-        author: toAuthor(r.author as Row, r.author_id as string),
+        theory: Boolean(r.theory), status: r.status as string, declineReason: (r.decline_reason as string) ?? null,
+        createdAt: r.created_at as string, author: toAuthor(r.author as Row, r.author_id as string),
         ups: Number(sc?.ups ?? 0), downs: Number(sc?.downs ?? 0), viewers: Number(sc?.viewers ?? 0),
         myVote: ((mine.get(r.id as string) ?? 0) as 0 | 1 | -1),
       };
     }));
-  }, [gameId, meId]);
+  }, [gameId, meId, mod]);
+
+  /** Your own reports (so buttons can say "Reported"), and for moderators, every open one. */
+  const loadReports = useCallback(async () => {
+    const db = browserClient();
+    if (!db || !meId) { setMyReports(new Set()); setReports([]); return; }
+    const mine = await db.from('flags').select('message_id, draft_id').eq('reporter_id', meId);
+    setMyReports(new Set((mine.data ?? []).map((r: Row) =>
+      targetKey(r.message_id ? { messageId: r.message_id as number } : { draftId: r.draft_id as string }))));
+    if (!mod) { setReports([]); return; }
+    const { data } = await db.from('flags')
+      .select(`id, reason, note, created_at, message_id, draft_id,
+        reporter:profiles!flags_reporter_id_fkey(${PROFILE}),
+        message:chat_messages!flags_message_id_fkey(body, spoiler, removed_at, author_id, author:profiles!chat_messages_author_id_fkey(${PROFILE})),
+        draft:drafts!flags_draft_id_fkey(title, status, block_key)`)
+      .eq('game_id', gameId).eq('status', 'open').order('created_at');
+    const groups = new Map<string, ReportGroup>();
+    for (const r of (data ?? []) as Row[]) {
+      const target: Target = r.message_id ? { messageId: r.message_id as number } : { draftId: r.draft_id as string };
+      const key = targetKey(target);
+      let g = groups.get(key);
+      if (!g) {
+        const m = r.message as Row | null, d = r.draft as Row | null;
+        g = {
+          key, target, reasons: [], notes: [], count: 0, firstAt: r.created_at as string,
+          message: m ? { body: m.body as string, spoiler: Boolean(m.spoiler), removed: Boolean(m.removed_at), author: toAuthor(m.author as Row, m.author_id as string) } : undefined,
+          draft: d ? { title: d.title as string, status: d.status as string, blockKey: d.block_key as string } : undefined,
+        };
+        groups.set(key, g);
+      }
+      g.count += 1;
+      if (!g.reasons.includes(r.reason as ReportReason)) g.reasons.push(r.reason as ReportReason);
+      if (r.note) g.notes.push({ by: toAuthor(r.reporter as Row, '').name, note: r.note as string });
+    }
+    setReports([...groups.values()]);
+  }, [gameId, meId, mod]);
+
+  const reloadAll = useCallback(async () => {
+    await Promise.all([loadMessages(), loadDrafts(), loadReports()]);
+  }, [loadMessages, loadDrafts, loadReports]);
 
   const authorFor = useCallback(async (id: string): Promise<Author> => {
     const known = authors.current.get(id);
@@ -129,40 +221,34 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
       return;
     }
     let cancelled = false;
-    (async () => {
-      try {
-        const { data, error } = await db.from('chat_messages')
-          .select(`id, body, block_key, linked_draft_id, spoiler, created_at, author_id, author:profiles!chat_messages_author_id_fkey(${PROFILE})`)
-          .eq('game_id', gameId).is('removed_at', null).order('id', { ascending: false }).limit(300);
-        if (error) throw error;
-        await loadDrafts();
-        if (cancelled) return;
-        setMessages((data ?? []).reverse().map((r: Row) => {
-          const a = toAuthor(r.author as Row, r.author_id as string);
-          authors.current.set(a.id, a);
-          return toMessage(r, a);
-        }));
-        setState('ready');
-      } catch {
-        if (!cancelled) setState('offline');
-      }
-    })();
+    reloadAll().then(() => { if (!cancelled) setState('ready'); }, () => { if (!cancelled) setState('offline'); });
 
-    let voteTimer: ReturnType<typeof setTimeout> | undefined;
-    const refreshSoon = () => { clearTimeout(voteTimer); voteTimer = setTimeout(() => { loadDrafts().catch(() => {}); }, 300); };
-    const channel = db.channel(`workshop:${gameId}`)
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const soon = (fn: () => Promise<void>) => () => { clearTimeout(timer); timer = setTimeout(() => { fn().catch(() => {}); }, 300); };
+    const ch = db.channel(`workshop:${gameId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `game_id=eq.${gameId}` }, async ({ new: r }) => {
         addMessage(toMessage(r, await authorFor(r.author_id as string)));
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: `game_id=eq.${gameId}` }, ({ new: r }) => {
-        if (r.removed_at) setMessages((list) => list.filter((m) => m.id !== r.id));
+        setMessages((list) => (r.removed_at && !mod
+          ? list.filter((m) => m.id !== r.id)
+          : list.map((m) => (m.id === r.id ? { ...m, spoiler: Boolean(r.spoiler), removed: Boolean(r.removed_at) } : m))));
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'drafts', filter: `game_id=eq.${gameId}` }, refreshSoon)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'draft_votes' }, refreshSoon)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'drafts', filter: `game_id=eq.${gameId}` }, soon(loadDrafts))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'draft_votes' }, soon(loadDrafts))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'flags', filter: `game_id=eq.${gameId}` }, soon(loadReports))
+      // Villagers can't see a message or Draft once it's removed, so the database can't
+      // tell them it changed. Moderators send this nudge to everyone instead.
+      .on('broadcast', { event: 'refresh' }, soon(reloadAll))
       .subscribe();
+    channel.current = ch;
 
-    return () => { cancelled = true; clearTimeout(voteTimer); db.removeChannel(channel); };
-  }, [gameId, loadDrafts, authorFor, addMessage]);
+    return () => { cancelled = true; clearTimeout(timer); channel.current = null; db.removeChannel(ch); };
+  }, [gameId, mod, reloadAll, loadDrafts, loadReports, authorFor, addMessage]);
+
+  const nudge = useCallback(() => {
+    channel.current?.send({ type: 'broadcast', event: 'refresh', payload: {} });
+  }, []);
 
   /** Posts a chat message. Returns an error in plain words, or null. */
   const send = useCallback(async (body: string, opts: { blockKey?: string | null; draftId?: string | null; spoiler?: boolean } = {}) => {
@@ -170,7 +256,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     if (!db || !meId) return 'Sign in to chat.';
     const { data, error } = await db.from('chat_messages')
       .insert({ game_id: gameId, author_id: meId, body, block_key: opts.blockKey ?? null, linked_draft_id: opts.draftId ?? null, spoiler: Boolean(opts.spoiler) })
-      .select('id, body, block_key, linked_draft_id, spoiler, created_at, author_id').single();
+      .select('id, body, block_key, linked_draft_id, spoiler, removed_at, created_at, author_id').single();
     if (error) return plainError(error.message);
     addMessage(toMessage(data, await authorFor(meId)));
     return null;
@@ -222,5 +308,80 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     await db.from('draft_views').upsert({ draft_id: draftId, viewer_key: meId }, { onConflict: 'draft_id,viewer_key,day', ignoreDuplicates: true });
   }, [meId]);
 
-  return { state, messages, drafts: shownDrafts, send, postDraft, vote, view };
+  /** Reports a message or Draft to the moderators. */
+  const report = useCallback(async (t: Target, reason: ReportReason, note: string) => {
+    const db = browserClient();
+    if (!db || !meId) return 'Sign in to report.';
+    const { error } = await db.from('flags').insert({
+      ...('messageId' in t ? { message_id: t.messageId } : { draft_id: t.draftId }),
+      reason, note: note.trim() || null, reporter_id: meId,
+    });
+    if (error) return plainError(error.message);
+    setMyReports((s) => new Set(s).add(targetKey(t)));
+    return null;
+  }, [meId]);
+
+  // ----------------------------------------------------------- moderator actions
+  // Each returns an error in plain words, or null. The database refuses them for
+  // anyone who isn't a moderator of this game.
+
+  /** Closes the open reports about something: 'resolved' when acted on, 'dismissed' when not. */
+  const closeReports = useCallback(async (t: Target, status: 'resolved' | 'dismissed') => {
+    const db = browserClient();
+    if (!db || !meId) return;
+    const q = db.from('flags').update({ status, handled_by: meId, handled_at: new Date().toISOString() }).eq('status', 'open');
+    await ('messageId' in t ? q.eq('message_id', t.messageId) : q.eq('draft_id', t.draftId));
+  }, [meId]);
+
+  const finish = useCallback(async (error: { message: string } | null) => {
+    if (error) return plainError(error.message);
+    nudge();
+    await reloadAll().catch(() => {});
+    return null;
+  }, [nudge, reloadAll]);
+
+  const removeMessage = useCallback(async (id: number, remove: boolean) => {
+    const db = browserClient();
+    if (!db || !meId) return 'Sign in first.';
+    const { error } = await db.from('chat_messages')
+      .update(remove ? { removed_at: new Date().toISOString(), removed_by: meId } : { removed_at: null, removed_by: null }).eq('id', id);
+    if (!error && remove) await closeReports({ messageId: id }, 'resolved');
+    return finish(error);
+  }, [meId, closeReports, finish]);
+
+  const markSpoiler = useCallback(async (id: number, spoiler: boolean) => {
+    const db = browserClient();
+    if (!db) return 'Sign in first.';
+    const { error } = await db.from('chat_messages').update({ spoiler }).eq('id', id);
+    if (!error && spoiler) await closeReports({ messageId: id }, 'resolved');
+    return finish(error);
+  }, [closeReports, finish]);
+
+  /** Approve, decline (with a reason), remove, or reopen a Draft. */
+  const decide = useCallback(async (draftId: string, status: 'approved' | 'declined' | 'removed' | 'open', reason?: string) => {
+    const db = browserClient();
+    if (!db || !meId) return 'Sign in first.';
+    const reopen = status === 'open';
+    const { error } = await db.from('drafts').update({
+      status,
+      decided_by: reopen ? null : meId,
+      decided_at: reopen ? null : new Date().toISOString(),
+      decline_reason: status === 'declined' ? reason?.trim() || null : null,
+    }).eq('id', draftId);
+    if (!error && !reopen) await closeReports({ draftId }, 'resolved');
+    return finish(error);
+  }, [meId, closeReports, finish]);
+
+  const dismissReports = useCallback(async (t: Target) => {
+    await closeReports(t, 'dismissed');
+    return finish(null);
+  }, [closeReports, finish]);
+
+  return {
+    state, messages, drafts: shownDrafts, reports, myReports, mod,
+    send, postDraft, vote, view, report,
+    moderate: { removeMessage, markSpoiler, decide, dismissReports },
+  };
 }
+
+export type WorkshopData = ReturnType<typeof useWorkshop>;

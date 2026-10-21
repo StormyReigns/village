@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDown, ArrowLeft, ArrowUp, Check, EyeOff, ExternalLink, MessageCircle, Plus, Send, Sparkles, TriangleAlert, X,
+  ArrowDown, ArrowLeft, ArrowUp, Check, EyeOff, ExternalLink, Flag, MessageCircle, MoreHorizontal, Plus, RotateCcw, Send,
+  ShieldCheck, Sparkles, Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import type { GameBlock } from '@/data/games';
 import { titleField } from '@/lib/blocks';
@@ -15,7 +16,10 @@ import { AccountButton } from '@/components/AccountButton';
 import { Avatar } from '@/components/Avatar';
 import { useVillager, type Villager } from '@/components/useVillager';
 import { sortStandouts } from '@/lib/standouts';
-import { useWorkshop, type ChatMessage, type LiveDraft, type NewDraft } from './useWorkshop';
+import {
+  REASONS, targetKey, useWorkshop,
+  type ChatMessage, type LiveDraft, type NewDraft, type ReportGroup, type ReportReason, type Target, type WorkshopData,
+} from './useWorkshop';
 
 type Sort = 'standouts' | 'new' | 'needs' | 'shipped';
 const SORTS: { key: Sort; label: string }[] = [
@@ -26,10 +30,9 @@ const SORTS: { key: Sort; label: string }[] = [
 ];
 
 const STATUS: Record<string, string> = {
-  checking: 'Being checked', open: 'Open for votes', approved: 'Approved', preview: 'In Preview', stable: 'Shipped', declined: 'Declined',
+  checking: 'Being checked', open: 'Open for votes', approved: 'Approved', preview: 'In Preview', stable: 'Shipped', declined: 'Declined', removed: 'Removed',
 };
 
-type SendFn = (body: string, opts?: { blockKey?: string | null; draftId?: string | null; spoiler?: boolean }) => Promise<string | null>;
 
 /** "just now", "5m", "3h", or a date. Only ever runs in the browser. */
 function ago(iso: string) {
@@ -56,7 +59,7 @@ export function Workshop({ game, blocks }: { game: { id: string; shortTitle: str
     if (sort === 'new') return [...list].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     if (sort === 'needs') return list.filter((d) => d.status === 'open').sort((a, b) => a.viewers - b.viewers);
     if (sort === 'shipped') return list.filter((d) => d.status === 'stable');
-    return sortStandouts(list.filter((d) => d.status !== 'declined'));
+    return sortStandouts(list.filter((d) => d.status !== 'declined' && d.status !== 'removed'));
   }, [drafts, block, sort]);
   const current = blocks.find((b) => b.key === block);
   const chat = useMemo(() => (current ? live.messages.filter((m) => m.blockKey === current.key) : live.messages), [live.messages, current]);
@@ -87,7 +90,7 @@ export function Workshop({ game, blocks }: { game: { id: string; shortTitle: str
         {blocks.map((b) => (
           <Chip key={b.key} active={block === b.key} onClick={() => setBlock(b.key)} count={counts[b.key]} icon={b.icon}>{b.label}</Chip>
         ))}
-        <Chip active={block === 'notice'} onClick={() => setBlock('notice')} count={0} icon="Flag">Notice Board</Chip>
+        <Chip active={block === 'notice'} onClick={() => setBlock('notice')} count={live.mod ? live.reports.length : 0} icon="Flag">Notice Board</Chip>
       </nav>
 
       {live.state === 'offline' && (
@@ -100,17 +103,15 @@ export function Workshop({ game, blocks }: { game: { id: string; shortTitle: str
           notice={block === 'notice'}
           onAll={() => setBlock('all')}
           messages={chat}
-          drafts={drafts}
           me={me}
-          loading={live.state === 'loading'}
-          send={live.send}
+          live={live}
         />
 
         {/* Drafts panel */}
         <section aria-label="Drafts" className="flex min-h-[28rem] flex-col rounded-[1.75rem] bg-card p-4 shadow-soft ring-1 ring-line">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="font-display text-xl">{block === 'notice' ? 'Notice Board' : 'Drafts'}</h2>
-            <label className="ml-auto">
+            <label className={'ml-auto' + (block === 'notice' ? ' hidden' : '')}>
               <span className="sr-only">Sort Drafts</span>
               <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="rounded-full bg-card-2 px-3 py-1.5 text-sm font-bold ring-1 ring-line">
                 {SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
@@ -122,7 +123,9 @@ export function Workshop({ game, blocks }: { game: { id: string; shortTitle: str
           </div>
 
           {block === 'notice' ? (
-            <Empty title="No reports waiting" body="When players tap “not quite” in the app without signing in, their report waits here until a villager confirms it." />
+            live.mod ? <ReportQueue live={live} blocks={blocks} /> : (
+              <Empty title="No reports waiting" body="When players tap “not quite” in the app without signing in, their report waits here until a villager confirms it." />
+            )
           ) : live.state === 'loading' ? (
             <div className="mt-3 grid gap-3" aria-hidden="true">
               {[0, 1].map((n) => <div key={n} className="h-24 animate-pulse rounded-3xl bg-card-2" />)}
@@ -137,8 +140,7 @@ export function Workshop({ game, blocks }: { game: { id: string; shortTitle: str
             <ul className="mt-3 grid gap-3">
               {visible.map((d) => (
                 <DraftCard key={d.id} draft={d} block={blocks.find((b) => b.key === d.blockKey)} me={me}
-                  messages={live.messages.filter((m) => m.draftId === d.id)}
-                  vote={live.vote} view={live.view} send={live.send} />
+                  messages={live.messages.filter((m) => m.draftId === d.id)} live={live} />
               ))}
             </ul>
           )}
@@ -189,20 +191,113 @@ function SignInPrompt({ children }: { children: React.ReactNode }) {
   );
 }
 
-function DraftCard({ draft, block, me, messages, vote, view, send }: {
-  draft: LiveDraft; block?: GameBlock; me: Villager | null | undefined; messages: ChatMessage[];
-  vote: (id: string, v: 0 | 1 | -1) => Promise<string | null>; view: (id: string) => Promise<void>; send: SendFn;
+/** Runs an action that returns an error in plain words (or null), tracking busy and error. */
+function useAction() {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const run = async (fn: () => Promise<string | null>) => {
+    setBusy(true);
+    const err = await fn();
+    setBusy(false);
+    setError(err ?? '');
+    return !err;
+  };
+  return { run, busy, error };
+}
+
+function SmallButton({ onClick, icon, children, tone = 'plain', disabled }: {
+  onClick: () => void; icon?: React.ReactNode; children: React.ReactNode; tone?: 'plain' | 'good' | 'bad'; disabled?: boolean;
+}) {
+  const tones = { plain: 'bg-card ring-line hover:ring-ink', good: 'bg-leaf-soft text-leaf ring-leaf/40 hover:ring-leaf', bad: 'bg-berry-soft text-berry ring-berry/40 hover:ring-berry' };
+  return (
+    <button onClick={onClick} disabled={disabled} className={'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ring-1 disabled:opacity-50 ' + tones[tone]}>
+      {icon}{children}
+    </button>
+  );
+}
+
+/** "Report" for villagers: pick a reason, add a note if you like. Goes to the moderators. */
+function ReportForm({ target, live, onDone }: { target: Target; live: WorkshopData; onDone: () => void }) {
+  const [reason, setReason] = useState<ReportReason | null>(null);
+  const [note, setNote] = useState('');
+  const [sent, setSent] = useState(false);
+  const { run, busy, error } = useAction();
+  if (sent) return <p role="status" className="mt-2 rounded-2xl bg-leaf-soft px-3 py-2 text-sm text-leaf">Thanks. A moderator will take a look.</p>;
+  return (
+    <form className="mt-2 grid gap-2 rounded-2xl bg-card-2 p-3 ring-1 ring-line"
+      onSubmit={async (e) => { e.preventDefault(); if (reason && await run(() => live.report(target, reason, note))) { setSent(true); setTimeout(onDone, 2500); } }}>
+      <p className="text-sm font-bold">What&apos;s wrong with it?</p>
+      <div role="radiogroup" aria-label="Reason" className="flex flex-wrap gap-1.5">
+        {REASONS.map((r) => (
+          <button key={r.key} type="button" role="radio" aria-checked={reason === r.key} onClick={() => setReason(r.key)}
+            className={'rounded-full px-3 py-1 text-sm font-bold ring-1 ' + (reason === r.key ? 'bg-berry text-paper ring-berry' : 'bg-card ring-line hover:ring-berry')}>
+            {r.label}
+          </button>
+        ))}
+      </div>
+      <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="Anything moderators should know (optional)"
+        className="rounded-2xl bg-card px-3 py-2 text-sm ring-1 ring-line outline-none placeholder:text-muted focus:ring-2 focus:ring-sky" />
+      <div className="flex items-center gap-2">
+        <button disabled={!reason || busy} className="rounded-full bg-berry px-4 py-1.5 text-sm font-bold text-paper disabled:opacity-50">Send report</button>
+        <button type="button" onClick={onDone} className="rounded-full px-3 py-1.5 text-sm font-bold text-muted hover:text-ink">Cancel</button>
+      </div>
+      {error && <p role="status" className="text-sm text-berry">{error}</p>}
+    </form>
+  );
+}
+
+/** Moderator buttons for a Draft: approve, decline with a reason, remove, or reopen. */
+function DraftModTools({ draft, live }: { draft: LiveDraft; live: WorkshopData }) {
+  const [declining, setDeclining] = useState(false);
+  const [reason, setReason] = useState('');
+  const { run, busy, error } = useAction();
+  const decide = (status: 'approved' | 'declined' | 'removed' | 'open', why?: string) =>
+    run(() => live.moderate.decide(draft.id, status, why)).then((ok) => { if (ok) { setDeclining(false); setReason(''); } });
+  const undecided = draft.status === 'open' || draft.status === 'checking';
+  return (
+    <div className="mt-3 rounded-2xl bg-sun-soft/60 p-2.5 ring-1 ring-sun/30">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-sun"><ShieldCheck size={14} aria-hidden="true" /> Moderator</span>
+        {undecided ? (
+          <>
+            <SmallButton tone="good" disabled={busy} onClick={() => decide('approved')} icon={<Check size={13} aria-hidden="true" />}>Approve</SmallButton>
+            <SmallButton disabled={busy} onClick={() => setDeclining(!declining)} icon={<X size={13} aria-hidden="true" />}>Decline</SmallButton>
+            <SmallButton tone="bad" disabled={busy} onClick={() => decide('removed')} icon={<Trash2 size={13} aria-hidden="true" />}>Remove</SmallButton>
+          </>
+        ) : (
+          <SmallButton disabled={busy} onClick={() => decide('open')} icon={<RotateCcw size={13} aria-hidden="true" />}>
+            {draft.status === 'removed' ? 'Restore' : 'Reopen for votes'}
+          </SmallButton>
+        )}
+      </div>
+      {declining && (
+        <form className="mt-2 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); decide('declined', reason); }}>
+          <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} autoFocus placeholder="Why? The author and everyone will see this."
+            className="min-w-0 flex-1 rounded-full bg-card px-3 py-1.5 text-sm ring-1 ring-line outline-none placeholder:text-muted focus:ring-2 focus:ring-sky" />
+          <button disabled={busy || !reason.trim()} className="rounded-full bg-ink px-3 py-1.5 text-sm font-bold text-paper disabled:opacity-50">Decline</button>
+        </form>
+      )}
+      {draft.status === 'approved' && <p className="mt-1.5 text-xs text-muted">Approved Drafts ship to the app once cards move into the database.</p>}
+      {error && <p role="status" className="mt-1.5 text-sm text-berry">{error}</p>}
+    </div>
+  );
+}
+
+function DraftCard({ draft, block, me, messages, live }: {
+  draft: LiveDraft; block?: GameBlock; me: Villager | null | undefined; messages: ChatMessage[]; live: WorkshopData;
 }) {
   const [open, setOpen] = useState(false);
   const [discuss, setDiscuss] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const [error, setError] = useState('');
   if (!block) return null;
   const mine = me?.id === draft.author.id && !me.practice;
   const practiceVote = Boolean(me?.practice && me.id === draft.author.id);
+  const reported = live.myReports.has(targetKey({ draftId: draft.id }));
   const total = draft.ups + draft.downs;
   const leaning = total === 0 ? 'no votes yet' : draft.ups >= draft.downs ? 'leaning yes' : 'leaning no';
-  const cast = async (v: 0 | 1 | -1) => setError((await vote(draft.id, v)) ?? '');
-  const expand = () => { if (!open) view(draft.id); setOpen(!open); };
+  const cast = async (v: 0 | 1 | -1) => setError((await live.vote(draft.id, v)) ?? '');
+  const expand = () => { if (!open) live.view(draft.id); setOpen(!open); };
 
   const voting = !me ? null : mine ? (
     <span className="text-sm text-muted">Your Draft · {total >= 5 ? `${draft.ups} yes · ${draft.downs} no` : leaning}</span>
@@ -220,7 +315,7 @@ function DraftCard({ draft, block, me, messages, vote, view, send }: {
   );
 
   return (
-    <li className="rise rounded-3xl bg-card-2 p-3 ring-1 ring-line">
+    <li className={'rise rounded-3xl bg-card-2 p-3 ring-1 ring-line ' + (draft.status === 'removed' ? 'opacity-60' : '')}>
       <button onClick={expand} className="flex w-full items-start gap-3 text-left" aria-expanded={open}>
         <span className="grid size-9 shrink-0 place-items-center rounded-full bg-leaf-soft text-leaf"><BlockIcon name={block.icon} size={16} /></span>
         <span className="min-w-0 flex-1">
@@ -235,6 +330,9 @@ function DraftCard({ draft, block, me, messages, vote, view, send }: {
           </span>
         </span>
       </button>
+      {draft.status === 'declined' && draft.declineReason && (
+        <p className="mt-2 rounded-2xl bg-card px-3 py-2 text-sm ring-1 ring-line"><span className="font-bold">Declined:</span> {draft.declineReason}</p>
+      )}
       {open && (
         <div className="mt-3 grid gap-2">
           <CardPreview block={block} content={draft.content} label={block.label} />
@@ -243,18 +341,28 @@ function DraftCard({ draft, block, me, messages, vote, view, send }: {
       )}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {me === null ? <SignInPrompt>Sign in to vote</SignInPrompt> : voting}
-        <button onClick={() => setDiscuss(!discuss)} aria-expanded={discuss} className="ml-auto inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-muted hover:bg-card hover:text-ink">
-          <MessageCircle size={15} aria-hidden="true" /> Discuss · {messages.length}
-        </button>
+        <span className="ml-auto flex items-center gap-1">
+          {me && !mine && (reported
+            ? <span className="px-2 text-xs font-bold text-muted">Reported</span>
+            : <button onClick={() => setReporting(!reporting)} aria-expanded={reporting} title="Report this Draft"
+                className="grid size-8 place-items-center rounded-full text-muted hover:bg-card hover:text-berry">
+                <Flag size={15} aria-hidden="true" /><span className="sr-only">Report</span>
+              </button>)}
+          <button onClick={() => setDiscuss(!discuss)} aria-expanded={discuss} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-muted hover:bg-card hover:text-ink">
+            <MessageCircle size={15} aria-hidden="true" /> Discuss · {messages.filter((m) => !m.removed).length}
+          </button>
+        </span>
       </div>
       {practiceVote && <p className="mt-2 text-xs text-muted">Your own Draft: votes here are practice, and only you see them.</p>}
       {error && <p role="status" className="mt-2 text-sm text-berry">{error}</p>}
+      {reporting && !reported && <ReportForm target={{ draftId: draft.id }} live={live} onDone={() => setReporting(false)} />}
+      {live.mod && <DraftModTools draft={draft} live={live} />}
       {discuss && (
         <div className="mt-3 grid gap-2 rounded-2xl bg-card p-3 ring-1 ring-line">
           {messages.length === 0
             ? <p className="text-sm text-muted">No one has talked about this Draft yet.</p>
-            : <ul className="grid gap-3">{messages.map((m) => <Message key={m.id} m={m} />)}</ul>}
-          <Composer me={me} placeholder="Reply about this Draft" onSend={(body, spoiler) => send(body, { blockKey: draft.blockKey, draftId: draft.id, spoiler })} />
+            : <ul className="grid gap-3">{messages.map((m) => <Message key={m.id} m={m} me={me} live={live} />)}</ul>}
+          <Composer me={me} placeholder="Reply about this Draft" onSend={(body, spoiler) => live.send(body, { blockKey: draft.blockKey, draftId: draft.id, spoiler })} />
         </div>
       )}
     </li>
@@ -270,16 +378,30 @@ function VoteButton({ on, onClick, icon, label, children }: { on: boolean; onCli
   );
 }
 
-function Message({ m, tag }: { m: ChatMessage; tag?: string | null }) {
+function Message({ m, tag, me, live }: { m: ChatMessage; tag?: string | null; me: Villager | null | undefined; live: WorkshopData }) {
   const [shown, setShown] = useState(false);
+  const [tools, setTools] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const { run, busy, error } = useAction();
+  const own = me?.id === m.author.id && !me.practice;
+  const reported = live.myReports.has(targetKey({ messageId: m.id }));
+  const canReport = Boolean(me) && !own;
+  const hasTools = canReport || live.mod;
   return (
-    <li className="flex gap-2.5">
+    <li className={'group flex gap-2.5 ' + (m.removed ? 'opacity-50' : '')}>
       <Avatar name={m.author.name} url={m.author.avatarUrl} size={32} />
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
           <span className="font-bold">{m.author.name}</span>
           <span className="text-xs text-muted">{ago(m.createdAt)}</span>
           {tag && <span className="rounded-full bg-card-2 px-2 py-0.5 text-xs font-bold text-muted ring-1 ring-line">{tag}</span>}
+          {m.removed && <span className="rounded-full bg-berry-soft px-2 py-0.5 text-xs font-bold text-berry">Removed · only moderators see it</span>}
+          {hasTools && (
+            <button onClick={() => { setTools(!tools); setReporting(false); }} aria-expanded={tools} aria-label="Message options"
+              className={'ml-auto grid size-6 place-items-center self-center rounded-full text-muted hover:bg-card-2 hover:text-ink ' + (tools ? '' : 'sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100')}>
+              <MoreHorizontal size={15} aria-hidden="true" />
+            </button>
+          )}
         </p>
         {m.spoiler && !shown ? (
           <button onClick={() => setShown(true)} className="mt-0.5 inline-flex items-center gap-1.5 rounded-xl bg-ink/80 px-3 py-1 text-sm font-bold text-paper">
@@ -288,6 +410,26 @@ function Message({ m, tag }: { m: ChatMessage; tag?: string | null }) {
         ) : (
           <p className="whitespace-pre-wrap break-words">{m.body}</p>
         )}
+        {tools && (
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {canReport && (reported
+              ? <span className="px-1 text-xs font-bold text-muted">You reported this</span>
+              : <SmallButton onClick={() => setReporting(!reporting)} icon={<Flag size={13} aria-hidden="true" />}>Report</SmallButton>)}
+            {live.mod && (
+              <>
+                <SmallButton disabled={busy} onClick={() => run(() => live.moderate.markSpoiler(m.id, !m.spoiler))} icon={<EyeOff size={13} aria-hidden="true" />}>
+                  {m.spoiler ? 'Unmark spoiler' : 'Mark as spoiler'}
+                </SmallButton>
+                <SmallButton tone={m.removed ? 'plain' : 'bad'} disabled={busy} onClick={() => run(() => live.moderate.removeMessage(m.id, !m.removed))}
+                  icon={m.removed ? <RotateCcw size={13} aria-hidden="true" /> : <Trash2 size={13} aria-hidden="true" />}>
+                  {m.removed ? 'Restore' : 'Remove'}
+                </SmallButton>
+              </>
+            )}
+          </div>
+        )}
+        {error && <p role="status" className="mt-1 text-sm text-berry">{error}</p>}
+        {reporting && !reported && <ReportForm target={{ messageId: m.id }} live={live} onDone={() => { setReporting(false); setTools(false); }} />}
       </div>
     </li>
   );
@@ -332,12 +474,12 @@ function Composer({ me, placeholder, onSend }: { me: Villager | null | undefined
   );
 }
 
-function Chat({ block, notice, onAll, messages, drafts, me, loading, send }: {
-  block: GameBlock | null; notice: boolean; onAll: () => void; messages: ChatMessage[]; drafts: LiveDraft[];
-  me: Villager | null | undefined; loading: boolean; send: SendFn;
+function Chat({ block, notice, onAll, messages, me, live }: {
+  block: GameBlock | null; notice: boolean; onAll: () => void; messages: ChatMessage[];
+  me: Villager | null | undefined; live: WorkshopData;
 }) {
   const list = useRef<HTMLUListElement>(null);
-  const titles = useMemo(() => new Map(drafts.map((d) => [d.id, d.title])), [drafts]);
+  const titles = useMemo(() => new Map(live.drafts.map((d) => [d.id, d.title])), [live.drafts]);
   const lastId = messages.at(-1)?.id;
 
   // Keep the newest message in view.
@@ -358,7 +500,7 @@ function Chat({ block, notice, onAll, messages, drafts, me, loading, send }: {
           </span>
         )}
       </div>
-      {loading ? (
+      {live.state === 'loading' ? (
         <div className="m-auto py-10 text-sm text-muted">Opening the workshop doors…</div>
       ) : messages.length === 0 ? (
         <div className="m-auto grid max-w-sm justify-items-center gap-2 py-10 text-center">
@@ -368,12 +510,80 @@ function Chat({ block, notice, onAll, messages, drafts, me, loading, send }: {
         </div>
       ) : (
         <ul ref={list} aria-live="polite" className="my-3 grid flex-1 content-start gap-4 overflow-y-auto pr-1">
-          {messages.map((m) => <Message key={m.id} m={m} tag={tagFor(m)} />)}
+          {messages.map((m) => <Message key={m.id} m={m} tag={tagFor(m)} me={me} live={live} />)}
         </ul>
       )}
       <Composer me={me} placeholder={block ? `Message about ${block.label}` : 'Write a message'}
-        onSend={(body, spoiler) => send(body, { blockKey: block?.key ?? null, spoiler })} />
+        onSend={(body, spoiler) => live.send(body, { blockKey: block?.key ?? null, spoiler })} />
     </section>
+  );
+}
+
+/** Moderators' Notice Board: open reports, one card per reported thing. */
+function ReportQueue({ live, blocks }: { live: WorkshopData; blocks: GameBlock[] }) {
+  if (live.reports.length === 0) {
+    return <Empty title="No reports waiting" body="When a villager reports a message or a Draft, it waits here. Only moderators see reports." />;
+  }
+  return (
+    <ul className="mt-3 grid gap-3">
+      {live.reports.map((r) => <ReportCard key={r.key} r={r} live={live} blocks={blocks} />)}
+    </ul>
+  );
+}
+
+function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; blocks: GameBlock[] }) {
+  const { run, busy, error } = useAction();
+  const reasons = r.reasons.map((k) => REASONS.find((x) => x.key === k)?.label ?? k);
+  const block = r.draft ? blocks.find((b) => b.key === r.draft!.blockKey) : undefined;
+  return (
+    <li className="rise rounded-3xl bg-card-2 p-3 ring-1 ring-line">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="inline-flex items-center gap-1 rounded-full bg-berry-soft px-2 py-0.5 text-xs font-bold text-berry">
+          <Flag size={12} aria-hidden="true" /> {r.count} {r.count === 1 ? 'report' : 'reports'}
+        </span>
+        {reasons.map((x) => <span key={x} className="rounded-full bg-card px-2 py-0.5 text-xs font-bold ring-1 ring-line">{x}</span>)}
+        <span className="ml-auto text-xs text-muted">{ago(r.firstAt)}</span>
+      </div>
+      {r.message ? (
+        <div className="mt-2 flex gap-2.5 rounded-2xl bg-card p-2.5 ring-1 ring-line">
+          <Avatar name={r.message.author.name} url={r.message.author.avatarUrl} size={28} />
+          <div className="min-w-0">
+            <p className="text-sm font-bold">{r.message.author.name}{r.message.spoiler && <span className="ml-2 text-xs text-muted">marked spoiler</span>}</p>
+            <p className="whitespace-pre-wrap break-words text-sm">{r.message.body}</p>
+          </div>
+        </div>
+      ) : r.draft ? (
+        <p className="mt-2 rounded-2xl bg-card p-2.5 text-sm ring-1 ring-line">
+          <span className="font-bold">Draft:</span> {r.draft.title}{block && <span className="text-muted"> · {block.label}</span>}
+        </p>
+      ) : null}
+      {r.notes.length > 0 && (
+        <ul className="mt-2 grid gap-1 text-sm text-muted">
+          {r.notes.map((n, i) => <li key={i}>“{n.note}” · {n.by}</li>)}
+        </ul>
+      )}
+      <div className="mt-2.5 flex flex-wrap gap-1.5">
+        {'messageId' in r.target ? (
+          <>
+            {!r.message?.removed && (
+              <SmallButton tone="bad" disabled={busy} onClick={() => run(() => live.moderate.removeMessage((r.target as { messageId: number }).messageId, true))}
+                icon={<Trash2 size={13} aria-hidden="true" />}>Remove message</SmallButton>
+            )}
+            {!r.message?.spoiler && (
+              <SmallButton disabled={busy} onClick={() => run(() => live.moderate.markSpoiler((r.target as { messageId: number }).messageId, true))}
+                icon={<EyeOff size={13} aria-hidden="true" />}>Mark as spoiler</SmallButton>
+            )}
+          </>
+        ) : r.draft?.status !== 'removed' && (
+          <SmallButton tone="bad" disabled={busy} onClick={() => run(() => live.moderate.decide((r.target as { draftId: string }).draftId, 'removed'))}
+            icon={<Trash2 size={13} aria-hidden="true" />}>Remove Draft</SmallButton>
+        )}
+        <SmallButton disabled={busy} onClick={() => run(() => live.moderate.dismissReports(r.target))} icon={<Check size={13} aria-hidden="true" />}>
+          It&apos;s fine, dismiss
+        </SmallButton>
+      </div>
+      {error && <p role="status" className="mt-1.5 text-sm text-berry">{error}</p>}
+    </li>
   );
 }
 
