@@ -6,6 +6,7 @@
 // community and verified sources, in our own words, not from copied wiki text.
 
 import { BLOCKS, PRESETS, type BlockDef } from '@/lib/blocks';
+import type { Route } from '@/data/content/types';
 
 export type GameStatus = 'prelaunch' | 'launch' | 'live';
 
@@ -31,6 +32,8 @@ export interface Game {
   cover?: string;
   /** Lower comes first in "Popular right now", until real activity numbers exist. */
   popularity: number;
+  /** Games with separate routes or paths: the question and the choices. */
+  paths?: { question: string; options: { key: Route; label: string; note: string }[] };
 }
 
 export const GAMES: Game[] = [
@@ -42,7 +45,16 @@ export const GAMES: Game[] = [
     releaseDate: '2026-09-17',
     status: 'live',
     preset: 'tactics-rpg',
-    blockTitles: { progress: 'Chapters', people: 'Units', builds: 'Classes and builds' },
+    blockTitles: { progress: 'Story', missables: 'Last chances', people: 'Units', builds: 'Classes', places: 'Dungeons and places' },
+    paths: {
+      question: 'Which Flame Lord are you playing?',
+      options: [
+        { key: 'cai', label: 'Cai', note: 'Ribeira Winds · Fox' },
+        { key: 'dietrich', label: 'Dietrich', note: 'House Lamine · Lion' },
+        { key: 'theodora', label: 'Theodora', note: "Megaira's Beacon · Wolf" },
+        { key: 'leda', label: 'Leda', note: 'Rose Tempest · Eagle' },
+      ],
+    },
     next: 'Expansion Pass Wave 2 this holiday',
     hue: 'berry',
     genre: 'Tactics RPG',

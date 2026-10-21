@@ -36,7 +36,7 @@ if (process.argv[3]) {
   await db.exec(seed); // running it twice must be harmless
   const g = await db.query(`select count(*)::int as n from public.games`);
   const b = await db.query(`select count(*)::int as n from public.game_blocks`);
-  g.rows[0].n === 2 && b.rows[0].n === 16 ? ok('seed applied (2 games, 16 blocks) and is safe to re-run') : bad('seed ' + JSON.stringify([g.rows, b.rows]));
+  g.rows[0].n === 2 && b.rows[0].n === 17 ? ok('seed applied (2 games, 17 blocks) and is safe to re-run') : bad('seed ' + JSON.stringify([g.rows, b.rows]));
   await db.exec(`delete from public.game_blocks; delete from public.games;`);
 }
 

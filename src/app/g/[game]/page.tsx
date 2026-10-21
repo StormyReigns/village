@@ -2,11 +2,12 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { ArrowLeft, Hammer } from 'lucide-react';
+import { ArrowLeft, Hammer, Info } from 'lucide-react';
 import { GAMES, blocksFor, getGame } from '@/data/games';
-import { BlockIcon } from '@/components/Icon';
+import { cardsFor } from '@/data/content';
 import { Countdown } from '@/components/Countdown';
 import { GameCover } from '@/components/GameCover';
+import { GameAppView } from '@/components/GameAppView';
 import { withCovers } from '@/lib/pictures';
 
 export function generateStaticParams() {
@@ -33,54 +34,40 @@ async function GameApp({ params }: { params: PageProps<'/g/[game]'>['params'] })
   if (!found) notFound();
   const [game] = withCovers([found]);
   const blocks = blocksFor(game);
+  const cards = cardsFor(game.id);
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-6 sm:px-6">
-      <Link href="/" className="inline-flex items-center gap-1 text-sm font-bold text-muted hover:text-ink">
-        <ArrowLeft size={16} aria-hidden="true" /> Village square
-      </Link>
+      <div className="flex items-center justify-between gap-3">
+        <Link href="/" className="inline-flex items-center gap-1 text-sm font-bold text-muted hover:text-ink">
+          <ArrowLeft size={16} aria-hidden="true" /> Village square
+        </Link>
+        <Link href={`/g/${game.id}/workshop`} className="btn-quiet inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold">
+          <Hammer size={16} className="text-leaf" aria-hidden="true" /> Workshop
+        </Link>
+      </div>
 
       <section className="surface mt-4 overflow-hidden rounded-[2rem]">
         <GameCover game={game} className="!aspect-[3/1] !rounded-none" />
         <div className="p-6 sm:p-8">
-        <p className="text-sm text-muted">{game.platform}</p>
-        <h1 className="font-display text-3xl sm:text-4xl">{game.title}</h1>
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <span className="rounded-full bg-sun-soft px-4 py-2 font-bold text-sun ring-1 ring-line">
-            Where are you? <span className="font-normal">Progress tracking arrives with the first {blocks[0].label.toLowerCase()}</span>
-          </span>
+          <p className="text-sm text-muted">{game.genre} · {game.platform}</p>
+          <h1 className="font-display text-3xl sm:text-4xl">{game.title}</h1>
           {game.status === 'prelaunch' && (
-            <span className="text-sm text-muted"><Countdown date={game.releaseDate} before="Comes out" after="Out now" /></span>
+            <p className="mt-2 text-sm text-muted"><Countdown date={game.releaseDate} before="Comes out" after="Out now" /></p>
+          )}
+          {cards.length > 0 && (
+            <p className="mt-4 flex gap-2 rounded-2xl bg-sun-soft px-4 py-3 text-sm">
+              <Info size={18} className="mt-0.5 shrink-0 text-sun" aria-hidden="true" />
+              <span>
+                These {cards.length} starter cards come from an early community codex, put together in the game&apos;s first days.
+                Some details may be wrong. Spotted one? Fix it in the Workshop.
+              </span>
+            </p>
           )}
         </div>
-        </div>
       </section>
 
-      <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {blocks.map((b) => (
-          <article key={b.key} className="flex flex-col rounded-3xl bg-card p-5 shadow-soft ring-1 ring-line">
-            <span className="grid size-11 place-items-center rounded-2xl bg-leaf-soft text-leaf">
-              <BlockIcon name={b.icon} size={20} />
-            </span>
-            <h2 className="mt-3 font-display text-xl">{b.label}</h2>
-            <p className="mt-1 text-sm text-muted">{b.blurb}</p>
-            <p className="mt-4 rounded-2xl bg-card-2 px-3 py-2 text-sm">
-              Nothing here yet.{' '}
-              <Link href={`/g/${game.id}/workshop?block=${b.key}`} className="font-bold text-leaf underline decoration-2 underline-offset-2">
-                Be the first to add one
-              </Link>
-            </p>
-          </article>
-        ))}
-      </section>
-
-      <Link href={`/g/${game.id}/workshop`} className="mt-8 flex items-center gap-4 rounded-3xl bg-leaf-soft p-5 ring-1 ring-line hover:ring-leaf">
-        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-leaf text-paper"><Hammer aria-hidden="true" /></span>
-        <span>
-          <span className="font-display text-xl">Help build this app</span>
-          <span className="block text-muted">Everything here comes from players. Join the Workshop to add, fix or vote.</span>
-        </span>
-      </Link>
+      <GameAppView game={{ id: game.id, shortTitle: game.shortTitle, paths: game.paths }} blocks={blocks} cards={cards} />
     </main>
   );
 }

@@ -130,7 +130,7 @@ export const BLOCKS: Record<string, BlockDef> = {
 
 /** Genre presets: a starting set of blocks, in order. A game can add or drop blocks. */
 export const PRESETS: Record<string, string[]> = {
-  'tactics-rpg': ['progress', 'people', 'missables', 'builds', 'items', 'foes', 'howto', 'mysteries'],
+  'tactics-rpg': ['progress', 'missables', 'people', 'builds', 'places', 'items', 'foes', 'howto', 'mysteries'],
   'action-adventure': ['progress', 'collections', 'missables', 'items', 'places', 'foes', 'howto', 'mysteries'],
   'life-sim': ['progress', 'people', 'collections', 'items', 'places', 'howto', 'mysteries'],
 };
