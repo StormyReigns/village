@@ -25,8 +25,8 @@ export default function VillageSquare() {
       <section className="surface mt-5 overflow-hidden rounded-[2rem]">
         <div className="relative">
           {HERO ? (
-            <div className="relative aspect-[4/1] min-h-36 w-full">
-              <Image src={HERO} alt="The village" fill priority sizes="(min-width: 1024px) 1024px, 100vw" className="object-cover" />
+            <div className="relative aspect-[16/9] w-full sm:aspect-[21/9]">
+              <Image src={HERO} alt="A builder with a blueprint looks out over the village" fill priority sizes="(min-width: 1024px) 1024px, 100vw" className="object-cover object-[50%_55%]" />
             </div>
           ) : (
             <div className="bg-gradient-to-b from-sky-soft to-card pt-6"><VillageScene /></div>
