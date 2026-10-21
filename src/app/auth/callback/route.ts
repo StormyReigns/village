@@ -10,6 +10,9 @@ export async function GET(request: NextRequest) {
   const next = safeNext(url.searchParams.get('next'));
   const back = (path: string) => NextResponse.redirect(new URL(path, url.origin));
 
+  // Supabase sends its own reason when a link has expired or was already used.
+  const reason = url.searchParams.get('error_description') || url.searchParams.get('error_code') || url.searchParams.get('error');
+  if (reason) return back(`/signin?error=${encodeURIComponent(reason)}&next=${encodeURIComponent(next)}`);
   if (!supabaseConfigured || !code) return back(`/signin?error=missing-code&next=${encodeURIComponent(next)}`);
 
   const response = back(next);

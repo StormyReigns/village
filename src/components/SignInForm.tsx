@@ -40,7 +40,9 @@ export function SignInForm({ next }: { next: string }) {
     const db = browserClient();
     if (!db) return setStatus({ kind: 'error', text: "Sign-in isn't connected on this copy of the site." });
     setStatus({ kind: 'busy' });
-    const { error } = await db.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: callbackUrl(next) } });
+    // Email links land on /auth/confirm, which waits for a tap before signing in.
+    const emailRedirectTo = `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}`;
+    const { error } = await db.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo } });
     if (error) setStatus({ kind: 'error', text: /rate limit/i.test(error.message) ? 'Too many links sent recently. Try again in a little while.' : error.message });
     else setStatus({ kind: 'sent', text: `Check ${email.trim()} for a sign-in link. It works once, on this device.` });
   };
