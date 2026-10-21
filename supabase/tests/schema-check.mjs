@@ -1,12 +1,15 @@
 // Runs the Village migration on an in-memory Postgres with Supabase-like stubs, then
 // checks the triggers, the Standouts view and a few row-level security rules.
-// Usage: npm test   (or: node supabase/tests/schema-check.mjs <migration.sql>)
+// Usage: npm test   (or: node supabase/tests/schema-check.mjs <migrations folder> <seed.sql>)
 /* eslint-disable @typescript-eslint/no-unused-expressions, @typescript-eslint/no-unused-vars */
 import { PGlite } from '@electric-sql/pglite';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 const db = new PGlite();
-const migration = readFileSync(process.argv[2], 'utf8');
+// Every migration, oldest first, as Supabase would apply them.
+const files = readdirSync(process.argv[2]).filter((f) => f.endsWith('.sql')).sort();
+const migration = files.map((f) => readFileSync(join(process.argv[2], f), 'utf8')).join('\n');
 const ok = (m) => console.log('  ok   ' + m);
 const bad = (m) => { console.log('  FAIL ' + m); process.exitCode = 1; };
 
@@ -29,7 +32,7 @@ try { await db.exec(migration); } catch (e) {
   console.log('MIGRATION ERROR: ' + e.message + (pos ? '\n  near: ' + migration.slice(Math.max(0, pos - 160), pos + 80).replace(/\s+/g, ' ') : ''));
   process.exit(1);
 }
-ok('migration applied');
+ok(`migrations applied (${files.join(', ')})`);
 if (process.argv[3]) {
   const seed = readFileSync(process.argv[3], 'utf8');
   await db.exec(seed);
@@ -41,7 +44,9 @@ if (process.argv[3]) {
 }
 
 const A = '11111111-1111-1111-1111-111111111111', B = '22222222-2222-2222-2222-222222222222';
-await db.exec(`insert into auth.users (id, raw_user_meta_data) values ('${A}', '{"full_name":"Matt"}'), ('${B}', '{}');`);
+await db.exec(`insert into auth.users (id, raw_user_meta_data) values ('${A}', '{"full_name":"Matt","avatar_url":"https://cdn.example/a.png"}'), ('${B}', '{}');`);
+const av = await db.query(`select avatar_url from public.profiles where id = '${A}'`);
+av.rows[0]?.avatar_url === 'https://cdn.example/a.png' ? ok('new profiles get their Discord avatar') : bad('avatar ' + JSON.stringify(av.rows));
 const p = await db.query(`select username, display_name from public.profiles order by username`);
 p.rows.length === 2 && p.rows.some(r => r.display_name === 'Matt') ? ok('new users get profiles: ' + p.rows.map(r => r.username).join(', ')) : bad('profile trigger');
 
@@ -85,3 +90,12 @@ console.log('  info Standouts row: ' + JSON.stringify(s.rows[0]));
 const w = await db.query(`select round(public.wilson_lower(3, 6), 3) as a, round(public.wilson_lower(10, 50), 3) as b, public.wilson_lower(0, 0) as c`);
 const r = w.rows[0];
 Number(r.a) === 0.188 && Number(r.b) === 0.112 && Number(r.c) === 0 ? ok(`Standouts maths: 3 of 6 = ${r.a}, 10 of 50 = ${r.b}`) : bad('wilson ' + JSON.stringify(r));
+
+// Chat: villagers post as themselves, and floods are refused.
+await expectOk(B, `insert into public.chat_messages (game_id, author_id, body, linked_draft_id) values ('fortunes-weave', '${B}', 'Hello village', '44444444-4444-4444-4444-444444444444')`, 'villager can chat and link a Draft');
+await expectFail(B, `insert into public.chat_messages (game_id, author_id, body) values ('fortunes-weave', '${A}', 'Pretending')`, 'villager cannot chat as someone else');
+for (let i = 0; i < 9; i++) await asUser(B, `insert into public.chat_messages (game_id, author_id, body) values ('fortunes-weave', '${B}', 'msg ${i}')`);
+await expectFail(B, `insert into public.chat_messages (game_id, author_id, body) values ('fortunes-weave', '${B}', 'one too many')`, 'the 11th message in a minute is refused');
+await db.exec(`update public.drafts set status = 'removed'`);
+const gone = await db.query(`select count(*)::int as n from public.draft_scores`);
+gone.rows[0].n === 0 ? ok('removed Drafts leave Standouts') : bad('removed draft still scored');

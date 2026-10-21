@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { LogOut, X } from 'lucide-react';
 import { signOut, useVillager } from './useVillager';
 import { SignInForm } from './SignInForm';
+import { Avatar } from './Avatar';
 
 /** "Sign in" when signed out; your avatar with a small menu when signed in. */
 export function AccountButton() {
@@ -43,15 +44,11 @@ export function AccountButton() {
     );
   }
 
-  const initials = villager.displayName.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
   return (
     <div ref={box} className="relative">
       <button onClick={() => setMenu(!menu)} aria-expanded={menu} aria-label={`Signed in as ${villager.displayName}`}
         className="btn-quiet flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm font-bold">
-        {villager.avatarUrl
-          // eslint-disable-next-line @next/next/no-img-element -- avatars come from Discord's servers
-          ? <img src={villager.avatarUrl} alt="" className="size-7 rounded-full" />
-          : <span className="gloss grid size-7 place-items-center rounded-full bg-sky text-xs text-white">{initials}</span>}
+        <Avatar name={villager.displayName} url={villager.avatarUrl} />
         <span className="max-w-28 truncate">{villager.displayName}</span>
       </button>
       {menu && (

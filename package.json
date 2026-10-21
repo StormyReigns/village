@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test \"src/**/*.test.ts\" && node supabase/tests/schema-check.mjs supabase/migrations/20261020000000_init.sql supabase/seed.sql",
+    "test": "node --test \"src/**/*.test.ts\" && node supabase/tests/schema-check.mjs supabase/migrations supabase/seed.sql",
     "db:check": "node --env-file=.env.local scripts/db-check.mjs"
   },
   "dependencies": {
