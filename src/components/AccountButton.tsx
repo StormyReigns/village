@@ -3,13 +3,30 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { LogOut, X } from 'lucide-react';
-import { signOut, useVillager } from './useVillager';
+import { hasPowers, seenAs, signOut, useAccount, type Villager } from './useVillager';
+import { useViewAsSetting } from './viewAs';
+import { ModPowers, ViewAsReminder } from './ModPowers';
 import { SignInForm } from './SignInForm';
 import { Avatar } from './Avatar';
 
-/** "Sign in" when signed out; your avatar with a small menu when signed in. */
+/**
+ * "Sign in" when signed out; your avatar with a small menu when signed in. Moderators
+ * also get their powers menu beside it, and see what the "see it as" choice shows.
+ */
 export function AccountButton() {
-  const villager = useVillager();
+  const real = useAccount();
+  const view = useViewAsSetting();
+  if (!hasPowers(real)) return <Account villager={real} />;
+  return (
+    <div className="flex items-center gap-2">
+      <ModPowers view={view} />
+      <Account villager={seenAs(real, view)} />
+      <ViewAsReminder view={view} />
+    </div>
+  );
+}
+
+function Account({ villager }: { villager: Villager | null | undefined }) {
   const path = usePathname() || '/';
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);

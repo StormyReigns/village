@@ -197,7 +197,8 @@ function DraftCard({ draft, block, me, messages, vote, view, send }: {
   const [discuss, setDiscuss] = useState(false);
   const [error, setError] = useState('');
   if (!block) return null;
-  const mine = me?.id === draft.author.id;
+  const mine = me?.id === draft.author.id && !me.practice;
+  const practiceVote = Boolean(me?.practice && me.id === draft.author.id);
   const total = draft.ups + draft.downs;
   const leaning = total === 0 ? 'no votes yet' : draft.ups >= draft.downs ? 'leaning yes' : 'leaning no';
   const cast = async (v: 0 | 1 | -1) => setError((await vote(draft.id, v)) ?? '');
@@ -246,6 +247,7 @@ function DraftCard({ draft, block, me, messages, vote, view, send }: {
           <MessageCircle size={15} aria-hidden="true" /> Discuss · {messages.length}
         </button>
       </div>
+      {practiceVote && <p className="mt-2 text-xs text-muted">Your own Draft: votes here are practice, and only you see them.</p>}
       {error && <p role="status" className="mt-2 text-sm text-berry">{error}</p>}
       {discuss && (
         <div className="mt-3 grid gap-2 rounded-2xl bg-card p-3 ring-1 ring-line">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { browserClient } from '@/lib/supabase/browser';
 import type { Villager } from '@/components/useVillager';
 import type { CardContent } from '@/components/CardPreview';
@@ -72,6 +72,14 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
   const [state, setState] = useState<'loading' | 'ready' | 'offline'>('loading');
   const authors = useRef(new Map<string, Author>());
   const meId = me?.id ?? null;
+  // A moderator seeing the site as a villager can vote on their own Drafts. Those
+  // votes stay in this browser: the database never lets authors vote for themselves.
+  const practicing = Boolean(me?.practice);
+  const [practice, setPractice] = useState<Record<string, 1 | -1>>({});
+  const shownDrafts = useMemo(() => (!practicing ? drafts : drafts.map((d) => {
+    const v = d.author.id === meId ? practice[d.id] : undefined;
+    return v ? { ...d, ups: d.ups + (v === 1 ? 1 : 0), downs: d.downs + (v === -1 ? 1 : 0), myVote: v } : d;
+  })), [drafts, practice, practicing, meId]);
 
   const loadDrafts = useCallback(async () => {
     const db = browserClient();
@@ -185,6 +193,15 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
   const vote = useCallback(async (draftId: string, value: 0 | 1 | -1) => {
     const db = browserClient();
     if (!db || !meId) return 'Sign in to vote.';
+    if (practicing && drafts.some((d) => d.id === draftId && d.author.id === meId)) {
+      setPractice((p) => {
+        const next = { ...p };
+        if (value === 0) delete next[draftId];
+        else next[draftId] = value;
+        return next;
+      });
+      return null;
+    }
     setDrafts((list) => list.map((d) => {
       if (d.id !== draftId) return d;
       const ups = d.ups - (d.myVote === 1 ? 1 : 0) + (value === 1 ? 1 : 0);
@@ -196,7 +213,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
       : await db.from('draft_votes').upsert({ draft_id: draftId, voter_id: meId, value }, { onConflict: 'draft_id,voter_id' });
     await loadDrafts().catch(() => {});
     return error ? plainError(error.message) : null;
-  }, [meId, loadDrafts]);
+  }, [meId, loadDrafts, practicing, drafts]);
 
   /** Counts you as a viewer of a Draft (once a day). Standouts divides votes by viewers. */
   const view = useCallback(async (draftId: string) => {
@@ -205,5 +222,5 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     await db.from('draft_views').upsert({ draft_id: draftId, viewer_key: meId }, { onConflict: 'draft_id,viewer_key,day', ignoreDuplicates: true });
   }, [meId]);
 
-  return { state, messages, drafts, send, postDraft, vote, view };
+  return { state, messages, drafts: shownDrafts, send, postDraft, vote, view };
 }
