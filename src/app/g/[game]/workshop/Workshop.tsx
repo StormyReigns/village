@@ -68,7 +68,9 @@ export function Workshop({ game, pages, routes }: {
   const [chip, setChip] = useState<string>(startPage && pages.some((p) => p.id === startPage) ? startPage : 'all');
   const [sort, setSort] = useState<Sort>('standouts');
   const [form, setForm] = useState<FormStart | null>(linked);
-  const [panel, setPanel] = useState<'drafts' | 'app'>(linked ? 'app' : 'drafts');
+  const [allDrafts, setAllDrafts] = useState(false);
+  const [detail, setDetail] = useState<string | null>(null);
+  const [posted, setPosted] = useState('');
 
   // Next keeps a visited Workshop alive in the background, so coming back through a new
   // "Suggest a fix" link doesn't start it fresh. Follow each new link as it arrives.
@@ -77,7 +79,7 @@ export function Workshop({ game, pages, routes }: {
   if (linkKey !== followed) {
     setFollowed(linkKey);
     if (startPage && pages.some((p) => p.id === startPage)) setChip(startPage);
-    if (linked) { setForm(linked); setPanel('app'); }
+    if (linked) { setForm(linked); setAllDrafts(false); }
   }
   const me = useVillager();
   const live = useWorkshop(game.id, me);
@@ -93,17 +95,41 @@ export function Workshop({ game, pages, routes }: {
 
   const drafts = live.drafts;
   const pageOf = useMemo(() => new Map(blocks.map((b) => [b.id, b.page.id])), [blocks]);
-  const counts = useMemo(() => Object.fromEntries(pages.map((p) => [p.id, drafts.filter((d) => pageOf.get(d.blockKey) === p.id).length])), [pages, drafts, pageOf]);
+  const onPage = (d: LiveDraft) => chip === 'all' || chip === 'notice' || pageOf.get(d.blockKey) === chip;
+  const isOpen = (d: LiveDraft) => d.status === 'open' || d.status === 'checking';
+  const counts = useMemo(() => Object.fromEntries(pages.map((p) => [p.id, drafts.filter((d) => isOpen(d) && pageOf.get(d.blockKey) === p.id).length])), [pages, drafts, pageOf]);
   const visible = useMemo(() => {
     const list = drafts.filter((d) => chip === 'all' || pageOf.get(d.blockKey) === chip);
     if (sort === 'new') return [...list].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     if (sort === 'needs') return list.filter((d) => d.status === 'open').sort((a, b) => a.viewers - b.viewers);
     if (sort === 'shipped') return list.filter((d) => d.status === 'stable');
-    return sortStandouts(list.filter((d) => d.status === 'open' || d.status === 'checking'));
+    return sortStandouts(list.filter(isOpen));
   }, [drafts, chip, sort, pageOf]);
+
+  // Open items: what's waiting on people, most urgent first.
+  const items = useMemo(() => {
+    const mine = (d: LiveDraft) => Boolean(me && !me.practice && d.author.id === me.id);
+    const open = drafts.filter((d) => isOpen(d) && onPage(d));
+    const ready = live.mod ? open.filter((d) => d.ups + d.downs >= 5 && d.ups > d.downs) : [];
+    const needs = open.filter((d) => !mine(d) && d.myVote === 0 && !ready.includes(d))
+      .sort((a, b) => (a.ups + a.downs) - (b.ups + b.downs) || a.createdAt.localeCompare(b.createdAt));
+    const yours = drafts.filter((d) => mine(d) && onPage(d) && d.status !== 'removed')
+      .sort((a, b) => Number(isOpen(b)) - Number(isOpen(a)) || b.createdAt.localeCompare(a.createdAt)).slice(0, 6);
+    const voted = open.filter((d) => !mine(d) && d.myVote !== 0 && !ready.includes(d));
+    return [
+      ...ready.map((d) => ({ d, kind: 'ready' as const })),
+      ...yours.filter(isOpen).map((d) => ({ d, kind: 'yours' as const })),
+      ...needs.map((d) => ({ d, kind: 'vote' as const })),
+      ...voted.map((d) => ({ d, kind: 'voted' as const })),
+      ...yours.filter((d) => !isOpen(d)).map((d) => ({ d, kind: 'yours' as const })),
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onPage reads chip and pageOf
+  }, [drafts, me, live.mod, chip, pageOf]);
+
   const current = pages.find((p) => p.id === chip);
   const chat = useMemo(() => (current ? live.messages.filter((m) => m.blockKey === current.id) : live.messages), [live.messages, current]);
   const startNew = () => setForm({ blockId: current?.blocks[0]?.id ?? blocks[0]?.id });
+  const shown = detail ? drafts.find((d) => d.id === detail) : undefined;
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-6 pt-5 sm:px-6">
@@ -125,20 +151,20 @@ export function Workshop({ game, pages, routes }: {
         </div>
       </header>
 
-      {/* Page chips */}
-      <nav aria-label="Pages" className="chip-strip -mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1">
-        <Chip active={chip === 'all'} onClick={() => setChip('all')} count={drafts.length}>All</Chip>
+      {/* The Pages, as a row of village blocks */}
+      <nav aria-label="Pages" className="chip-strip -mx-4 mt-3 flex gap-3 overflow-x-auto px-4 pb-3 pt-4">
+        <BlockChip on={chip === 'all'} tint="ink" icon="LayoutGrid" label="Everything" count={drafts.filter(isOpen).length} onClick={() => setChip('all')} />
         {pages.map((p) => (
-          <Chip key={p.id} active={chip === p.id} onClick={() => setChip(p.id)} count={counts[p.id]} icon={p.icon}>{p.title}</Chip>
+          <BlockChip key={p.id} on={chip === p.id} tint={p.tint} icon={p.icon} label={p.title} count={counts[p.id]} onClick={() => setChip(p.id)} />
         ))}
-        <Chip active={chip === 'notice'} onClick={() => setChip('notice')} count={live.mod ? live.reports.length : 0} icon="Flag">Notice Board</Chip>
+        <BlockChip on={chip === 'notice'} tint="berry" icon="Flag" label="Notice Board" count={live.mod ? live.reports.length : 0} onClick={() => setChip('notice')} />
       </nav>
 
       {live.state === 'offline' && (
         <p role="status" className="mt-3 rounded-2xl bg-berry-soft px-4 py-3 text-sm text-berry">Couldn&apos;t reach the village just now. Refresh the page to try again.</p>
       )}
 
-      <div className="mt-4 grid flex-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="mt-3 grid flex-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Chat
           topic={current ? { key: current.id, label: current.title } : null}
           notice={chip === 'notice'}
@@ -148,76 +174,177 @@ export function Workshop({ game, pages, routes }: {
           live={live}
         />
 
-        {/* Drafts panel */}
-        <section aria-label="Drafts" className="flex min-h-[28rem] min-w-0 flex-col rounded-[1.75rem] bg-card p-4 shadow-soft ring-1 ring-line">
-          <div className="flex flex-wrap items-center gap-2">
-            {chip === 'notice' ? <h2 className="font-display text-xl">Notice Board</h2> : (
-              <div role="tablist" aria-label="Show" className="flex rounded-full bg-card-2 p-1 ring-1 ring-line">
-                {([['drafts', `Drafts · ${visible.length}`], ['app', 'In the app']] as const).map(([k, label]) => (
-                  <button key={k} role="tab" aria-selected={panel === k} onClick={() => setPanel(k)}
-                    className={'rounded-full px-3 py-1 text-sm font-bold ' + (panel === k ? 'bg-card shadow-soft' : 'text-muted hover:text-ink')}>{label}</button>
-                ))}
-              </div>
-            )}
-            <label className={'ml-auto' + (chip === 'notice' || panel === 'app' ? ' hidden' : '')}>
-              <span className="sr-only">Sort Drafts</span>
-              <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="rounded-full bg-card-2 px-3 py-1.5 text-sm font-bold ring-1 ring-line">
-                {SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-              </select>
-            </label>
-            <button onClick={startNew} className="inline-flex items-center gap-1 rounded-full bg-leaf px-3 py-1.5 text-sm font-bold text-paper hover:opacity-90">
-              <Plus size={16} aria-hidden="true" /> New
-            </button>
-          </div>
-
+        {/* Ongoing work: open items, then the Page's Blocks */}
+        <section aria-label="Work" className="flex min-h-[28rem] min-w-0 flex-col rounded-[1.75rem] bg-card p-4 shadow-soft ring-1 ring-line">
           {chip === 'notice' ? (
-            live.mod ? <ReportQueue live={live} blocks={blocks} /> : (
-              <Empty title="No reports waiting" body="When players tap “not quite” in the app without signing in, their report waits here until a villager confirms it." />
-            )
-          ) : panel === 'app' ? (
-            <AppContents pages={current ? [current] : pages} drafts={drafts} focus={form?.entryId ? `${form.blockId}.${form.entryId}` : undefined}
-              onFix={(blockId, entryId) => setForm({ blockId, entryId })} onAdd={(blockId) => setForm({ blockId })} />
-          ) : live.state === 'loading' ? (
-            <div className="mt-3 grid gap-3" aria-hidden="true">
-              {[0, 1].map((n) => <div key={n} className="h-24 animate-pulse rounded-3xl bg-card-2" />)}
-            </div>
-          ) : visible.length === 0 ? (
-            <Empty
-              title={sort === 'shipped' ? 'Nothing published yet' : `No Drafts${current ? ' for ' + current.title : ''} yet`}
-              body={sort === 'shipped' ? 'Drafts land here once a moderator publishes them to the app.' : 'Spotted something missing or wrong? Start one here, or tap "Suggest a fix" on anything in the app.'}
-              action={<button onClick={startNew} className="rounded-full bg-leaf px-4 py-2 font-bold text-paper">Start a Draft</button>}
-            />
+            <>
+              <h2 className="font-display text-xl">Notice Board</h2>
+              {live.mod ? <ReportQueue live={live} blocks={blocks} /> : (
+                <Empty title="No reports waiting" body="When players tap “not quite” in the app without signing in, their report waits here until a villager confirms it." />
+              )}
+            </>
           ) : (
-            <ul className="mt-3 grid gap-3">
-              {visible.map((d) => (
-                <DraftCard key={d.id} draft={d} place={placeOf(d.blockKey)} routes={routes} me={me}
-                  messages={live.messages.filter((m) => m.draftId === d.id)} live={live} />
-              ))}
-            </ul>
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-display text-xl">{current ? current.title : 'Everything'}</h2>
+                <span className="ml-auto" />
+                <button onClick={() => setAllDrafts(!allDrafts)} aria-pressed={allDrafts}
+                  className={'rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (allDrafts ? 'bg-ink text-paper ring-ink' : 'bg-card-2 ring-line hover:ring-ink')}>
+                  {allDrafts ? 'Back to Blocks' : 'All Drafts'}
+                </button>
+                <button onClick={startNew} className="inline-flex items-center gap-1 rounded-full bg-leaf px-3 py-1.5 text-sm font-bold text-paper hover:opacity-90">
+                  <Plus size={16} aria-hidden="true" /> New
+                </button>
+              </div>
+
+              {posted && (
+                <p role="status" className="rise mt-3 flex items-start gap-2 rounded-2xl bg-leaf-soft px-3 py-2 text-sm text-leaf">
+                  <Check size={16} className="mt-0.5 shrink-0" aria-hidden="true" /> {posted}
+                </p>
+              )}
+
+              {/* Open items: a swipeable row of blocks */}
+              <div className="mt-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-muted">Open items · {items.length}</p>
+                {live.state === 'loading' ? (
+                  <div className="mt-4 flex gap-3" aria-hidden="true">{[0, 1].map((n) => <div key={n} className="h-28 w-52 shrink-0 animate-pulse rounded-[1.1rem] bg-card-2" />)}</div>
+                ) : items.length === 0 ? (
+                  <p className="mt-2 rounded-2xl bg-card-2 px-3 py-3 text-sm text-muted">Nothing waiting{current ? ` on ${current.title}` : ''}. Pick something below to improve, or add something new.</p>
+                ) : (
+                  <ul className="swipe chip-strip -mx-4 flex gap-3 overflow-x-auto px-4 pb-3 pt-4">
+                    {items.map(({ d, kind }) => <li key={d.id} className="shrink-0"><OpenItem d={d} kind={kind} place={placeOf(d.blockKey)} onOpen={() => setDetail(d.id)} /></li>)}
+                  </ul>
+                )}
+              </div>
+
+              {allDrafts ? (
+                <>
+                  <div className="mt-2 flex items-center gap-2">
+                    <p className="text-xs font-bold uppercase tracking-wide text-muted">All Drafts</p>
+                    <label className="ml-auto">
+                      <span className="sr-only">Sort Drafts</span>
+                      <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="rounded-full bg-card-2 px-3 py-1.5 text-sm font-bold ring-1 ring-line">
+                        {SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+                      </select>
+                    </label>
+                  </div>
+                  {visible.length === 0 ? (
+                    <Empty title={sort === 'shipped' ? 'Nothing published yet' : 'No Drafts here yet'}
+                      body={sort === 'shipped' ? 'Drafts land here once a moderator publishes them to the app.' : 'Spotted something missing or wrong? Start one, or tap "Suggest a fix" on anything in the app.'} />
+                  ) : (
+                    <ul className="mt-3 grid gap-3">
+                      {visible.map((d) => (
+                        <DraftCard key={d.id} draft={d} place={placeOf(d.blockKey)} routes={routes} me={me}
+                          messages={live.messages.filter((m) => m.draftId === d.id)} live={live} />
+                      ))}
+                    </ul>
+                  )}
+                </>
+              ) : (
+                <AppContents pages={current ? [current] : pages} drafts={drafts} focus={form?.entryId ? `${form.blockId}.${form.entryId}` : undefined}
+                  onFix={(blockId, entryId) => setForm({ blockId, entryId })} onAdd={(blockId) => setForm({ blockId })}
+                  onDrafts={(cardId) => { const d = drafts.find((x) => x.cardId === cardId && isOpen(x)); if (d) setDetail(d.id); }} />
+              )}
+            </>
           )}
         </section>
       </div>
 
       {form && blocks.length > 0 && (
         <EntryForm pages={pages} routes={routes} start={form} me={me} postDraft={live.postDraft}
-          onClose={closeForm} onPosted={(pageId) => { closeForm(); setChip(pageId); setSort('new'); }} />
+          onClose={closeForm}
+          onPosted={(pageId) => {
+            closeForm();
+            setChip(pageId);
+            setAllDrafts(false);
+            setPosted('Your Draft is in. It waits for votes from other Builders, then a moderator publishes it to the app.');
+            setTimeout(() => setPosted(''), 9000);
+          }} />
+      )}
+
+      {shown && (
+        <Sheet label={shown.title} onClose={() => setDetail(null)}>
+          <ul>
+            <DraftCard draft={shown} place={placeOf(shown.blockKey)} routes={routes} me={me} startOpen
+              messages={live.messages.filter((m) => m.draftId === shown.id)} live={live} />
+          </ul>
+        </Sheet>
       )}
     </main>
   );
 }
 
-function Chip({ active, onClick, count, icon, children }: { active: boolean; onClick: () => void; count?: number; icon?: string; children: React.ReactNode }) {
+/** A Page in the row across the top: a village block in that Page's color. */
+function BlockChip({ on, tint, icon, label, count, onClick }: {
+  on: boolean; tint: string; icon: string; label: string; count?: number; onClick: () => void;
+}) {
   return (
-    <button
-      onClick={onClick}
-      aria-pressed={active}
-      className={'inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-bold ring-1 transition ' +
-        (active ? 'bg-leaf text-paper ring-leaf' : 'bg-card text-ink ring-line hover:ring-leaf')}
-    >
-      {icon && <BlockIcon name={icon} size={15} />}
-      {children}
-      {count !== undefined && <span className={'rounded-full px-1.5 text-xs ' + (active ? 'bg-paper/25' : 'bg-card-2 text-muted')}>{count}</span>}
+    <button onClick={onClick} aria-pressed={on} style={{ '--tint': `var(--${tint})` } as React.CSSProperties}
+      className={'vblock flex w-24 shrink-0 flex-col items-center gap-1 px-1.5 pb-2 pt-2.5 text-center sm:w-28 sm:gap-1.5 sm:px-2 sm:pb-2.5 sm:pt-3 ' + (on ? 'is-on gloss' : '')}>
+      <span className={'grid size-9 place-items-center rounded-xl ' + (on ? 'bg-white/25' : 'bg-white/70')}>
+        <BlockIcon name={icon} size={18} />
+      </span>
+      <span className="line-clamp-2 text-xs font-bold leading-tight">{label}</span>
+      {count ? (
+        <span className={'absolute -right-1.5 -top-1.5 grid min-w-5 place-items-center rounded-full px-1 text-[11px] font-bold ring-2 ring-paper ' + (on ? 'bg-ink text-paper' : 'bg-berry text-white')}>
+          {count}
+        </span>
+      ) : null}
     </button>
+  );
+}
+
+const ITEM: Record<'ready' | 'yours' | 'vote' | 'voted', { label: string; tint: string }> = {
+  ready: { label: 'Ready to publish', tint: 'sun' },
+  yours: { label: 'Your Draft', tint: 'leaf' },
+  vote: { label: 'Needs your vote', tint: 'sky' },
+  voted: { label: 'You voted', tint: 'teal' },
+};
+
+/** One open item: a Draft as a village block you can tap to see and vote on. */
+function OpenItem({ d, kind, place, onOpen }: { d: LiveDraft; kind: keyof typeof ITEM; place?: Placed; onOpen: () => void }) {
+  const votes = d.ups + d.downs;
+  const status = d.status === 'stable' ? 'Published' : d.status === 'declined' ? 'Declined' : votes >= 5 ? `${votes} votes` : `${votes} of 5 votes`;
+  return (
+    <button onClick={onOpen} style={{ '--tint': `var(--${ITEM[kind].tint})` } as React.CSSProperties}
+      className="vblock flex w-52 flex-col gap-2 px-3 pb-3 pt-3.5 text-left">
+      <span className="text-[11px] font-bold uppercase tracking-wide">{ITEM[kind].label}</span>
+      <span className="flex items-center gap-2 text-ink">
+        {place ? <EntryIcon entry={d.content} block={place} size="sm" /> : null}
+        <span className="min-w-0">
+          <span className="block truncate font-bold leading-tight">{d.title}</span>
+          <span className="block truncate text-xs text-muted">{d.cardId ? 'Fix' : 'New'} · {place?.title ?? 'Removed Block'}</span>
+        </span>
+      </span>
+      <span className="flex items-center gap-1.5 text-xs font-bold">
+        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/80">
+          <span className="block h-full rounded-full bg-current" style={{ width: `${Math.min(100, (votes / 5) * 100)}%` }} />
+        </span>
+        {status}
+      </span>
+    </button>
+  );
+}
+
+/** A Draft opened from an open item: a sheet on phones, a centered panel on computers. */
+function Sheet({ label, onClose, children }: { label: string; onClose: () => void; children: React.ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    box.current?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
+      <div ref={box} tabIndex={-1} role="dialog" aria-modal="true" aria-label={label} onClick={(e) => e.stopPropagation()}
+        className="rise max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-t-[2rem] bg-card p-4 shadow-soft outline-none sm:rounded-[2rem] sm:p-5">
+        <div className="mb-2 flex justify-end">
+          <button onClick={onClose} aria-label="Close" className="grid size-9 place-items-center rounded-full bg-card-2 ring-1 ring-line"><X size={18} aria-hidden="true" /></button>
+        </div>
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -326,10 +453,10 @@ function DraftModTools({ draft, live }: { draft: LiveDraft; live: WorkshopData }
   );
 }
 
-function DraftCard({ draft, place, routes, me, messages, live }: {
-  draft: LiveDraft; place?: Placed; routes: RouteOption[]; me: Villager | null | undefined; messages: ChatMessage[]; live: WorkshopData;
+function DraftCard({ draft, place, routes, me, messages, live, startOpen = false }: {
+  draft: LiveDraft; place?: Placed; routes: RouteOption[]; me: Villager | null | undefined; messages: ChatMessage[]; live: WorkshopData; startOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(startOpen);
   const [discuss, setDiscuss] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [error, setError] = useState('');
@@ -644,9 +771,9 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
  * "In the app": what's on the selected Page right now, Block by Block, so villagers can
  * pick something to fix or add to without leaving the Workshop.
  */
-function AppContents({ pages, drafts, focus, onFix, onAdd }: {
+function AppContents({ pages, drafts, focus, onFix, onAdd, onDrafts }: {
   pages: Page[]; drafts: LiveDraft[]; focus?: string;
-  onFix: (blockId: string, entryId: string) => void; onAdd: (blockId: string) => void;
+  onFix: (blockId: string, entryId: string) => void; onAdd: (blockId: string) => void; onDrafts: (cardId: string) => void;
 }) {
   const [query, setQuery] = useState('');
   const open = useMemo(() => {
@@ -656,22 +783,22 @@ function AppContents({ pages, drafts, focus, onFix, onAdd }: {
   }, [drafts]);
   const many = pages.length > 1;
   return (
-    <div className="mt-3 grid grid-cols-[minmax(0,1fr)] gap-4">
+    <div className="mt-1 grid grid-cols-[minmax(0,1fr)] gap-5">
       <label className="flex items-center gap-2 rounded-full bg-card-2 px-3 py-2 text-sm ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
         <Search size={15} className="text-muted" aria-hidden="true" />
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={many ? 'Find anything in the app' : `Find something in ${pages[0]?.title}`}
           className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted" />
       </label>
       {pages.map((p) => (
-        <div key={p.id} className="grid grid-cols-[minmax(0,1fr)] gap-3">
+        <div key={p.id} className="grid grid-cols-[minmax(0,1fr)] gap-5">
           {many && <h3 className="flex items-center gap-2 font-display text-lg"><BlockIcon name={p.icon} size={16} /> {p.title}</h3>}
           {p.blocks.map((b) => {
             const list = b.entries.filter((e) => matches(e, query));
             if (query && !list.length) return null;
             return (
-              <section key={b.id} className="min-w-0 rounded-3xl bg-card-2 p-3 ring-1 ring-line">
+              <section key={b.id} style={{ '--tint': `var(--${p.tint})` } as React.CSSProperties} className="vblock vblock-quiet min-w-0 p-3 pt-3.5">
                 <div className="flex items-center gap-2">
-                  <BlockIcon name={b.icon} size={16} />
+                  <span className="grid size-7 place-items-center rounded-lg" style={{ background: 'color-mix(in srgb, var(--tint) 14%, white)', color: 'var(--tint)' }}><BlockIcon name={b.icon} size={15} /></span>
                   <h4 className="font-bold">{b.title}</h4>
                   <span className="text-xs text-muted">{b.entries.length}</span>
                   <button onClick={() => onAdd(b.id)} className="ml-auto inline-flex items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-leaf">
@@ -694,7 +821,11 @@ function AppContents({ pages, drafts, focus, onFix, onAdd }: {
                               <span className="block truncate text-sm font-bold">{e.name}</span>
                               <span className="block truncate text-xs text-muted">{e.stat ?? Object.values(e.categories)[0] ?? e.description}</span>
                             </span>
-                            {n > 0 && <span className="shrink-0 rounded-full bg-sky-soft px-2 py-0.5 text-[11px] font-bold text-sky">{n} Draft{n > 1 ? 's' : ''}</span>}
+                            {n > 0 && (
+                              <span role="button" tabIndex={0} onClick={(ev) => { ev.stopPropagation(); onDrafts(e.ref!.card); }}
+                                onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.stopPropagation(); onDrafts(e.ref!.card); } }}
+                                className="shrink-0 rounded-full bg-sky px-2 py-0.5 text-[11px] font-bold text-white hover:opacity-90">{n} open Draft{n > 1 ? 's' : ''}</span>
+                            )}
                             <span className="shrink-0 text-xs font-bold text-leaf">Fix</span>
                           </button>
                         </li>

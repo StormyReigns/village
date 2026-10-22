@@ -1,11 +1,11 @@
 import {
-  Backpack, BookOpen, CircleHelp, Flag, Hourglass, MapPin, Shield, Swords, Trophy, Users,
+  Backpack, BookOpen, CircleHelp, Flag, Hourglass, LayoutGrid, MapPin, Shield, Swords, Trophy, Users,
   type LucideIcon, type LucideProps,
 } from 'lucide-react';
 
 // Only the icons blocks use, so the bundle stays small.
 const ICONS: Record<string, LucideIcon> = {
-  Backpack, BookOpen, CircleHelp, Flag, Hourglass, MapPin, Shield, Swords, Trophy, Users,
+  Backpack, BookOpen, CircleHelp, Flag, Hourglass, LayoutGrid, MapPin, Shield, Swords, Trophy, Users,
 };
 
 export function BlockIcon({ name, ...props }: { name: string } & LucideProps) {
