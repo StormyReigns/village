@@ -2,7 +2,7 @@ export type Route = 'cai' | 'dietrich' | 'theodora' | 'leda';
 
 export interface Card {
   block: string;
-  /** Field values, keyed by the block's field keys (see src/lib/blocks.ts). */
+  /** Field values for the starter codex, before it was turned into Pages. */
   content: Record<string, string>;
   /** Which routes or paths the card applies to. Game-specific; empty = all. */
   routes?: Route[];

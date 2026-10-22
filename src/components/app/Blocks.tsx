@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronDown, Hourglass, Search, StickyNote } from 'lucide-react';
+import Link from 'next/link';
+import { Check, ChevronDown, Hourglass, Plus, Search, Sparkles, StickyNote } from 'lucide-react';
 import type { Block, Entry, Route, Tint } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
 import { EntryIcon, EntryPanel, Lines, type RouteOption } from './EntryPanel';
@@ -26,12 +27,27 @@ export function BlockView({ block, ctx }: { block: Block; ctx: BlockContext }) {
     <section id={block.id} aria-labelledby={`${block.id}-title`} className="surface min-w-0 scroll-mt-20 rounded-[1.75rem] p-4 sm:p-5">
       <div className="flex items-center gap-3">
         <span className={`grid size-10 place-items-center rounded-2xl ${t.soft} ${t.text}`}><BlockIcon name={block.icon} size={19} /></span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h2 id={`${block.id}-title`} className="font-display text-xl leading-tight">{block.title}</h2>
           {block.intro && <p className="text-sm text-muted">{block.intro}</p>}
         </div>
+        {block.entries.length > 0 && (
+          <Link href={`/g/${ctx.gameId}/workshop?add=${block.id}`} title={`Add to ${block.title}`}
+            className="inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-muted ring-1 ring-line hover:text-ink hover:ring-ink">
+            <Plus size={15} aria-hidden="true" /><span className="hidden sm:inline">Add</span>
+          </Link>
+        )}
       </div>
-      <Cmp block={block} ctx={ctx} />
+      {block.entries.length === 0 ? (
+        <div className="mt-4 grid justify-items-center gap-2 rounded-2xl bg-card-2 px-4 py-8 text-center">
+          <span className={`grid size-12 place-items-center rounded-full ${t.soft} ${t.text}`}><Sparkles size={20} aria-hidden="true" /></span>
+          <p className="font-display text-lg">Nothing here yet</p>
+          <p className="max-w-xs text-sm text-muted">Know something that belongs here? Add the first one in the Workshop.</p>
+          <Link href={`/g/${ctx.gameId}/workshop?add=${block.id}`} className={`gloss mt-1 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-white ${t.solid}`}>
+            <Plus size={15} aria-hidden="true" /> Add the first one
+          </Link>
+        </div>
+      ) : <Cmp block={block} ctx={ctx} />}
     </section>
   );
 }

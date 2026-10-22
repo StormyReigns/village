@@ -1,16 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown, ArrowLeft, ArrowUp, Check, EyeOff, ExternalLink, Flag, MessageCircle, MoreHorizontal, Plus, RotateCcw, Send,
   ShieldCheck, Sparkles, Trash2, TriangleAlert, X,
 } from 'lucide-react';
-import type { GameBlock } from '@/data/games';
-import { titleField } from '@/lib/blocks';
+import type { Block, Page } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
-import { CardPreview, type CardContent } from '@/components/CardPreview';
+import { EntryDetails, type RouteOption } from '@/components/app/EntryPanel';
+import { SignInPrompt } from '@/components/SignInPrompt';
 import { MarketDay } from '@/components/Countdown';
 import { AccountButton } from '@/components/AccountButton';
 import { Avatar } from '@/components/Avatar';
@@ -18,19 +18,24 @@ import { useVillager, type Villager } from '@/components/useVillager';
 import { sortStandouts } from '@/lib/standouts';
 import {
   REASONS, targetKey, useWorkshop,
-  type ChatMessage, type LiveDraft, type NewDraft, type ReportGroup, type ReportReason, type Target, type WorkshopData,
+  type ChatMessage, type LiveDraft, type ReportGroup, type ReportReason, type Target, type WorkshopData,
 } from './useWorkshop';
+import { EntryForm, ChangeList, type FormStart } from './EntryForm';
+import { changesBetween } from './changes';
+
+/** A Block together with the Page it sits on. */
+type Placed = Block & { page: Page };
 
 type Sort = 'standouts' | 'new' | 'needs' | 'shipped';
 const SORTS: { key: Sort; label: string }[] = [
   { key: 'standouts', label: 'Standouts' },
   { key: 'new', label: 'New' },
   { key: 'needs', label: 'Needs votes' },
-  { key: 'shipped', label: 'Shipped' },
+  { key: 'shipped', label: 'Published' },
 ];
 
 const STATUS: Record<string, string> = {
-  checking: 'Being checked', open: 'Open for votes', approved: 'Approved', preview: 'In Preview', stable: 'Shipped', declined: 'Declined', removed: 'Removed',
+  checking: 'Being checked', open: 'Open for votes', approved: 'Approved', preview: 'In Preview', stable: 'Published', declined: 'Declined', removed: 'Removed',
 };
 
 
@@ -43,26 +48,50 @@ function ago(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export function Workshop({ game, blocks }: { game: { id: string; shortTitle: string; title: string }; blocks: GameBlock[] }) {
+export function Workshop({ game, pages, routes }: {
+  game: { id: string; shortTitle: string; title: string }; pages: Page[]; routes: RouteOption[];
+}) {
   const params = useSearchParams();
-  const initial = params.get('block');
-  const [block, setBlock] = useState<string>(initial && blocks.some((b) => b.key === initial) ? initial : 'all');
+  const blocks: Placed[] = useMemo(() => pages.flatMap((p) => p.blocks.map((b) => ({ ...b, page: p }))), [pages]);
+  const placeOf = (blockKey: string) => blocks.find((b) => b.id === blockKey);
+
+  // Arriving from the app: "Suggest a fix" (?fix=block.entry) or "Add" (?add=block).
+  const linked = (() => {
+    const fix = params.get('fix')?.split('.');
+    if (fix && placeOf(fix[0])) return { blockId: fix[0], entryId: fix[1] };
+    const add = params.get('add');
+    if (add && placeOf(add)) return { blockId: add };
+    return null;
+  })();
+  const startPage = params.get('page') ?? (linked ? placeOf(linked.blockId)?.page.id : null);
+  const [chip, setChip] = useState<string>(startPage && pages.some((p) => p.id === startPage) ? startPage : 'all');
   const [sort, setSort] = useState<Sort>('standouts');
-  const [composing, setComposing] = useState(false);
+  const [form, setForm] = useState<FormStart | null>(linked);
   const me = useVillager();
   const live = useWorkshop(game.id, me);
 
+  const closeForm = () => {
+    setForm(null);
+    // Drop ?fix= and ?add= so a refresh doesn't reopen the form.
+    const url = new URL(window.location.href);
+    url.searchParams.delete('fix');
+    url.searchParams.delete('add');
+    window.history.replaceState(window.history.state, '', url);
+  };
+
   const drafts = live.drafts;
-  const counts = useMemo(() => Object.fromEntries(blocks.map((b) => [b.key, drafts.filter((d) => d.blockKey === b.key).length])), [blocks, drafts]);
+  const pageOf = useMemo(() => new Map(blocks.map((b) => [b.id, b.page.id])), [blocks]);
+  const counts = useMemo(() => Object.fromEntries(pages.map((p) => [p.id, drafts.filter((d) => pageOf.get(d.blockKey) === p.id).length])), [pages, drafts, pageOf]);
   const visible = useMemo(() => {
-    const list = drafts.filter((d) => block === 'all' || d.blockKey === block);
+    const list = drafts.filter((d) => chip === 'all' || pageOf.get(d.blockKey) === chip);
     if (sort === 'new') return [...list].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     if (sort === 'needs') return list.filter((d) => d.status === 'open').sort((a, b) => a.viewers - b.viewers);
     if (sort === 'shipped') return list.filter((d) => d.status === 'stable');
-    return sortStandouts(list.filter((d) => d.status !== 'declined' && d.status !== 'removed'));
-  }, [drafts, block, sort]);
-  const current = blocks.find((b) => b.key === block);
-  const chat = useMemo(() => (current ? live.messages.filter((m) => m.blockKey === current.key) : live.messages), [live.messages, current]);
+    return sortStandouts(list.filter((d) => d.status === 'open' || d.status === 'checking'));
+  }, [drafts, chip, sort, pageOf]);
+  const current = pages.find((p) => p.id === chip);
+  const chat = useMemo(() => (current ? live.messages.filter((m) => m.blockKey === current.id) : live.messages), [live.messages, current]);
+  const startNew = () => setForm({ blockId: current?.blocks[0]?.id ?? blocks[0]?.id });
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-6 pt-5 sm:px-6">
@@ -84,13 +113,13 @@ export function Workshop({ game, blocks }: { game: { id: string; shortTitle: str
         </div>
       </header>
 
-      {/* Block chips */}
-      <nav aria-label="Blocks" className="chip-strip -mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1">
-        <Chip active={block === 'all'} onClick={() => setBlock('all')} count={drafts.length}>All</Chip>
-        {blocks.map((b) => (
-          <Chip key={b.key} active={block === b.key} onClick={() => setBlock(b.key)} count={counts[b.key]} icon={b.icon}>{b.label}</Chip>
+      {/* Page chips */}
+      <nav aria-label="Pages" className="chip-strip -mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1">
+        <Chip active={chip === 'all'} onClick={() => setChip('all')} count={drafts.length}>All</Chip>
+        {pages.map((p) => (
+          <Chip key={p.id} active={chip === p.id} onClick={() => setChip(p.id)} count={counts[p.id]} icon={p.icon}>{p.title}</Chip>
         ))}
-        <Chip active={block === 'notice'} onClick={() => setBlock('notice')} count={live.mod ? live.reports.length : 0} icon="Flag">Notice Board</Chip>
+        <Chip active={chip === 'notice'} onClick={() => setChip('notice')} count={live.mod ? live.reports.length : 0} icon="Flag">Notice Board</Chip>
       </nav>
 
       {live.state === 'offline' && (
@@ -99,9 +128,9 @@ export function Workshop({ game, blocks }: { game: { id: string; shortTitle: str
 
       <div className="mt-4 grid flex-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Chat
-          block={current ?? null}
-          notice={block === 'notice'}
-          onAll={() => setBlock('all')}
+          topic={current ? { key: current.id, label: current.title } : null}
+          notice={chip === 'notice'}
+          onAll={() => setChip('all')}
           messages={chat}
           me={me}
           live={live}
@@ -110,19 +139,19 @@ export function Workshop({ game, blocks }: { game: { id: string; shortTitle: str
         {/* Drafts panel */}
         <section aria-label="Drafts" className="flex min-h-[28rem] flex-col rounded-[1.75rem] bg-card p-4 shadow-soft ring-1 ring-line">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-display text-xl">{block === 'notice' ? 'Notice Board' : 'Drafts'}</h2>
-            <label className={'ml-auto' + (block === 'notice' ? ' hidden' : '')}>
+            <h2 className="font-display text-xl">{chip === 'notice' ? 'Notice Board' : 'Drafts'}</h2>
+            <label className={'ml-auto' + (chip === 'notice' ? ' hidden' : '')}>
               <span className="sr-only">Sort Drafts</span>
               <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="rounded-full bg-card-2 px-3 py-1.5 text-sm font-bold ring-1 ring-line">
                 {SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
               </select>
             </label>
-            <button onClick={() => setComposing(true)} className="inline-flex items-center gap-1 rounded-full bg-leaf px-3 py-1.5 text-sm font-bold text-paper hover:opacity-90">
+            <button onClick={startNew} className="inline-flex items-center gap-1 rounded-full bg-leaf px-3 py-1.5 text-sm font-bold text-paper hover:opacity-90">
               <Plus size={16} aria-hidden="true" /> New
             </button>
           </div>
 
-          {block === 'notice' ? (
+          {chip === 'notice' ? (
             live.mod ? <ReportQueue live={live} blocks={blocks} /> : (
               <Empty title="No reports waiting" body="When players tap “not quite” in the app without signing in, their report waits here until a villager confirms it." />
             )
@@ -132,14 +161,14 @@ export function Workshop({ game, blocks }: { game: { id: string; shortTitle: str
             </div>
           ) : visible.length === 0 ? (
             <Empty
-              title={sort === 'shipped' ? 'Nothing shipped yet' : `No Drafts${current ? ' for ' + current.label : ''} yet`}
-              body={sort === 'shipped' ? 'Drafts land here once they reach the app.' : 'Spotted something missing or wrong? Start the first one.'}
-              action={<button onClick={() => setComposing(true)} className="rounded-full bg-leaf px-4 py-2 font-bold text-paper">Start a Draft</button>}
+              title={sort === 'shipped' ? 'Nothing published yet' : `No Drafts${current ? ' for ' + current.title : ''} yet`}
+              body={sort === 'shipped' ? 'Drafts land here once a moderator publishes them to the app.' : 'Spotted something missing or wrong? Start one here, or tap "Suggest a fix" on anything in the app.'}
+              action={<button onClick={startNew} className="rounded-full bg-leaf px-4 py-2 font-bold text-paper">Start a Draft</button>}
             />
           ) : (
             <ul className="mt-3 grid gap-3">
               {visible.map((d) => (
-                <DraftCard key={d.id} draft={d} block={blocks.find((b) => b.key === d.blockKey)} me={me}
+                <DraftCard key={d.id} draft={d} place={placeOf(d.blockKey)} routes={routes} me={me}
                   messages={live.messages.filter((m) => m.draftId === d.id)} live={live} />
               ))}
             </ul>
@@ -147,9 +176,9 @@ export function Workshop({ game, blocks }: { game: { id: string; shortTitle: str
         </section>
       </div>
 
-      {composing && (
-        <Compose blocks={blocks} initial={current?.key ?? blocks[0].key} me={me} postDraft={live.postDraft}
-          onClose={() => setComposing(false)} onPosted={(key) => { setComposing(false); setBlock(key); setSort('new'); }} />
+      {form && blocks.length > 0 && (
+        <EntryForm pages={pages} routes={routes} start={form} me={me} postDraft={live.postDraft}
+          onClose={closeForm} onPosted={(pageId) => { closeForm(); setChip(pageId); setSort('new'); }} />
       )}
     </main>
   );
@@ -178,16 +207,6 @@ function Empty({ title, body, action }: { title: string; body: string; action?: 
       <p className="text-sm text-muted">{body}</p>
       {action}
     </div>
-  );
-}
-
-/** "Sign in to …" for visitors: a link to the sign-in page that comes back here. */
-function SignInPrompt({ children }: { children: React.ReactNode }) {
-  const path = usePathname() || '/';
-  return (
-    <Link href={`/signin?next=${encodeURIComponent(path)}`} className="gloss btn-primary inline-flex rounded-full px-4 py-2 text-sm font-bold">
-      {children}
-    </Link>
   );
 }
 
@@ -251,8 +270,9 @@ function DraftModTools({ draft, live }: { draft: LiveDraft; live: WorkshopData }
   const [declining, setDeclining] = useState(false);
   const [reason, setReason] = useState('');
   const { run, busy, error } = useAction();
-  const decide = (status: 'approved' | 'declined' | 'removed' | 'open', why?: string) =>
+  const decide = (status: 'declined' | 'removed' | 'open', why?: string) =>
     run(() => live.moderate.decide(draft.id, status, why)).then((ok) => { if (ok) { setDeclining(false); setReason(''); } });
+  const publish = () => run(() => live.moderate.publish(draft.id));
   const undecided = draft.status === 'open' || draft.status === 'checking';
   return (
     <div className="mt-3 rounded-2xl bg-sun-soft/60 p-2.5 ring-1 ring-sun/30">
@@ -260,10 +280,12 @@ function DraftModTools({ draft, live }: { draft: LiveDraft; live: WorkshopData }
         <span className="mr-1 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-sun"><ShieldCheck size={14} aria-hidden="true" /> Moderator</span>
         {undecided ? (
           <>
-            <SmallButton tone="good" disabled={busy} onClick={() => decide('approved')} icon={<Check size={13} aria-hidden="true" />}>Approve</SmallButton>
+            <SmallButton tone="good" disabled={busy} onClick={publish} icon={<Check size={13} aria-hidden="true" />}>{busy ? 'Publishing…' : 'Approve and publish'}</SmallButton>
             <SmallButton disabled={busy} onClick={() => setDeclining(!declining)} icon={<X size={13} aria-hidden="true" />}>Decline</SmallButton>
             <SmallButton tone="bad" disabled={busy} onClick={() => decide('removed')} icon={<Trash2 size={13} aria-hidden="true" />}>Remove</SmallButton>
           </>
+        ) : draft.status === 'stable' ? (
+          <span className="text-xs text-muted">Published to the app.</span>
         ) : (
           <SmallButton disabled={busy} onClick={() => decide('open')} icon={<RotateCcw size={13} aria-hidden="true" />}>
             {draft.status === 'removed' ? 'Restore' : 'Reopen for votes'}
@@ -277,20 +299,22 @@ function DraftModTools({ draft, live }: { draft: LiveDraft; live: WorkshopData }
           <button disabled={busy || !reason.trim()} className="rounded-full bg-ink px-3 py-1.5 text-sm font-bold text-paper disabled:opacity-50">Decline</button>
         </form>
       )}
-      {draft.status === 'approved' && <p className="mt-1.5 text-xs text-muted">Approved Drafts ship to the app once cards move into the database.</p>}
       {error && <p role="status" className="mt-1.5 text-sm text-berry">{error}</p>}
     </div>
   );
 }
 
-function DraftCard({ draft, block, me, messages, live }: {
-  draft: LiveDraft; block?: GameBlock; me: Villager | null | undefined; messages: ChatMessage[]; live: WorkshopData;
+function DraftCard({ draft, place, routes, me, messages, live }: {
+  draft: LiveDraft; place?: Placed; routes: RouteOption[]; me: Villager | null | undefined; messages: ChatMessage[]; live: WorkshopData;
 }) {
   const [open, setOpen] = useState(false);
   const [discuss, setDiscuss] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [error, setError] = useState('');
-  if (!block) return null;
+  if (!place) return null;
+  const block = place;
+  const stable = draft.cardId ? block.entries.find((e) => e.ref?.card === draft.cardId) : undefined;
+  const changes = stable && draft.status !== 'stable' ? changesBetween(stable, draft.content, block, routes) : [];
   const mine = me?.id === draft.author.id && !me.practice;
   const practiceVote = Boolean(me?.practice && me.id === draft.author.id);
   const reported = live.myReports.has(targetKey({ draftId: draft.id }));
@@ -321,12 +345,12 @@ function DraftCard({ draft, block, me, messages, live }: {
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-2">
             <span className="font-display text-lg leading-tight">{draft.title}</span>
-            <span className={'rounded-full px-2 py-0.5 text-xs font-bold ' + (draft.kind === 'fact' ? 'bg-sky-soft text-sky' : 'bg-berry-soft text-berry')}>{draft.kind}</span>
+            {draft.cardId ? <span className="rounded-full bg-sky-soft px-2 py-0.5 text-xs font-bold text-sky">fix</span> : <span className="rounded-full bg-leaf-soft px-2 py-0.5 text-xs font-bold text-leaf">new</span>}
             {draft.theory && <span className="rounded-full bg-sun-soft px-2 py-0.5 text-xs font-bold text-sun">Theory</span>}
           </span>
           <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm text-muted">
             <Avatar name={draft.author.name} url={draft.author.avatarUrl} size={18} />
-            {block.label} · {draft.author.name} · {ago(draft.createdAt)} · {STATUS[draft.status] ?? draft.status}
+            {block.page.title} · {block.title} · {draft.author.name} · {ago(draft.createdAt)} · {STATUS[draft.status] ?? draft.status}
           </span>
         </span>
       </button>
@@ -335,7 +359,14 @@ function DraftCard({ draft, block, me, messages, live }: {
       )}
       {open && (
         <div className="mt-3 grid gap-2">
-          <CardPreview block={block} content={draft.content} label={block.label} />
+          {changes.length > 0 && (
+            <div className="rounded-2xl bg-card p-3 ring-1 ring-line">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted">What changes</p>
+              <ChangeList changes={changes} />
+            </div>
+          )}
+          {draft.cardId && !stable && draft.status !== 'stable' && <p className="text-sm text-muted">The entry this fixes is no longer in the app.</p>}
+          <div className="rounded-2xl bg-card p-3 ring-1 ring-line"><EntryDetails entry={draft.content} block={block} route="all" routes={routes} /></div>
           {draft.source && <p className="text-sm text-muted"><span className="font-bold text-ink">Source:</span> {draft.source}</p>}
         </div>
       )}
@@ -362,7 +393,7 @@ function DraftCard({ draft, block, me, messages, live }: {
           {messages.length === 0
             ? <p className="text-sm text-muted">No one has talked about this Draft yet.</p>
             : <ul className="grid gap-3">{messages.map((m) => <Message key={m.id} m={m} me={me} live={live} />)}</ul>}
-          <Composer me={me} placeholder="Reply about this Draft" onSend={(body, spoiler) => live.send(body, { blockKey: draft.blockKey, draftId: draft.id, spoiler })} />
+          <Composer me={me} placeholder="Reply about this Draft" onSend={(body, spoiler) => live.send(body, { blockKey: block.page.id, draftId: draft.id, spoiler })} />
         </div>
       )}
     </li>
@@ -474,8 +505,8 @@ function Composer({ me, placeholder, onSend }: { me: Villager | null | undefined
   );
 }
 
-function Chat({ block, notice, onAll, messages, me, live }: {
-  block: GameBlock | null; notice: boolean; onAll: () => void; messages: ChatMessage[];
+function Chat({ topic: block, notice, onAll, messages, me, live }: {
+  topic: { key: string; label: string } | null; notice: boolean; onAll: () => void; messages: ChatMessage[];
   me: Villager | null | undefined; live: WorkshopData;
 }) {
   const list = useRef<HTMLUListElement>(null);
@@ -520,7 +551,7 @@ function Chat({ block, notice, onAll, messages, me, live }: {
 }
 
 /** Moderators' Notice Board: open reports, one card per reported thing. */
-function ReportQueue({ live, blocks }: { live: WorkshopData; blocks: GameBlock[] }) {
+function ReportQueue({ live, blocks }: { live: WorkshopData; blocks: Placed[] }) {
   if (live.reports.length === 0) {
     return <Empty title="No reports waiting" body="When a villager reports a message or a Draft, it waits here. Only moderators see reports." />;
   }
@@ -531,10 +562,10 @@ function ReportQueue({ live, blocks }: { live: WorkshopData; blocks: GameBlock[]
   );
 }
 
-function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; blocks: GameBlock[] }) {
+function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; blocks: Placed[] }) {
   const { run, busy, error } = useAction();
   const reasons = r.reasons.map((k) => REASONS.find((x) => x.key === k)?.label ?? k);
-  const block = r.draft ? blocks.find((b) => b.key === r.draft!.blockKey) : undefined;
+  const block = r.draft ? blocks.find((b) => b.id === r.draft!.blockKey) : undefined;
   return (
     <li className="rise rounded-3xl bg-card-2 p-3 ring-1 ring-line">
       <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -554,7 +585,7 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
         </div>
       ) : r.draft ? (
         <p className="mt-2 rounded-2xl bg-card p-2.5 text-sm ring-1 ring-line">
-          <span className="font-bold">Draft:</span> {r.draft.title}{block && <span className="text-muted"> · {block.label}</span>}
+          <span className="font-bold">Draft:</span> {r.draft.title}{block && <span className="text-muted"> · {block.page.title} · {block.title}</span>}
         </p>
       ) : null}
       {r.notes.length > 0 && (
@@ -584,142 +615,5 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
       </div>
       {error && <p role="status" className="mt-1.5 text-sm text-berry">{error}</p>}
     </li>
-  );
-}
-
-function Compose({ blocks, initial, me, postDraft, onClose, onPosted }: {
-  blocks: GameBlock[]; initial: string; me: Villager | null | undefined;
-  postDraft: (d: NewDraft) => Promise<string | null>; onClose: () => void; onPosted: (blockKey: string) => void;
-}) {
-  const [key, setKey] = useState(initial);
-  const [content, setContent] = useState<CardContent>({});
-  const [source, setSource] = useState('');
-  const [theory, setTheory] = useState(false);
-  const [note, setNote] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [missing, setMissing] = useState<string[]>([]);
-  const block = blocks.find((b) => b.key === key)!;
-  const set = (k: string, v: string) => {
-    setContent({ ...content, [k]: v });
-    if (missing.includes(k)) setMissing(missing.filter((m) => m !== k));
-  };
-  const dialog = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    dialog.current?.focus();
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const empty = block.fields.filter((f) => f.required && !content[f.key]?.trim()).map((f) => f.key);
-    setMissing(empty);
-    if (empty.length) {
-      setNote('');
-      document.getElementById('field-' + empty[0])?.focus();
-      return;
-    }
-    const title = (content[titleField(block).key] ?? '').trim();
-    if (title.length < 3 || title.length > 120) {
-      setNote(`${titleField(block).label} needs 3 to 120 characters.`);
-      return;
-    }
-    const trimmed = Object.fromEntries(Object.entries(content).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v));
-    setBusy(true);
-    const err = await postDraft({
-      blockKey: block.key, kind: block.kind === 'opinion' ? 'opinion' : 'fact', title, content: trimmed,
-      source: source.trim(), theory: block.kind !== 'opinion' && theory,
-    });
-    setBusy(false);
-    if (err) setNote(err);
-    else onPosted(block.key);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-0 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
-      <div
-        ref={dialog}
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-label="New Draft"
-        onClick={(e) => e.stopPropagation()}
-        className="rise max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-t-[2rem] bg-card p-5 shadow-soft outline-none sm:rounded-[2rem] sm:p-6"
-      >
-        <div className="flex items-center gap-3">
-          <h2 className="font-display text-2xl">New Draft</h2>
-          <button onClick={onClose} className="ml-auto grid size-9 place-items-center rounded-full bg-card-2 ring-1 ring-line" aria-label="Close"><X size={18} aria-hidden="true" /></button>
-        </div>
-
-        <div className="chip-strip -mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1">
-          {blocks.map((b) => (
-            <Chip key={b.key} active={b.key === key} onClick={() => { setKey(b.key); setContent({}); setNote(''); setMissing([]); }} icon={b.icon}>{b.label}</Chip>
-          ))}
-        </div>
-
-        <div className="mt-5 grid gap-6 md:grid-cols-2">
-          <form onSubmit={submit} className="grid content-start gap-3">
-            <p className="text-sm text-muted">{block.blurb}</p>
-            {block.fields.map((f) => {
-              const bad = missing.includes(f.key);
-              const props = {
-                id: 'field-' + f.key,
-                value: content[f.key] ?? '',
-                'aria-invalid': bad || undefined,
-                'aria-describedby': bad ? 'err-' + f.key : undefined,
-                className: 'rounded-2xl bg-card-2 px-3 py-2 ring-1 outline-none placeholder:text-muted focus:ring-2 focus:ring-sky ' + (bad ? 'ring-berry' : 'ring-line'),
-              };
-              return (
-                <label key={f.key} className="grid gap-1">
-                  <span className="text-sm font-bold">{f.label}{f.required && <span className="text-berry"> *</span>}</span>
-                  {f.type === 'longtext' || f.type === 'list' ? (
-                    <textarea {...props} rows={f.type === 'list' ? 3 : 2} placeholder={f.placeholder} onChange={(e) => set(f.key, e.target.value)} />
-                  ) : f.type === 'select' ? (
-                    <select {...props} onChange={(e) => set(f.key, e.target.value)}>
-                      <option value="">Choose</option>
-                      {f.options?.map((o) => <option key={o}>{o}</option>)}
-                    </select>
-                  ) : (
-                    <input {...props} type={f.type === 'number' ? 'number' : 'text'} placeholder={f.placeholder} onChange={(e) => set(f.key, e.target.value)} />
-                  )}
-                  {bad && <span id={'err-' + f.key} className="text-sm text-berry">Add {f.label.toLowerCase()} before submitting.</span>}
-                </label>
-              );
-            })}
-            {block.kind !== 'opinion' && (
-              <>
-                <label className="grid gap-1">
-                  <span className="text-sm font-bold">Where can others check this?</span>
-                  <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="I saw it myself in chapter 6, or a link"
-                    className="rounded-2xl bg-card-2 px-3 py-2 ring-1 ring-line outline-none placeholder:text-muted focus:ring-2 focus:ring-sky" />
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={theory} onChange={(e) => setTheory(e.target.checked)} className="size-4 accent-[var(--color-leaf)]" />
-                  <span><span className="font-bold">It&apos;s a theory.</span> Not confirmed yet, so it shows a Theory label.</span>
-                </label>
-              </>
-            )}
-            <div className="mt-2 flex flex-wrap items-center gap-3">
-              {me === null ? (
-                <SignInPrompt>Sign in to submit</SignInPrompt>
-              ) : (
-                <button disabled={busy || me === undefined} className="rounded-full bg-leaf px-5 py-2.5 font-bold text-paper hover:opacity-90 disabled:opacity-60">
-                  {busy ? 'Submitting…' : 'Submit Draft'}
-                </button>
-              )}
-              <button type="button" onClick={onClose} className="rounded-full px-4 py-2.5 font-bold text-muted hover:text-ink">Cancel</button>
-            </div>
-            {note && <p role="status" className="text-sm text-berry">{note}</p>}
-          </form>
-
-          <div className="grid content-start gap-2">
-            <p className="text-xs font-bold uppercase tracking-wide text-muted">Live preview: how it will look in the app</p>
-            <CardPreview block={block} content={content} label={block.label} />
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }

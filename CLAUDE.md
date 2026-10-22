@@ -43,4 +43,8 @@ Community-built companion apps for games, with a village theme. Two layers:
 - Next.js 16 with Cache Components: `params` are promises. Read URL data inside
   `<Suspense>`. Compute dates in client components so pages can prerender.
 - Run `npm test` after changing the schema or Standouts; `npm run build` before committing.
+- The game app reads from the database (`src/lib/app-data.ts`, cached, refreshed when a
+  moderator publishes). Starter Pages live in `src/data/pages/`; `npm run db:seed-app`
+  turns them into `supabase/seed-app.sql`, which is safe to rerun and never overwrites
+  community edits. Matt runs SQL in Supabase's SQL Editor; the build needs it applied.
 - The folder name has a capital V, so npm-created packages go in lowercase subfolders.

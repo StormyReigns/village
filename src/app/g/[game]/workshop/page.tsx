@@ -1,7 +1,8 @@
 import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { GAMES, blocksFor, getGame } from '@/data/games';
+import { GAMES, getGame } from '@/data/games';
+import { getApp } from '@/lib/app-data';
 import { Workshop } from './Workshop';
 
 export function generateStaticParams() {
@@ -25,5 +26,7 @@ export default function WorkshopPage({ params }: PageProps<'/g/[game]/workshop'>
 async function LoadedWorkshop({ params }: { params: PageProps<'/g/[game]/workshop'>['params'] }) {
   const game = getGame((await params).game);
   if (!game) notFound();
-  return <Workshop game={{ id: game.id, shortTitle: game.shortTitle, title: game.title }} blocks={blocksFor(game)} />;
+  const pages = await getApp(game.id);
+  const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
+  return <Workshop game={{ id: game.id, shortTitle: game.shortTitle, title: game.title }} pages={pages} routes={routes} />;
 }

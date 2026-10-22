@@ -1,10 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { browserClient } from '@/lib/supabase/browser';
 import { canModerate, type Villager } from '@/components/useVillager';
-import type { CardContent } from '@/components/CardPreview';
+import type { EntryContent } from '@/data/pages';
+import { appChanged } from '@/app/actions';
 import type { DraftStats } from '@/lib/standouts';
 
 // Everything the Workshop reads and writes: chat, Drafts, votes, views, reports and
@@ -29,7 +31,10 @@ export interface LiveDraft extends DraftStats {
   blockKey: string;
   kind: 'fact' | 'opinion';
   title: string;
-  content: CardContent;
+  content: EntryContent;
+  /** The entry it changes, and the revision it started from. Null for a new entry. */
+  cardId: string | null;
+  baseRevision: number | null;
   source: string | null;
   theory: boolean;
   status: string;
@@ -42,9 +47,11 @@ export interface NewDraft {
   blockKey: string;
   kind: 'fact' | 'opinion';
   title: string;
-  content: CardContent;
+  content: EntryContent;
   source: string;
   theory: boolean;
+  cardId?: string;
+  baseRevision?: number;
 }
 
 export type ReportReason = 'spam' | 'rude' | 'spoiler' | 'wrong' | 'other';
@@ -106,6 +113,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
   const [state, setState] = useState<'loading' | 'ready' | 'offline'>('loading');
   const authors = useRef(new Map<string, Author>());
   const channel = useRef<RealtimeChannel | null>(null);
+  const router = useRouter();
   const meId = me?.id ?? null;
   const mod = canModerate(me, gameId);
 
@@ -136,7 +144,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     const db = browserClient();
     if (!db) return;
     let q = db.from('drafts')
-      .select(`id, block_key, kind, title, content, source, theory, status, decline_reason, created_at, author_id, author:profiles!drafts_author_id_fkey(${PROFILE})`)
+      .select(`id, block_key, kind, title, content, card_id, base_revision_id, source, theory, status, decline_reason, created_at, author_id, author:profiles!drafts_author_id_fkey(${PROFILE})`)
       .eq('game_id', gameId).order('created_at', { ascending: false }).limit(200);
     if (!mod) q = q.neq('status', 'removed');
     const [d, s, v] = await Promise.all([
@@ -151,7 +159,8 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
       const sc = scores.get(r.id as string);
       return {
         id: r.id as string, blockKey: r.block_key as string, kind: r.kind === 'opinion' ? 'opinion' : 'fact',
-        title: r.title as string, content: (r.content ?? {}) as CardContent, source: (r.source as string) ?? null,
+        title: r.title as string, content: ((c: Partial<EntryContent>) => ({ ...c, name: c.name ?? (r.title as string), sections: c.sections ?? [], categories: c.categories ?? {} }))(r.content as Partial<EntryContent>), source: (r.source as string) ?? null,
+        cardId: (r.card_id as string) ?? null, baseRevision: (r.base_revision_id as number) ?? null,
         theory: Boolean(r.theory), status: r.status as string, declineReason: (r.decline_reason as string) ?? null,
         createdAt: r.created_at as string, author: toAuthor(r.author as Row, r.author_id as string),
         ups: Number(sc?.ups ?? 0), downs: Number(sc?.downs ?? 0), viewers: Number(sc?.viewers ?? 0),
@@ -267,7 +276,10 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     const db = browserClient();
     if (!db || !meId) return 'Sign in to post a Draft.';
     const { data, error } = await db.from('drafts')
-      .insert({ game_id: gameId, block_key: d.blockKey, kind: d.kind, title: d.title, content: d.content, source: d.source || null, theory: d.theory, author_id: meId, status: 'open' })
+      .insert({
+        game_id: gameId, block_key: d.blockKey, kind: d.kind, title: d.title, content: d.content, source: d.source || null, theory: d.theory,
+        card_id: d.cardId ?? null, base_revision_id: d.baseRevision ?? null, author_id: meId, status: 'open',
+      })
       .select('id').single();
     if (error) return plainError(error.message);
     await db.from('draft_credits').insert({ draft_id: data.id, profile_id: meId, role: 'author' });
@@ -357,8 +369,22 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     return finish(error);
   }, [closeReports, finish]);
 
-  /** Approve, decline (with a reason), remove, or reopen a Draft. */
-  const decide = useCallback(async (draftId: string, status: 'approved' | 'declined' | 'removed' | 'open', reason?: string) => {
+  /**
+   * Publishes a Draft into the app: it becomes the entry's new Stable revision (or a new
+   * entry), then the app's pages refresh.
+   */
+  const publish = useCallback(async (draftId: string) => {
+    const db = browserClient();
+    if (!db || !meId) return 'Sign in first.';
+    const { error } = await db.rpc('ship_draft', { draft: draftId });
+    if (error) return plainError(error.message);
+    await appChanged(gameId);
+    router.refresh();
+    return finish(null);
+  }, [meId, gameId, router, finish]);
+
+  /** Decline (with a reason), remove, or reopen a Draft. */
+  const decide = useCallback(async (draftId: string, status: 'declined' | 'removed' | 'open', reason?: string) => {
     const db = browserClient();
     if (!db || !meId) return 'Sign in first.';
     const reopen = status === 'open';
@@ -380,7 +406,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
   return {
     state, messages, drafts: shownDrafts, reports, myReports, mod,
     send, postDraft, vote, view, report,
-    moderate: { removeMessage, markSpoiler, decide, dismissReports },
+    moderate: { removeMessage, markSpoiler, publish, decide, dismissReports },
   };
 }
 

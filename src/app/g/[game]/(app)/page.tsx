@@ -2,20 +2,20 @@ import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { GAMES, getGame } from '@/data/games';
-import { pagesFor } from '@/data/pages';
+import { getApp } from '@/lib/app-data';
 import { AppHome } from '@/components/app/PageView';
 import { withCovers } from '@/lib/pictures';
 
 export function generateStaticParams() {
-  return GAMES.filter((g) => pagesFor(g.id).length).map((g) => ({ game: g.id }));
+  return GAMES.map((g) => ({ game: g.id }));
 }
 
-export async function generateMetadata({ params }: PageProps<'/g/[game]/p'>): Promise<Metadata> {
+export async function generateMetadata({ params }: PageProps<'/g/[game]'>): Promise<Metadata> {
   return { title: getGame((await params).game)?.shortTitle ?? 'Game' };
 }
 
 // The game app's front door. The URL is read inside <Suspense> so navigation is instant.
-export default function AppHomePage({ params }: PageProps<'/g/[game]/p'>) {
+export default function AppHomePage({ params }: PageProps<'/g/[game]'>) {
   return (
     <Suspense fallback={<div className="mt-3 aspect-[3/1] animate-pulse rounded-[2rem] bg-card" />}>
       <Home params={params} />
@@ -23,10 +23,10 @@ export default function AppHomePage({ params }: PageProps<'/g/[game]/p'>) {
   );
 }
 
-async function Home({ params }: { params: PageProps<'/g/[game]/p'>['params'] }) {
+async function Home({ params }: { params: PageProps<'/g/[game]'>['params'] }) {
   const found = getGame((await params).game);
-  const pages = found ? pagesFor(found.id) : [];
-  if (!found || !pages.length) notFound();
+  if (!found) notFound();
+  const pages = await getApp(found.id);
   const [game] = withCovers([found]);
   const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
   return (

@@ -34,13 +34,21 @@ try { await db.exec(migration); } catch (e) {
 }
 ok(`migrations applied (${files.join(', ')})`);
 if (process.argv[3]) {
-  const seed = readFileSync(process.argv[3], 'utf8');
-  await db.exec(seed);
-  await db.exec(seed); // running it twice must be harmless
-  const g = await db.query(`select count(*)::int as n from public.games`);
-  const b = await db.query(`select count(*)::int as n from public.game_blocks`);
-  g.rows[0].n === 2 && b.rows[0].n === 17 ? ok('seed applied (2 games, 17 blocks) and is safe to re-run') : bad('seed ' + JSON.stringify([g.rows, b.rows]));
-  await db.exec(`delete from public.game_blocks; delete from public.games;`);
+  const seeds = process.argv.slice(3).map((f) => readFileSync(f, 'utf8'));
+  for (const s of seeds) await db.exec(s);
+  for (const s of seeds) await db.exec(s); // running them twice must be harmless
+  const n = async (sql) => (await db.query(sql)).rows[0].n;
+  const counts = {
+    games: await n(`select count(*)::int as n from public.games`),
+    pages: await n(`select count(*)::int as n from public.app_pages`),
+    blocks: await n(`select count(*)::int as n from public.game_blocks`),
+    entries: await n(`select count(*)::int as n from public.cards c join public.card_pointers p on p.card_id = c.id and p.channel = 'stable'`),
+    loose: await n(`select count(*)::int as n from public.game_blocks where page_key is null`),
+  };
+  counts.games === 2 && counts.pages === 11 && counts.blocks === 16 && counts.entries === 156 && counts.loose === 0
+    ? ok(`seeds applied (${counts.games} games, ${counts.pages} pages, ${counts.blocks} blocks, ${counts.entries} entries on Stable) and safe to re-run`)
+    : bad('seeds ' + JSON.stringify(counts));
+  await db.exec(`delete from public.games;`);
 }
 
 const A = '11111111-1111-1111-1111-111111111111', B = '22222222-2222-2222-2222-222222222222';
@@ -57,11 +65,11 @@ await db.exec(`
   insert into public.game_blocks (game_id, block_key, title) values ('fortunes-weave', 'people', 'Units');
   insert into public.cards (id, game_id, block_key, slug) values ('33333333-3333-3333-3333-333333333333', 'fortunes-weave', 'people', 'example-unit');
   insert into public.card_revisions (card_id, content, summary) values ('33333333-3333-3333-3333-333333333333', '{"name":"Example"}', 'first'), ('33333333-3333-3333-3333-333333333333', '{"name":"Example 2"}', 'second');
-  insert into public.card_pointers (card_id, channel, revision_id) values ('33333333-3333-3333-3333-333333333333', 'stable', 1);
-  update public.card_pointers set revision_id = 2 where channel = 'stable';
-  update public.card_pointers set revision_id = 1 where channel = 'stable';
+  insert into public.card_pointers (card_id, channel, revision_id) values ('33333333-3333-3333-3333-333333333333', 'stable', (select min(id) from public.card_revisions where card_id = '33333333-3333-3333-3333-333333333333'));
+  update public.card_pointers set revision_id = (select max(id) from public.card_revisions where card_id = '33333333-3333-3333-3333-333333333333') where channel = 'stable';
+  update public.card_pointers set revision_id = (select min(id) from public.card_revisions where card_id = '33333333-3333-3333-3333-333333333333') where channel = 'stable';
 `);
-const ev = await db.query(`select from_revision, to_revision from public.pointer_events order by id`);
+const ev = await db.query(`select from_revision - (select min(id) - 1 from public.card_revisions) as from_revision, to_revision - (select min(id) - 1 from public.card_revisions) as to_revision from public.pointer_events order by id`);
 JSON.stringify(ev.rows) === JSON.stringify([{ from_revision: null, to_revision: 1 }, { from_revision: 1, to_revision: 2 }, { from_revision: 2, to_revision: 1 }])
   ? ok('pointer moves are logged (publish, then rollback)') : bad('pointer audit ' + JSON.stringify(ev.rows));
 
@@ -80,7 +88,7 @@ await expectOk(B, `insert into public.drafts (id, game_id, block_key, kind, titl
 await expectFail(B, `insert into public.drafts (game_id, block_key, kind, title, content, author_id, status) values ('fortunes-weave', 'people', 'fact', 'Sneaky', '{}', '${B}', 'stable')`, 'villager cannot post a Draft straight to Stable');
 await expectFail(B, `insert into public.draft_votes (draft_id, voter_id, value) values ('44444444-4444-4444-4444-444444444444', '${B}', 1)`, 'author cannot vote on their own Draft');
 await expectOk(A, `insert into public.draft_votes (draft_id, voter_id, value) values ('44444444-4444-4444-4444-444444444444', '${A}', 1)`, 'another villager can vote');
-await expectFail(B, `update public.card_pointers set revision_id = 2`, 'villager cannot publish');
+await expectFail(B, `update public.card_pointers set revision_id = (select max(id) from public.card_revisions where card_id = '33333333-3333-3333-3333-333333333333')`, 'villager cannot publish');
 await expectFail(B, `update public.drafts set status = 'stable'`, 'villager cannot approve Drafts');
 await expectOk(A, `update public.drafts set status = 'approved' where id = '44444444-4444-4444-4444-444444444444'`, 'moderator can approve');
 
@@ -119,3 +127,13 @@ await expectOk(A, `update public.chat_messages set removed_at = now(), removed_b
 const hidden = await asUser(C, `select count(*)::int as n from public.chat_messages where id = ${msg}`);
 hidden.rows[0].n === 0 ? ok('removed messages disappear for villagers') : bad('removed message still visible');
 await expectOk(A, `update public.drafts set status = 'declined', decline_reason = 'Duplicate', decided_by = '${A}', decided_at = now()`, 'moderator can decline a Draft with a reason');
+
+// Publishing: a moderator turns a Draft into an app entry in one step.
+const D2 = '66666666-6666-6666-6666-666666666666';
+await expectOk(B, `insert into public.drafts (id, game_id, block_key, kind, title, content, author_id) values ('${D2}', 'fortunes-weave', 'people', 'fact', 'New unit', '{"name":"New unit","sections":[],"categories":{}}', '${B}')`, 'villager can post an entry Draft');
+await expectFail(B, `select public.ship_draft('${D2}')`, 'villager cannot publish a Draft');
+await expectOk(A, `select public.ship_draft('${D2}')`, 'moderator publishes a Draft');
+const shipped = await db.query(`select d.status, c.slug, r.content->>'name' as name from public.drafts d join public.cards c on c.id = d.card_id join public.card_pointers p on p.card_id = c.id and p.channel = 'stable' join public.card_revisions r on r.id = p.revision_id where d.id = '${D2}'`);
+shipped.rows[0]?.status === 'stable' && shipped.rows[0]?.slug === 'new-unit' && shipped.rows[0]?.name === 'New unit'
+  ? ok('published Draft is a new entry on Stable (new-unit)') : bad('ship ' + JSON.stringify(shipped.rows));
+await expectFail(A, `select public.ship_draft('${D2}')`, 'a published Draft cannot be published twice');

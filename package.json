@@ -7,8 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test \"src/**/*.test.ts\" && node supabase/tests/schema-check.mjs supabase/migrations supabase/seed.sql",
-    "db:check": "node --env-file=.env.local scripts/db-check.mjs"
+    "test": "node --test \"src/**/*.test.ts\" && node supabase/tests/schema-check.mjs supabase/migrations supabase/seed.sql supabase/seed-app.sql",
+    "db:check": "node --env-file=.env.local scripts/db-check.mjs",
+    "db:seed-app": "node scripts/build-seed.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

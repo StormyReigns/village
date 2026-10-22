@@ -38,7 +38,12 @@ export interface Entry {
   spoiler?: boolean;
   flag?: 'unconfirmed' | 'disputed';
   source?: string;
+  /** Where it lives in the database: the entry and its Stable revision. Drafts edit these. */
+  ref?: { card: string; revision: number };
 }
+
+/** What a Draft proposes for an entry: everything except its address. */
+export type EntryContent = Omit<Entry, 'id' | 'ref'>;
 
 export interface Block {
   id: string;

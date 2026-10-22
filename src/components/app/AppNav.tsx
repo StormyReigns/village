@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Hammer, House, LayoutGrid, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, Hammer, House, LayoutGrid, X } from 'lucide-react';
 import type { Tint } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
 import { AccountButton } from '@/components/AccountButton';
@@ -25,7 +25,7 @@ function GameMark({ game, size }: { game: NavGame; size: string }) {
  */
 export function AppNav({ game, pages }: { game: NavGame; pages: NavPage[] }) {
   const path = usePathname() || '';
-  const home = `/g/${game.id}/p`;
+  const home = `/g/${game.id}`;
   const current = pages.find((p) => path.startsWith(`${home}/${p.id}`));
   const [more, setMore] = useState(false);
 
@@ -85,9 +85,6 @@ export function AppNav({ game, pages }: { game: NavGame; pages: NavPage[] }) {
           <GameMark game={game} size="size-8" />
           <span className="truncate font-display text-lg">{game.shortTitle}</span>
         </Link>
-        <span className="hidden items-center gap-1.5 rounded-full bg-sun-soft px-3 py-1 text-xs font-bold text-sun sm:inline-flex">
-          <Sparkles size={13} aria-hidden="true" /> Preview layout
-        </span>
         <span className="ml-auto" />
         <Link href={`/g/${game.id}/workshop`} aria-label="Workshop" className="btn-quiet inline-flex items-center gap-2 rounded-full p-2.5 text-sm font-bold sm:px-4 sm:py-2">
           <Hammer size={16} className="text-leaf" aria-hidden="true" /><span className="hidden sm:inline">Workshop</span>

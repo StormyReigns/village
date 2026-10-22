@@ -108,7 +108,7 @@ function AppSearch({ gameId, pages }: { gameId: string; pages: Page[] }) {
           {hits.length === 0 && <li className="px-3 py-2 text-sm text-muted">Nothing found for “{query}”. Spoilers are left out here.</li>}
           {hits.map(({ p, b, e }) => (
             <li key={`${b.id}.${e.id}`}>
-              <Link href={b.type === 'guide' || b.type === 'timeline' ? `/g/${gameId}/p/${p.id}#${b.id}` : `/g/${gameId}/p/${p.id}?e=${b.id}.${e.id}`}
+              <Link href={b.type === 'guide' || b.type === 'timeline' ? `/g/${gameId}/${p.id}#${b.id}` : `/g/${gameId}/${p.id}?e=${b.id}.${e.id}`}
                 className="flex items-center gap-3 rounded-2xl px-2 py-1.5 hover:bg-card-2">
                 <EntryIcon entry={e} block={b} size="sm" />
                 <span className="min-w-0">
@@ -170,7 +170,7 @@ export function AppHome({ game, pages, cover }: { game: AppGame; pages: Page[]; 
       {(recent.length > 0 || next) && (
         <div className="grid gap-3 md:grid-cols-2">
           {next && (
-            <Link href={`/g/${game.id}/p/${next.p.id}`} className={`lift flex items-start gap-3 rounded-[1.5rem] ${TINT[next.p.tint].soft} p-4 ring-1 ring-line`}>
+            <Link href={`/g/${game.id}/${next.p.id}`} className={`lift flex items-start gap-3 rounded-[1.5rem] ${TINT[next.p.tint].soft} p-4 ring-1 ring-line`}>
               <span className={`gloss grid size-10 shrink-0 place-items-center rounded-xl text-white ${TINT[next.p.tint].solid}`}><Hourglass size={19} aria-hidden="true" /></span>
               <span className="min-w-0 flex-1">
                 <span className={`block text-xs font-bold uppercase tracking-wide ${TINT[next.p.tint].text}`}>Your next last chance</span>
@@ -203,7 +203,7 @@ export function AppHome({ game, pages, cover }: { game: AppGame; pages: Page[]; 
           const faces = p.blocks.flatMap((b) => b.entries).filter((e) => !e.spoiler).slice(0, 5);
           return (
             <li key={p.id}>
-              <Link href={`/g/${game.id}/p/${p.id}`} className={`lift relative flex h-full flex-col overflow-hidden rounded-[1.75rem] bg-gradient-to-br ${t.bar} to-card p-4 ring-1 ring-line`}>
+              <Link href={`/g/${game.id}/${p.id}`} className={`lift relative flex h-full flex-col overflow-hidden rounded-[1.75rem] bg-gradient-to-br ${t.bar} to-card p-4 ring-1 ring-line`}>
                 <span className={`pointer-events-none absolute -bottom-5 -right-4 opacity-[0.12] ${t.text}`} aria-hidden="true"><BlockIcon name={p.icon} size={110} /></span>
                 <span className={`gloss grid size-12 place-items-center rounded-2xl text-white shadow-soft ${t.solid}`}><BlockIcon name={p.icon} size={22} /></span>
                 <span className="mt-3 block font-display text-2xl leading-tight">{p.title}</span>

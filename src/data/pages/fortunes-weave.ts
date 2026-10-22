@@ -1,8 +1,8 @@
 // Fortune's Weave as Pages and Blocks, rebuilt from the 156 starter cards.
 
-import { CARDS } from '@/data/content/fortunes-weave';
-import type { Card, Route } from '@/data/content/types';
-import type { Block, Entry, Page, Section } from './types';
+import { CARDS } from '../content/fortunes-weave.ts';
+import type { Card, Route } from '../content/types.ts';
+import type { Block, Entry, Page, Section } from './types.ts';
 
 const ROUTE_NAMES: Record<string, Route> = { Cai: 'cai', Dietrich: 'dietrich', Theodora: 'theodora', Leda: 'leda' };
 

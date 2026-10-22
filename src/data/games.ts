@@ -1,11 +1,6 @@
-// The games in the village. Until the database is connected, this file is the source
-// of truth for which games exist and which blocks they use; later it seeds the
-// `games` and `game_blocks` tables.
-//
-// Cards (the actual facts) are not seeded here on purpose: they should come from the
-// community and verified sources, in our own words, not from copied wiki text.
+// The games in the village: names, dates, colors and routes. Each game's app (its Pages,
+// Blocks and entries) lives in the database; see src/lib/app-data.ts.
 
-import { BLOCKS, PRESETS, type BlockDef } from '@/lib/blocks';
 import type { Route } from '@/data/content/types';
 
 export type GameStatus = 'prelaunch' | 'launch' | 'live';
@@ -17,9 +12,6 @@ export interface Game {
   platform: string;
   releaseDate: string;          // ISO date
   status: GameStatus;
-  preset: keyof typeof PRESETS;
-  /** Per-game names for blocks, e.g. "Units" instead of "People". */
-  blockTitles?: Record<string, string>;
   /** What's coming up for this game, shown on its tile. */
   next?: string;
   /** Hue for this game's accents, from the village palette. */
@@ -44,8 +36,6 @@ export const GAMES: Game[] = [
     platform: 'Nintendo Switch 2',
     releaseDate: '2026-09-17',
     status: 'live',
-    preset: 'tactics-rpg',
-    blockTitles: { progress: 'Story', missables: 'Last chances', people: 'Units', builds: 'Classes', places: 'Dungeons and places' },
     paths: {
       question: 'Which Flame Lord are you playing?',
       options: [
@@ -67,8 +57,6 @@ export const GAMES: Game[] = [
     platform: 'Nintendo Switch 2',
     releaseDate: '2026-11-05',
     status: 'prelaunch',
-    preset: 'action-adventure',
-    blockTitles: { progress: 'Dungeons', collections: 'Hearts and Skulltulas' },
     next: 'Workshop opens before launch',
     hue: 'leaf',
     genre: 'Action-adventure',
@@ -78,18 +66,6 @@ export const GAMES: Game[] = [
 
 export function getGame(id: string): Game | undefined {
   return GAMES.find((g) => g.id === id);
-}
-
-export interface GameBlock extends BlockDef {
-  /** The name this game uses for the block. */
-  label: string;
-}
-
-export function blocksFor(game: Game): GameBlock[] {
-  return PRESETS[game.preset].map((key) => ({
-    ...BLOCKS[key],
-    label: game.blockTitles?.[key] ?? BLOCKS[key].title,
-  }));
 }
 
 export function daysUntil(isoDate: string, from = new Date()): number {
