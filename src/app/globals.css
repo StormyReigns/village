@@ -61,9 +61,13 @@ body {
   color: var(--ink);
 }
 
-:focus-visible {
-  outline: 3px solid var(--sky);
-  outline-offset: 2px;
+/* Keyboard focus ring. In the base layer, so a field that shows its own rounded focus glow
+   (class outline-none) can switch it off. */
+@layer base {
+  :focus-visible {
+    outline: 3px solid var(--sky);
+    outline-offset: 2px;
+  }
 }
 
 /* Gloss: a soft highlight across the top half of a colored surface (buttons, badges).
