@@ -104,6 +104,8 @@ body {
 .chip-strip::-webkit-scrollbar, .swipe::-webkit-scrollbar { display: none; }
 .swipe { scroll-snap-type: x mandatory; scroll-padding-inline: 1rem; overscroll-behavior-x: contain; }
 .swipe > * { scroll-snap-align: start; }
+/* Snapping suits swiping; with a mouse it fights the wheel, so mice scroll freely. */
+@media (pointer: fine) { .swipe { scroll-snap-type: none; } }
 
 /* Village blocks: the site's signature shape. A chunky tile with a thick lower edge, like a
    toy building block, and a small roof on top, so every block is also a little house in

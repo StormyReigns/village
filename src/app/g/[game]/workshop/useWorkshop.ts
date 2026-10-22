@@ -41,6 +41,8 @@ export interface LiveDraft extends DraftStats {
   declineReason: string | null;
   author: Author;
   myVote: 0 | 1 | -1;
+  /** A practice vote on your own Draft, kept on this device only (see "see the site as"). */
+  practiceVote?: 1 | -1;
 }
 
 export interface NewDraft {
@@ -119,12 +121,23 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
 
   // A moderator seeing the site as a villager can vote on their own Drafts. Those
   // votes stay in this browser: the database never lets authors vote for themselves.
+  // Practice votes are saved on this device and shown in every view, marked as practice,
+  // so switching between "see the site as" choices shows the same numbers. Only the
+  // author can make them, so only the author's device ever has any.
   const practicing = Boolean(me?.practice);
+  const practiceKey = `village:${gameId}:practice-votes`;
   const [practice, setPractice] = useState<Record<string, 1 | -1>>({});
-  const shownDrafts = useMemo(() => (!practicing ? drafts : drafts.map((d) => {
-    const v = d.author.id === meId ? practice[d.id] : undefined;
-    return v ? { ...d, ups: d.ups + (v === 1 ? 1 : 0), downs: d.downs + (v === -1 ? 1 : 0), myVote: v } : d;
-  })), [drafts, practice, practicing, meId]);
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reading device storage after hydration
+      setPractice(JSON.parse(localStorage.getItem(practiceKey) ?? '{}'));
+    } catch { /* storage unavailable: no practice votes */ }
+  }, [practiceKey]);
+  const shownDrafts = useMemo(() => drafts.map((d) => {
+    const v = practice[d.id];
+    if (!v) return d;
+    return { ...d, ups: d.ups + (v === 1 ? 1 : 0), downs: d.downs + (v === -1 ? 1 : 0), myVote: practicing ? v : d.myVote, practiceVote: v };
+  }), [drafts, practice, practicing]);
 
   const loadMessages = useCallback(async () => {
     const db = browserClient();
@@ -296,6 +309,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
         const next = { ...p };
         if (value === 0) delete next[draftId];
         else next[draftId] = value;
+        try { localStorage.setItem(practiceKey, JSON.stringify(next)); } catch { /* ignore */ }
         return next;
       });
       return null;
@@ -311,7 +325,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
       : await db.from('draft_votes').upsert({ draft_id: draftId, voter_id: meId, value }, { onConflict: 'draft_id,voter_id' });
     await loadDrafts().catch(() => {});
     return error ? plainError(error.message) : null;
-  }, [meId, loadDrafts, practicing, drafts]);
+  }, [meId, loadDrafts, practicing, drafts, practiceKey]);
 
   /** Counts you as a viewer of a Draft (once a day). Standouts divides votes by viewers. */
   const view = useCallback(async (draftId: string) => {

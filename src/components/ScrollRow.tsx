@@ -17,12 +17,15 @@ export function ScrollRow({ as: Tag = 'div', className = '', label, role, childr
     const el = ref.current;
     if (!el) return;
     const update = () => setMore({ left: el.scrollLeft > 2, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 2 });
-    // A vertical wheel moves the row sideways, until the row reaches its end.
+    // A vertical wheel moves the row sideways. Only once the row is at its end in that
+    // direction does the wheel go back to scrolling the page.
     const onWheel = (e: WheelEvent) => {
-      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || el.scrollWidth <= el.clientWidth) return;
-      const before = el.scrollLeft;
-      el.scrollLeft += e.deltaY;
-      if (el.scrollLeft !== before) e.preventDefault();
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      const step = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientWidth : 1);
+      const room = step > 0 ? el.scrollWidth - el.clientWidth - el.scrollLeft : el.scrollLeft;
+      if (room < 1) return;
+      e.preventDefault();
+      el.scrollLeft += step;
     };
     update();
     el.addEventListener('scroll', update, { passive: true });

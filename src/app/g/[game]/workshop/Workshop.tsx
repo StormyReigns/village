@@ -305,7 +305,8 @@ const ITEM: Record<'ready' | 'yours' | 'vote' | 'voted', { label: string; tint: 
 /** One open item: a Draft as a village block you can tap to see and vote on. */
 function OpenItem({ d, kind, practice, place, onOpen }: { d: LiveDraft; kind: keyof typeof ITEM; practice?: boolean; place?: Placed; onOpen: () => void }) {
   const votes = d.ups + d.downs;
-  const status = d.status === 'stable' ? 'Published' : d.status === 'declined' ? 'Declined' : votes >= 5 ? `${votes} votes` : `${votes} of 5 votes`;
+  const status = (d.status === 'stable' ? 'Published' : d.status === 'declined' ? 'Declined' : votes >= 5 ? `${votes} votes` : `${votes} of 5 votes`)
+    + (d.practiceVote ? ' (1 practice)' : '');
   return (
     <button onClick={onOpen} style={{ '--tint': `var(--${ITEM[kind].tint})` } as React.CSSProperties}
       className="vblock flex w-52 flex-col gap-2 px-3 pb-3 pt-3.5 text-left">
@@ -323,7 +324,7 @@ function OpenItem({ d, kind, practice, place, onOpen }: { d: LiveDraft; kind: ke
         </span>
         {status}
       </span>
-      {practice && <span className="text-[11px] leading-tight">Only you see these, and they reset when you leave.</span>}
+      {(practice || d.practiceVote) && <span className="text-[11px] leading-tight">Practice votes are saved on this device. Only you see them.</span>}
     </button>
   );
 }
@@ -475,7 +476,7 @@ function DraftCard({ draft, place, routes, me, messages, live, startOpen = false
   const expand = () => { if (!open) live.view(draft.id); setOpen(!open); };
 
   const voting = !me ? null : mine ? (
-    <span className="text-sm text-muted">Your Draft · {total >= 5 ? `${draft.ups} yes · ${draft.downs} no` : leaning}</span>
+    <span className="text-sm text-muted">Your Draft · {total >= 5 ? `${draft.ups} yes · ${draft.downs} no` : leaning}{draft.practiceVote ? ' (includes your practice vote)' : ''}</span>
   ) : draft.kind === 'fact' ? (
     <>
       <VoteButton on={draft.myVote === 1} onClick={() => cast(draft.myVote === 1 ? 0 : 1)} icon={<Check size={15} aria-hidden="true" />}>I can confirm</VoteButton>
@@ -535,7 +536,7 @@ function DraftCard({ draft, place, routes, me, messages, live, startOpen = false
           </button>
         </span>
       </div>
-      {practiceVote && <p className="mt-2 text-xs text-muted">Your own Draft: votes here are practice, and only you see them.</p>}
+      {(practiceVote || draft.practiceVote) && <p className="mt-2 text-xs text-muted">Your own Draft: votes here are practice. They&apos;re saved on this device, show in every view, and only you see them.</p>}
       {error && <p role="status" className="mt-2 text-sm text-berry">{error}</p>}
       {reporting && !reported && <ReportForm target={{ draftId: draft.id }} live={live} onDone={() => setReporting(false)} />}
       {live.mod && <DraftModTools draft={draft} live={live} />}
