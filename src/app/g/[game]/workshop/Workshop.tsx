@@ -309,9 +309,15 @@ function OpenItem({ d, kind, practice, place, onOpen }: { d: LiveDraft; kind: ke
   const status = (d.status === 'stable' ? 'Published' : d.status === 'declined' ? 'Declined' : votes >= 5 ? `${votes} votes` : `${votes} of 5 votes`)
     + (d.practiceVote ? ' (1 practice)' : '');
   return (
-    <button onClick={onOpen} {...house(d.id, ITEM[kind].tint)}
+    // The card is a house from its Page's street: the same color and roof as that Page's block.
+    <button onClick={onOpen} {...(place ? house(place.page.title, place.page.tint) : house(d.id, 'muted'))}
       className="vblock flex w-52 flex-col gap-2 px-3 pb-3 pt-3.5 text-left">
-      <span className="text-[11px] font-bold uppercase tracking-wide">{practice ? 'Your Draft · practice votes' : ITEM[kind].label}</span>
+      <span className="flex items-center gap-1.5">
+        <span className="rounded-full bg-white/85 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: `color-mix(in srgb, var(--${ITEM[kind].tint}) 80%, black)` }}>
+          {practice ? 'Your Draft · practice' : ITEM[kind].label}
+        </span>
+        {place && <span className="truncate text-[11px] font-bold">{place.page.title}</span>}
+      </span>
       <span className="flex items-center gap-2 text-ink">
         {place ? <EntryIcon entry={d.content} block={place} size="sm" /> : null}
         <span className="min-w-0">
