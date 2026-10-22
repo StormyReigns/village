@@ -18,7 +18,7 @@ interface Sample {
   at?: string;
   side?: 'left' | 'right';
   tilt?: 'left' | 'right';
-  color?: 'deep' | 'full';
+  color?: 'deep' | 'full' | 'pale';
   on?: boolean;
 }
 
@@ -36,7 +36,7 @@ function Chip({ s, caption = true }: { s: Sample; caption?: boolean }) {
   );
 }
 
-function Card({ tint, kind, name, roof, at, tilt, color }: { tint: string; kind: string; name: string; roof?: string; at?: string; tilt?: 'left' | 'right'; color?: 'deep' | 'full' }) {
+function Card({ tint, kind, name, roof, at, tilt, color }: { tint: string; kind: string; name: string; roof?: string; at?: string; tilt?: 'left' | 'right'; color?: 'deep' | 'full' | 'pale' }) {
   return (
     <span style={{ '--tint': `var(--${tint})`, ...(at ? { '--at': at } : {}) } as React.CSSProperties} data-roof={roof} data-tilt={tilt} data-roof-color={color}
       className="vblock flex w-52 shrink-0 flex-col gap-2 px-3 pb-3 pt-3.5 text-left">
@@ -89,7 +89,7 @@ const CALM: Sample[] = MIXED.map((s, i) => ({ ...s, roof: undefined, tilt: undef
 const DEEP = (list: Sample[]) => list.map((s) => ({ ...s, color: 'deep' as const }));
 
 const COLORS: Sample[] = [
-  { id: 'E1', name: 'Same as block', tint: 'berry', icon: 'Users', label: 'Units', roof: 'gable' },
+  { id: 'E1', name: 'Same as block', tint: 'berry', icon: 'Users', label: 'Units', roof: 'gable', color: 'pale' },
   { id: 'E2', name: 'Deeper shade', tint: 'berry', icon: 'Users', label: 'Units', roof: 'gable', color: 'deep' },
   { id: 'E3', name: 'Full color', tint: 'berry', icon: 'Users', label: 'Units', roof: 'gable', color: 'full' },
   { id: 'E4', name: 'Deeper, chimney', tint: 'teal', icon: 'MapPin', label: 'World', roof: 'chimney', color: 'deep', at: '38%' },

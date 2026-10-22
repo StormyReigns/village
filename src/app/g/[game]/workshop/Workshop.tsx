@@ -13,6 +13,7 @@ import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/Entr
 import { matches } from '@/components/app/entries';
 import { SignInPrompt } from '@/components/SignInPrompt';
 import { ScrollRow } from '@/components/ScrollRow';
+import { house } from '@/components/house';
 import { MarketDay } from '@/components/Countdown';
 import { AccountButton } from '@/components/AccountButton';
 import { Avatar } from '@/components/Avatar';
@@ -280,7 +281,7 @@ function BlockChip({ on, tint, icon, label, count, onClick }: {
   on: boolean; tint: string; icon: string; label: string; count?: number; onClick: () => void;
 }) {
   return (
-    <button onClick={onClick} aria-pressed={on} style={{ '--tint': `var(--${tint})` } as React.CSSProperties}
+    <button onClick={onClick} aria-pressed={on} {...house(label, tint)}
       className={'vblock flex w-24 shrink-0 flex-col items-center gap-1 px-1.5 pb-2 pt-2.5 text-center sm:w-28 sm:gap-1.5 sm:px-2 sm:pb-2.5 sm:pt-3 ' + (on ? 'is-on gloss' : '')}>
       <span className={'grid size-9 place-items-center rounded-xl ' + (on ? 'bg-white/25' : 'bg-white/70')}>
         <BlockIcon name={icon} size={18} />
@@ -308,7 +309,7 @@ function OpenItem({ d, kind, practice, place, onOpen }: { d: LiveDraft; kind: ke
   const status = (d.status === 'stable' ? 'Published' : d.status === 'declined' ? 'Declined' : votes >= 5 ? `${votes} votes` : `${votes} of 5 votes`)
     + (d.practiceVote ? ' (1 practice)' : '');
   return (
-    <button onClick={onOpen} style={{ '--tint': `var(--${ITEM[kind].tint})` } as React.CSSProperties}
+    <button onClick={onOpen} {...house(d.id, ITEM[kind].tint)}
       className="vblock flex w-52 flex-col gap-2 px-3 pb-3 pt-3.5 text-left">
       <span className="text-[11px] font-bold uppercase tracking-wide">{practice ? 'Your Draft · practice votes' : ITEM[kind].label}</span>
       <span className="flex items-center gap-2 text-ink">
@@ -799,7 +800,7 @@ function AppContents({ pages, drafts, focus, onFix, onAdd, onDrafts }: {
             const list = b.entries.filter((e) => matches(e, query));
             if (query && !list.length) return null;
             return (
-              <section key={b.id} style={{ '--tint': `var(--${p.tint})` } as React.CSSProperties} className="vblock vblock-quiet min-w-0 p-3 pt-3.5">
+              <section key={b.id} {...house(b.id, p.tint, { lean: false })} className="vblock vblock-quiet min-w-0 p-3 pt-3.5">
                 <div className="flex items-center gap-2">
                   <span className="grid size-7 place-items-center rounded-lg" style={{ background: 'color-mix(in srgb, var(--tint) 14%, white)', color: 'var(--tint)' }}><BlockIcon name={b.icon} size={15} /></span>
                   <h4 className="font-bold">{b.title}</h4>

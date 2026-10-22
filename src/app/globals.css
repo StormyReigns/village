@@ -128,7 +128,7 @@ body {
   width: 30px;
   height: 10px;
   transform: translateX(-50%);
-  background-color: inherit;
+  background-color: var(--edge);
   clip-path: polygon(50% 0, 100% 100%, 0 100%);
   pointer-events: none;
 }
@@ -143,7 +143,6 @@ body {
   color: var(--ink);
   box-shadow: 0 4px 0 var(--edge), inset 0 0 0 1px color-mix(in srgb, var(--tint) 18%, white);
 }
-.vblock.vblock-quiet::before { background-color: var(--edge); }
 @media (prefers-reduced-motion: no-preference) {
   .vblock { transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease; }
   :is(button, a).vblock:hover { transform: translateY(-2px); box-shadow: 0 6px 0 var(--edge), 0 14px 20px -12px color-mix(in srgb, var(--tint) 60%, transparent); }
@@ -159,7 +158,7 @@ body {
 .vblock[data-roof="gable"]::before { width: 38px; height: 13px; top: -12px; clip-path: polygon(0 100%, 18% 55%, 32% 55%, 50% 0, 68% 55%, 82% 55%, 100% 100%); }
 .vblock[data-roof="thatch"]::before { width: 46px; height: 9px; top: -8px; clip-path: path('M0 9 Q5.75 0 11.5 9 Q17.25 0 23 9 Q28.75 0 34.5 9 Q40.25 0 46 9 Z'); }
 .vblock[data-roof="bump"]::before { width: 22px; height: 9px; top: -8px; clip-path: none; border-radius: 11px 11px 0 0; }
-.vblock[data-roof="sprout"]::before { width: 26px; height: 16px; top: -15px; background-color: var(--leaf); clip-path: path('M13 16 C13 10 13 8 13 7 C9 8 3 6 1 1 C6 0 11 2 13 6 C15 2 20 0 25 1 C23 6 17 8 13 7 C13 8 13 10 13 16 Z'); }
+.vblock[data-roof="sprout"]::before { width: 26px; height: 19px; top: -16px; background-color: color-mix(in srgb, var(--leaf) 80%, var(--edge)); clip-path: path('M11.5 19 L11.5 8 C8 8.5 2.5 6.5 1 1.5 C6 0.5 10.5 2.5 12 6.5 L14 6.5 C15.5 2.5 20 0.5 25 1.5 C23.5 6.5 18 8.5 14.5 8 L14.5 19 Z'); }
 .vblock[data-roof="chimney"]::after,
 .vblock[data-roof="flag"]::after {
   content: '';
@@ -175,7 +174,6 @@ body {
 .vblock[data-roof-side="left"]::before { top: var(--at, 50%); left: -12px; transform: translateY(-50%) rotate(-90deg); }
 .vblock[data-tilt="left"] { rotate: -1.5deg; }
 .vblock[data-tilt="right"] { rotate: 1.5deg; }
-/* Roof color: the same as the block (default), a deeper shade, or the full color. */
-.vblock[data-roof-color="deep"]::before { background-color: var(--edge); }
+/* Roof color: the block's edge shade (default), its own pale color, or the full color. */
+.vblock[data-roof-color="pale"]::before { background-color: inherit; }
 .vblock[data-roof-color="full"]::before { background-color: var(--tint); }
-.vblock.is-on[data-roof-color]::before { background-color: color-mix(in srgb, var(--tint) 70%, black); }
