@@ -207,5 +207,6 @@ body {
 /* A gentle bob for "there's more this way" arrows. */
 @media (prefers-reduced-motion: no-preference) {
   .nudge-down { animation: nudge-down 1.8s ease-in-out infinite; }
-  @keyframes nudge-down { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 3px); } }
+  /* Only moves up and down: the element's own centering stays as it is. */
+  @keyframes nudge-down { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
 }

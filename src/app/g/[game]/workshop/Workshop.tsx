@@ -807,7 +807,7 @@ function AppContents({ pages, drafts, focus, onFix, onAdd, onDrafts }: {
             const list = b.entries.filter((e) => matches(e, query));
             if (query && !list.length) return null;
             return (
-              <section key={b.id} {...house(b.id, p.tint, { lean: false })} className="vblock vblock-quiet min-w-0 p-3 pt-3.5">
+              <section key={b.id} {...house(p.title, p.tint, { lean: false })} className="vblock vblock-quiet min-w-0 p-3 pt-3.5">
                 <div className="flex items-center gap-2">
                   <span className="grid size-7 place-items-center rounded-lg" style={{ background: 'color-mix(in srgb, var(--tint) 14%, white)', color: 'var(--tint)' }}><BlockIcon name={b.icon} size={15} /></span>
                   <h4 className="font-bold">{b.title}</h4>
