@@ -4,12 +4,13 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDown, ArrowLeft, ArrowUp, Check, EyeOff, ExternalLink, Flag, MessageCircle, MoreHorizontal, Plus, RotateCcw, Send,
+  ArrowDown, ArrowLeft, ArrowUp, Check, EyeOff, ExternalLink, Flag, MessageCircle, MoreHorizontal, Plus, RotateCcw, Search, Send,
   ShieldCheck, Sparkles, Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import type { Block, Page } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
-import { EntryDetails, type RouteOption } from '@/components/app/EntryPanel';
+import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
+import { matches } from '@/components/app/entries';
 import { SignInPrompt } from '@/components/SignInPrompt';
 import { MarketDay } from '@/components/Countdown';
 import { AccountButton } from '@/components/AccountButton';
@@ -67,6 +68,17 @@ export function Workshop({ game, pages, routes }: {
   const [chip, setChip] = useState<string>(startPage && pages.some((p) => p.id === startPage) ? startPage : 'all');
   const [sort, setSort] = useState<Sort>('standouts');
   const [form, setForm] = useState<FormStart | null>(linked);
+  const [panel, setPanel] = useState<'drafts' | 'app'>(linked ? 'app' : 'drafts');
+
+  // Next keeps a visited Workshop alive in the background, so coming back through a new
+  // "Suggest a fix" link doesn't start it fresh. Follow each new link as it arrives.
+  const linkKey = `${params.get('fix') ?? ''}|${params.get('add') ?? ''}|${params.get('page') ?? ''}`;
+  const [followed, setFollowed] = useState(linkKey);
+  if (linkKey !== followed) {
+    setFollowed(linkKey);
+    if (startPage && pages.some((p) => p.id === startPage)) setChip(startPage);
+    if (linked) { setForm(linked); setPanel('app'); }
+  }
   const me = useVillager();
   const live = useWorkshop(game.id, me);
 
@@ -137,10 +149,17 @@ export function Workshop({ game, pages, routes }: {
         />
 
         {/* Drafts panel */}
-        <section aria-label="Drafts" className="flex min-h-[28rem] flex-col rounded-[1.75rem] bg-card p-4 shadow-soft ring-1 ring-line">
+        <section aria-label="Drafts" className="flex min-h-[28rem] min-w-0 flex-col rounded-[1.75rem] bg-card p-4 shadow-soft ring-1 ring-line">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-display text-xl">{chip === 'notice' ? 'Notice Board' : 'Drafts'}</h2>
-            <label className={'ml-auto' + (chip === 'notice' ? ' hidden' : '')}>
+            {chip === 'notice' ? <h2 className="font-display text-xl">Notice Board</h2> : (
+              <div role="tablist" aria-label="Show" className="flex rounded-full bg-card-2 p-1 ring-1 ring-line">
+                {([['drafts', `Drafts · ${visible.length}`], ['app', 'In the app']] as const).map(([k, label]) => (
+                  <button key={k} role="tab" aria-selected={panel === k} onClick={() => setPanel(k)}
+                    className={'rounded-full px-3 py-1 text-sm font-bold ' + (panel === k ? 'bg-card shadow-soft' : 'text-muted hover:text-ink')}>{label}</button>
+                ))}
+              </div>
+            )}
+            <label className={'ml-auto' + (chip === 'notice' || panel === 'app' ? ' hidden' : '')}>
               <span className="sr-only">Sort Drafts</span>
               <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="rounded-full bg-card-2 px-3 py-1.5 text-sm font-bold ring-1 ring-line">
                 {SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
@@ -155,6 +174,9 @@ export function Workshop({ game, pages, routes }: {
             live.mod ? <ReportQueue live={live} blocks={blocks} /> : (
               <Empty title="No reports waiting" body="When players tap “not quite” in the app without signing in, their report waits here until a villager confirms it." />
             )
+          ) : panel === 'app' ? (
+            <AppContents pages={current ? [current] : pages} drafts={drafts} focus={form?.entryId ? `${form.blockId}.${form.entryId}` : undefined}
+              onFix={(blockId, entryId) => setForm({ blockId, entryId })} onAdd={(blockId) => setForm({ blockId })} />
           ) : live.state === 'loading' ? (
             <div className="mt-3 grid gap-3" aria-hidden="true">
               {[0, 1].map((n) => <div key={n} className="h-24 animate-pulse rounded-3xl bg-card-2" />)}
@@ -522,7 +544,7 @@ function Chat({ topic: block, notice, onAll, messages, me, live }: {
   const tagFor = (m: ChatMessage) => (m.draftId && titles.has(m.draftId) ? `on “${titles.get(m.draftId)}”` : null);
 
   return (
-    <section aria-label="Chat" className="flex min-h-[28rem] flex-col rounded-[1.75rem] bg-card p-4 shadow-soft ring-1 ring-line lg:max-h-[calc(100vh-11rem)]">
+    <section aria-label="Chat" className="flex min-h-[28rem] min-w-0 flex-col rounded-[1.75rem] bg-card p-4 shadow-soft ring-1 ring-line lg:max-h-[calc(100vh-11rem)]">
       <div className="flex items-center gap-2">
         <h2 className="font-display text-xl">Chat</h2>
         {(block || notice) && (
@@ -615,5 +637,76 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
       </div>
       {error && <p role="status" className="mt-1.5 text-sm text-berry">{error}</p>}
     </li>
+  );
+}
+
+/**
+ * "In the app": what's on the selected Page right now, Block by Block, so villagers can
+ * pick something to fix or add to without leaving the Workshop.
+ */
+function AppContents({ pages, drafts, focus, onFix, onAdd }: {
+  pages: Page[]; drafts: LiveDraft[]; focus?: string;
+  onFix: (blockId: string, entryId: string) => void; onAdd: (blockId: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const open = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const d of drafts) if (d.cardId && (d.status === 'open' || d.status === 'checking')) n.set(d.cardId, (n.get(d.cardId) ?? 0) + 1);
+    return n;
+  }, [drafts]);
+  const many = pages.length > 1;
+  return (
+    <div className="mt-3 grid grid-cols-[minmax(0,1fr)] gap-4">
+      <label className="flex items-center gap-2 rounded-full bg-card-2 px-3 py-2 text-sm ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
+        <Search size={15} className="text-muted" aria-hidden="true" />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={many ? 'Find anything in the app' : `Find something in ${pages[0]?.title}`}
+          className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted" />
+      </label>
+      {pages.map((p) => (
+        <div key={p.id} className="grid grid-cols-[minmax(0,1fr)] gap-3">
+          {many && <h3 className="flex items-center gap-2 font-display text-lg"><BlockIcon name={p.icon} size={16} /> {p.title}</h3>}
+          {p.blocks.map((b) => {
+            const list = b.entries.filter((e) => matches(e, query));
+            if (query && !list.length) return null;
+            return (
+              <section key={b.id} className="min-w-0 rounded-3xl bg-card-2 p-3 ring-1 ring-line">
+                <div className="flex items-center gap-2">
+                  <BlockIcon name={b.icon} size={16} />
+                  <h4 className="font-bold">{b.title}</h4>
+                  <span className="text-xs text-muted">{b.entries.length}</span>
+                  <button onClick={() => onAdd(b.id)} className="ml-auto inline-flex items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-leaf">
+                    <Plus size={13} aria-hidden="true" /> Add
+                  </button>
+                </div>
+                {list.length === 0 ? (
+                  <p className="mt-2 text-sm text-muted">Nothing here yet. Add the first one.</p>
+                ) : (
+                  <ul className="mt-2 grid max-h-80 grid-cols-[minmax(0,1fr)] gap-1 overflow-y-auto pr-1">
+                    {list.map((e) => {
+                      const n = e.ref ? open.get(e.ref.card) ?? 0 : 0;
+                      const on = focus === `${b.id}.${e.id}`;
+                      return (
+                        <li key={e.id}>
+                          <button onClick={() => onFix(b.id, e.id)}
+                            className={'flex w-full items-center gap-2.5 rounded-2xl px-2 py-1.5 text-left hover:bg-card ' + (on ? 'bg-card ring-2 ring-leaf' : '')}>
+                            <EntryIcon entry={e} block={b} size="sm" />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-bold">{e.name}</span>
+                              <span className="block truncate text-xs text-muted">{e.stat ?? Object.values(e.categories)[0] ?? e.description}</span>
+                            </span>
+                            {n > 0 && <span className="shrink-0 rounded-full bg-sky-soft px-2 py-0.5 text-[11px] font-bold text-sky">{n} Draft{n > 1 ? 's' : ''}</span>}
+                            <span className="shrink-0 text-xs font-bold text-leaf">Fix</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
+            );
+          })}
+        </div>
+      ))}
+    </div>
   );
 }
