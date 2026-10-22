@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Check, ChevronDown, Hourglass, Plus, Search, Sparkles, StickyNote } from 'lucide-react';
 import type { Block, Entry, Route, Tint } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
+import { ScrollRow } from '@/components/ScrollRow';
 import { EntryIcon, EntryPanel, Lines, type RouteOption } from './EntryPanel';
 import { initials, matches, onRoute, rememberEntry, tintFor, useOpenEntry, useTicks } from './entries';
 import { TINT } from './tint';
@@ -152,10 +153,10 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
         </div>
       )}
       {values.length > 1 && (
-        <div className="chip-strip -mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 pb-1" role="group" aria-label={`Filter by ${filter}`}>
+        <ScrollRow className="-mx-1 mt-3 flex gap-1.5 px-1 pb-1" role="group" label={`Filter by ${filter}`}>
           <FilterChip on={!pick} tint={ctx.tint} onClick={() => setPick(null)}>All · {shown.length}</FilterChip>
           {values.map(([v, n]) => <FilterChip key={v} on={pick === v} tint={ctx.tint} onClick={() => setPick(pick === v ? null : v)}>{v} · {n}</FilterChip>)}
-        </div>
+        </ScrollRow>
       )}
 
       {list.length === 0 ? (
@@ -362,7 +363,7 @@ function Guide({ block, ctx }: { block: Block; ctx: BlockContext }) {
     <div className="mt-4 lg:grid lg:grid-cols-[11rem_minmax(0,1fr)] lg:gap-6">
       <nav aria-label="In this guide" className="lg:sticky lg:top-6 lg:self-start">
         <p className="mb-2 hidden text-xs font-bold uppercase tracking-wide text-muted lg:block">Contents</p>
-        <ol className="chip-strip -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:gap-1 lg:px-0">
+        <ScrollRow as="ol" className="-mx-1 flex gap-1.5 px-1 pb-1 lg:mx-0 lg:grid lg:gap-1 lg:px-0">
           {shown.map((e, i) => (
             <li key={e.id} className="shrink-0">
               <a href={`#${block.id}-${e.id}`} className="flex items-center gap-2 rounded-full bg-card-2 px-3 py-1.5 text-sm font-bold ring-1 ring-line hover:ring-ink lg:rounded-xl lg:bg-transparent lg:ring-0 lg:hover:bg-card-2">
@@ -370,7 +371,7 @@ function Guide({ block, ctx }: { block: Block; ctx: BlockContext }) {
               </a>
             </li>
           ))}
-        </ol>
+        </ScrollRow>
       </nav>
       <div className="mt-3 grid gap-4 lg:mt-0">
         {shown.map((e, n) => {

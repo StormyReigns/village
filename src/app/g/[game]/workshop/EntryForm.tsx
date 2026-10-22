@@ -5,6 +5,7 @@ import { Plus, Search, Trash2, X } from 'lucide-react';
 import type { Block, Entry, EntryContent, Page, Route, Section } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
 import { SignInPrompt } from '@/components/SignInPrompt';
+import { ScrollRow } from '@/components/ScrollRow';
 import type { Villager } from '@/components/useVillager';
 import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
 import { matches } from '@/components/app/entries';
@@ -145,14 +146,14 @@ export function EntryForm({ pages, routes, start, me, postDraft, onClose, onPost
 
         {!fixing && (
           <div className="mt-3 grid gap-2">
-            <div className="chip-strip -mx-1 flex gap-2 overflow-x-auto px-1 pb-1" role="group" aria-label="Page">
+            <ScrollRow className="-mx-1 flex gap-2 px-1 pb-1" role="group" label="Page">
               {pages.map((p) => (
                 <button key={p.id} type="button" onClick={() => p.blocks[0] && choose(p.blocks[0].id)} aria-pressed={p.id === page.id} disabled={!p.blocks.length}
                   className={'inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (p.id === page.id ? 'bg-leaf text-paper ring-leaf' : 'bg-card ring-line hover:ring-leaf')}>
                   <BlockIcon name={p.icon} size={14} /> {p.title}
                 </button>
               ))}
-            </div>
+            </ScrollRow>
             {page.blocks.length > 1 && (
               <div className="flex flex-wrap gap-1.5" role="group" aria-label="Block">
                 {page.blocks.map((b) => (

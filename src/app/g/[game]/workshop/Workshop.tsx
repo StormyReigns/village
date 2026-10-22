@@ -12,6 +12,7 @@ import { BlockIcon } from '@/components/Icon';
 import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
 import { matches } from '@/components/app/entries';
 import { SignInPrompt } from '@/components/SignInPrompt';
+import { ScrollRow } from '@/components/ScrollRow';
 import { MarketDay } from '@/components/Countdown';
 import { AccountButton } from '@/components/AccountButton';
 import { Avatar } from '@/components/Avatar';
@@ -152,13 +153,13 @@ export function Workshop({ game, pages, routes }: {
       </header>
 
       {/* The Pages, as a row of village blocks */}
-      <nav aria-label="Pages" className="chip-strip -mx-4 mt-3 flex gap-3 overflow-x-auto px-4 pb-3 pt-4">
+      <ScrollRow as="nav" label="Pages" className="-mx-4 mt-3 flex gap-3 px-4 pb-3 pt-4">
         <BlockChip on={chip === 'all'} tint="ink" icon="LayoutGrid" label="Everything" count={drafts.filter(isOpen).length} onClick={() => setChip('all')} />
         {pages.map((p) => (
           <BlockChip key={p.id} on={chip === p.id} tint={p.tint} icon={p.icon} label={p.title} count={counts[p.id]} onClick={() => setChip(p.id)} />
         ))}
         <BlockChip on={chip === 'notice'} tint="berry" icon="Flag" label="Notice Board" count={live.mod ? live.reports.length : 0} onClick={() => setChip('notice')} />
-      </nav>
+      </ScrollRow>
 
       {live.state === 'offline' && (
         <p role="status" className="mt-3 rounded-2xl bg-berry-soft px-4 py-3 text-sm text-berry">Couldn&apos;t reach the village just now. Refresh the page to try again.</p>
@@ -207,13 +208,13 @@ export function Workshop({ game, pages, routes }: {
               <div className="mt-3">
                 <p className="text-xs font-bold uppercase tracking-wide text-muted">Open items · {items.length}</p>
                 {live.state === 'loading' ? (
-                  <div className="mt-4 flex gap-3" aria-hidden="true">{[0, 1].map((n) => <div key={n} className="h-28 w-52 shrink-0 animate-pulse rounded-[1.1rem] bg-card-2" />)}</div>
+                  <div className="mt-4 flex gap-3 overflow-hidden" aria-hidden="true">{[0, 1].map((n) => <div key={n} className="h-28 w-52 shrink-0 animate-pulse rounded-[1.1rem] bg-card-2" />)}</div>
                 ) : items.length === 0 ? (
                   <p className="mt-2 rounded-2xl bg-card-2 px-3 py-3 text-sm text-muted">Nothing waiting{current ? ` on ${current.title}` : ''}. Pick something below to improve, or add something new.</p>
                 ) : (
-                  <ul className="swipe chip-strip -mx-4 flex gap-3 overflow-x-auto px-4 pb-3 pt-4">
-                    {items.map(({ d, kind }) => <li key={d.id} className="shrink-0"><OpenItem d={d} kind={kind} place={placeOf(d.blockKey)} onOpen={() => setDetail(d.id)} /></li>)}
-                  </ul>
+                  <ScrollRow as="ul" className="swipe -mx-4 flex gap-3 px-4 pb-3 pt-4">
+                    {items.map(({ d, kind }) => <li key={d.id} className="shrink-0"><OpenItem d={d} kind={kind} practice={Boolean(me?.practice && d.author.id === me.id)} place={placeOf(d.blockKey)} onOpen={() => setDetail(d.id)} /></li>)}
+                  </ScrollRow>
                 )}
               </div>
 
@@ -302,13 +303,13 @@ const ITEM: Record<'ready' | 'yours' | 'vote' | 'voted', { label: string; tint: 
 };
 
 /** One open item: a Draft as a village block you can tap to see and vote on. */
-function OpenItem({ d, kind, place, onOpen }: { d: LiveDraft; kind: keyof typeof ITEM; place?: Placed; onOpen: () => void }) {
+function OpenItem({ d, kind, practice, place, onOpen }: { d: LiveDraft; kind: keyof typeof ITEM; practice?: boolean; place?: Placed; onOpen: () => void }) {
   const votes = d.ups + d.downs;
   const status = d.status === 'stable' ? 'Published' : d.status === 'declined' ? 'Declined' : votes >= 5 ? `${votes} votes` : `${votes} of 5 votes`;
   return (
     <button onClick={onOpen} style={{ '--tint': `var(--${ITEM[kind].tint})` } as React.CSSProperties}
       className="vblock flex w-52 flex-col gap-2 px-3 pb-3 pt-3.5 text-left">
-      <span className="text-[11px] font-bold uppercase tracking-wide">{ITEM[kind].label}</span>
+      <span className="text-[11px] font-bold uppercase tracking-wide">{practice ? 'Your Draft · practice votes' : ITEM[kind].label}</span>
       <span className="flex items-center gap-2 text-ink">
         {place ? <EntryIcon entry={d.content} block={place} size="sm" /> : null}
         <span className="min-w-0">
@@ -322,6 +323,7 @@ function OpenItem({ d, kind, place, onOpen }: { d: LiveDraft; kind: keyof typeof
         </span>
         {status}
       </span>
+      {practice && <span className="text-[11px] leading-tight">Only you see these, and they reset when you leave.</span>}
     </button>
   );
 }
