@@ -1,37 +1,30 @@
-import Link from 'next/link';
 import { Suspense } from 'react';
-import { ArrowLeft, Hammer, Sparkles } from 'lucide-react';
-import { AccountButton } from '@/components/AccountButton';
+import { getGame } from '@/data/games';
+import { pagesFor } from '@/data/pages';
+import { AppNav } from '@/components/app/AppNav';
+import { withCovers } from '@/lib/pictures';
 
 // The new game app (Pages made of Blocks), shown as a preview beside the current one.
+// Computers get a sidebar; phones get a top bar and a bottom tab bar.
 export default function AppLayout({ children, params }: LayoutProps<'/g/[game]/p'>) {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-5 sm:px-6">
-      <div className="flex items-center justify-between gap-3">
-        <Link href="/" className="inline-flex items-center gap-1 text-sm font-bold text-muted hover:text-ink">
-          <ArrowLeft size={16} aria-hidden="true" /> Village square
-        </Link>
-        <div className="flex items-center gap-2">
-          <Suspense fallback={<span className="h-9 w-28 rounded-full bg-card-2" />}>
-            <WorkshopLink params={params} />
-          </Suspense>
-          <AccountButton />
-        </div>
-      </div>
-      <p className="mt-3 flex items-center gap-2 rounded-2xl bg-sun-soft px-4 py-2 text-sm">
-        <Sparkles size={16} className="shrink-0 text-sun" aria-hidden="true" />
-        Preview of the new app layout.
-      </p>
-      {children}
-    </main>
+    <div className="mx-auto w-full max-w-6xl px-4 pb-28 pt-0 sm:px-6 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:gap-x-8 lg:gap-y-4 lg:pb-16 lg:pt-5">
+      <Suspense fallback={<div className="h-12" />}>
+        <Nav params={params} />
+      </Suspense>
+      <main className="min-w-0 lg:col-start-2">{children}</main>
+    </div>
   );
 }
 
-async function WorkshopLink({ params }: { params: LayoutProps<'/g/[game]/p'>['params'] }) {
-  const { game } = await params;
-  return (
-    <Link href={`/g/${game}/workshop`} className="btn-quiet inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold">
-      <Hammer size={16} className="text-leaf" aria-hidden="true" /> Workshop
-    </Link>
-  );
+async function Nav({ params }: { params: LayoutProps<'/g/[game]/p'>['params'] }) {
+  const { game: id } = await params;
+  const found = getGame(id);
+  if (!found) return null;
+  const [game] = withCovers([found]);
+  const pages = pagesFor(id).map((p) => ({
+    id: p.id, title: p.title, short: p.short, icon: p.icon, tint: p.tint,
+    count: p.blocks.reduce((n, b) => n + b.entries.length, 0),
+  }));
+  return <AppNav game={{ id: game.id, shortTitle: game.shortTitle, cover: game.cover }} pages={pages} />;
 }

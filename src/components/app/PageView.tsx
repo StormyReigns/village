@@ -1,44 +1,37 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Eye, EyeOff, Search } from 'lucide-react';
-import type { Page } from '@/data/pages';
+import { useMemo, useState } from 'react';
+import { ArrowRight, Clock, Eye, EyeOff, Hourglass, Info, Search } from 'lucide-react';
+import type { Page, Route } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
 import { usePlayerPrefs } from '@/components/usePlayerPrefs';
 import { BlockView, type BlockContext } from './Blocks';
 import { EntryIcon, type RouteOption } from './EntryPanel';
-import { matches } from './entries';
+import { initials, matches, onRoute, tintFor, useRecent, useTicks } from './entries';
+import { TINT } from './tint';
 
 export interface AppGame {
   id: string;
   shortTitle: string;
+  title: string;
   routes: RouteOption[];
   /** "Which Flame Lord are you playing?" */
   routeQuestion?: string;
 }
 
-export type PageLink = Pick<Page, 'id' | 'title' | 'icon'>;
-
-/** The strip of Pages across the top of the game app. Stays put while scrolling. */
-export function PageStrip({ gameId, pages, current }: { gameId: string; pages: PageLink[]; current?: string }) {
-  const active = useRef<HTMLAnchorElement>(null);
-  useEffect(() => { active.current?.scrollIntoView({ block: 'nearest', inline: 'center' }); }, [current]);
+/** Pick your route: All, or one Flame Lord. Remembered on this device. */
+function RoutePicker({ game, route, onPick, solid }: { game: AppGame; route: Route | 'all'; onPick: (r: Route | 'all') => void; solid: string }) {
   return (
-    <nav aria-label="Pages" className="sticky top-0 z-30 -mx-4 bg-paper/85 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
-      <div className="chip-strip flex gap-2 overflow-x-auto pb-1">
-        {pages.map((p) => {
-          const on = p.id === current;
-          return (
-            <Link key={p.id} ref={on ? active : undefined} href={`/g/${gameId}/p/${p.id}`} aria-current={on ? 'page' : undefined}
-              className={'inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-bold ring-1 transition ' +
-                (on ? 'gloss bg-leaf text-paper ring-leaf' : 'bg-card ring-line hover:ring-leaf')}>
-              <BlockIcon name={p.icon} size={15} /> {p.title}
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
+    <div role="radiogroup" aria-label={game.routeQuestion ?? 'Route'} className="chip-strip flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full bg-card p-1 ring-1 ring-line">
+      <span className="hidden px-2 text-xs font-bold uppercase tracking-wide text-muted sm:inline">Flame Lord</span>
+      {[{ key: 'all', label: 'All' } as const, ...game.routes].map((r) => (
+        <button key={r.key} role="radio" aria-checked={route === r.key} onClick={() => onPick(r.key)}
+          className={'shrink-0 rounded-full px-2.5 py-1.5 text-sm font-bold sm:px-3 ' + (route === r.key ? `gloss ${solid} text-white` : 'hover:bg-card-2')}>
+          {r.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -46,8 +39,11 @@ export function PageView({ game, page }: { game: AppGame; page: Page }) {
   const [prefs, setPrefs] = usePlayerPrefs(game.id);
   const byRoute = game.routes.length > 0 && page.blocks.some((b) => b.byRoute);
   const hasSpoilers = page.blocks.some((b) => b.entries.some((e) => e.spoiler));
+  const t = TINT[page.tint];
   const ctx: BlockContext = {
     gameId: game.id,
+    pageTitle: page.title,
+    tint: page.tint,
     route: byRoute ? prefs.route : 'all',
     routes: game.routes,
     spoilers: prefs.spoilers,
@@ -55,39 +51,38 @@ export function PageView({ game, page }: { game: AppGame; page: Page }) {
   };
 
   return (
-    <div className="mt-4">
-      <h1 className="font-display text-3xl">{page.title}</h1>
-      <p className="mt-1 text-muted">{page.blurb}</p>
-
-      {(byRoute || hasSpoilers) && (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {byRoute && (
-            <div role="radiogroup" aria-label={game.routeQuestion ?? 'Route'} className="flex flex-wrap items-center gap-1 rounded-full bg-card p-1 ring-1 ring-line">
-              <span className="hidden px-2 text-xs font-bold uppercase tracking-wide text-muted sm:inline">Flame Lord</span>
-              {[{ key: 'all', label: 'All' } as const, ...game.routes].map((r) => (
-                <button key={r.key} role="radio" aria-checked={prefs.route === r.key} onClick={() => setPrefs({ route: r.key })}
-                  className={'rounded-full px-3 py-1.5 text-sm font-bold ' + (prefs.route === r.key ? 'gloss bg-berry text-paper' : 'hover:bg-card-2')}>
-                  {r.label}
-                </button>
-              ))}
-            </div>
-          )}
-          {hasSpoilers && (
-            <button onClick={() => setPrefs({ spoilers: !prefs.spoilers })} aria-pressed={prefs.spoilers}
-              className="inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-2 text-sm font-bold ring-1 ring-line hover:ring-ink">
-              {prefs.spoilers ? <Eye size={15} aria-hidden="true" /> : <EyeOff size={15} aria-hidden="true" />}
-              {prefs.spoilers ? 'Spoilers shown' : 'Spoilers hidden'}
-            </button>
-          )}
+    <div className="mt-3 lg:mt-0">
+      <header className={`relative overflow-hidden rounded-[2rem] bg-gradient-to-br ${t.bar} to-card p-5 ring-1 ring-line sm:p-6`}>
+        <span className={`pointer-events-none absolute -right-6 -top-6 opacity-[0.12] ${t.text}`} aria-hidden="true"><BlockIcon name={page.icon} size={150} /></span>
+        <div className="relative flex items-center gap-4">
+          <span className={`gloss grid size-14 shrink-0 place-items-center rounded-2xl text-white shadow-soft ${t.solid}`}><BlockIcon name={page.icon} size={26} /></span>
+          <div className="min-w-0">
+            <h1 className="font-display text-3xl leading-tight">{page.title}</h1>
+            <p className="text-muted">{page.blurb}</p>
+          </div>
         </div>
-      )}
-
-      {page.blocks.length > 1 && (
-        <p className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-sm">
-          <span className="text-muted">On this page:</span>
-          {page.blocks.map((b) => <a key={b.id} href={`#${b.id}`} className="font-bold text-leaf underline-offset-2 hover:underline">{b.title}</a>)}
-        </p>
-      )}
+        {(byRoute || hasSpoilers) && (
+          <div className="relative mt-4 flex flex-wrap items-center gap-2">
+            {byRoute && <RoutePicker game={game} route={prefs.route} onPick={(r) => setPrefs({ route: r })} solid={t.solid} />}
+            {hasSpoilers && (
+              <button onClick={() => setPrefs({ spoilers: !prefs.spoilers })} aria-pressed={prefs.spoilers}
+                className="inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-2 text-sm font-bold ring-1 ring-line hover:ring-ink">
+                {prefs.spoilers ? <Eye size={15} aria-hidden="true" /> : <EyeOff size={15} aria-hidden="true" />}
+                {prefs.spoilers ? 'Spoilers shown' : 'Spoilers hidden'}
+              </button>
+            )}
+          </div>
+        )}
+        {page.blocks.length > 1 && (
+          <p className="relative mt-4 flex flex-wrap gap-2 text-sm">
+            {page.blocks.map((b) => (
+              <a key={b.id} href={`#${b.id}`} className="inline-flex items-center gap-1.5 rounded-full bg-card/80 px-3 py-1 font-bold ring-1 ring-line hover:ring-ink">
+                <BlockIcon name={b.icon} size={14} /> {b.title} <span className="text-muted">{b.entries.length}</span>
+              </a>
+            ))}
+          </p>
+        )}
+      </header>
 
       <div className="mt-4 grid gap-4">
         {page.blocks.map((b) => <BlockView key={b.id} block={b} ctx={ctx} />)}
@@ -96,26 +91,26 @@ export function PageView({ game, page }: { game: AppGame; page: Page }) {
   );
 }
 
-/** Search across every Page from the app's front door. */
-export function AppSearch({ gameId, pages }: { gameId: string; pages: Page[] }) {
+/** Search across every Page. */
+function AppSearch({ gameId, pages }: { gameId: string; pages: Page[] }) {
   const [query, setQuery] = useState('');
   const all = useMemo(() => pages.flatMap((p) => p.blocks.flatMap((b) => b.entries.map((e) => ({ p, b, e })))), [pages]);
   const hits = query.trim().length < 2 ? [] : all.filter(({ e }) => !e.spoiler && matches(e, query)).slice(0, 12);
   return (
-    <div>
-      <label className="surface flex items-center gap-3 rounded-full px-4 py-3 focus-within:ring-2 focus-within:ring-sky">
+    <div className="relative">
+      <label className="flex items-center gap-3 rounded-full bg-card px-4 py-3 shadow-soft ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
         <Search size={18} className="text-muted" aria-hidden="true" />
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search units, items, places…" aria-label="Search the app"
           className="min-w-0 flex-1 bg-transparent text-lg outline-none placeholder:text-muted" />
       </label>
       {query.trim().length >= 2 && (
-        <ul className="surface mt-2 grid gap-1 rounded-3xl p-2">
+        <ul className="surface absolute inset-x-0 z-20 mt-2 grid max-h-[60vh] gap-1 overflow-y-auto rounded-3xl p-2">
           {hits.length === 0 && <li className="px-3 py-2 text-sm text-muted">Nothing found for “{query}”. Spoilers are left out here.</li>}
           {hits.map(({ p, b, e }) => (
             <li key={`${b.id}.${e.id}`}>
               <Link href={b.type === 'guide' || b.type === 'timeline' ? `/g/${gameId}/p/${p.id}#${b.id}` : `/g/${gameId}/p/${p.id}?e=${b.id}.${e.id}`}
                 className="flex items-center gap-3 rounded-2xl px-2 py-1.5 hover:bg-card-2">
-                <EntryIcon entry={e} block={b} />
+                <EntryIcon entry={e} block={b} size="sm" />
                 <span className="min-w-0">
                   <span className="block font-bold leading-tight">{e.name}</span>
                   <span className="block text-sm text-muted">{p.title} · {b.title}</span>
@@ -125,6 +120,112 @@ export function AppSearch({ gameId, pages }: { gameId: string; pages: Page[] }) 
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/**
+ * The app's front page, built around a player mid-game: search, your Flame Lord, where
+ * you left off, your next deadline, then every Page.
+ */
+export function AppHome({ game, pages, cover }: { game: AppGame; pages: Page[]; cover?: string }) {
+  const [prefs, setPrefs] = usePlayerPrefs(game.id);
+  const recent = useRecent(game.id);
+  const [ticks] = useTicks(game.id);
+
+  // The first thing on a checklist you haven't ticked, on your route.
+  const next = (() => {
+    for (const p of pages) for (const b of p.blocks) {
+      if (b.type !== 'checklist') continue;
+      const e = b.entries.find((x) => onRoute(x, prefs.route) && !ticks.has(`${b.id}.${x.id}`) && (prefs.spoilers || !x.spoiler));
+      if (e) {
+        const when = prefs.route !== 'all' ? e.perRoute?.[prefs.route]?.[0]?.text : e.sections.find((s) => s.label === 'Before')?.text;
+        return { p, b, e, when };
+      }
+    }
+    return null;
+  })();
+
+  return (
+    <div className="mt-3 grid gap-5 lg:mt-0">
+      <section className="relative overflow-hidden rounded-[2rem] ring-1 ring-line">
+        {cover
+          // eslint-disable-next-line @next/next/no-img-element -- our own cover art
+          ? <img src={cover} alt="" className="absolute inset-0 size-full object-cover" />
+          : <span className="absolute inset-0 bg-gradient-to-br from-berry via-sun to-plum" aria-hidden="true" />}
+        <span className="absolute inset-0 bg-gradient-to-t from-ink/70 via-ink/25 to-transparent" aria-hidden="true" />
+        <div className="relative px-5 pb-5 pt-16 sm:px-7 sm:pt-24">
+          <h1 className="font-display text-3xl text-white drop-shadow sm:text-4xl">{game.title}</h1>
+          {game.routes.length > 0 && (
+            <div className="mt-3">
+              <p className="mb-1.5 text-sm font-bold text-white/90">{game.routeQuestion}</p>
+              <RoutePicker game={game} route={prefs.route} onPick={(r) => setPrefs({ route: r })} solid="bg-berry" />
+            </div>
+          )}
+        </div>
+      </section>
+
+      <AppSearch gameId={game.id} pages={pages} />
+
+      {(recent.length > 0 || next) && (
+        <div className="grid gap-3 md:grid-cols-2">
+          {next && (
+            <Link href={`/g/${game.id}/p/${next.p.id}`} className={`lift flex items-start gap-3 rounded-[1.5rem] ${TINT[next.p.tint].soft} p-4 ring-1 ring-line`}>
+              <span className={`gloss grid size-10 shrink-0 place-items-center rounded-xl text-white ${TINT[next.p.tint].solid}`}><Hourglass size={19} aria-hidden="true" /></span>
+              <span className="min-w-0 flex-1">
+                <span className={`block text-xs font-bold uppercase tracking-wide ${TINT[next.p.tint].text}`}>Your next last chance</span>
+                <span className="block font-bold leading-tight">{next.e.name}</span>
+                <span className="block text-sm text-muted">{next.when ? `Before ${next.when.split('\n')[0]}` : 'Pick your Flame Lord to see the deadline.'}</span>
+              </span>
+              <ArrowRight size={18} className="mt-1 text-muted" aria-hidden="true" />
+            </Link>
+          )}
+          {recent.length > 0 && (
+            <div className="surface rounded-[1.5rem] p-4">
+              <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted"><Clock size={13} aria-hidden="true" /> Pick up where you left off</p>
+              <ul className="mt-2 flex flex-wrap gap-1.5">
+                {recent.slice(0, 6).map((r) => (
+                  <li key={r.href}>
+                    <Link href={r.href} title={r.where} className="inline-flex items-center gap-1.5 rounded-full bg-card-2 py-1 pl-1 pr-3 text-sm font-bold ring-1 ring-line hover:ring-ink">
+                      <span className={`grid size-6 place-items-center rounded-full text-[10px] ${tintFor(r.name)}`}>{initials(r.name)}</span>{r.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {pages.map((p) => {
+          const t = TINT[p.tint];
+          const faces = p.blocks.flatMap((b) => b.entries).filter((e) => !e.spoiler).slice(0, 5);
+          return (
+            <li key={p.id}>
+              <Link href={`/g/${game.id}/p/${p.id}`} className={`lift relative flex h-full flex-col overflow-hidden rounded-[1.75rem] bg-gradient-to-br ${t.bar} to-card p-4 ring-1 ring-line`}>
+                <span className={`pointer-events-none absolute -bottom-5 -right-4 opacity-[0.12] ${t.text}`} aria-hidden="true"><BlockIcon name={p.icon} size={110} /></span>
+                <span className={`gloss grid size-12 place-items-center rounded-2xl text-white shadow-soft ${t.solid}`}><BlockIcon name={p.icon} size={22} /></span>
+                <span className="mt-3 block font-display text-2xl leading-tight">{p.title}</span>
+                <span className="mt-1 block text-sm text-muted">{p.blurb}</span>
+                <span className="mt-3 flex items-center">
+                  {faces.map((e, i) => (
+                    <span key={e.id} className={`-ml-1.5 grid size-8 place-items-center rounded-full text-[11px] font-bold ring-2 ring-card first:ml-0 ${tintFor(Object.values(e.categories)[0] ?? e.name)}`} style={{ zIndex: 5 - i }}>
+                      {initials(e.name)}
+                    </span>
+                  ))}
+                  <span className="ml-2 text-xs font-bold text-muted">{p.blocks.reduce((n, b) => n + b.entries.length, 0)} entries</span>
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+
+      <p className="flex gap-2 text-sm text-muted">
+        <Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+        Starter content from an early community codex. Some details may be wrong; fix them in the Workshop.
+      </p>
     </div>
   );
 }

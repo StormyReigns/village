@@ -1,12 +1,12 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { Entry, Route } from '@/data/pages';
 
 // Small helpers shared by the game app's Blocks.
 
-const TINTS = ['bg-leaf-soft text-leaf', 'bg-sky-soft text-sky', 'bg-berry-soft text-berry', 'bg-sun-soft text-sun'];
+const TINTS = ['bg-leaf-soft text-leaf', 'bg-sky-soft text-sky', 'bg-berry-soft text-berry', 'bg-sun-soft text-sun', 'bg-plum-soft text-plum', 'bg-teal-soft text-teal'];
 
 /** A steady soft color for a word, so each group or type gets its own tint. */
 export function tintFor(word: string) {
@@ -54,4 +54,45 @@ export function useOpenEntry() {
     else set(null, 'replace');
   }, [set]);
   return { open, set, close };
+}
+
+export interface Recent { href: string; name: string; where: string }
+
+/** Remembers the last few entries opened on this device, for "Pick up where you left off". */
+export function rememberEntry(gameId: string, item: Recent) {
+  try {
+    const key = `village:${gameId}:recent`;
+    const list: Recent[] = JSON.parse(localStorage.getItem(key) ?? '[]');
+    localStorage.setItem(key, JSON.stringify([item, ...list.filter((r) => r.href !== item.href)].slice(0, 8)));
+  } catch { /* storage unavailable */ }
+}
+
+export function useRecent(gameId: string) {
+  const [recent, setRecent] = useState<Recent[]>([]);
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reading device storage after hydration
+      setRecent(JSON.parse(localStorage.getItem(`village:${gameId}:recent`) ?? '[]'));
+    } catch { /* storage unavailable */ }
+  }, [gameId]);
+  return recent;
+}
+
+/** Checklist ticks are the player's own, kept on this device. */
+export function useTicks(gameId: string) {
+  const key = `village:${gameId}:ticks`;
+  const [ticks, setTicks] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reading device storage after hydration
+      setTicks(new Set(JSON.parse(localStorage.getItem(key) ?? '[]')));
+    } catch { /* storage unavailable: start empty */ }
+  }, [key]);
+  const toggle = useCallback((id: string) => setTicks((t) => {
+    const next = new Set(t);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    try { localStorage.setItem(key, JSON.stringify([...next])); } catch { /* ignore */ }
+    return next;
+  }), [key]);
+  return [ticks, toggle] as const;
 }

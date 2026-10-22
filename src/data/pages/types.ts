@@ -6,6 +6,12 @@ import type { Route } from '@/data/content/types';
 
 export type { Route };
 
+/** A Page's color, from a fixed set. */
+export type Tint = 'leaf' | 'sky' | 'berry' | 'sun' | 'plum' | 'teal';
+
+/** How a Collection shows its entries: portrait cards, inventory slots, or a list. */
+export type Look = 'portraits' | 'slots' | 'rows';
+
 /** The four preset Block types. New ones come from community requests. */
 export type BlockType = 'collection' | 'guide' | 'checklist' | 'timeline';
 
@@ -25,6 +31,8 @@ export interface Entry {
   routes?: Route[];
   /** Sections that only show for one route, e.g. how to recruit someone as Theodora. */
   perRoute?: Partial<Record<Route, Section[]>>;
+  /** A short key fact shown on the tile or row, like "Lv 12". */
+  stat?: string;
   /** Timeline position. */
   order?: number;
   spoiler?: boolean;
@@ -37,6 +45,10 @@ export interface Block {
   type: BlockType;
   title: string;
   icon: string;
+  /** Collection only: how entries are shown. */
+  look?: Look;
+  /** Collection only: what the entries' stat means when it's a number, e.g. "Level". Adds a sort. */
+  statName?: string;
   /** A sentence under the title saying what's here. */
   intro?: string;
   /** Category names players can filter by (Collection only). */
@@ -49,7 +61,10 @@ export interface Block {
 export interface Page {
   id: string;
   title: string;
+  /** A one-word name for tight spaces, like the phone's bottom bar. */
+  short: string;
   icon: string;
+  tint: Tint;
   blurb: string;
   blocks: Block[];
 }

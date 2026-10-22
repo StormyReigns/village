@@ -16,9 +16,9 @@ export function Lines({ text }: { text: string }) {
   return <ul className="grid gap-1">{lines.map((l, i) => <li key={i} className="flex gap-2"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-muted/60" />{l}</li>)}</ul>;
 }
 
-export function EntryIcon({ entry, block, size = 'md' }: { entry: Entry; block: Block; size?: 'md' | 'lg' }) {
+export function EntryIcon({ entry, block, size = 'md' }: { entry: Entry; block: Block; size?: 'sm' | 'md' | 'lg' }) {
   const tint = tintFor(Object.values(entry.categories)[0] ?? block.title);
-  const box = size === 'lg' ? 'size-20 rounded-3xl text-2xl' : 'size-14 rounded-2xl text-lg';
+  const box = size === 'lg' ? 'size-20 rounded-3xl text-2xl' : size === 'sm' ? 'size-10 rounded-xl text-sm' : 'size-14 rounded-2xl text-lg';
   if (entry.icon) {
     // eslint-disable-next-line @next/next/no-img-element -- community pictures, sized small
     return <img src={entry.icon} alt="" className={`${box} object-cover`} />;

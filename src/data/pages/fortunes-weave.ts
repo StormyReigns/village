@@ -97,9 +97,12 @@ function places(): Entry[] {
   return of('places').map((c) => {
     const unlock = c.content.unlock ?? '';
     const region = /^([A-Z][\w' ]+)\. /.exec(unlock)?.[1];
+    const rest = region ? unlock.slice(region.length + 2) : unlock;
+    const level = /Suggested level (\d+)\.\s*/.exec(rest);
     return {
       ...base(c, c.content.name),
-      description: region ? unlock.slice(region.length + 2) : unlock,
+      description: level ? rest.replace(level[0], '').trim() : rest,
+      stat: level ? `Lv ${level[1]}` : undefined,
       sections: sections(["What's there", c.content.notable]),
       categories: { Region: region ?? 'Hub' },
     };
@@ -110,7 +113,8 @@ function foes(): Entry[] {
   return of('foes').map((c) => ({
     ...base(c, c.content.name),
     description: c.content.tips,
-    sections: sections(['Where', c.content.where], ['Weak to', c.content.weak]),
+    stat: c.content.where || undefined,
+    sections: sections(['Weak to', c.content.weak]),
     categories: {},
   }));
 }
@@ -127,6 +131,7 @@ function mysteries(): Entry[] {
   return of('mysteries').map((c) => ({
     ...base(c, c.content.name),
     description: c.content.known,
+    stat: c.content.status || 'Open',
     sections: [],
     categories: { Status: c.content.status || 'Open' },
   }));
@@ -136,43 +141,43 @@ const block = (b: Omit<Block, 'id'>): Block => ({ id: slug(b.title), ...b });
 
 export const PAGES: Page[] = [
   {
-    id: 'units-and-classes', title: 'Units and classes', icon: 'Users',
+    id: 'units-and-classes', title: 'Units and classes', short: 'Units', icon: 'Users', tint: 'berry',
     blurb: 'Who can join your army, how to recruit them, and every class tier.',
     blocks: [
-      block({ type: 'collection', title: 'Units', icon: 'Users', filters: ['Group'], byRoute: true, entries: units(),
+      block({ type: 'collection', look: 'portraits', title: 'Units', icon: 'Users', filters: ['Group'], byRoute: true, entries: units(),
         intro: 'Pick your Flame Lord to see who can join you and what it takes.' }),
-      block({ type: 'collection', title: 'Classes', icon: 'Shield', filters: ['Tier'], entries: classes() }),
+      block({ type: 'collection', look: 'slots', title: 'Classes', icon: 'Shield', filters: ['Tier'], entries: classes() }),
     ],
   },
   {
-    id: 'story', title: 'Story', icon: 'Flag',
-    blurb: 'The parts of the story in order, kept spoiler-light.',
-    blocks: [block({ type: 'timeline', title: 'Story', icon: 'Flag', byRoute: true, entries: story() })],
+    id: 'items', title: 'Items', short: 'Items', icon: 'Backpack', tint: 'sun',
+    blurb: 'Key items, materials and gear: where to find them and what they do.',
+    blocks: [block({ type: 'collection', look: 'slots', title: 'Items', icon: 'Backpack', filters: ['Type'], entries: items() })],
   },
   {
-    id: 'last-chances', title: 'Last chances', icon: 'Hourglass',
+    id: 'last-chances', title: 'Last chances', short: 'Missables', icon: 'Hourglass', tint: 'plum',
     blurb: "Things you can miss forever, and the deadline for each. Tick them off as you go.",
     blocks: [block({ type: 'checklist', title: 'Last chances', icon: 'Hourglass', byRoute: true, entries: missables() })],
   },
   {
-    id: 'items', title: 'Items', icon: 'Backpack',
-    blurb: 'Key items, materials and gear: where to find them and what they do.',
-    blocks: [block({ type: 'collection', title: 'Items', icon: 'Backpack', filters: ['Type'], entries: items() })],
+    id: 'story', title: 'Story', short: 'Story', icon: 'Flag', tint: 'sky',
+    blurb: 'The parts of the story in order, kept spoiler-light.',
+    blocks: [block({ type: 'timeline', title: 'Story', icon: 'Flag', byRoute: true, entries: story() })],
   },
   {
-    id: 'world', title: 'World', icon: 'MapPin',
+    id: 'world', title: 'World', short: 'World', icon: 'MapPin', tint: 'teal',
     blurb: 'Dungeons and places worth visiting, and the foes waiting in them.',
     blocks: [
-      block({ type: 'collection', title: 'Dungeons and places', icon: 'MapPin', filters: ['Region'], entries: places() }),
-      block({ type: 'collection', title: 'Foes', icon: 'Swords', byRoute: true, entries: foes() }),
+      block({ type: 'collection', look: 'rows', title: 'Dungeons and places', icon: 'MapPin', filters: ['Region'], statName: 'Level', entries: places() }),
+      block({ type: 'collection', look: 'rows', title: 'Foes', icon: 'Swords', byRoute: true, entries: foes() }),
     ],
   },
   {
-    id: 'guides', title: 'Guides', icon: 'BookOpen',
+    id: 'guides', title: 'Guides', short: 'Guides', icon: 'BookOpen', tint: 'leaf',
     blurb: "How the game's systems work, and the questions nobody has answered yet.",
     blocks: [
       block({ type: 'guide', title: 'How to', icon: 'BookOpen', entries: howtos() }),
-      block({ type: 'collection', title: 'Mysteries', icon: 'CircleHelp', filters: ['Status'], entries: mysteries(),
+      block({ type: 'collection', look: 'rows', title: 'Mysteries', icon: 'CircleHelp', filters: ['Status'], entries: mysteries(),
         intro: "Open questions. Found the answer? Bring it to the Workshop." }),
     ],
   },

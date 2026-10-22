@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { GAMES, getGame } from '@/data/games';
 import { pagesFor } from '@/data/pages';
-import { PageStrip, PageView } from '@/components/app/PageView';
+import { PageView } from '@/components/app/PageView';
 
 export function generateStaticParams() {
   return GAMES.flatMap((g) => pagesFor(g.id).map((p) => ({ game: g.id, page: p.id })));
@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: PageProps<'/g/[game]/p/[page]
 // One Page of the game app. The URL is read inside <Suspense> so navigation is instant.
 export default function AppPage({ params }: PageProps<'/g/[game]/p/[page]'>) {
   return (
-    <Suspense fallback={<div className="mt-4 h-96 animate-pulse rounded-[2rem] bg-card" />}>
+    <Suspense fallback={<div className="mt-3 h-96 animate-pulse rounded-[2rem] bg-card" />}>
       <Loaded params={params} />
     </Suspense>
   );
@@ -33,9 +33,6 @@ async function Loaded({ params }: { params: PageProps<'/g/[game]/p/[page]'>['par
   if (!game || !page) notFound();
   const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
   return (
-    <>
-      <PageStrip gameId={game.id} pages={pages.map(({ id, title, icon }) => ({ id, title, icon }))} current={page.id} />
-      <PageView game={{ id: game.id, shortTitle: game.shortTitle, routes, routeQuestion: game.paths?.question }} page={page} />
-    </>
+    <PageView game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }} page={page} />
   );
 }
