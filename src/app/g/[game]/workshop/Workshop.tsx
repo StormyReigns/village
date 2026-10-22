@@ -13,6 +13,7 @@ import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/Entr
 import { matches } from '@/components/app/entries';
 import { SignInPrompt } from '@/components/SignInPrompt';
 import { ScrollRow } from '@/components/ScrollRow';
+import { ScrollBox } from '@/components/ScrollBox';
 import { house } from '@/components/house';
 import { MarketDay } from '@/components/Countdown';
 import { AccountButton } from '@/components/AccountButton';
@@ -818,7 +819,7 @@ function AppContents({ pages, drafts, focus, onFix, onAdd, onDrafts }: {
                 {list.length === 0 ? (
                   <p className="mt-2 text-sm text-muted">Nothing here yet. Add the first one.</p>
                 ) : (
-                  <ul className="mt-2 grid max-h-80 grid-cols-[minmax(0,1fr)] gap-1 overflow-y-auto pr-1">
+                  <ScrollBox as="ul" className="mt-2 grid max-h-80 grid-cols-[minmax(0,1fr)] gap-1 pb-6 pr-1">
                     {list.map((e) => {
                       const n = e.ref ? open.get(e.ref.card) ?? 0 : 0;
                       const on = focus === `${b.id}.${e.id}`;
@@ -841,7 +842,7 @@ function AppContents({ pages, drafts, focus, onFix, onAdd, onDrafts }: {
                         </li>
                       );
                     })}
-                  </ul>
+                  </ScrollBox>
                 )}
               </section>
             );

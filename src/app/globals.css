@@ -197,3 +197,15 @@ body {
 /* Roof color: the block's edge shade (default), its own pale color, or the full color. */
 .vblock[data-roof-color="pale"]::before { background-color: var(--body); }
 .vblock[data-roof-color="full"]::before { background-color: var(--tint); }
+
+/* Scrollbars inside a block take the block's edge color, thin and rounded. */
+.vblock { scrollbar-color: var(--edge) transparent; scrollbar-width: thin; }
+.vblock ::-webkit-scrollbar { width: 8px; height: 8px; }
+.vblock ::-webkit-scrollbar-track { background: transparent; }
+.vblock ::-webkit-scrollbar-thumb { background: var(--edge); border-radius: 999px; }
+
+/* A gentle bob for "there's more this way" arrows. */
+@media (prefers-reduced-motion: no-preference) {
+  .nudge-down { animation: nudge-down 1.8s ease-in-out infinite; }
+  @keyframes nudge-down { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 3px); } }
+}

@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { fadeMask } from './ScrollBox';
 
 /**
  * A sideways-scrolling row (chips, blocks, cards). Touchscreens swipe it; with a mouse,
  * the wheel scrolls it sideways and arrow buttons appear at whichever end has more.
+ * Either way, the edge with more beyond it fades, so it's clear there's more to see.
  */
 export function ScrollRow({ as: Tag = 'div', className = '', label, role, children }: {
   as?: 'div' | 'ul' | 'ol' | 'nav'; className?: string; label?: string; role?: string; children: React.ReactNode;
@@ -43,7 +45,7 @@ export function ScrollRow({ as: Tag = 'div', className = '', label, role, childr
 
   return (
     <div className="relative">
-      <Tag ref={ref as never} aria-label={label} role={role} className={'chip-strip overflow-x-auto ' + className}>{children}</Tag>
+      <Tag ref={ref as never} aria-label={label} role={role} className={'chip-strip overflow-x-auto ' + className} style={fadeMask('horizontal', more.left, more.right)}>{children}</Tag>
       {more.left && <button type="button" onClick={() => go(-1)} aria-label="Scroll left" className={arrow + ' -left-2'}><ChevronLeft size={18} aria-hidden="true" /></button>}
       {more.right && <button type="button" onClick={() => go(1)} aria-label="Scroll right" className={arrow + ' -right-2'}><ChevronRight size={18} aria-hidden="true" /></button>}
     </div>
