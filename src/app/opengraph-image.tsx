@@ -9,6 +9,7 @@ export const contentType = 'image/png';
 export default function Image() {
   return villageCard({
     tint: 'leaf', kicker: 'Village', title: 'Companion apps, built by players',
-    line: 'Community-built companion apps for the games you love.', chips: GAMES.map((g) => g.shortTitle),
+    line: 'Community-built companion apps for the games you love.',
+    rows: GAMES.map((g) => ({ name: g.shortTitle, tint: g.hue })),
   });
 }

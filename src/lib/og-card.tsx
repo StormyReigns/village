@@ -4,15 +4,27 @@ import { ImageResponse } from 'next/og';
 import type { Tint } from '@/data/pages';
 import { TINT_HEX, clip } from '@/data/pages/links';
 
-// The picture Discord (and Messages, Slack...) shows under a shared link: a village block
-// in the Page's color, with a roof, the name, a few key facts and a small Village footer.
+// The picture Discord (and Messages, Slack...) shows under a shared link: a bold poster in
+// the Page's color with a row of village roofs along the bottom. Discord shows it about a
+// third of this size, so the type is big and there is only the name and an answer or two.
 // Drawn with next/og, which only understands flexbox, so every box is display:flex.
 
 export const OG_SIZE = { width: 1200, height: 630 };
 
-const PAPER = '#f7f8fa';
 const INK = '#1f2430';
-const MUTED = '#6b7280';
+const TINTS: Tint[] = ['leaf', 'sky', 'berry', 'sun', 'plum', 'teal'];
+
+/** The same steady color per word as the app's icon tiles (tintFor in entries.ts). */
+export function tintFor(word: string): Tint {
+  let h = 0;
+  for (const ch of word) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return TINTS[h % TINTS.length];
+}
+
+/** The app's icon-tile letters (initials in entries.ts). */
+export function initials(name: string) {
+  return name.replace(/[^\p{L}\p{N}\s'-]/gu, '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+}
 
 /** Blend a hex color toward white (amount > 0) or black (amount < 0). */
 function shade(hex: string, amount: number) {
@@ -23,6 +35,9 @@ function shade(hex: string, amount: number) {
   return `#${ch(n >> 16)}${ch((n >> 8) & 255)}${ch(n & 255)}`;
 }
 
+/** Cut at a word, so facts never end mid-word. */
+const wclip = (t: string, n: number) => (t.length <= n ? t : t.slice(0, Math.max(t.lastIndexOf(' ', n - 1), n / 2)).replace(/[,.;:]$/, '') + '…');
+
 // The site's own fonts, kept in the project (src/lib/og-fonts, from Google Fonts, free to
 // use) so drawing a picture never waits on a download. If one is missing, the picture
 // still draws in the default font.
@@ -32,19 +47,34 @@ const fontFile = (name: string) => readFile(join(process.cwd(), 'src/lib/og-font
 // gives up on slow pictures, and keeps its own copy anyway.
 const CACHE = 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800';
 
+export interface Row { name: string; tint: Tint }
+
 export interface CardContent {
   tint: Tint;
+  /** Small line at the top, e.g. "Fortune's Weave · Quest item". */
   kicker: string;
   title: string;
+  /** Entries get an icon tile beside the name. */
+  icon?: boolean;
   line?: string;
+  /** Entries: up to two answers, in white boxes. */
   facts?: { label: string; text: string }[];
-  chips?: string[];
+  /** Blocks and Pages: a peek at what's inside, two columns. */
+  rows?: Row[];
+  /** How many more are inside than the rows show. */
+  more?: number;
 }
 
-export async function villageCard({ tint, kicker, title, line, facts = [], chips = [] }: CardContent) {
+const titleSize = (t: string, icon: boolean) => {
+  const n = t.length + (icon ? 4 : 0);
+  return n <= 12 ? 120 : n <= 18 ? 96 : n <= 26 ? 76 : 62;
+};
+
+export async function villageCard({ tint, kicker, title, icon = false, line, facts = [], rows = [], more = 0 }: CardContent) {
   const color = TINT_HEX[tint];
-  const edge = shade(color, -0.25);
-  const wash = shade(color, 0.88);
+  const dark = shade(color, -0.3);
+  const shown = rows.slice(0, 4);
+  const extra = more + rows.length - shown.length;
   const [heading, body, bold] = await Promise.all([fontFile('Fredoka-SemiBold.ttf'), fontFile('Nunito-SemiBold.ttf'), fontFile('Nunito-ExtraBold.ttf')]);
   const fonts = [
     heading && { name: 'Fredoka', data: heading, weight: 600 as const },
@@ -54,48 +84,47 @@ export async function villageCard({ tint, kicker, title, line, facts = [], chips
 
   return new ImageResponse(
     (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', background: `linear-gradient(180deg, ${wash} 0%, ${PAPER} 70%)`, fontFamily: 'Nunito', color: INK, padding: '36px 80px 0' }}>
-        {/* Roof, then the block's body with its thick darker bottom edge. */}
-        <svg width="1040" height="96" viewBox="0 0 1040 96" style={{ marginBottom: -30 }}>
-          <rect x="770" y="8" width="46" height="70" rx="8" fill={edge} />
-          <path d="M30 96 L468 12 Q520 0 572 12 L1010 96 Z" fill={color} />
-        </svg>
-        {/* The darker shade shows under the white card, like the blocks in the app. */}
-        <div style={{ width: 1040, height: 448, display: 'flex', background: edge, borderRadius: 38, paddingBottom: 16, boxShadow: '0 18px 40px rgba(31,36,48,0.10)' }}>
-        <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', background: 'white', borderRadius: 36, padding: '40px 56px', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', flexShrink: 0 }}>
-            <div style={{ display: 'flex', background: wash, color: edge, fontWeight: 800, fontSize: 26, padding: '6px 22px', borderRadius: 999 }}>{kicker}</div>
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', fontFamily: 'Nunito', background: color, padding: '50px 64px', position: 'relative', color: 'white' }}>
+        {/* The village: a row of roofs along the bottom, a shade darker than the Page. */}
+        <div style={{ position: 'absolute', left: 0, bottom: 0, width: 1200, height: 130, display: 'flex', alignItems: 'flex-end' }}>
+          {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+            <svg key={i} width="150" height={90 + (i % 3) * 20} viewBox="0 0 150 130" preserveAspectRatio="none">
+              <path d={i % 2 ? 'M8 130 L8 60 L75 10 L142 60 L142 130 Z' : 'M4 130 L4 70 Q75 0 146 70 L146 130 Z'} fill={dark} opacity={0.55} />
+            </svg>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', flexShrink: 0, fontSize: 34, fontWeight: 800, opacity: 0.85 }}>{clip(kicker, 56)}</div>
+        <div style={{ display: 'flex', flexShrink: 0, alignItems: 'center', marginTop: icon ? 28 : 18 }}>
+          {icon && (
+            <div style={{ display: 'flex', flexShrink: 0, width: 210, height: 210, borderRadius: 52, background: 'white', color, alignItems: 'center', justifyContent: 'center', fontFamily: 'Fredoka', fontSize: 96, marginRight: 44 }}>{initials(title)}</div>
+          )}
+          <div style={{ display: 'flex', fontFamily: 'Fredoka', fontSize: titleSize(title, icon), lineHeight: 1.02 }}>{clip(title, 44)}</div>
+        </div>
+        {line && <div style={{ display: 'flex', flexShrink: 0, fontSize: 36, opacity: 0.9, marginTop: 14, lineHeight: 1.25 }}>{wclip(line, 70)}</div>}
+
+        {facts.length > 0 && (
+          <div style={{ display: 'flex', marginTop: 34 }}>
+            {facts.slice(0, 2).map((f, i) => (
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', background: 'white', color: INK, borderRadius: 30, padding: '16px 28px', marginRight: 20, width: facts.length > 1 ? 500 : 1000 }}>
+                <div style={{ display: 'flex', fontSize: 26, fontWeight: 800, color: dark, textTransform: 'uppercase' }}>{clip(f.label, 32)}</div>
+                <div style={{ display: 'flex', fontSize: 40, lineHeight: 1.15 }}>{wclip(f.text, facts.length > 1 ? 60 : 84)}</div>
+              </div>
+            ))}
           </div>
-          <div style={{ display: 'flex', fontFamily: 'Fredoka', fontWeight: 600, fontSize: title.length > 26 ? 60 : 76, flexShrink: 0, lineHeight: 1.05, marginTop: 18 }}>{clip(title, 48)}</div>
-          {line && <div style={{ display: 'flex', flexShrink: 0, fontSize: 28, color: MUTED, marginTop: 12, lineHeight: 1.3 }}>{clip(line, 110)}</div>}
-          {facts.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', marginTop: 26 }}>
-              {facts.slice(0, 4).map((f, i) => (
-                <div key={i} style={{ display: 'flex', flexDirection: 'column', width: '50%', paddingRight: 28, marginBottom: 18 }}>
-                  <div style={{ display: 'flex', fontSize: 22, fontWeight: 800, color: edge, textTransform: 'uppercase', letterSpacing: 1 }}>{clip(f.label, 30)}</div>
-                  <div style={{ display: 'flex', fontSize: 28, marginTop: 2 }}>{clip(f.text, 46)}</div>
-                </div>
-              ))}
-            </div>
-          )}
-          {chips.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', marginTop: 26 }}>
-              {chips.slice(0, 10).map((c, i) => (
-                <div key={i} style={{ display: 'flex', fontSize: 26, fontWeight: 800, background: '#f3f4f7', borderRadius: 999, padding: '8px 22px', marginRight: 12, marginBottom: 12 }}>{clip(c, 24)}</div>
-              ))}
-              {chips.length > 10 && <div style={{ display: 'flex', fontSize: 26, color: MUTED, padding: '8px 6px' }}>+{chips.length - 10} more</div>}
-            </div>
-          )}
-        </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', marginTop: 22, fontSize: 26, color: MUTED }}>
-          <svg width="34" height="30" viewBox="0 0 34 30" style={{ marginRight: 12 }}>
-            <path d="M2 14 L17 2 L32 14 Z" fill={color} />
-            <rect x="6" y="13" width="22" height="16" rx="3" fill={edge} />
-          </svg>
-          <span style={{ fontFamily: 'Fredoka', fontWeight: 600, color: INK, marginRight: 10 }}>Village</span>
-          <span>· community-built companion apps</span>
-        </div>
+        )}
+
+        {shown.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', marginTop: 28 }}>
+            {shown.map((r, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', width: '50%', marginBottom: 16 }}>
+                <div style={{ display: 'flex', flexShrink: 0, width: 66, height: 66, borderRadius: 18, background: 'white', color: TINT_HEX[r.tint], alignItems: 'center', justifyContent: 'center', fontFamily: 'Fredoka', fontSize: 28 }}>{initials(r.name)}</div>
+                <div style={{ display: 'flex', fontSize: 38, fontWeight: 800, marginLeft: 20, whiteSpace: 'nowrap' }}>{wclip(r.name, 21)}</div>
+              </div>
+            ))}
+            {extra > 0 && <div style={{ display: 'flex', width: '100%', fontSize: 32, fontWeight: 800, opacity: 0.85 }}>and {extra} more</div>}
+          </div>
+        )}
       </div>
     ),
     { ...OG_SIZE, fonts: fonts.length ? fonts : undefined, headers: { 'Cache-Control': CACHE } },

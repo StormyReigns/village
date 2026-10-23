@@ -1,6 +1,6 @@
 import { getGame } from '@/data/games';
 import { getApp } from '@/lib/app-data';
-import { OG_SIZE, villageCard } from '@/lib/og-card';
+import { OG_SIZE, tintFor, villageCard } from '@/lib/og-card';
 
 // The preview picture for a shared Page: its color, its name and the Blocks inside.
 export const alt = 'A Village card for this Page';
@@ -12,5 +12,8 @@ export default async function Image({ params }: { params: Promise<{ game: string
   const game = getGame(gameId);
   const page = (await getApp(gameId)).find((p) => p.id === pageId);
   if (!game || !page) return villageCard({ tint: 'leaf', kicker: 'Village', title: 'Not found' });
-  return villageCard({ tint: page.tint, kicker: game.shortTitle, title: page.title, line: page.blurb, chips: page.blocks.map((b) => b.title) });
+  return villageCard({
+    tint: page.tint, kicker: game.shortTitle, title: page.title, line: page.blurb,
+    rows: page.blocks.map((b) => ({ name: b.title, tint: tintFor(b.title) })),
+  });
 }

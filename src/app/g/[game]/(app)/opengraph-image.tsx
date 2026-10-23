@@ -12,7 +12,7 @@ export default async function Image({ params }: { params: Promise<{ game: string
   if (!game) return villageCard({ tint: 'leaf', kicker: 'Village', title: 'Not found' });
   const pages = await getApp(game.id);
   return villageCard({
-    tint: game.hue, kicker: 'Companion app', title: game.title,
-    line: `Built by players, checked by players. ${game.platform}.`, chips: pages.map((p) => p.title),
+    tint: game.hue, kicker: 'Companion app · Built by players', title: game.title,
+    rows: pages.map((p) => ({ name: p.title, tint: p.tint })),
   });
 }
