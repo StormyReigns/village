@@ -144,7 +144,7 @@ export function Workshop({ game, pages, routes }: {
     url.searchParams.delete('fix');
     url.searchParams.delete('add');
     url.searchParams.delete('resume');
-    window.history.replaceState(window.history.state, '', url);
+    window.history.replaceState({}, '', url); // a fresh state, so Next notices the change
   };
 
   const drafts = live.drafts;

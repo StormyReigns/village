@@ -46,7 +46,9 @@ export function useOpenEntry() {
     if (key) url.searchParams.set('e', key);
     else url.searchParams.delete('e');
     if (how === 'push') window.history.pushState({ villageEntry: Boolean(key) }, '', url);
-    else window.history.replaceState(window.history.state, '', url);
+    // A fresh state object, never Next's own: Next ignores updates that carry its internal
+    // state, so the page wouldn't notice the change.
+    else window.history.replaceState({ villageEntry: Boolean(window.history.state?.villageEntry) }, '', url);
   }, []);
   const close = useCallback(() => {
     // Opened from this page: step back, so Back and Close agree. Opened from a link: just drop it.
