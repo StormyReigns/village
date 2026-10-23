@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { LogOut, UserPen, X } from 'lucide-react';
@@ -8,7 +9,6 @@ import { useViewAsSetting } from './viewAs';
 import { ModPowers, ViewAsReminder } from './ModPowers';
 import { SignInForm } from './SignInForm';
 import { Avatar } from './Avatar';
-import { ProfileDialog } from './ProfileDialog';
 
 /**
  * "Sign in" when signed out; your avatar with a small menu when signed in. Moderators
@@ -31,7 +31,6 @@ function Account({ villager }: { villager: Villager | null | undefined }) {
   const path = usePathname() || '/';
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
-  const [naming, setNaming] = useState(false);
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -75,17 +74,16 @@ function Account({ villager }: { villager: Villager | null | undefined }) {
         </span>
         <span className="max-w-28 truncate">{villager.displayName}</span>
       </button>
-      {naming && <ProfileDialog villager={villager} onClose={() => setNaming(false)} />}
       {menu && (
         <div className="surface absolute right-0 z-40 mt-2 w-56 rounded-2xl p-2 text-sm">
           <p className="px-3 py-2">
             <span className="block font-bold">{villager.displayName}</span>
             <span className="block text-muted">@{villager.username}{villager.isFounder ? ' · Founder' : ''}</span>
           </p>
-          <button onClick={() => { setNaming(true); setMenu(false); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-bold hover:bg-card-2">
-            <UserPen size={16} aria-hidden="true" /> {fresh ? 'Choose your name' : 'Your name'}
+          <Link href="/me" onClick={() => setMenu(false)} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-bold hover:bg-card-2">
+            <UserPen size={16} aria-hidden="true" /> {fresh ? 'Choose your name' : 'Your profile'}
             {fresh && <span className="ml-auto size-2 rounded-full bg-berry" aria-hidden="true" />}
-          </button>
+          </Link>
           <button onClick={async () => { await signOut(); setMenu(false); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-bold hover:bg-card-2">
             <LogOut size={16} aria-hidden="true" /> Sign out
           </button>

@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Hammer, TriangleAlert, X } from 'lucide-react';
 import type { Block, Entry, EntryContent, Route } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
+import { Tip } from '@/components/Tip';
 import { initials, tintFor } from './entries';
 
 export interface RouteOption { key: Route; label: string }
@@ -76,9 +77,11 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, onGo, on
         <div className="overflow-y-auto px-5 pb-6 pt-3">
           <EntryDetails entry={entry} block={block} route={route} routes={routes} />
           {entry.source && <p className="mt-6 text-xs text-muted">Source: {entry.source}</p>}
-          <Link href={`/g/${gameId}/workshop?fix=${block.id}.${entry.id}`} className="btn-quiet mt-4 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold">
-            <Hammer size={15} className="text-leaf" aria-hidden="true" /> Suggest a fix
-          </Link>
+          <Tip text="Opens a Draft with this entry filled in. Change what's wrong; villagers check it" tint="leaf" className="mt-4">
+            <Link href={`/g/${gameId}/workshop?fix=${block.id}.${entry.id}`} className="btn-quiet inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold">
+              <Hammer size={15} className="text-leaf" aria-hidden="true" /> Suggest a fix
+            </Link>
+          </Tip>
         </div>
       </div>
     </div>

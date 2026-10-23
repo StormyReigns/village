@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Check, ChevronDown, Hourglass, Plus, Search, Sparkles, StickyNote } from 'lucide-react';
 import type { Block, Entry, Route, Tint } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
+import { Tip } from '@/components/Tip';
 import { ScrollRow } from '@/components/ScrollRow';
 import { EntryIcon, EntryPanel, Lines, type RouteOption } from './EntryPanel';
 import { initials, matches, onRoute, rememberEntry, tintFor, useOpenEntry, useTicks } from './entries';
@@ -33,10 +34,12 @@ export function BlockView({ block, ctx }: { block: Block; ctx: BlockContext }) {
           {block.intro && <p className="text-sm text-muted">{block.intro}</p>}
         </div>
         {block.entries.length > 0 && (
-          <Link href={`/g/${ctx.gameId}/workshop?add=${block.id}`} title={`Add to ${block.title}`}
-            className="inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-muted ring-1 ring-line hover:text-ink hover:ring-ink">
-            <Plus size={15} aria-hidden="true" /><span className="hidden sm:inline">Add</span>
-          </Link>
+          <Tip text={`Know something missing from ${block.title}? Add it in the Workshop`} tint={ctx.tint} className="shrink-0">
+            <Link href={`/g/${ctx.gameId}/workshop?add=${block.id}`} aria-label={`Add to ${block.title}`}
+              className="inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-muted ring-1 ring-line hover:text-ink hover:ring-ink">
+              <Plus size={15} aria-hidden="true" /><span className="hidden sm:inline">Add</span>
+            </Link>
+          </Tip>
         )}
       </div>
       {block.entries.length === 0 ? (
@@ -312,10 +315,12 @@ function Checklist({ block, ctx }: { block: Block; ctx: BlockContext }) {
     const next = !on && i === 0;
     return (
       <li key={e.id} className={'flex items-start gap-3 rounded-2xl p-3 ring-1 ' + (next ? `${t.soft} ${t.ring}` : 'bg-card-2 ring-line') + (on ? ' opacity-60' : '')}>
-        <button onClick={() => toggle(key(e))} role="checkbox" aria-checked={on} aria-label={`Done: ${e.name}`}
-          className={'grid size-8 shrink-0 place-items-center rounded-xl ring-2 ' + (on ? `${t.solid} ${t.ring} text-white` : 'bg-card ring-line hover:ring-ink')}>
-          {on && <Check size={17} aria-hidden="true" />}
-        </button>
+        <Tip text={on ? 'Done. Tap to untick' : 'Tick it once it\'s done. Your ticks stay on this device'} tint={ctx.tint} className="shrink-0">
+          <button onClick={() => toggle(key(e))} role="checkbox" aria-checked={on} aria-label={`Done: ${e.name}`}
+            className={'grid size-8 shrink-0 place-items-center rounded-xl ring-2 ' + (on ? `${t.solid} ${t.ring} text-white` : 'bg-card ring-line hover:ring-ink')}>
+            {on && <Check size={17} aria-hidden="true" />}
+          </button>
+        </Tip>
         <button onClick={() => set(key(e))} className="min-w-0 flex-1 text-left">
           {next && <span className={`block text-[11px] font-bold uppercase tracking-wide ${t.text}`}>Next up</span>}
           <span className={'block font-bold leading-tight ' + (on ? 'line-through' : '')}>{e.name}</span>

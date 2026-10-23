@@ -10,13 +10,14 @@ import {
 import type { Block, Page } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
 import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
-import { initials, matches } from '@/components/app/entries';
+import { matches } from '@/components/app/entries';
 import { SignInPrompt } from '@/components/SignInPrompt';
 import { ScrollRow } from '@/components/ScrollRow';
+import { Tip } from '@/components/Tip';
 import { ScrollBox } from '@/components/ScrollBox';
 import { useStored } from '@/components/useStored';
 import { house } from '@/components/house';
-import { HowItWorksButton, MarketDayButton } from '@/components/HowItWorks';
+import { HOW_IT_WORKS_PING, HowItWorksButton, MarketDayButton } from '@/components/HowItWorks';
 import { AccountButton } from '@/components/AccountButton';
 import { Avatar } from '@/components/Avatar';
 import { useVillager, type Villager } from '@/components/useVillager';
@@ -81,6 +82,28 @@ export function Workshop({ game, pages, routes }: {
   const [itemsHidden, setItemsHidden] = useStored('village:workshop:hide-open-items', false);
   const [introDone, setIntroDone] = useStored('village:workshop:intro-seen', false);
   const [phoneTab, setPhoneTab] = useState<'work' | 'chat'>('work');
+  const introRef = useRef<HTMLDivElement>(null);
+
+  // Closing the "New here?" note sends it flying into the "How it works" button, so it's
+  // clear where to find it again.
+  const dismissIntro = () => {
+    const note = introRef.current;
+    const target = [...document.querySelectorAll<HTMLElement>('[data-howitworks]')].find((el) => el.offsetParent !== null);
+    let finished = false;
+    const done = () => { if (finished) return; finished = true; setIntroDone(true); window.dispatchEvent(new Event(HOW_IT_WORKS_PING)); };
+    if (!note || !target || !note.animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return done();
+    const a = note.getBoundingClientRect(), b = target.getBoundingClientRect();
+    const dx = b.left + b.width / 2 - (a.left + a.width / 2), dy = b.top + b.height / 2 - (a.top + a.height / 2);
+    note.style.position = 'relative';
+    note.style.zIndex = '60';
+    note.animate([
+      { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+      { transform: `translate(${dx * 0.55}px, ${dy * 0.55}px) scale(0.4)`, opacity: 0.95, borderRadius: '999px', offset: 0.55 },
+      { transform: `translate(${dx}px, ${dy}px) scale(0.05)`, opacity: 0, borderRadius: '999px' },
+    ], { duration: 600, easing: 'cubic-bezier(0.55, 0, 0.75, 0.2)' }).onfinish = done;
+    // Close it even where animations don't run (a background tab, some battery savers).
+    setTimeout(done, 750);
+  };
   // A Draft written but not sent (say, before signing in) waits on this device.
   const [unsent, setUnsent] = useState<Unsent | null>(null);
   const [restore, setRestore] = useState<Unsent | null>(null);
@@ -241,29 +264,35 @@ export function Workshop({ game, pages, routes }: {
                 ) : (
                   <>
                     <h2 className="min-w-0 flex-1 truncate font-display text-xl" title={current?.title}>{current ? current.title : 'Everything'}</h2>
-                    <button onClick={() => setSearching(true)} aria-label="Search" title="Search"
-                      className="grid size-9 place-items-center rounded-full bg-card-2 ring-1 ring-line hover:ring-ink">
-                      <Search size={16} aria-hidden="true" />
-                    </button>
+                    <Tip text="Search this Page's entries" tint="sky" className="shrink-0">
+                      <button onClick={() => setSearching(true)} aria-label="Search"
+                        className="grid size-9 place-items-center rounded-full bg-card-2 ring-1 ring-line hover:ring-ink">
+                        <Search size={16} aria-hidden="true" />
+                      </button>
+                    </Tip>
                   </>
                 )}
-                <button onClick={() => setAllDrafts(!allDrafts)} aria-pressed={allDrafts} title={allDrafts ? 'Back to Blocks' : 'Every Draft, sortable'}
-                  className={'shrink-0 rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (allDrafts ? 'bg-ink text-paper ring-ink' : 'bg-card-2 ring-line hover:ring-ink')}>
-                  {allDrafts ? 'Blocks' : 'Drafts'}
-                </button>
-                <button onClick={startNew} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-leaf px-3 py-1.5 text-sm font-bold text-paper hover:opacity-90">
-                  <Plus size={16} aria-hidden="true" /> New
-                </button>
+                <Tip text={allDrafts ? "Back to this Page's Blocks" : 'Every Draft in one list, with sorting'} className="shrink-0">
+                  <button onClick={() => setAllDrafts(!allDrafts)} aria-pressed={allDrafts}
+                    className={'shrink-0 rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (allDrafts ? 'bg-ink text-paper ring-ink' : 'bg-card-2 ring-line hover:ring-ink')}>
+                    {allDrafts ? 'Blocks' : 'Drafts'}
+                  </button>
+                </Tip>
+                <Tip text="Add something new to the app" tint="leaf" className="shrink-0">
+                  <button onClick={startNew} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-leaf px-3 py-1.5 text-sm font-bold text-paper hover:opacity-90">
+                    <Plus size={16} aria-hidden="true" /> New
+                  </button>
+                </Tip>
               </div>
 
               {!introDone && (
-                <div className="mt-3 flex items-start gap-2 rounded-2xl bg-sky-soft px-3 py-2.5 text-sm">
+                <div ref={introRef} className="mt-3 flex items-start gap-2 rounded-2xl bg-sky-soft px-3 py-2.5 text-sm">
                   <span className="min-w-0 flex-1">
                     <span className="font-bold text-sky">New here?</span> Anyone can suggest a fix or add something. Other villagers check it,
                     and on Market Day it goes into the app.
                     <HowItWorksButton className="ml-1 mt-1.5 inline-flex !py-0.5 text-xs" />
                   </span>
-                  <button onClick={() => setIntroDone(true)} aria-label="Dismiss" className="grid size-7 shrink-0 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
+                  <button onClick={dismissIntro} aria-label="Dismiss" className="grid size-7 shrink-0 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
                     <X size={15} aria-hidden="true" />
                   </button>
                 </div>
@@ -289,9 +318,19 @@ export function Workshop({ game, pages, routes }: {
               {/* Open items: a swipeable row of blocks */}
               <div className="mt-3">
                 <div className="flex items-center gap-2">
-                  <p className="text-xs font-bold uppercase tracking-wide text-muted">Open items · {items.length}</p>
+                  {itemsHidden && items.length > 0 ? (
+                    <button onClick={() => setItemsHidden(false)} aria-label={`Show ${items.length} open items`}
+                      className="glow-pulse inline-flex items-center gap-1.5 rounded-full bg-sun-soft px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-sun">
+                      <span className="size-1.5 rounded-full bg-sun" aria-hidden="true" /> Open items · {items.length}
+                    </button>
+                  ) : (
+                    <Tip text="Drafts waiting on someone: your vote, your own, or ready to publish">
+                      <p className="text-xs font-bold uppercase tracking-wide text-muted">Open items · {items.length}</p>
+                    </Tip>
+                  )}
                   {items.length > 0 && (
                     <button onClick={() => setItemsHidden(!itemsHidden)} aria-expanded={!itemsHidden}
+                      title={itemsHidden ? undefined : 'The label glows while anything is waiting'}
                       className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold text-muted hover:bg-card-2 hover:text-ink">
                       {itemsHidden ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronUp size={14} aria-hidden="true" />}
                       {itemsHidden ? 'Show' : 'Hide'}
@@ -302,11 +341,7 @@ export function Workshop({ game, pages, routes }: {
                   <div className="mt-4 flex gap-3 overflow-hidden" aria-hidden="true">{[0, 1].map((n) => <div key={n} className="h-28 w-52 shrink-0 animate-pulse rounded-[1.1rem] bg-card-2" />)}</div>
                 ) : items.length === 0 ? (
                   <p className="mt-2 rounded-2xl bg-card-2 px-3 py-3 text-sm text-muted">Nothing waiting{current ? ` on ${current.title}` : ''}. Pick something below to improve, or add something new.</p>
-                ) : itemsHidden ? (
-                  <ScrollRow as="ul" className="mt-1.5 flex gap-1.5 pb-1">
-                    {items.map(({ d, kind }) => <li key={d.id} className="shrink-0"><ItemDot d={d} kind={kind} visitor={me === null} place={placeOf(d.blockKey)} onOpen={() => setDetail(d.id)} /></li>)}
-                  </ScrollRow>
-                ) : (
+                ) : itemsHidden ? null : (
                   <ScrollRow as="ul" className="swipe -mx-4 flex gap-3 px-4 pb-3 pt-4">
                     {items.map(({ d, kind }) => <li key={d.id} className="shrink-0"><OpenItem d={d} kind={kind} visitor={me === null} practice={Boolean(me?.practice && d.author.id === me.id)} place={placeOf(d.blockKey)} onOpen={() => setDetail(d.id)} /></li>)}
                   </ScrollRow>
@@ -375,6 +410,7 @@ function BlockChip({ on, tint, icon, label, count, onClick }: {
   on: boolean; tint: string; icon: string; label: string; count?: number; onClick: () => void;
 }) {
   return (
+    <Tip text={count ? `${count} open Draft${count === 1 ? '' : 's'} waiting here` : 'Nothing waiting here right now'} tint={tint} className="shrink-0">
     <button onClick={onClick} aria-pressed={on} {...house(label, tint)}
       className={'vblock flex w-24 shrink-0 flex-col items-center gap-1 px-1.5 pb-2 pt-2.5 text-center sm:w-28 sm:gap-1.5 sm:px-2 sm:pb-2.5 sm:pt-3 ' + (on ? 'is-on gloss' : '')}>
       <span className={'grid size-9 place-items-center rounded-xl ' + (on ? 'bg-white/25' : 'bg-white/70')}>
@@ -387,6 +423,7 @@ function BlockChip({ on, tint, icon, label, count, onClick }: {
         </span>
       ) : null}
     </button>
+    </Tip>
   );
 }
 
@@ -397,6 +434,13 @@ const ITEM: Record<'ready' | 'yours' | 'vote' | 'voted', { label: string; tint: 
   voted: { label: 'You voted', tint: 'teal' },
 };
 
+const ITEM_TIP: Record<keyof typeof ITEM, string> = {
+  ready: 'Has 5 or more votes, mostly yes. A moderator can publish it',
+  yours: 'Your Draft. Other villagers vote on it, then a moderator decides',
+  vote: "Other villagers are checking this. Open it to vote",
+  voted: "You've voted. It's waiting on others",
+};
+
 /** One open item: a Draft as a village block you can tap to see and vote on. */
 function OpenItem({ d, kind, visitor, practice, place, onOpen }: { d: LiveDraft; kind: keyof typeof ITEM; visitor?: boolean; practice?: boolean; place?: Placed; onOpen: () => void }) {
   const votes = d.ups + d.downs;
@@ -404,6 +448,7 @@ function OpenItem({ d, kind, visitor, practice, place, onOpen }: { d: LiveDraft;
     + (d.practiceVote ? ' (1 practice)' : '');
   return (
     // The card is a house from its Page's street: the same color and roof as that Page's block.
+    <Tip text={visitor && kind === 'vote' ? 'Sign in to vote on this' : ITEM_TIP[kind]} tint={place?.page.tint ?? 'ink'}>
     <button onClick={onOpen} {...(place ? house(place.page.title, place.page.tint) : house(d.id, 'muted'))}
       className="vblock flex w-52 flex-col gap-2 px-3 pb-3 pt-3.5 text-left">
       <span className="flex items-center gap-1.5">
@@ -427,19 +472,7 @@ function OpenItem({ d, kind, visitor, practice, place, onOpen }: { d: LiveDraft;
       </span>
       {(practice || d.practiceVote) && <span className="text-[11px] leading-tight">Practice votes are saved on this device. Only you see them.</span>}
     </button>
-  );
-}
-
-/** An open item while the row is hidden: a dot in its Page's color, ringed by its status. */
-function ItemDot({ d, kind, visitor, place, onOpen }: { d: LiveDraft; kind: keyof typeof ITEM; visitor?: boolean; place?: Placed; onOpen: () => void }) {
-  const label = visitor && kind === 'vote' ? 'Open for votes' : ITEM[kind].label;
-  const tint = place?.page.tint ?? 'muted';
-  return (
-    <button onClick={onOpen} title={`${label}: ${d.title}`} aria-label={`${label}: ${d.title}`}
-      className="grid size-8 place-items-center rounded-full text-[11px] font-bold ring-2 ring-offset-1 ring-offset-card hover:scale-110"
-      style={{ background: `color-mix(in srgb, var(--${tint}) 18%, white)`, color: `color-mix(in srgb, var(--${tint}) 80%, black)`, ['--tw-ring-color' as string]: `var(--${ITEM[kind].tint})` }}>
-      {initials(d.title)}
-    </button>
+    </Tip>
   );
 }
 
@@ -546,9 +579,9 @@ function DraftModTools({ draft, live }: { draft: LiveDraft; live: WorkshopData }
         <span className="mr-1 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-sun"><ShieldCheck size={14} aria-hidden="true" /> Moderator</span>
         {undecided ? (
           <>
-            <SmallButton tone="good" disabled={busy} onClick={publish} icon={<Check size={13} aria-hidden="true" />}>{busy ? 'Publishing…' : 'Approve and publish'}</SmallButton>
-            <SmallButton disabled={busy} onClick={() => setDeclining(!declining)} icon={<X size={13} aria-hidden="true" />}>Decline</SmallButton>
-            <SmallButton tone="bad" disabled={busy} onClick={() => decide('removed')} icon={<Trash2 size={13} aria-hidden="true" />}>Remove</SmallButton>
+            <Tip text="Puts it in the app now, as the entry's new version. Earlier versions are kept" tint="leaf"><SmallButton tone="good" disabled={busy} onClick={publish} icon={<Check size={13} aria-hidden="true" />}>{busy ? 'Publishing…' : 'Approve and publish'}</SmallButton></Tip>
+            <Tip text="Say no, with a short reason everyone sees"><SmallButton disabled={busy} onClick={() => setDeclining(!declining)} icon={<X size={13} aria-hidden="true" />}>Decline</SmallButton></Tip>
+            <Tip text="Hide it completely. For spam or abuse" tint="berry"><SmallButton tone="bad" disabled={busy} onClick={() => decide('removed')} icon={<Trash2 size={13} aria-hidden="true" />}>Remove</SmallButton></Tip>
           </>
         ) : draft.status === 'stable' ? (
           <span className="text-xs text-muted">Published to the app.</span>
@@ -593,8 +626,8 @@ function DraftCard({ draft, place, routes, me, messages, live, startOpen = false
     <span className="text-sm text-muted">Your Draft · {total >= 5 ? `${draft.ups} yes · ${draft.downs} no` : leaning}{draft.practiceVote ? ' (includes your practice vote)' : ''}</span>
   ) : draft.kind === 'fact' ? (
     <>
-      <VoteButton on={draft.myVote === 1} onClick={() => cast(draft.myVote === 1 ? 0 : 1)} icon={<Check size={15} aria-hidden="true" />}>I can confirm</VoteButton>
-      <VoteButton on={draft.myVote === -1} onClick={() => cast(draft.myVote === -1 ? 0 : -1)} icon={<TriangleAlert size={15} aria-hidden="true" />}>Seems wrong</VoteButton>
+      <Tip text="You've seen this in your own game, and it's right" tint="leaf"><VoteButton on={draft.myVote === 1} onClick={() => cast(draft.myVote === 1 ? 0 : 1)} icon={<Check size={15} aria-hidden="true" />}>I can confirm</VoteButton></Tip>
+      <Tip text="Something here doesn't match your game" tint="berry"><VoteButton on={draft.myVote === -1} onClick={() => cast(draft.myVote === -1 ? 0 : -1)} icon={<TriangleAlert size={15} aria-hidden="true" />}>Seems wrong</VoteButton></Tip>
     </>
   ) : (
     <>
@@ -611,8 +644,10 @@ function DraftCard({ draft, place, routes, me, messages, live, startOpen = false
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-2">
             <span className="font-display text-lg leading-tight">{draft.title}</span>
-            {draft.cardId ? <span className="rounded-full bg-sky-soft px-2 py-0.5 text-xs font-bold text-sky">fix</span> : <span className="rounded-full bg-leaf-soft px-2 py-0.5 text-xs font-bold text-leaf">new</span>}
-            {draft.theory && <span className="rounded-full bg-sun-soft px-2 py-0.5 text-xs font-bold text-sun">Theory</span>}
+            {draft.cardId
+              ? <Tip text="Changes an entry that's already in the app" tint="sky"><span className="rounded-full bg-sky-soft px-2 py-0.5 text-xs font-bold text-sky">fix</span></Tip>
+              : <Tip text="A new entry for the app" tint="leaf"><span className="rounded-full bg-leaf-soft px-2 py-0.5 text-xs font-bold text-leaf">new</span></Tip>}
+            {draft.theory && <Tip text="Not confirmed yet. Shown with a Theory label in the app" tint="sun"><span className="rounded-full bg-sun-soft px-2 py-0.5 text-xs font-bold text-sun">Theory</span></Tip>}
           </span>
           <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm text-muted">
             <Avatar name={draft.author.name} url={draft.author.avatarUrl} size={18} />
@@ -641,13 +676,17 @@ function DraftCard({ draft, place, routes, me, messages, live, startOpen = false
         <span className="ml-auto flex items-center gap-1">
           {me && !mine && (reported
             ? <span className="px-2 text-xs font-bold text-muted">Reported</span>
-            : <button onClick={() => setReporting(!reporting)} aria-expanded={reporting} title="Report this Draft"
-                className="grid size-8 place-items-center rounded-full text-muted hover:bg-card hover:text-berry">
-                <Flag size={15} aria-hidden="true" /><span className="sr-only">Report</span>
-              </button>)}
-          <button onClick={() => setDiscuss(!discuss)} aria-expanded={discuss} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-muted hover:bg-card hover:text-ink">
-            <MessageCircle size={15} aria-hidden="true" /> Discuss · {messages.filter((m) => !m.removed).length}
-          </button>
+            : <Tip text="Report spam, rudeness or a hidden spoiler" tint="berry">
+                <button onClick={() => setReporting(!reporting)} aria-expanded={reporting}
+                  className="grid size-8 place-items-center rounded-full text-muted hover:bg-card hover:text-berry">
+                  <Flag size={15} aria-hidden="true" /><span className="sr-only">Report</span>
+                </button>
+              </Tip>)}
+          <Tip text="Talk about this Draft with other villagers" tint="sky">
+            <button onClick={() => setDiscuss(!discuss)} aria-expanded={discuss} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-muted hover:bg-card hover:text-ink">
+              <MessageCircle size={15} aria-hidden="true" /> Discuss · {messages.filter((m) => !m.removed).length}
+            </button>
+          </Tip>
         </span>
       </div>
       {(practiceVote || draft.practiceVote) && <p className="mt-2 text-xs text-muted">Your own Draft: votes here are practice. They&apos;re saved on this device, show in every view, and only you see them.</p>}
@@ -757,10 +796,12 @@ function Composer({ me, placeholder, onSend }: { me: Villager | null | undefined
       <form onSubmit={submit} className="flex items-center gap-1.5 rounded-full bg-card-2 p-1.5 ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
         <input value={text} onChange={(e) => { setText(e.target.value); if (error) setError(''); }} maxLength={4000} disabled={me === undefined}
           className="min-w-0 flex-1 bg-transparent px-3 outline-none placeholder:text-muted" placeholder={placeholder} aria-label={placeholder} />
-        <button type="button" onClick={() => setSpoiler(!spoiler)} aria-pressed={spoiler} title="Mark as a spoiler"
-          className={'grid size-9 place-items-center rounded-full ' + (spoiler ? 'bg-ink text-paper' : 'text-muted hover:text-ink')}>
-          <EyeOff size={16} aria-hidden="true" /><span className="sr-only">Spoiler</span>
-        </button>
+        <Tip text="Spoiler: hide this message behind a tap" className="shrink-0">
+          <button type="button" onClick={() => setSpoiler(!spoiler)} aria-pressed={spoiler}
+            className={'grid size-9 place-items-center rounded-full ' + (spoiler ? 'bg-ink text-paper' : 'text-muted hover:text-ink')}>
+            <EyeOff size={16} aria-hidden="true" /><span className="sr-only">Spoiler</span>
+          </button>
+        </Tip>
         <button disabled={busy || !text.trim()} className="grid size-9 place-items-center rounded-full bg-sky text-paper disabled:opacity-50" aria-label="Send">
           <Send size={16} aria-hidden="true" />
         </button>
@@ -921,9 +962,11 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts }: {
                     <span className="text-xs text-muted">{b.entries.length}</span>
                     <ChevronDown size={15} className={'shrink-0 text-muted transition ' + (isFolded ? '-rotate-90' : '')} aria-hidden="true" />
                   </button>
-                  <button onClick={() => onAdd(b.id)} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-leaf">
-                    <Plus size={13} aria-hidden="true" /> Add
-                  </button>
+                  <Tip text={`Add something new to ${b.title}`} tint={p.tint} className="shrink-0">
+                    <button onClick={() => onAdd(b.id)} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-leaf">
+                      <Plus size={13} aria-hidden="true" /> Add
+                    </button>
+                  </Tip>
                 </div>
                 {isFolded ? null : list.length === 0 ? (
                   <p className="mt-2 text-sm text-muted">Nothing here yet. Add the first one.</p>

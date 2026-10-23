@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CalendarDays, CircleHelp, Hammer, PencilLine, Users, X } from 'lucide-react';
 import { MarketDay } from './Countdown';
+import { Tip } from './Tip';
 
 // How a fix reaches the app, in plain words. Opened from the Market Day pill and from the
 // Workshop's "How it works" button, so newcomers can always find the answer.
@@ -69,15 +70,27 @@ function Sheet({ onClose, children }: { onClose: () => void; children: React.Rea
   );
 }
 
+/** Makes every "How it works" button give a little bounce (after the note flies into it). */
+export const HOW_IT_WORKS_PING = 'village:how-it-works-ping';
+
 /** A "How it works" button that opens the guide. */
 export function HowItWorksButton({ className = 'inline-flex', compact = false }: { className?: string; compact?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [ping, setPing] = useState(false);
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout>;
+    const onPing = () => { setPing(true); clearTimeout(t); t = setTimeout(() => setPing(false), 900); };
+    window.addEventListener(HOW_IT_WORKS_PING, onPing);
+    return () => { window.removeEventListener(HOW_IT_WORKS_PING, onPing); clearTimeout(t); };
+  }, []);
   return (
     <>
-      <button onClick={() => setOpen(true)} aria-label="How it works" title="How it works"
-        className={'items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-sm font-bold ring-1 ring-line hover:ring-ink ' + className}>
+      <Tip text="How a fix reaches the app, step by step" tint="sky">
+      <button onClick={() => setOpen(true)} aria-label="How it works" data-howitworks=""
+        className={(ping ? 'ping-pop ' : '') + 'items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-sm font-bold ring-1 ring-line hover:ring-ink ' + className}>
         <CircleHelp size={16} className="text-sky" aria-hidden="true" />{!compact && 'How it works'}
       </button>
+      </Tip>
       {open && <Sheet onClose={() => setOpen(false)}><HowItWorks /></Sheet>}
     </>
   );
@@ -88,10 +101,12 @@ export function MarketDayButton({ className = 'inline-flex' }: { className?: str
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button onClick={() => setOpen(true)} title="What's Market Day?"
+      <Tip text="The village's weekly release day. Tap to see how it works" tint="sun">
+      <button onClick={() => setOpen(true)} aria-label="What's Market Day?"
         className={'items-center gap-1.5 rounded-full px-3 py-1 text-sm font-bold hover:brightness-95 ' + className}>
         <CalendarDays size={14} aria-hidden="true" /><MarketDay />
       </button>
+      </Tip>
       {open && (
         <Sheet onClose={() => setOpen(false)}>
           <p className="rounded-2xl bg-sun-soft px-4 py-3 text-sm">

@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { ArrowRight, Clock, Eye, EyeOff, Hourglass, Info, Search } from 'lucide-react';
 import type { Page, Route } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
+import { Tip } from '@/components/Tip';
 import { usePlayerPrefs } from '@/components/usePlayerPrefs';
 import { BlockView, type BlockContext } from './Blocks';
 import { EntryIcon, type RouteOption } from './EntryPanel';
@@ -63,13 +64,19 @@ export function PageView({ game, page }: { game: AppGame; page: Page }) {
         </div>
         {(byRoute || hasSpoilers) && (
           <div className="relative mt-4 flex flex-wrap items-center gap-2">
-            {byRoute && <RoutePicker game={game} route={prefs.route} onPick={(r) => setPrefs({ route: r })} solid={t.solid} />}
+            {byRoute && (
+              <Tip text="Pick your Flame Lord to see only your route's units, deadlines and story" tint={page.tint} className="max-w-full">
+                <RoutePicker game={game} route={prefs.route} onPick={(r) => setPrefs({ route: r })} solid={t.solid} />
+              </Tip>
+            )}
             {hasSpoilers && (
-              <button onClick={() => setPrefs({ spoilers: !prefs.spoilers })} aria-pressed={prefs.spoilers}
-                className="inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-2 text-sm font-bold ring-1 ring-line hover:ring-ink">
-                {prefs.spoilers ? <Eye size={15} aria-hidden="true" /> : <EyeOff size={15} aria-hidden="true" />}
-                {prefs.spoilers ? 'Spoilers shown' : 'Spoilers hidden'}
-              </button>
+              <Tip text={prefs.spoilers ? 'Spoilers are showing. Tap to hide them again' : 'Story secrets stay hidden until you choose to see them'} tint={page.tint}>
+                <button onClick={() => setPrefs({ spoilers: !prefs.spoilers })} aria-pressed={prefs.spoilers}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-2 text-sm font-bold ring-1 ring-line hover:ring-ink">
+                  {prefs.spoilers ? <Eye size={15} aria-hidden="true" /> : <EyeOff size={15} aria-hidden="true" />}
+                  {prefs.spoilers ? 'Spoilers shown' : 'Spoilers hidden'}
+                </button>
+              </Tip>
             )}
           </div>
         )}

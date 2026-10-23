@@ -7,6 +7,7 @@ import type { Game } from '@/data/games';
 import { GameCover } from './GameCover';
 import { Countdown } from './Countdown';
 import { GameActivity } from './GameActivity';
+import { Tip } from './Tip';
 
 type Order = 'az' | 'genre';
 
@@ -136,10 +137,11 @@ function GameTile({ game }: { game: Game }) {
         <GameActivity gameId={game.id} />
         <div className="mt-auto flex flex-wrap gap-2 pt-4">
           <Link href={`/g/${game.id}`} className="gloss btn-primary rounded-full px-4 py-2 text-sm font-bold">Open the app</Link>
-          <Link href={`/g/${game.id}/workshop`} title="The Workshop is where villagers build and fix this app together"
-            className="btn-quiet inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold">
-            <Hammer size={15} className="text-leaf" aria-hidden="true" /> Help build it
-          </Link>
+          <Tip text="The Workshop is where villagers build and fix this app together. No skills needed, just know the game" tint="leaf">
+            <Link href={`/g/${game.id}/workshop`} className="btn-quiet inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold">
+              <Hammer size={15} className="text-leaf" aria-hidden="true" /> Help build it
+            </Link>
+          </Tip>
         </div>
       </div>
     </article>

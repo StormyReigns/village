@@ -214,3 +214,50 @@ body {
   /* Only moves up and down: the element's own centering stays as it is. */
   @keyframes nudge-down { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
 }
+
+/* A soft glow that says "something's waiting here". Gently pulses unless motion is reduced. */
+.glow-pulse { box-shadow: 0 0 12px 1px color-mix(in srgb, var(--sun) 45%, transparent); }
+@media (prefers-reduced-motion: no-preference) {
+  .glow-pulse { animation: glow-pulse 2.4s ease-in-out infinite; }
+  @keyframes glow-pulse {
+    0%, 100% { box-shadow: 0 0 6px 0 color-mix(in srgb, var(--sun) 35%, transparent); }
+    50% { box-shadow: 0 0 16px 3px color-mix(in srgb, var(--sun) 55%, transparent); }
+  }
+}
+
+/* A quick bounce and glow, for "it went here". */
+@media (prefers-reduced-motion: no-preference) {
+  .ping-pop { animation: ping-pop 0.9s ease-out; }
+  @keyframes ping-pop {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 color-mix(in srgb, var(--sky) 60%, transparent); }
+    30% { transform: scale(1.18); }
+    55% { transform: scale(0.94); box-shadow: 0 0 0 8px color-mix(in srgb, var(--sky) 0%, transparent); }
+    100% { transform: scale(1); }
+  }
+}
+
+/* Tooltips (components/Tip.tsx): a little village block in the trigger's color, with a
+   roof that points at what it describes. */
+.tip {
+  --edge: color-mix(in srgb, var(--tint) 35%, white);
+  background-color: var(--card);
+  color: color-mix(in srgb, var(--tint) 70%, black);
+  box-shadow: 0 3px 0 var(--edge), inset 0 0 0 1px color-mix(in srgb, var(--tint) 22%, white), 0 12px 24px -12px rgb(16 24 40 / 0.35);
+}
+.tip-roof {
+  position: absolute;
+  top: -9px;
+  width: 22px;
+  height: 10px;
+  transform: translateX(-50%);
+  background-color: var(--edge);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.tip-roof-down { top: auto; bottom: -11px; clip-path: polygon(0 0, 100% 0, 50% 100%); }
+@media (prefers-reduced-motion: no-preference) {
+  .tip-in { animation: tip-in 0.14s ease-out; }
+  @keyframes tip-in { from { opacity: 0; transform: translateY(3px) scale(0.97); } to { opacity: 1; transform: none; } }
+}
+
+/* A badge that's "in season": something of yours is live in the app right now. */
+.glow-badge::after { box-shadow: 0 var(--lift) 0 var(--edge), 0 0 22px 2px color-mix(in srgb, var(--tint) 45%, transparent); }
