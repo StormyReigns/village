@@ -10,6 +10,7 @@ import type { Villager } from '@/components/useVillager';
 import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
 import { matches } from '@/components/app/entries';
 import { changesBetween } from './changes';
+import { clearUnsent, hasWriting, saveUnsent, type Unsent } from './unsent';
 import type { NewDraft } from './useWorkshop';
 
 /** Where the form opens: a Block to add to, and optionally the entry being fixed. */
@@ -65,16 +66,25 @@ function clean(c: EntryContent): EntryContent {
 
 const input = 'w-full rounded-2xl bg-card-2 px-3 py-2 ring-1 ring-line outline-none placeholder:text-muted focus:ring-2 focus:ring-sky';
 
-export function EntryForm({ pages, routes, start, me, postDraft, onClose, onPosted }: {
-  pages: Page[]; routes: RouteOption[]; start: FormStart; me: Villager | null | undefined;
+export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft, onClose, onPosted }: {
+  gameId: string; pages: Page[]; routes: RouteOption[]; start: FormStart; restore?: Unsent | null; me: Villager | null | undefined;
   postDraft: (d: NewDraft) => Promise<string | null>; onClose: () => void; onPosted: (pageId: string) => void;
 }) {
   const blocks = useMemo(() => pages.flatMap((p) => p.blocks.map((b) => ({ ...b, page: p }))), [pages]);
   const [blockId, setBlockId] = useState(start.blockId);
   const block = blocks.find((b) => b.id === blockId) ?? blocks[0];
   const [fixing, setFixing] = useState<Entry | undefined>(() => block?.entries.find((e) => e.id === start.entryId));
-  const [content, setContent] = useState<EntryContent>(() => (fixing ? contentOf(fixing) : blank()));
-  const [source, setSource] = useState('');
+  const [content, setContent] = useState<EntryContent>(() => restore?.content ?? (fixing ? contentOf(fixing) : blank()));
+  const [source, setSource] = useState(restore?.source ?? '');
+
+  // Keep what's been written on this device, so signing in partway doesn't lose it.
+  // A fix only counts once it differs from what's in the app.
+  useEffect(() => {
+    const worth = fixing
+      ? Boolean(source.trim()) || JSON.stringify(content) !== JSON.stringify(contentOf(fixing))
+      : hasWriting(content, source);
+    if (worth) saveUnsent(gameId, { blockId, entryId: fixing?.id, content, source });
+  }, [gameId, blockId, fixing, content, source]);
   const [find, setFind] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -130,7 +140,7 @@ export function EntryForm({ pages, routes, start, me, postDraft, onClose, onPost
     });
     setBusy(false);
     if (err) setNote(err);
-    else onPosted(page.id);
+    else { clearUnsent(gameId); onPosted(page.id); }
   };
 
   const found = find.trim() ? block.entries.filter((x) => matches(x, find)).slice(0, 6) : [];
@@ -143,6 +153,10 @@ export function EntryForm({ pages, routes, start, me, postDraft, onClose, onPost
           <h2 className="font-display text-2xl">{fixing ? `Fix: ${fixing.name}` : `New in ${block.title}`}</h2>
           <button onClick={onClose} className="ml-auto grid size-9 place-items-center rounded-full bg-card-2 ring-1 ring-line" aria-label="Close"><X size={18} aria-hidden="true" /></button>
         </div>
+
+        {restore && (
+          <p role="status" className="mt-2 rounded-2xl bg-leaf-soft px-3 py-2 text-sm text-leaf">Picked up where you left off. Everything you wrote is still here.</p>
+        )}
 
         {!fixing && (
           <div className="mt-3 grid gap-2">
@@ -282,13 +296,13 @@ export function EntryForm({ pages, routes, start, me, postDraft, onClose, onPost
 
             <div className="mt-2 flex flex-wrap items-center gap-3">
               {me === null ? (
-                <SignInPrompt>Sign in to submit</SignInPrompt>
+                <SignInPrompt back="?resume=1">Sign in to submit</SignInPrompt>
               ) : (
                 <button disabled={busy || me === undefined || unchanged} className="rounded-full bg-leaf px-5 py-2.5 font-bold text-paper hover:opacity-90 disabled:opacity-60">
                   {busy ? 'Submitting…' : fixing ? 'Submit fix' : 'Submit Draft'}
                 </button>
               )}
-              <button type="button" onClick={onClose} className="rounded-full px-4 py-2.5 font-bold text-muted hover:text-ink">Cancel</button>
+              <button type="button" onClick={() => { clearUnsent(gameId); onClose(); }} className="rounded-full px-4 py-2.5 font-bold text-muted hover:text-ink">Discard</button>
             </div>
             {note && <p role="status" className="text-sm text-berry">{note}</p>}
           </form>

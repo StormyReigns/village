@@ -27,6 +27,7 @@ import {
 } from './useWorkshop';
 import { EntryForm, ChangeList, type FormStart } from './EntryForm';
 import { changesBetween } from './changes';
+import { clearUnsent, readUnsent, type Unsent } from './unsent';
 
 /** A Block together with the Page it sits on. */
 type Placed = Block & { page: Page };
@@ -78,25 +79,46 @@ export function Workshop({ game, pages, routes }: {
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [itemsHidden, setItemsHidden] = useStored('village:workshop:hide-open-items', false);
+  // A Draft written but not sent (say, before signing in) waits on this device.
+  const [unsent, setUnsent] = useState<Unsent | null>(null);
+  const [restore, setRestore] = useState<Unsent | null>(null);
+  const resumeUnsent = () => {
+    const u = readUnsent(game.id);
+    if (!u || !blocks.some((b) => b.id === u.blockId)) return;
+    setRestore(u);
+    setForm({ blockId: u.blockId, entryId: u.entryId });
+    setChip(blocks.find((b) => b.id === u.blockId)!.page.id);
+    setAllDrafts(false);
+  };
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reading device storage after hydration
+    setUnsent(readUnsent(game.id));
+    if (new URLSearchParams(window.location.search).get('resume')) resumeUnsent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the Workshop opens
+  }, [game.id]);
 
   // Next keeps a visited Workshop alive in the background, so coming back through a new
   // "Suggest a fix" link doesn't start it fresh. Follow each new link as it arrives.
-  const linkKey = `${params.get('fix') ?? ''}|${params.get('add') ?? ''}|${params.get('page') ?? ''}`;
+  const linkKey = `${params.get('fix') ?? ''}|${params.get('add') ?? ''}|${params.get('page') ?? ''}|${params.get('resume') ?? ''}`;
   const [followed, setFollowed] = useState(linkKey);
   if (linkKey !== followed) {
     setFollowed(linkKey);
     if (startPage && pages.some((p) => p.id === startPage)) setChip(startPage);
     if (linked) { setForm(linked); setAllDrafts(false); }
+    if (params.get('resume')) resumeUnsent();
   }
   const me = useVillager();
   const live = useWorkshop(game.id, me);
 
   const closeForm = () => {
     setForm(null);
+    setRestore(null);
+    setUnsent(readUnsent(game.id));
     // Drop ?fix= and ?add= so a refresh doesn't reopen the form.
     const url = new URL(window.location.href);
     url.searchParams.delete('fix');
     url.searchParams.delete('add');
+    url.searchParams.delete('resume');
     window.history.replaceState(window.history.state, '', url);
   };
 
@@ -227,6 +249,17 @@ export function Workshop({ game, pages, routes }: {
                 </p>
               )}
 
+              {unsent && !form && (
+                <div role="status" className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl bg-sun-soft px-3 py-2 text-sm">
+                  <span className="min-w-0 flex-1">
+                    <span className="font-bold">Unsent Draft:</span> {unsent.content.name.trim() || 'Untitled'}
+                    <span className="text-muted"> · {placeOf(unsent.blockId)?.title ?? 'a Block'}</span>
+                  </span>
+                  <button onClick={resumeUnsent} className="rounded-full bg-leaf px-3 py-1 text-xs font-bold text-paper">Continue</button>
+                  <button onClick={() => { clearUnsent(game.id); setUnsent(null); }} className="rounded-full px-2 py-1 text-xs font-bold text-muted hover:text-ink">Discard</button>
+                </div>
+              )}
+
               {/* Open items: a swipeable row of blocks */}
               <div className="mt-3">
                 <div className="flex items-center gap-2">
@@ -288,7 +321,7 @@ export function Workshop({ game, pages, routes }: {
       </div>
 
       {form && blocks.length > 0 && (
-        <EntryForm pages={pages} routes={routes} start={form} me={me} postDraft={live.postDraft}
+        <EntryForm gameId={game.id} pages={pages} routes={routes} start={form} restore={restore} me={me} postDraft={live.postDraft}
           onClose={closeForm}
           onPosted={(pageId) => {
             closeForm();
