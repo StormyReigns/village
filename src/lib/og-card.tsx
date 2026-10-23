@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
 import type { Tint } from '@/data/pages';
 import { TINT_HEX, clip } from '@/data/pages/links';
@@ -21,17 +23,14 @@ function shade(hex: string, amount: number) {
   return `#${ch(n >> 16)}${ch((n >> 8) & 255)}${ch(n & 255)}`;
 }
 
-// The site's own fonts, from Google Fonts (they serve plain TTF files to servers).
-// If that fails, the picture still draws in the default font.
-async function font(family: string, weight: number) {
-  try {
-    const css = await (await fetch(`https://fonts.googleapis.com/css2?family=${family}:wght@${weight}&display=swap`)).text();
-    const url = css.match(/src: url\((.+?)\) format\('(?:truetype|opentype)'\)/)?.[1];
-    return url ? await (await fetch(url)).arrayBuffer() : null;
-  } catch {
-    return null;
-  }
-}
+// The site's own fonts, kept in the project (src/lib/og-fonts, from Google Fonts, free to
+// use) so drawing a picture never waits on a download. If one is missing, the picture
+// still draws in the default font.
+const fontFile = (name: string) => readFile(join(process.cwd(), 'src/lib/og-fonts', name)).catch(() => null);
+
+// Vercel keeps each picture for a day and hands out the saved copy instantly. Discord
+// gives up on slow pictures, and keeps its own copy anyway.
+const CACHE = 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800';
 
 export interface CardContent {
   tint: Tint;
@@ -46,7 +45,7 @@ export async function villageCard({ tint, kicker, title, line, facts = [], chips
   const color = TINT_HEX[tint];
   const edge = shade(color, -0.25);
   const wash = shade(color, 0.88);
-  const [heading, body, bold] = await Promise.all([font('Fredoka', 600), font('Nunito', 600), font('Nunito', 800)]);
+  const [heading, body, bold] = await Promise.all([fontFile('Fredoka-SemiBold.ttf'), fontFile('Nunito-SemiBold.ttf'), fontFile('Nunito-ExtraBold.ttf')]);
   const fonts = [
     heading && { name: 'Fredoka', data: heading, weight: 600 as const },
     body && { name: 'Nunito', data: body, weight: 600 as const },
@@ -99,6 +98,6 @@ export async function villageCard({ tint, kicker, title, line, facts = [], chips
         </div>
       </div>
     ),
-    { ...OG_SIZE, fonts: fonts.length ? fonts : undefined },
+    { ...OG_SIZE, fonts: fonts.length ? fonts : undefined, headers: { 'Cache-Control': CACHE } },
   );
 }

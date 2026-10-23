@@ -11,7 +11,10 @@ export function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: PageProps<'/g/[game]'>): Promise<Metadata> {
-  return { title: getGame((await params).game)?.shortTitle ?? 'Game' };
+  const game = getGame((await params).game);
+  if (!game) return { title: 'Game' };
+  const description = `The ${game.shortTitle} companion app, built and checked by players.`;
+  return { title: game.shortTitle, description, openGraph: { title: game.title, description, siteName: 'Village' } };
 }
 
 // The game app's front door. The URL is read inside <Suspense> so navigation is instant.

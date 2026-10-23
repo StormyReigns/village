@@ -11,7 +11,10 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: PageProps<'/g/[game]/workshop'>): Promise<Metadata> {
   const game = getGame((await params).game);
-  return { title: game ? `${game.shortTitle} Workshop` : 'Workshop' };
+  if (!game) return { title: 'Workshop' };
+  const title = `${game.shortTitle} Workshop`;
+  const description = `Help build the ${game.shortTitle} companion app: suggest fixes, add what's missing, and vote.`;
+  return { title, description, openGraph: { title, description, siteName: 'Village' } };
 }
 
 // The URL is read inside <Suspense> so navigation can show the shell instantly.

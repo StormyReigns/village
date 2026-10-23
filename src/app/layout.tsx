@@ -10,6 +10,8 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://village-tawny-beta.vercel.app'),
   title: { default: "Village", template: "%s · Village" },
   description: "Community-built companion apps for the games you love.",
+  openGraph: { siteName: "Village", title: "Village", description: "Community-built companion apps for the games you love." },
+  twitter: { card: "summary_large_image" },
 };
 
 // Always light, even when the device is in dark mode.
