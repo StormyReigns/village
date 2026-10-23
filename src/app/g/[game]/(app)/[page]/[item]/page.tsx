@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { GAMES, getGame } from '@/data/games';
 import { getApp } from '@/lib/app-data';
 import { PageView } from '@/components/app/PageView';
-import { TINT_HEX, clip, itemParam, resolveItem, summarize } from '@/data/pages/links';
+import { TINT_HEX, clip, itemParam, resolveItem, shareAnswer } from '@/data/pages/links';
 
 // A shared Block or entry: /g/fortunes-weave/items/paradise-fish. It shows the Page with
 // that entry open (or that Block in view), and gives Discord and other apps a proper
@@ -30,9 +30,12 @@ export async function generateMetadata({ params }: PageProps<'/g/[game]/[page]/[
   if (!game || !page || !hit) return { title: 'Not found' };
   const routes = Object.fromEntries((game.paths?.options ?? []).map((o) => [o.key, o.label]));
   const name = hit.entry ? hit.entry.name : hit.block.title;
+  // The answer itself, so people in Discord don't need to click (a guide's steps, an
+  // item's where-and-what). A whole Block lists what's inside.
+  const names = hit.block.entries.filter((e) => !e.spoiler).map((e, i) => (hit.block.type === 'guide' ? `${i + 1}. ${e.name}` : e.name));
   const description = hit.entry
-    ? clip([hit.entry.spoiler ? '' : hit.entry.description, ...summarize(hit.block, hit.entry, routes).slice(0, 3).map((f) => `${f.label}: ${f.text}`)].filter(Boolean).join(' · '), 200)
-    : clip(`${hit.block.entries.length} entries: ${hit.block.entries.slice(0, 8).map((e) => e.name).join(', ')}`, 200);
+    ? shareAnswer(hit.block, hit.entry, routes).text
+    : clip([hit.block.intro, `${hit.block.type === 'guide' ? '' : `${hit.block.entries.length} entries: `}${names.join(hit.block.type === 'guide' ? '  ' : ', ')}`].filter(Boolean).join(' '), 300);
   const title = `${name} · ${game.shortTitle}`;
   return {
     title,
@@ -58,8 +61,11 @@ async function Loaded({ params }: { params: PageProps<'/g/[game]/[page]/[item]'>
   const { game, page, hit } = await find(params);
   if (!game || !page || !hit) notFound();
   const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
+  // Guides and timelines show every entry in place; the others open it in a panel.
+  const panel = hit.block.type === 'collection' || hit.block.type === 'checklist';
   return (
     <PageView game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }} page={page}
-      openOnLoad={hit.entry ? `${hit.block.id}.${hit.entry.id}` : undefined} scrollTo={hit.entry ? undefined : hit.block.id} />
+      openOnLoad={hit.entry && panel ? `${hit.block.id}.${hit.entry.id}` : undefined}
+      scrollTo={!hit.entry ? hit.block.id : panel ? undefined : `${hit.block.id}-${hit.entry.id}`} />
   );
 }

@@ -1,6 +1,6 @@
 import { getGame } from '@/data/games';
 import { getApp } from '@/lib/app-data';
-import { resolveItem, summarize } from '@/data/pages/links';
+import { resolveItem, shareAnswer } from '@/data/pages/links';
 import { OG_SIZE, tintFor, villageCard } from '@/lib/og-card';
 
 // The preview picture for a shared Block or entry.
@@ -17,16 +17,15 @@ export default async function Image({ params }: { params: Promise<{ game: string
   const { block, entry } = hit;
 
   if (entry) {
-    // The entry's type goes up top; the boxes hold the answers (where to get it, what it does).
+    // The entry's type goes up top; below it, the answer itself (a guide's steps, or the
+    // where-and-what), so people get it without opening the link.
     const type = Object.values(entry.categories)[0];
     const routes = Object.fromEntries((game.paths?.options ?? []).map((o) => [o.key, o.label]));
-    const facts = summarize(block, entry, routes);
-    const answers = facts.filter((f) => !(f.label in entry.categories));
-    // Nothing beyond its type (most units): show the description instead of repeating the type.
-    const plain = !answers.length && !entry.spoiler && entry.description;
+    const answer = shareAnswer(block, entry, routes);
+    const guide = answer.steps.length > 0;
     return villageCard({
-      tint: page.tint, kicker: `${game.shortTitle} · ${type ?? block.title}`, title: entry.name, icon: true,
-      facts: plain ? [{ label: 'About', text: plain }] : answers.length ? answers : facts,
+      tint: page.tint, kicker: `${game.shortTitle} · ${type ?? block.title}`, title: entry.name, icon: !guide,
+      facts: answer.facts, steps: answer.steps, tip: answer.tip,
     });
   }
 

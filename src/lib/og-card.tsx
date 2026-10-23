@@ -59,6 +59,9 @@ export interface CardContent {
   line?: string;
   /** Entries: up to two answers, in white boxes. */
   facts?: { label: string; text: string }[];
+  /** Guides: the numbered steps (up to four show), and a tip when there's room. */
+  steps?: string[];
+  tip?: string;
   /** Blocks and Pages: a peek at what's inside, two columns. */
   rows?: Row[];
   /** How many more are inside than the rows show. */
@@ -70,10 +73,11 @@ const titleSize = (t: string, icon: boolean) => {
   return n <= 12 ? 120 : n <= 18 ? 96 : n <= 26 ? 76 : 62;
 };
 
-export async function villageCard({ tint, kicker, title, icon = false, line, facts = [], rows = [], more = 0 }: CardContent) {
+export async function villageCard({ tint, kicker, title, icon = false, line, facts = [], steps = [], tip, rows = [], more = 0 }: CardContent) {
   const color = TINT_HEX[tint];
   const dark = shade(color, -0.3);
   const shown = rows.slice(0, 4);
+  const stepsShown = steps.length === 4 ? steps : steps.slice(0, 3);
   const extra = more + rows.length - shown.length;
   const [heading, body, bold] = await Promise.all([fontFile('Fredoka-SemiBold.ttf'), fontFile('Nunito-SemiBold.ttf'), fontFile('Nunito-ExtraBold.ttf')]);
   const fonts = [
@@ -111,6 +115,24 @@ export async function villageCard({ tint, kicker, title, icon = false, line, fac
                 <div style={{ display: 'flex', fontSize: 40, lineHeight: 1.15 }}>{wclip(f.text, facts.length > 1 ? 60 : 84)}</div>
               </div>
             ))}
+          </div>
+        )}
+
+        {stepsShown.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', marginTop: 26 }}>
+            {stepsShown.map((st, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: stepsShown.length === 4 ? 'center' : 'flex-start', marginBottom: 10 }}>
+                <div style={{ display: 'flex', flexShrink: 0, width: 50, height: 50, borderRadius: 999, background: 'white', color: dark, alignItems: 'center', justifyContent: 'center', fontFamily: 'Fredoka', fontSize: 28 }}>{i + 1}</div>
+                {/* Four steps get one line each; three or fewer may wrap onto a second. */}
+                <div style={{ display: 'flex', fontSize: 34, fontWeight: 800, marginLeft: 20, lineHeight: 1.15, marginTop: stepsShown.length === 4 ? 0 : 5, whiteSpace: stepsShown.length === 4 ? 'nowrap' : 'normal' }}>{wclip(st, stepsShown.length === 4 ? 56 : 104)}</div>
+              </div>
+            ))}
+            {steps.length > stepsShown.length && <div style={{ display: 'flex', fontSize: 30, fontWeight: 800, opacity: 0.85, marginLeft: 70 }}>and {steps.length - stepsShown.length} more steps</div>}
+            {tip && steps.length <= 2 && (
+              <div style={{ display: 'flex', background: 'white', color: INK, borderRadius: 30, padding: '14px 26px', marginTop: 10, fontSize: 34 }}>
+                <span style={{ fontWeight: 800, color: dark, marginRight: 12 }}>Tip</span>{wclip(tip, 70)}
+              </div>
+            )}
           </div>
         )}
 

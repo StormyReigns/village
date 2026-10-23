@@ -264,16 +264,21 @@ function Timeline({ block, ctx }: { block: Block; ctx: BlockContext }) {
         {steps.map((e) => {
           const [part, title] = e.name.includes(': ') ? e.name.split(/: (.*)/) : ['', e.name];
           return (
-            <li key={e.id} className="relative">
+            <li key={e.id} id={`${block.id}-${e.id}`} className="relative scroll-mt-20">
               <span className={`gloss absolute -left-12 top-3 grid size-10 place-items-center rounded-full font-display text-white shadow-soft ${t.solid}`}>
                 {e.order === 0 ? '★' : e.order}
               </span>
               <article className={`rounded-2xl bg-gradient-to-br ${t.bar} to-card p-4 ring-1 ring-line`}>
-                {part && <p className={`text-xs font-bold uppercase tracking-wide ${t.text}`}>{part}</p>}
-                <h3 className="flex flex-wrap items-center gap-2 font-display text-xl leading-tight">
-                  {title}
-                  {e.routes?.length ? <span className={'rounded-full px-2 py-0.5 font-sans text-xs font-bold ' + tintFor(e.routes[0])}>{e.routes.map(name).join(', ')}</span> : null}
-                </h3>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    {part && <p className={`text-xs font-bold uppercase tracking-wide ${t.text}`}>{part}</p>}
+                    <h3 className="flex flex-wrap items-center gap-2 font-display text-xl leading-tight">
+                      {title}
+                      {e.routes?.length ? <span className={'rounded-full px-2 py-0.5 font-sans text-xs font-bold ' + tintFor(e.routes[0])}>{e.routes.map(name).join(', ')}</span> : null}
+                    </h3>
+                  </div>
+                  <ShareButton path={sharePath(ctx.gameId, ctx.page, block, e)} title={e.name} what="entry" tint={ctx.tint} />
+                </div>
                 {e.description && <div className="mt-1.5 leading-relaxed"><Lines text={e.description} /></div>}
               </article>
             </li>
@@ -389,8 +394,13 @@ function Guide({ block, ctx }: { block: Block; ctx: BlockContext }) {
           const tip = e.sections.find((s) => s.label === 'Tip');
           return (
             <article key={e.id} id={`${block.id}-${e.id}`} className="scroll-mt-20 rounded-2xl bg-card-2 p-4 ring-1 ring-line">
-              <p className={`text-xs font-bold uppercase tracking-wide ${t.text}`}>Guide {n + 1}</p>
-              <h3 className="font-display text-xl leading-tight">{e.name}</h3>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className={`text-xs font-bold uppercase tracking-wide ${t.text}`}>Guide {n + 1}</p>
+                  <h3 className="font-display text-xl leading-tight">{e.name}</h3>
+                </div>
+                <ShareButton path={sharePath(ctx.gameId, ctx.page, block, e)} title={e.name} what="guide" tint={ctx.tint} />
+              </div>
               {e.description && <div className="mt-1"><Lines text={e.description} /></div>}
               {steps && (
                 <ol className="mt-3 grid gap-0">

@@ -56,3 +56,41 @@ export function summarize(block: Block, entry: Entry, routeNames: Record<string,
 }
 
 export const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s);
+
+export interface ShareAnswer {
+  /** Short answers for the picture's white boxes. */
+  facts: { label: string; text: string }[];
+  /** A guide's numbered steps. */
+  steps: string[];
+  tip?: string;
+  /** The answer in words, for the text Discord shows above the picture. */
+  text: string;
+}
+
+/**
+ * What a shared entry should tell people without them clicking: a guide's steps, an
+ * item's where-and-what, or else its description. Spoilers stay hidden.
+ */
+export function shareAnswer(block: Block, entry: Entry, routeNames: Record<string, string> = {}): ShareAnswer {
+  const flat = (s: string) => s.replace(/\s*\n\s*/g, ' ').trim();
+  if (entry.spoiler) {
+    return { facts: [{ label: 'Spoiler', text: 'Open it in the app to read.' }], steps: [], text: 'Spoiler: open it in the app to read.' };
+  }
+  const stepList = block.type === 'guide' ? entry.sections.find((s) => s.label === 'Steps') : undefined;
+  if (stepList) {
+    const steps = stepList.text.split('\n').map((s) => s.trim()).filter(Boolean);
+    const tip = entry.sections.find((s) => s.label === 'Tip')?.text;
+    const text = [entry.description && flat(entry.description), steps.map((s, i) => `${i + 1}. ${s.replace(/[.!]$/, '')}.`).join(' '), tip && `Tip: ${flat(tip)}`];
+    return { facts: [], steps, tip, text: clip(text.filter(Boolean).join(' '), 300) };
+  }
+  const all = summarize(block, entry, routeNames);
+  // The entry's type already shows at the top, so the answers are everything else.
+  const answers = all.filter((f) => !(f.label in entry.categories));
+  if (!answers.length && entry.description) {
+    const about = flat(entry.description);
+    return { facts: [{ label: 'About', text: about }], steps: [], text: clip(about, 300) };
+  }
+  const facts = answers.length ? answers : all;
+  const text = [answers.length && entry.description ? flat(entry.description) : '', ...facts.map((f) => `${f.label}: ${flat(f.text)}`)];
+  return { facts, steps: [], text: clip(text.filter(Boolean).join(' · '), 300) };
+}
