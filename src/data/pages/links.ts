@@ -63,6 +63,8 @@ export interface ShareAnswer {
   /** A guide's numbered steps. */
   steps: string[];
   tip?: string;
+  /** Text-first entries (questions) that need the whole width instead of an icon tile. */
+  wide?: boolean;
   /** The answer in words, for the text Discord shows above the picture. */
   text: string;
 }
@@ -84,11 +86,17 @@ export function shareAnswer(block: Block, entry: Entry, routeNames: Record<strin
     return { facts: [], steps, tip, text: clip(text.filter(Boolean).join(' '), 300) };
   }
   const all = summarize(block, entry, routeNames);
-  // The entry's type already shows at the top, so the answers are everything else.
-  const answers = all.filter((f) => !(f.label in entry.categories));
-  if (!answers.length && entry.description) {
-    const about = flat(entry.description);
-    return { facts: [{ label: 'About', text: about }], steps: [], text: clip(about, 300) };
+  const types = Object.values(entry.categories);
+  // The entry's type already shows at the top, and an unnamed key fact that only repeats
+  // it (a Mystery's "Theory") says nothing new. The answers are everything else.
+  const answers = all.filter((f) => !(f.label in entry.categories) && !(f.label === 'Key fact' && types.includes(f.text)));
+  const about = entry.description ? flat(entry.description) : '';
+  const question = entry.name.trim().endsWith('?');
+  if (about && (question || !answers.length)) {
+    // Its own words are the content: what's known about a Mystery, who a unit is.
+    // Questions get the whole width, like guides.
+    const text = [about, ...answers.map((f) => `${f.label}: ${flat(f.text)}`)].join(' · ');
+    return { facts: [{ label: question ? 'What we know so far' : 'About', text: about }], steps: [], wide: question, text: clip(text, 300) };
   }
   const facts = answers.length ? answers : all;
   const text = [answers.length && entry.description ? flat(entry.description) : '', ...facts.map((f) => `${f.label}: ${flat(f.text)}`)];

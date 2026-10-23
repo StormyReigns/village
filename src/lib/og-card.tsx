@@ -112,7 +112,7 @@ export async function villageCard({ tint, kicker, title, icon = false, line, fac
             {facts.slice(0, 2).map((f, i) => (
               <div key={i} style={{ display: 'flex', flexDirection: 'column', background: 'white', color: INK, borderRadius: 30, padding: '16px 28px', marginRight: 20, width: facts.length > 1 ? 500 : 1000 }}>
                 <div style={{ display: 'flex', fontSize: 26, fontWeight: 800, color: dark, textTransform: 'uppercase' }}>{clip(f.label, 32)}</div>
-                <div style={{ display: 'flex', fontSize: 40, lineHeight: 1.15 }}>{wclip(f.text, facts.length > 1 ? 60 : 84)}</div>
+                <div style={{ display: 'flex', fontSize: 40, lineHeight: 1.15 }}>{wclip(f.text, facts.length > 1 ? 60 : icon ? 84 : 150)}</div>
               </div>
             ))}
           </div>

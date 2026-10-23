@@ -22,9 +22,9 @@ export default async function Image({ params }: { params: Promise<{ game: string
     const type = Object.values(entry.categories)[0];
     const routes = Object.fromEntries((game.paths?.options ?? []).map((o) => [o.key, o.label]));
     const answer = shareAnswer(block, entry, routes);
-    const guide = answer.steps.length > 0;
+    const textFirst = answer.steps.length > 0 || answer.wide;
     return villageCard({
-      tint: page.tint, kicker: `${game.shortTitle} · ${type ?? block.title}`, title: entry.name, icon: !guide,
+      tint: page.tint, kicker: `${game.shortTitle} · ${type ?? block.title}`, title: entry.name, icon: !textFirst,
       facts: answer.facts, steps: answer.steps, tip: answer.tip,
     });
   }
