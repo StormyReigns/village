@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Hammer, TriangleAlert, X } from 'lucide-react';
 import type { Block, Entry, EntryContent, Route } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
+import { ShareButton } from '@/components/ShareButton';
 import { Tip } from '@/components/Tip';
 import { initials, tintFor } from './entries';
 
@@ -35,8 +36,8 @@ export function EntryIcon({ entry, block, size = 'md' }: { entry: EntryContent; 
  * An entry's details: a side panel on wide screens, a sheet from the bottom on phones.
  * Arrows (or ← →) step through the entries the player is looking at.
  */
-export function EntryPanel({ entry, block, list, route, routes, gameId, onGo, onClose }: {
-  entry: Entry; block: Block; list: Entry[]; route: Route | 'all'; routes: RouteOption[]; gameId: string;
+export function EntryPanel({ entry, block, list, route, routes, gameId, sharePath, onGo, onClose }: {
+  entry: Entry; block: Block; list: Entry[]; route: Route | 'all'; routes: RouteOption[]; gameId: string; sharePath: string;
   onGo: (e: Entry) => void; onClose: () => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
@@ -69,6 +70,7 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, onGo, on
         <div className="flex items-center gap-1 px-4 pt-3">
           <p className="text-xs font-bold uppercase tracking-wide text-muted">{block.title}{at >= 0 && ` · ${at + 1} of ${list.length}`}</p>
           <span className="ml-auto" />
+          <ShareButton path={sharePath} title={entry.name} what="entry" className="mr-1" />
           <button onClick={() => prev && onGo(prev)} disabled={!prev} aria-label="Previous" className="grid size-9 place-items-center rounded-full hover:bg-card-2 disabled:opacity-30"><ChevronLeft size={18} aria-hidden="true" /></button>
           <button onClick={() => next && onGo(next)} disabled={!next} aria-label="Next" className="grid size-9 place-items-center rounded-full hover:bg-card-2 disabled:opacity-30"><ChevronRight size={18} aria-hidden="true" /></button>
           <button onClick={onClose} aria-label="Close" className="grid size-9 place-items-center rounded-full bg-card-2 ring-1 ring-line"><X size={18} aria-hidden="true" /></button>

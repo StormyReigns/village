@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Clock, Eye, EyeOff, Hourglass, Info, Search } from 'lucide-react';
 import type { Page, Route } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
@@ -36,13 +36,25 @@ function RoutePicker({ game, route, onPick, solid }: { game: AppGame; route: Rou
   );
 }
 
-export function PageView({ game, page }: { game: AppGame; page: Page }) {
+export function PageView({ game, page, openOnLoad, scrollTo }: { game: AppGame; page: Page; openOnLoad?: string; scrollTo?: string }) {
+  // Arriving from a share link: open that entry (or bring that Block into view), then show
+  // the usual Page address so the panel's arrows, close and Back work as normal.
+  useEffect(() => {
+    if (!openOnLoad && !scrollTo) return;
+    const base = `/g/${game.id}/${page.id}`;
+    if (openOnLoad) window.history.replaceState({}, '', `${base}?e=${openOnLoad}`);
+    else {
+      window.history.replaceState({}, '', `${base}#${scrollTo}`);
+      document.getElementById(scrollTo!)?.scrollIntoView({ block: 'start' });
+    }
+  }, [openOnLoad, scrollTo, game.id, page.id]);
   const [prefs, setPrefs] = usePlayerPrefs(game.id);
   const byRoute = game.routes.length > 0 && page.blocks.some((b) => b.byRoute);
   const hasSpoilers = page.blocks.some((b) => b.entries.some((e) => e.spoiler));
   const t = TINT[page.tint];
   const ctx: BlockContext = {
     gameId: game.id,
+    page,
     pageTitle: page.title,
     tint: page.tint,
     route: byRoute ? prefs.route : 'all',

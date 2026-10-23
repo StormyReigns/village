@@ -1,0 +1,65 @@
+import { Suspense } from 'react';
+import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
+import { GAMES, getGame } from '@/data/games';
+import { getApp } from '@/lib/app-data';
+import { PageView } from '@/components/app/PageView';
+import { TINT_HEX, clip, itemParam, resolveItem, summarize } from '@/data/pages/links';
+
+// A shared Block or entry: /g/fortunes-weave/items/paradise-fish. It shows the Page with
+// that entry open (or that Block in view), and gives Discord and other apps a proper
+// preview: a title, a short summary, the Page's color, and a picture (opengraph-image).
+
+export async function generateStaticParams() {
+  const all = await Promise.all(GAMES.map(async (g) => (await getApp(g.id)).flatMap((p) =>
+    p.blocks.flatMap((b) => [b.id, ...b.entries.map((e) => itemParam(p, b, e))]).map((item) => ({ game: g.id, page: p.id, item })),
+  )));
+  return all.flat();
+}
+
+async function find(params: PageProps<'/g/[game]/[page]/[item]'>['params']) {
+  const { game: gameId, page: pageId, item } = await params;
+  const game = getGame(gameId);
+  const page = (await getApp(gameId)).find((p) => p.id === pageId);
+  const hit = page ? resolveItem(page, item) : null;
+  return { game, page, hit };
+}
+
+export async function generateMetadata({ params }: PageProps<'/g/[game]/[page]/[item]'>): Promise<Metadata> {
+  const { game, page, hit } = await find(params);
+  if (!game || !page || !hit) return { title: 'Not found' };
+  const routes = Object.fromEntries((game.paths?.options ?? []).map((o) => [o.key, o.label]));
+  const name = hit.entry ? hit.entry.name : hit.block.title;
+  const description = hit.entry
+    ? clip([hit.entry.spoiler ? '' : hit.entry.description, ...summarize(hit.block, hit.entry, routes).slice(0, 3).map((f) => `${f.label}: ${f.text}`)].filter(Boolean).join(' · '), 200)
+    : clip(`${hit.block.entries.length} entries: ${hit.block.entries.slice(0, 8).map((e) => e.name).join(', ')}`, 200);
+  const title = `${name} · ${game.shortTitle}`;
+  return {
+    title,
+    description,
+    openGraph: { title, description, siteName: 'Village', type: 'article' },
+    twitter: { card: 'summary_large_image', title, description },
+    // Discord colors the edge of the preview with this. It lives here, not in the viewport,
+    // so the page can still be prerendered.
+    other: { 'theme-color': TINT_HEX[page.tint] },
+  };
+}
+
+
+export default function SharedItem({ params }: PageProps<'/g/[game]/[page]/[item]'>) {
+  return (
+    <Suspense fallback={<div className="mt-3 h-96 animate-pulse rounded-[2rem] bg-card" />}>
+      <Loaded params={params} />
+    </Suspense>
+  );
+}
+
+async function Loaded({ params }: { params: PageProps<'/g/[game]/[page]/[item]'>['params'] }) {
+  const { game, page, hit } = await find(params);
+  if (!game || !page || !hit) notFound();
+  const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
+  return (
+    <PageView game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }} page={page}
+      openOnLoad={hit.entry ? `${hit.block.id}.${hit.entry.id}` : undefined} scrollTo={hit.entry ? undefined : hit.block.id} />
+  );
+}

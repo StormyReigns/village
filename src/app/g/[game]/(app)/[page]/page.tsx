@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { GAMES, getGame } from '@/data/games';
 import { getApp } from '@/lib/app-data';
 import { PageView } from '@/components/app/PageView';
+import { TINT_HEX } from '@/data/pages/links';
 
 export async function generateStaticParams() {
   const all = await Promise.all(GAMES.map(async (g) => (await getApp(g.id)).map((p) => ({ game: g.id, page: p.id }))));
@@ -14,8 +15,19 @@ export async function generateMetadata({ params }: PageProps<'/g/[game]/[page]'>
   const { game, page } = await params;
   const g = getGame(game);
   const p = (await getApp(game)).find((x) => x.id === page);
-  return { title: p && g ? `${p.title} · ${g.shortTitle}` : 'Page' };
+  if (!p || !g) return { title: 'Page' };
+  const title = `${p.title} · ${g.shortTitle}`;
+  return {
+    title,
+    description: p.blurb,
+    openGraph: { title, description: p.blurb, siteName: 'Village' },
+    twitter: { card: 'summary_large_image', title, description: p.blurb },
+    // Discord colors the edge of the preview with this. It lives here, not in the viewport,
+    // so the page can still be prerendered.
+    other: { 'theme-color': TINT_HEX[p.tint] },
+  };
 }
+
 
 // One Page of the game app. The URL is read inside <Suspense> so navigation is instant.
 export default function AppPage({ params }: PageProps<'/g/[game]/[page]'>) {

@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Check, ChevronDown, Hourglass, Plus, Search, Sparkles, StickyNote } from 'lucide-react';
-import type { Block, Entry, Route, Tint } from '@/data/pages';
+import type { Block, Entry, Page, Route, Tint } from '@/data/pages';
+import { sharePath } from '@/data/pages/links';
+import { ShareButton } from '@/components/ShareButton';
 import { BlockIcon } from '@/components/Icon';
 import { Tip } from '@/components/Tip';
 import { ScrollRow } from '@/components/ScrollRow';
@@ -14,6 +16,7 @@ import { TINT } from './tint';
 /** What every Block needs from the page around it. */
 export interface BlockContext {
   gameId: string;
+  page: Page;
   pageTitle: string;
   tint: Tint;
   route: Route | 'all';
@@ -33,6 +36,7 @@ export function BlockView({ block, ctx }: { block: Block; ctx: BlockContext }) {
           <h2 id={`${block.id}-title`} className="font-display text-xl leading-tight">{block.title}</h2>
           {block.intro && <p className="text-sm text-muted">{block.intro}</p>}
         </div>
+        {block.entries.length > 0 && <ShareButton path={sharePath(ctx.gameId, ctx.page, block)} title={`${block.title} · ${ctx.pageTitle}`} what="Block" tint={ctx.tint} />}
         {block.entries.length > 0 && (
           <Tip text={`Know something missing from ${block.title}? Add it in the Workshop`} tint={ctx.tint} className="shrink-0">
             <Link href={`/g/${ctx.gameId}/workshop?add=${block.id}`} aria-label={`Add to ${block.title}`}
@@ -90,7 +94,7 @@ function OpenPanel({ block, list, ctx }: { block: Block; list: Entry[]; ctx: Blo
 
   if (!entry) return null;
   return (
-    <EntryPanel entry={entry} block={block} list={list} route={ctx.route} routes={ctx.routes} gameId={ctx.gameId}
+    <EntryPanel entry={entry} block={block} list={list} route={ctx.route} routes={ctx.routes} gameId={ctx.gameId} sharePath={sharePath(ctx.gameId, ctx.page, block, entry)}
       onGo={(e) => set(`${block.id}.${e.id}`, 'replace')} onClose={close} />
   );
 }
