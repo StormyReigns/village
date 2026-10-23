@@ -4,16 +4,17 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDown, ArrowLeft, ArrowUp, Check, EyeOff, ExternalLink, Flag, MessageCircle, MoreHorizontal, Plus, RotateCcw, Search, Send,
+  ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronUp, EyeOff, ExternalLink, Flag, MessageCircle, MoreHorizontal, Plus, RotateCcw, Search, Send,
   ShieldCheck, Sparkles, Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import type { Block, Page } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
 import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
-import { matches } from '@/components/app/entries';
+import { initials, matches } from '@/components/app/entries';
 import { SignInPrompt } from '@/components/SignInPrompt';
 import { ScrollRow } from '@/components/ScrollRow';
 import { ScrollBox } from '@/components/ScrollBox';
+import { useStored } from '@/components/useStored';
 import { house } from '@/components/house';
 import { MarketDay } from '@/components/Countdown';
 import { AccountButton } from '@/components/AccountButton';
@@ -74,6 +75,9 @@ export function Workshop({ game, pages, routes }: {
   const [allDrafts, setAllDrafts] = useState(false);
   const [detail, setDetail] = useState<string | null>(null);
   const [posted, setPosted] = useState('');
+  const [query, setQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [itemsHidden, setItemsHidden] = useStored('village:workshop:hide-open-items', false);
 
   // Next keeps a visited Workshop alive in the background, so coming back through a new
   // "Suggest a fix" link doesn't start it fresh. Follow each new link as it arrives.
@@ -188,14 +192,31 @@ export function Workshop({ game, pages, routes }: {
             </>
           ) : (
             <>
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-display text-xl">{current ? current.title : 'Everything'}</h2>
-                <span className="ml-auto" />
-                <button onClick={() => setAllDrafts(!allDrafts)} aria-pressed={allDrafts}
-                  className={'rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (allDrafts ? 'bg-ink text-paper ring-ink' : 'bg-card-2 ring-line hover:ring-ink')}>
-                  {allDrafts ? 'Back to Blocks' : 'All Drafts'}
+              <div className="flex items-center gap-2">
+                {searching ? (
+                  <label className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-card-2 px-3 py-1.5 text-sm ring-2 ring-sky">
+                    <Search size={15} className="text-muted" aria-hidden="true" />
+                    <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); setSearching(false); } }}
+                      placeholder={current ? `Find something in ${current.title}` : 'Find anything in the app'} aria-label="Search"
+                      className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted" />
+                    <button type="button" onClick={() => { setQuery(''); setSearching(false); }} aria-label="Close search" className="grid size-6 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
+                      <X size={14} aria-hidden="true" />
+                    </button>
+                  </label>
+                ) : (
+                  <>
+                    <h2 className="min-w-0 flex-1 truncate font-display text-xl" title={current?.title}>{current ? current.title : 'Everything'}</h2>
+                    <button onClick={() => setSearching(true)} aria-label="Search" title="Search"
+                      className="grid size-9 place-items-center rounded-full bg-card-2 ring-1 ring-line hover:ring-ink">
+                      <Search size={16} aria-hidden="true" />
+                    </button>
+                  </>
+                )}
+                <button onClick={() => setAllDrafts(!allDrafts)} aria-pressed={allDrafts} title={allDrafts ? 'Back to Blocks' : 'Every Draft, sortable'}
+                  className={'shrink-0 rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (allDrafts ? 'bg-ink text-paper ring-ink' : 'bg-card-2 ring-line hover:ring-ink')}>
+                  {allDrafts ? 'Blocks' : 'Drafts'}
                 </button>
-                <button onClick={startNew} className="inline-flex items-center gap-1 rounded-full bg-leaf px-3 py-1.5 text-sm font-bold text-paper hover:opacity-90">
+                <button onClick={startNew} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-leaf px-3 py-1.5 text-sm font-bold text-paper hover:opacity-90">
                   <Plus size={16} aria-hidden="true" /> New
                 </button>
               </div>
@@ -208,11 +229,24 @@ export function Workshop({ game, pages, routes }: {
 
               {/* Open items: a swipeable row of blocks */}
               <div className="mt-3">
-                <p className="text-xs font-bold uppercase tracking-wide text-muted">Open items · {items.length}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-bold uppercase tracking-wide text-muted">Open items · {items.length}</p>
+                  {items.length > 0 && (
+                    <button onClick={() => setItemsHidden(!itemsHidden)} aria-expanded={!itemsHidden}
+                      className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold text-muted hover:bg-card-2 hover:text-ink">
+                      {itemsHidden ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronUp size={14} aria-hidden="true" />}
+                      {itemsHidden ? 'Show' : 'Hide'}
+                    </button>
+                  )}
+                </div>
                 {live.state === 'loading' ? (
                   <div className="mt-4 flex gap-3 overflow-hidden" aria-hidden="true">{[0, 1].map((n) => <div key={n} className="h-28 w-52 shrink-0 animate-pulse rounded-[1.1rem] bg-card-2" />)}</div>
                 ) : items.length === 0 ? (
                   <p className="mt-2 rounded-2xl bg-card-2 px-3 py-3 text-sm text-muted">Nothing waiting{current ? ` on ${current.title}` : ''}. Pick something below to improve, or add something new.</p>
+                ) : itemsHidden ? (
+                  <ScrollRow as="ul" className="mt-1.5 flex gap-1.5 pb-1">
+                    {items.map(({ d, kind }) => <li key={d.id} className="shrink-0"><ItemDot d={d} kind={kind} place={placeOf(d.blockKey)} onOpen={() => setDetail(d.id)} /></li>)}
+                  </ScrollRow>
                 ) : (
                   <ScrollRow as="ul" className="swipe -mx-4 flex gap-3 px-4 pb-3 pt-4">
                     {items.map(({ d, kind }) => <li key={d.id} className="shrink-0"><OpenItem d={d} kind={kind} practice={Boolean(me?.practice && d.author.id === me.id)} place={placeOf(d.blockKey)} onOpen={() => setDetail(d.id)} /></li>)}
@@ -231,12 +265,12 @@ export function Workshop({ game, pages, routes }: {
                       </select>
                     </label>
                   </div>
-                  {visible.length === 0 ? (
+                  {visible.filter((d) => !query || d.title.toLowerCase().includes(query.toLowerCase())).length === 0 ? (
                     <Empty title={sort === 'shipped' ? 'Nothing published yet' : 'No Drafts here yet'}
                       body={sort === 'shipped' ? 'Drafts land here once a moderator publishes them to the app.' : 'Spotted something missing or wrong? Start one, or tap "Suggest a fix" on anything in the app.'} />
                   ) : (
                     <ul className="mt-3 grid gap-3">
-                      {visible.map((d) => (
+                      {visible.filter((d) => !query || d.title.toLowerCase().includes(query.toLowerCase())).map((d) => (
                         <DraftCard key={d.id} draft={d} place={placeOf(d.blockKey)} routes={routes} me={me}
                           messages={live.messages.filter((m) => m.draftId === d.id)} live={live} />
                       ))}
@@ -244,7 +278,7 @@ export function Workshop({ game, pages, routes }: {
                   )}
                 </>
               ) : (
-                <AppContents pages={current ? [current] : pages} drafts={drafts} focus={form?.entryId ? `${form.blockId}.${form.entryId}` : undefined}
+                <AppContents pages={current ? [current] : pages} drafts={drafts} query={query} focus={form?.entryId ? `${form.blockId}.${form.entryId}` : undefined}
                   onFix={(blockId, entryId) => setForm({ blockId, entryId })} onAdd={(blockId) => setForm({ blockId })}
                   onDrafts={(cardId) => { const d = drafts.find((x) => x.cardId === cardId && isOpen(x)); if (d) setDetail(d.id); }} />
               )}
@@ -333,6 +367,18 @@ function OpenItem({ d, kind, practice, place, onOpen }: { d: LiveDraft; kind: ke
         {status}
       </span>
       {(practice || d.practiceVote) && <span className="text-[11px] leading-tight">Practice votes are saved on this device. Only you see them.</span>}
+    </button>
+  );
+}
+
+/** An open item while the row is hidden: a dot in its Page's color, ringed by its status. */
+function ItemDot({ d, kind, place, onOpen }: { d: LiveDraft; kind: keyof typeof ITEM; place?: Placed; onOpen: () => void }) {
+  const tint = place?.page.tint ?? 'muted';
+  return (
+    <button onClick={onOpen} title={`${ITEM[kind].label}: ${d.title}`} aria-label={`${ITEM[kind].label}: ${d.title}`}
+      className="grid size-8 place-items-center rounded-full text-[11px] font-bold ring-2 ring-offset-1 ring-offset-card hover:scale-110"
+      style={{ background: `color-mix(in srgb, var(--${tint}) 18%, white)`, color: `color-mix(in srgb, var(--${tint}) 80%, black)`, ['--tw-ring-color' as string]: `var(--${ITEM[kind].tint})` }}>
+      {initials(d.title)}
     </button>
   );
 }
@@ -782,11 +828,12 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
  * "In the app": what's on the selected Page right now, Block by Block, so villagers can
  * pick something to fix or add to without leaving the Workshop.
  */
-function AppContents({ pages, drafts, focus, onFix, onAdd, onDrafts }: {
-  pages: Page[]; drafts: LiveDraft[]; focus?: string;
+function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts }: {
+  pages: Page[]; drafts: LiveDraft[]; query: string; focus?: string;
   onFix: (blockId: string, entryId: string) => void; onAdd: (blockId: string) => void; onDrafts: (cardId: string) => void;
 }) {
-  const [query, setQuery] = useState('');
+  const [folded, setFolded] = useStored<string[]>('village:workshop:folded-blocks', []);
+  const fold = (id: string) => setFolded(folded.includes(id) ? folded.filter((x) => x !== id) : [...folded, id]);
   const open = useMemo(() => {
     const n = new Map<string, number>();
     for (const d of drafts) if (d.cardId && (d.status === 'open' || d.status === 'checking')) n.set(d.cardId, (n.get(d.cardId) ?? 0) + 1);
@@ -794,29 +841,31 @@ function AppContents({ pages, drafts, focus, onFix, onAdd, onDrafts }: {
   }, [drafts]);
   const many = pages.length > 1;
   return (
-    <div className="mt-1 grid grid-cols-[minmax(0,1fr)] gap-5">
-      <label className="flex items-center gap-2 rounded-full bg-card-2 px-3 py-2 text-sm ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
-        <Search size={15} className="text-muted" aria-hidden="true" />
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={many ? 'Find anything in the app' : `Find something in ${pages[0]?.title}`}
-          className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted" />
-      </label>
+    <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-5">
+      {query && !pages.some((p) => p.blocks.some((b) => b.entries.some((e) => matches(e, query)))) && (
+        <p className="rounded-2xl bg-card-2 px-3 py-3 text-sm text-muted">Nothing matches “{query}”. Try another word, or add it as something new.</p>
+      )}
       {pages.map((p) => (
         <div key={p.id} className="grid grid-cols-[minmax(0,1fr)] gap-5">
           {many && <h3 className="flex items-center gap-2 font-display text-lg"><BlockIcon name={p.icon} size={16} /> {p.title}</h3>}
           {p.blocks.map((b) => {
             const list = b.entries.filter((e) => matches(e, query));
             if (query && !list.length) return null;
+            const isFolded = folded.includes(b.id) && !query;
             return (
               <section key={b.id} {...house(p.title, p.tint, { lean: false })} className="vblock vblock-quiet min-w-0 p-3 pt-3.5">
                 <div className="flex items-center gap-2">
-                  <span className="grid size-7 place-items-center rounded-lg" style={{ background: 'color-mix(in srgb, var(--tint) 14%, white)', color: 'var(--tint)' }}><BlockIcon name={b.icon} size={15} /></span>
-                  <h4 className="font-bold">{b.title}</h4>
-                  <span className="text-xs text-muted">{b.entries.length}</span>
-                  <button onClick={() => onAdd(b.id)} className="ml-auto inline-flex items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-leaf">
+                  <button onClick={() => fold(b.id)} aria-expanded={!isFolded} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                    <span className="grid size-7 shrink-0 place-items-center rounded-lg" style={{ background: 'color-mix(in srgb, var(--tint) 14%, white)', color: 'var(--tint)' }}><BlockIcon name={b.icon} size={15} /></span>
+                    <h4 className="truncate font-bold">{b.title}</h4>
+                    <span className="text-xs text-muted">{b.entries.length}</span>
+                    <ChevronDown size={15} className={'shrink-0 text-muted transition ' + (isFolded ? '-rotate-90' : '')} aria-hidden="true" />
+                  </button>
+                  <button onClick={() => onAdd(b.id)} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-leaf">
                     <Plus size={13} aria-hidden="true" /> Add
                   </button>
                 </div>
-                {list.length === 0 ? (
+                {isFolded ? null : list.length === 0 ? (
                   <p className="mt-2 text-sm text-muted">Nothing here yet. Add the first one.</p>
                 ) : (
                   <ScrollBox as="ul" className="mt-2 grid max-h-80 grid-cols-[minmax(0,1fr)] gap-1 pb-6 pr-1">
