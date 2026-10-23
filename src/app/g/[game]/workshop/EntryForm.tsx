@@ -154,6 +154,11 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
           <button onClick={onClose} className="ml-auto grid size-9 place-items-center rounded-full bg-card-2 ring-1 ring-line" aria-label="Close"><X size={18} aria-hidden="true" /></button>
         </div>
 
+        {me === null && !restore && (
+          <p className="mt-2 rounded-2xl bg-sky-soft px-3 py-2 text-sm">
+            Write as much as you like. You&apos;ll sign in when you submit, and nothing you write here is lost.
+          </p>
+        )}
         {restore && (
           <p role="status" className="mt-2 rounded-2xl bg-leaf-soft px-3 py-2 text-sm text-leaf">Picked up where you left off. Everything you wrote is still here.</p>
         )}

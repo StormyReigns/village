@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { Landmark, Store } from 'lucide-react';
 import { GAMES } from '@/data/games';
 import { VillageScene } from '@/components/VillageScene';
-import { MarketDay } from '@/components/Countdown';
+import { MarketDayButton } from '@/components/HowItWorks';
 import { GameBrowser } from '@/components/GameBrowser';
 import { AccountButton } from '@/components/AccountButton';
 import { findPicture, withCovers } from '@/lib/pictures';
@@ -21,7 +21,7 @@ export default function VillageSquare() {
           Village
         </div>
         <div className="flex items-center gap-2">
-          <span className="surface hidden rounded-full px-3 py-1 text-sm font-bold text-sun sm:inline-block"><MarketDay /></span>
+          <MarketDayButton className="surface hidden text-sun sm:inline-flex" />
           <AccountButton />
         </div>
       </header>
@@ -51,8 +51,8 @@ export default function VillageSquare() {
         <Link href="/town-hall" className="surface lift flex gap-4 rounded-3xl p-5">
           <span className="gloss grid size-12 shrink-0 place-items-center rounded-2xl bg-sky text-white"><Landmark aria-hidden="true" /></span>
           <span>
-            <span className="font-display text-xl">Town Hall</span>
-            <span className="block text-muted">Talk about anything, ask for help, and request the next game.</span>
+            <span className="flex items-center gap-2 font-display text-xl">Town Hall <span className="rounded-full bg-sun-soft px-2 py-0.5 font-sans text-xs font-bold text-sun">Coming soon</span></span>
+            <span className="block text-muted">A village-wide square for anything, and requests for the next game. For now, each game&apos;s Workshop has its own chat.</span>
           </span>
         </Link>
         <div className="surface flex gap-4 rounded-3xl p-5">

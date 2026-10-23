@@ -53,7 +53,10 @@ export function useAccount(): Villager | null | undefined {
     };
     db.auth.getUser().then(({ data }) => load(data.user));
     const { data: sub } = db.auth.onAuthStateChange((_event, session) => { load(session?.user ?? null); });
-    return () => { cancelled = true; sub.subscription.unsubscribe(); };
+    // Reload after the villager changes their name.
+    const reload = () => { db.auth.getUser().then(({ data }) => load(data.user)); };
+    window.addEventListener('village:profile-changed', reload);
+    return () => { cancelled = true; sub.subscription.unsubscribe(); window.removeEventListener('village:profile-changed', reload); };
   }, []);
 
   return villager;

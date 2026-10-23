@@ -16,7 +16,7 @@ import { ScrollRow } from '@/components/ScrollRow';
 import { ScrollBox } from '@/components/ScrollBox';
 import { useStored } from '@/components/useStored';
 import { house } from '@/components/house';
-import { MarketDay } from '@/components/Countdown';
+import { HowItWorksButton, MarketDayButton } from '@/components/HowItWorks';
 import { AccountButton } from '@/components/AccountButton';
 import { Avatar } from '@/components/Avatar';
 import { useVillager, type Villager } from '@/components/useVillager';
@@ -79,6 +79,8 @@ export function Workshop({ game, pages, routes }: {
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [itemsHidden, setItemsHidden] = useStored('village:workshop:hide-open-items', false);
+  const [introDone, setIntroDone] = useStored('village:workshop:intro-seen', false);
+  const [phoneTab, setPhoneTab] = useState<'work' | 'chat'>('work');
   // A Draft written but not sent (say, before signing in) waits on this device.
   const [unsent, setUnsent] = useState<Unsent | null>(null);
   const [restore, setRestore] = useState<Unsent | null>(null);
@@ -171,10 +173,12 @@ export function Workshop({ game, pages, routes }: {
           <p className="text-xs font-bold uppercase tracking-wide text-muted">Workshop</p>
           <h1 className="font-display text-2xl leading-tight">{game.shortTitle}</h1>
         </div>
-        <span className="hidden rounded-full bg-sun-soft px-3 py-1 text-sm font-bold text-sun sm:inline"><MarketDay /></span>
-        <div className="ml-auto flex items-center gap-2">
+        <MarketDayButton className="hidden bg-sun-soft text-sun sm:inline-flex" />
+        <HowItWorksButton className="hidden sm:inline-flex" />
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <HowItWorksButton compact className="inline-flex sm:hidden" />
           <Link href={`/g/${game.id}`} className="gloss btn-primary inline-flex items-center gap-2 rounded-full px-4 py-2 font-bold">
-            Open the app <ExternalLink size={16} aria-hidden="true" />
+            <span className="hidden sm:inline">Open the app</span><span className="sm:hidden">App</span> <ExternalLink size={16} aria-hidden="true" />
           </Link>
           <AccountButton />
         </div>
@@ -193,7 +197,15 @@ export function Workshop({ game, pages, routes }: {
         <p role="status" className="mt-3 rounded-2xl bg-berry-soft px-4 py-3 text-sm text-berry">Couldn&apos;t reach the village just now. Refresh the page to try again.</p>
       )}
 
+      <div role="tablist" aria-label="Show" className="mt-2 flex rounded-full bg-card p-1 ring-1 ring-line lg:hidden">
+        {([['work', 'Drafts and Blocks'], ['chat', `Chat · ${chat.length}`]] as const).map(([k, label]) => (
+          <button key={k} role="tab" aria-selected={phoneTab === k} onClick={() => setPhoneTab(k)}
+            className={'flex-1 rounded-full px-3 py-2 text-sm font-bold ' + (phoneTab === k ? 'gloss bg-ink text-paper' : 'text-muted')}>{label}</button>
+        ))}
+      </div>
+
       <div className="mt-3 grid flex-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div className={(phoneTab === 'chat' ? 'flex' : 'hidden') + ' min-w-0 flex-col lg:flex'}>
         <Chat
           topic={current ? { key: current.id, label: current.title } : null}
           notice={chip === 'notice'}
@@ -202,9 +214,10 @@ export function Workshop({ game, pages, routes }: {
           me={me}
           live={live}
         />
+        </div>
 
         {/* Ongoing work: open items, then the Page's Blocks */}
-        <section aria-label="Work" className="flex min-h-[28rem] min-w-0 flex-col rounded-[1.75rem] bg-card p-4 shadow-soft ring-1 ring-line">
+        <section aria-label="Work" className={(phoneTab === 'work' ? 'flex' : 'hidden') + ' min-h-[28rem] min-w-0 flex-col rounded-[1.75rem] bg-card p-4 shadow-soft ring-1 ring-line lg:flex'}>
           {chip === 'notice' ? (
             <>
               <h2 className="font-display text-xl">Notice Board</h2>
@@ -243,6 +256,19 @@ export function Workshop({ game, pages, routes }: {
                 </button>
               </div>
 
+              {!introDone && (
+                <div className="mt-3 flex items-start gap-2 rounded-2xl bg-sky-soft px-3 py-2.5 text-sm">
+                  <span className="min-w-0 flex-1">
+                    <span className="font-bold text-sky">New here?</span> Anyone can suggest a fix or add something. Other villagers check it,
+                    and on Market Day it goes into the app.
+                    <HowItWorksButton className="ml-1 mt-1.5 inline-flex !py-0.5 text-xs" />
+                  </span>
+                  <button onClick={() => setIntroDone(true)} aria-label="Dismiss" className="grid size-7 shrink-0 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
+                    <X size={15} aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+
               {posted && (
                 <p role="status" className="rise mt-3 flex items-start gap-2 rounded-2xl bg-leaf-soft px-3 py-2 text-sm text-leaf">
                   <Check size={16} className="mt-0.5 shrink-0" aria-hidden="true" /> {posted}
@@ -278,11 +304,11 @@ export function Workshop({ game, pages, routes }: {
                   <p className="mt-2 rounded-2xl bg-card-2 px-3 py-3 text-sm text-muted">Nothing waiting{current ? ` on ${current.title}` : ''}. Pick something below to improve, or add something new.</p>
                 ) : itemsHidden ? (
                   <ScrollRow as="ul" className="mt-1.5 flex gap-1.5 pb-1">
-                    {items.map(({ d, kind }) => <li key={d.id} className="shrink-0"><ItemDot d={d} kind={kind} place={placeOf(d.blockKey)} onOpen={() => setDetail(d.id)} /></li>)}
+                    {items.map(({ d, kind }) => <li key={d.id} className="shrink-0"><ItemDot d={d} kind={kind} visitor={me === null} place={placeOf(d.blockKey)} onOpen={() => setDetail(d.id)} /></li>)}
                   </ScrollRow>
                 ) : (
                   <ScrollRow as="ul" className="swipe -mx-4 flex gap-3 px-4 pb-3 pt-4">
-                    {items.map(({ d, kind }) => <li key={d.id} className="shrink-0"><OpenItem d={d} kind={kind} practice={Boolean(me?.practice && d.author.id === me.id)} place={placeOf(d.blockKey)} onOpen={() => setDetail(d.id)} /></li>)}
+                    {items.map(({ d, kind }) => <li key={d.id} className="shrink-0"><OpenItem d={d} kind={kind} visitor={me === null} practice={Boolean(me?.practice && d.author.id === me.id)} place={placeOf(d.blockKey)} onOpen={() => setDetail(d.id)} /></li>)}
                   </ScrollRow>
                 )}
               </div>
@@ -372,7 +398,7 @@ const ITEM: Record<'ready' | 'yours' | 'vote' | 'voted', { label: string; tint: 
 };
 
 /** One open item: a Draft as a village block you can tap to see and vote on. */
-function OpenItem({ d, kind, practice, place, onOpen }: { d: LiveDraft; kind: keyof typeof ITEM; practice?: boolean; place?: Placed; onOpen: () => void }) {
+function OpenItem({ d, kind, visitor, practice, place, onOpen }: { d: LiveDraft; kind: keyof typeof ITEM; visitor?: boolean; practice?: boolean; place?: Placed; onOpen: () => void }) {
   const votes = d.ups + d.downs;
   const status = (d.status === 'stable' ? 'Published' : d.status === 'declined' ? 'Declined' : votes >= 5 ? `${votes} votes` : `${votes} of 5 votes`)
     + (d.practiceVote ? ' (1 practice)' : '');
@@ -382,7 +408,7 @@ function OpenItem({ d, kind, practice, place, onOpen }: { d: LiveDraft; kind: ke
       className="vblock flex w-52 flex-col gap-2 px-3 pb-3 pt-3.5 text-left">
       <span className="flex items-center gap-1.5">
         <span className="rounded-full bg-white/85 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: `color-mix(in srgb, var(--${ITEM[kind].tint}) 80%, black)` }}>
-          {practice ? 'Your Draft · practice' : ITEM[kind].label}
+          {practice ? 'Your Draft · practice' : visitor && kind === 'vote' ? 'Open for votes' : ITEM[kind].label}
         </span>
         {place && <span className="truncate text-[11px] font-bold">{place.page.title}</span>}
       </span>
@@ -405,10 +431,11 @@ function OpenItem({ d, kind, practice, place, onOpen }: { d: LiveDraft; kind: ke
 }
 
 /** An open item while the row is hidden: a dot in its Page's color, ringed by its status. */
-function ItemDot({ d, kind, place, onOpen }: { d: LiveDraft; kind: keyof typeof ITEM; place?: Placed; onOpen: () => void }) {
+function ItemDot({ d, kind, visitor, place, onOpen }: { d: LiveDraft; kind: keyof typeof ITEM; visitor?: boolean; place?: Placed; onOpen: () => void }) {
+  const label = visitor && kind === 'vote' ? 'Open for votes' : ITEM[kind].label;
   const tint = place?.page.tint ?? 'muted';
   return (
-    <button onClick={onOpen} title={`${ITEM[kind].label}: ${d.title}`} aria-label={`${ITEM[kind].label}: ${d.title}`}
+    <button onClick={onOpen} title={`${label}: ${d.title}`} aria-label={`${label}: ${d.title}`}
       className="grid size-8 place-items-center rounded-full text-[11px] font-bold ring-2 ring-offset-1 ring-offset-card hover:scale-110"
       style={{ background: `color-mix(in srgb, var(--${tint}) 18%, white)`, color: `color-mix(in srgb, var(--${tint}) 80%, black)`, ['--tw-ring-color' as string]: `var(--${ITEM[kind].tint})` }}>
       {initials(d.title)}
@@ -589,7 +616,7 @@ function DraftCard({ draft, place, routes, me, messages, live, startOpen = false
           </span>
           <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm text-muted">
             <Avatar name={draft.author.name} url={draft.author.avatarUrl} size={18} />
-            {block.page.title} · {block.title} · {draft.author.name} · {ago(draft.createdAt)} · {STATUS[draft.status] ?? draft.status}
+            {block.page.title === block.title ? block.title : `${block.page.title} · ${block.title}`} · {draft.author.name} · {ago(draft.createdAt)} · {STATUS[draft.status] ?? draft.status}
           </span>
         </span>
       </button>
@@ -824,7 +851,7 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
         </div>
       ) : r.draft ? (
         <p className="mt-2 rounded-2xl bg-card p-2.5 text-sm ring-1 ring-line">
-          <span className="font-bold">Draft:</span> {r.draft.title}{block && <span className="text-muted"> · {block.page.title} · {block.title}</span>}
+          <span className="font-bold">Draft:</span> {r.draft.title}{block && <span className="text-muted"> · {block.page.title === block.title ? block.title : `${block.page.title} · ${block.title}`}</span>}
         </p>
       ) : null}
       {r.notes.length > 0 && (
