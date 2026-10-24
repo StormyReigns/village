@@ -13,7 +13,7 @@ export default function SignInPage() {
       <Link href="/" className="inline-flex items-center gap-1 text-sm font-bold text-muted hover:text-ink">
         <ArrowLeft size={16} aria-hidden="true" /> Village square
       </Link>
-      <section className="surface mt-4 rounded-[2rem] p-6">
+      <section className="surface mt-4 rounded-2xl p-6">
         <h1 className="font-display text-3xl">Join the village</h1>
         <div className="mt-4">
           <Suspense><SignInPanel /></Suspense>

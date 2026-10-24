@@ -191,7 +191,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
                     className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted" />
                 </label>
                 {found.length > 0 && (
-                  <ul className="surface absolute inset-x-0 z-10 mt-1 grid gap-0.5 rounded-2xl p-1.5">
+                  <ul className="surface pop absolute inset-x-0 z-10 mt-1 grid gap-0.5 rounded-2xl p-1.5">
                     {found.map((x) => (
                       <li key={x.id}>
                         <button type="button" onClick={() => fix(x)} className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left hover:bg-card-2">

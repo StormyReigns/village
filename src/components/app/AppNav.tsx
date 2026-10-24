@@ -45,14 +45,14 @@ export function AppNav({ game, pages }: { game: NavGame; pages: NavPage[] }) {
       {/* Computers: sidebar */}
       <aside className="hidden lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:block">
         <div className="sticky top-5 grid gap-4">
-          <Link href={home} className={'surface flex items-center gap-3 rounded-[1.5rem] p-3 hover:ring-2 hover:ring-leaf ' + (!current ? 'ring-2 ring-leaf' : '')}>
+          <Link href={home} className={'flex items-center gap-3 rounded-2xl p-2 hover:bg-card ' + (!current ? 'bg-card ring-1 ring-line' : '')}>
             <GameMark game={game} size="size-11" />
             <span className="min-w-0">
               <span className="block truncate font-display text-lg leading-tight">{game.shortTitle}</span>
               <span className="block text-xs font-bold text-muted">App home</span>
             </span>
           </Link>
-          <nav aria-label="Pages" className="surface grid gap-1 rounded-[1.5rem] p-2">
+          <nav aria-label="Pages" className="grid gap-1">
             {pages.map((p) => {
               const on = p.id === current?.id;
               const t = TINT[p.tint];

@@ -65,10 +65,9 @@ export function PageView({ game, page, openOnLoad, scrollTo }: { game: AppGame; 
 
   return (
     <div className="mt-3 lg:mt-0">
-      <header className={`relative overflow-hidden rounded-[2rem] bg-gradient-to-br ${t.bar} to-card p-5 ring-1 ring-line sm:p-6`}>
-        <span className={`pointer-events-none absolute -right-6 -top-6 opacity-[0.12] ${t.text}`} aria-hidden="true"><BlockIcon name={page.icon} size={150} /></span>
+      <header className="relative px-1 pb-1">
         <div className="relative flex items-center gap-4">
-          <span className={`gloss grid size-14 shrink-0 place-items-center rounded-2xl text-white shadow-soft ${t.solid}`}><BlockIcon name={page.icon} size={26} /></span>
+          <span className={`grid size-14 shrink-0 place-items-center rounded-2xl text-white ${t.solid}`}><BlockIcon name={page.icon} size={26} /></span>
           <div className="min-w-0">
             <h1 className="font-display text-3xl leading-tight">{page.title}</h1>
             <p className="text-muted">{page.blurb}</p>
@@ -117,13 +116,13 @@ function AppSearch({ gameId, pages }: { gameId: string; pages: Page[] }) {
   const hits = query.trim().length < 2 ? [] : all.filter(({ e }) => !e.spoiler && matches(e, query)).slice(0, 12);
   return (
     <div className="relative">
-      <label className="flex items-center gap-3 rounded-full bg-card px-4 py-3 shadow-soft ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
+      <label className="flex items-center gap-3 rounded-full bg-card px-4 py-3 ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
         <Search size={18} className="text-muted" aria-hidden="true" />
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search units, items, places…" aria-label="Search the app"
           className="min-w-0 flex-1 bg-transparent text-lg outline-none placeholder:text-muted" />
       </label>
       {query.trim().length >= 2 && (
-        <ul className="surface absolute inset-x-0 z-20 mt-2 grid max-h-[60vh] gap-1 overflow-y-auto rounded-3xl p-2">
+        <ul className="surface pop absolute inset-x-0 z-20 mt-2 grid max-h-[60vh] gap-1 overflow-y-auto rounded-2xl p-2">
           {hits.length === 0 && <li className="px-3 py-2 text-sm text-muted">Nothing found for “{query}”. Spoilers are left out here.</li>}
           {hits.map(({ p, b, e }) => (
             <li key={`${b.id}.${e.id}`}>
@@ -167,7 +166,7 @@ export function AppHome({ game, pages, cover }: { game: AppGame; pages: Page[]; 
 
   return (
     <div className="mt-3 grid gap-5 lg:mt-0">
-      <section className="relative overflow-hidden rounded-[2rem] ring-1 ring-line">
+      <section className="relative overflow-hidden rounded-2xl ring-1 ring-line">
         {cover
           // eslint-disable-next-line @next/next/no-img-element -- our own cover art
           ? <img src={cover} alt="" className="absolute inset-0 size-full object-cover" />
@@ -189,7 +188,7 @@ export function AppHome({ game, pages, cover }: { game: AppGame; pages: Page[]; 
       {(recent.length > 0 || next) && (
         <div className="grid gap-3 md:grid-cols-2">
           {next && (
-            <Link href={`/g/${game.id}/${next.p.id}`} className={`lift flex items-start gap-3 rounded-[1.5rem] ${TINT[next.p.tint].soft} p-4 ring-1 ring-line`}>
+            <Link href={`/g/${game.id}/${next.p.id}`} className={`lift flex items-start gap-3 rounded-2xl ${TINT[next.p.tint].soft} p-4 ring-1 ring-line`}>
               <span className={`gloss grid size-10 shrink-0 place-items-center rounded-xl text-white ${TINT[next.p.tint].solid}`}><Hourglass size={19} aria-hidden="true" /></span>
               <span className="min-w-0 flex-1">
                 <span className={`block text-xs font-bold uppercase tracking-wide ${TINT[next.p.tint].text}`}>Your next last chance</span>
@@ -200,7 +199,7 @@ export function AppHome({ game, pages, cover }: { game: AppGame; pages: Page[]; 
             </Link>
           )}
           {recent.length > 0 && (
-            <div className="surface rounded-[1.5rem] p-4">
+            <div className="surface rounded-2xl p-4">
               <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-muted"><Clock size={13} aria-hidden="true" /> Pick up where you left off</p>
               <ul className="mt-2 flex flex-wrap gap-1.5">
                 {recent.slice(0, 6).map((r) => (
@@ -222,9 +221,9 @@ export function AppHome({ game, pages, cover }: { game: AppGame; pages: Page[]; 
           const faces = p.blocks.flatMap((b) => b.entries).filter((e) => !e.spoiler).slice(0, 5);
           return (
             <li key={p.id}>
-              <Link href={`/g/${game.id}/${p.id}`} className={`lift relative flex h-full flex-col overflow-hidden rounded-[1.75rem] bg-gradient-to-br ${t.bar} to-card p-4 ring-1 ring-line`}>
+              <Link href={`/g/${game.id}/${p.id}`} className={`lift relative flex h-full flex-col overflow-hidden rounded-2xl bg-gradient-to-br ${t.bar} to-card p-4 ring-1 ring-line`}>
                 <span className={`pointer-events-none absolute -bottom-5 -right-4 opacity-[0.12] ${t.text}`} aria-hidden="true"><BlockIcon name={p.icon} size={110} /></span>
-                <span className={`gloss grid size-12 place-items-center rounded-2xl text-white shadow-soft ${t.solid}`}><BlockIcon name={p.icon} size={22} /></span>
+                <span className={`gloss grid size-12 place-items-center rounded-2xl text-white ${t.solid}`}><BlockIcon name={p.icon} size={22} /></span>
                 <span className="mt-3 block font-display text-2xl leading-tight">{p.title}</span>
                 <span className="mt-1 block text-sm text-muted">{p.blurb}</span>
                 <span className="mt-3 flex items-center">

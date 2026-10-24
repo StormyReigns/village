@@ -55,7 +55,7 @@ export function GameBrowser({ games }: { games: Game[] }) {
               {found.map((g) => <GameTile key={g.id} game={g} />)}
             </div>
           ) : (
-            <p className="surface mt-4 rounded-3xl p-6 text-center text-muted">
+            <p className="surface mt-4 rounded-2xl p-6 text-center text-muted">
               No games match “{q.trim()}” yet. You&apos;ll be able to request it in the Town Hall.
             </p>
           )}
@@ -121,7 +121,7 @@ const PILL: Record<Game['hue'], string> = {
 
 function GameTile({ game }: { game: Game }) {
   return (
-    <article className="surface lift flex h-full flex-col rounded-3xl p-3">
+    <article className="surface lift flex h-full flex-col rounded-2xl p-3">
       <Link href={`/g/${game.id}`} aria-label={`Open ${game.shortTitle}`}><GameCover game={game} /></Link>
       <div className="flex flex-1 flex-col px-2 pb-1 pt-3">
         <div className="flex items-start justify-between gap-2">

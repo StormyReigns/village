@@ -29,7 +29,7 @@ export function BlockView({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const Cmp = { collection: Collection, timeline: Timeline, checklist: Checklist, guide: Guide }[block.type];
   const t = TINT[ctx.tint];
   return (
-    <section id={block.id} aria-labelledby={`${block.id}-title`} className="surface min-w-0 scroll-mt-20 rounded-[1.75rem] p-4 sm:p-5">
+    <section id={block.id} aria-labelledby={`${block.id}-title`} className="app-block min-w-0 scroll-mt-20 rounded-[1.25rem] p-4 sm:p-5" style={{ '--tint': `var(--${ctx.tint})` } as React.CSSProperties}>
       <div className="flex items-center gap-3">
         <span className={`grid size-10 place-items-center rounded-2xl ${t.soft} ${t.text}`}><BlockIcon name={block.icon} size={19} /></span>
         <div className="min-w-0 flex-1">
@@ -265,7 +265,7 @@ function Timeline({ block, ctx }: { block: Block; ctx: BlockContext }) {
           const [part, title] = e.name.includes(': ') ? e.name.split(/: (.*)/) : ['', e.name];
           return (
             <li key={e.id} id={`${block.id}-${e.id}`} className="relative scroll-mt-20">
-              <span className={`gloss absolute -left-12 top-3 grid size-10 place-items-center rounded-full font-display text-white shadow-soft ${t.solid}`}>
+              <span className={`gloss absolute -left-12 top-3 grid size-10 place-items-center rounded-full font-display text-white ${t.solid}`}>
                 {e.order === 0 ? '★' : e.order}
               </span>
               <article className={`rounded-2xl bg-gradient-to-br ${t.bar} to-card p-4 ring-1 ring-line`}>
@@ -415,7 +415,7 @@ function Guide({ block, ctx }: { block: Block; ctx: BlockContext }) {
               )}
               {rest.map((s) => <div key={s.label} className="mt-2"><span className="font-bold">{s.label}:</span> <Lines text={s.text} /></div>)}
               {tip && (
-                <p className="mt-4 flex -rotate-[0.6deg] gap-2 rounded-xl bg-sun-soft px-3 py-2.5 text-sm shadow-soft">
+                <p className="mt-4 flex -rotate-[0.6deg] gap-2 rounded-xl bg-sun-soft px-3 py-2.5 text-sm">
                   <StickyNote size={16} className="mt-0.5 shrink-0 text-sun" aria-hidden="true" />{tip.text}
                 </p>
               )}

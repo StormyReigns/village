@@ -97,10 +97,10 @@ export function Profile() {
   const me = useVillager();
   const [data, setData] = useMyData(me);
 
-  if (me === undefined) return <div className="mt-6 h-64 animate-pulse rounded-[2rem] bg-card" />;
+  if (me === undefined) return <div className="mt-6 h-64 animate-pulse rounded-2xl bg-card" />;
   if (me === null) {
     return (
-      <section className="surface mt-6 rounded-[2rem] p-8 text-center">
+      <section className="surface mt-6 rounded-2xl p-8 text-center">
         <h1 className="font-display text-3xl">Your village profile</h1>
         <p className="mx-auto mt-2 max-w-md text-muted">Sign in to choose your name, see your title and badges, and keep track of what you&apos;ve added.</p>
         <div className="mt-5"><SignInPrompt>Sign in</SignInPrompt></div>
@@ -122,7 +122,7 @@ export function Profile() {
   return (
     <div className="mt-4 grid gap-7">
       {/* Who you are */}
-      <section className="surface flex flex-wrap items-center gap-4 rounded-[2rem] p-5 sm:p-6">
+      <section className="surface flex flex-wrap items-center gap-4 rounded-2xl p-5 sm:p-6">
         <Avatar name={me.displayName} url={me.avatarUrl} size={72} />
         <div className="min-w-0 flex-1">
           <h1 className="font-display text-3xl leading-tight">{me.displayName}</h1>

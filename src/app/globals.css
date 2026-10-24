@@ -24,7 +24,9 @@
   --teal-soft: #dff4f2;
   --shadow: 0 1px 2px rgb(16 24 40 / 0.05), 0 10px 28px -14px rgb(16 24 40 / 0.22);
   --shadow-lift: 0 2px 4px rgb(16 24 40 / 0.06), 0 18px 40px -16px rgb(16 24 40 / 0.3);
-  --gloss: linear-gradient(180deg, rgb(255 255 255 / 0.55) 0%, rgb(255 255 255 / 0.08) 48%, rgb(255 255 255 / 0) 52%);
+  /* Retired on purpose: the frame stays flat so Blocks stand out. Kept as a variable so
+     anything still asking for gloss simply gets none. */
+  --gloss: none;
 }
 
 /* Always light: the village is a clean white place by design. (A dark theme can come
@@ -76,31 +78,45 @@ body {
 /* A highlight overlay for surfaces whose background is already a picture or gradient. */
 .shine { position: absolute; inset: 0; border-radius: inherit; background: var(--gloss); pointer-events: none; }
 
-/* Primary button: colored, glossy, with an inner top highlight. */
+/* Primary button: solid color, flat. */
 .btn-primary {
   background-color: var(--leaf);
   color: #fff;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 1px 2px rgb(16 24 40 / 0.12), 0 6px 14px -6px color-mix(in srgb, var(--leaf) 70%, transparent);
 }
 .btn-primary:hover { filter: brightness(1.05); }
 .btn-quiet {
   background-color: var(--card);
   color: var(--ink);
-  box-shadow: inset 0 0 0 1px var(--line), 0 1px 2px rgb(16 24 40 / 0.05);
+  box-shadow: inset 0 0 0 1px var(--line);
 }
-.btn-quiet:hover { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--leaf) 45%, var(--line)), 0 1px 2px rgb(16 24 40 / 0.05); }
+.btn-quiet:hover { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--leaf) 45%, var(--line)); }
 
-/* Raised white card with a hairline edge. */
+/* The quiet frame: a flat white panel with a hairline edge. No shadow, so the only things
+   with depth on a page are Blocks (.app-block, .vblock) and things that float (.pop). */
 .surface {
   background: var(--card);
-  box-shadow: var(--shadow), inset 0 0 0 1px var(--line);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+/* Menus and dropdowns really do sit above the page, so they keep a shadow. */
+.pop { box-shadow: var(--shadow-lift), inset 0 0 0 1px var(--line); }
+
+/* A game-app Block: the one raised thing on a Page. A hairline in the Page's color, a thick
+   darker bottom edge and a soft shadow. Set --tint to the Page's color. (Placeholder until
+   the new block shape is settled; every candidate keeps the thick bottom edge.) */
+.app-block {
+  --tint: var(--muted);
+  background: var(--card);
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--tint) 35%, var(--line)),
+    0 6px 0 color-mix(in srgb, var(--tint) 75%, white),
+    0 18px 30px -18px rgb(16 24 40 / 0.35);
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .rise { animation: rise 0.22s ease-out; }
   @keyframes rise { from { transform: translateY(10px); opacity: 0.4; } to { transform: none; opacity: 1; } }
-  .lift { transition: transform 0.18s ease, box-shadow 0.18s ease; }
-  .lift:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift), inset 0 0 0 1px var(--line); }
+  .lift { transition: box-shadow 0.18s ease; }
+  .lift:hover { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 35%, var(--line)); }
 }
 
 /* Hide scrollbars on horizontal strips but keep them scrollable. */

@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: PageProps<'/g/[game]'>): Prom
 // The game app's front door. The URL is read inside <Suspense> so navigation is instant.
 export default function AppHomePage({ params }: PageProps<'/g/[game]'>) {
   return (
-    <Suspense fallback={<div className="mt-3 aspect-[3/1] animate-pulse rounded-[2rem] bg-card" />}>
+    <Suspense fallback={<div className="mt-3 aspect-[3/1] animate-pulse rounded-2xl bg-card" />}>
       <Home params={params} />
     </Suspense>
   );

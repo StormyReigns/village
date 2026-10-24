@@ -51,7 +51,7 @@ export async function generateMetadata({ params }: PageProps<'/g/[game]/[page]/[
 
 export default function SharedItem({ params }: PageProps<'/g/[game]/[page]/[item]'>) {
   return (
-    <Suspense fallback={<div className="mt-3 h-96 animate-pulse rounded-[2rem] bg-card" />}>
+    <Suspense fallback={<div className="mt-3 h-96 animate-pulse rounded-2xl bg-card" />}>
       <Loaded params={params} />
     </Suspense>
   );

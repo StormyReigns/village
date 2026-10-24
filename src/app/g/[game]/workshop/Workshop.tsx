@@ -240,7 +240,7 @@ export function Workshop({ game, pages, routes }: {
         </div>
 
         {/* Ongoing work: open items, then the Page's Blocks */}
-        <section aria-label="Work" className={(phoneTab === 'work' ? 'flex' : 'hidden') + ' min-h-[28rem] min-w-0 flex-col rounded-[1.75rem] bg-card p-4 shadow-soft ring-1 ring-line lg:flex'}>
+        <section aria-label="Work" className={(phoneTab === 'work' ? 'flex' : 'hidden') + ' min-h-[28rem] min-w-0 flex-col rounded-2xl bg-card p-4 ring-1 ring-line lg:flex'}>
           {chip === 'notice' ? (
             <>
               <h2 className="font-display text-xl">Notice Board</h2>
@@ -829,7 +829,7 @@ function Chat({ topic: block, notice, onAll, messages, me, live }: {
   const tagFor = (m: ChatMessage) => (m.draftId && titles.has(m.draftId) ? `on “${titles.get(m.draftId)}”` : null);
 
   return (
-    <section aria-label="Chat" className="flex min-h-[28rem] min-w-0 flex-col rounded-[1.75rem] bg-card p-4 shadow-soft ring-1 ring-line lg:max-h-[calc(100vh-11rem)]">
+    <section aria-label="Chat" className="flex min-h-[28rem] min-w-0 flex-col rounded-2xl bg-card p-4 ring-1 ring-line lg:max-h-[calc(100vh-11rem)]">
       <div className="flex items-center gap-2">
         <h2 className="font-display text-xl">Chat</h2>
         {(block || notice) && (

@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: PageProps<'/g/[game]/[page]'>
 // One Page of the game app. The URL is read inside <Suspense> so navigation is instant.
 export default function AppPage({ params }: PageProps<'/g/[game]/[page]'>) {
   return (
-    <Suspense fallback={<div className="mt-3 h-96 animate-pulse rounded-[2rem] bg-card" />}>
+    <Suspense fallback={<div className="mt-3 h-96 animate-pulse rounded-2xl bg-card" />}>
       <Loaded params={params} />
     </Suspense>
   );

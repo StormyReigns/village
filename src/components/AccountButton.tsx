@@ -75,7 +75,7 @@ function Account({ villager }: { villager: Villager | null | undefined }) {
         <span className="max-w-28 truncate">{villager.displayName}</span>
       </button>
       {menu && (
-        <div className="surface absolute right-0 z-40 mt-2 w-56 rounded-2xl p-2 text-sm">
+        <div className="surface pop absolute right-0 z-40 mt-2 w-56 rounded-2xl p-2 text-sm">
           <p className="px-3 py-2">
             <span className="block font-bold">{villager.displayName}</span>
             <span className="block text-muted">@{villager.username}{villager.isFounder ? ' · Founder' : ''}</span>

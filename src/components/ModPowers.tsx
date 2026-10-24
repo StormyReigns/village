@@ -38,7 +38,7 @@ export function ModPowers({ view }: { view: ViewAs }) {
         <ChevronDown size={14} aria-hidden="true" />
       </button>
       {open && (
-        <div className="surface absolute right-0 z-40 mt-2 w-72 rounded-2xl p-2 text-sm">
+        <div className="surface pop absolute right-0 z-40 mt-2 w-72 rounded-2xl p-2 text-sm">
           <p className="px-3 pb-1 pt-2 text-xs font-bold uppercase tracking-wide text-muted">Moderator powers</p>
           <p className="px-3 pb-2 font-bold">See the site as</p>
           <ul role="radiogroup" aria-label="See the site as" className="grid gap-1">

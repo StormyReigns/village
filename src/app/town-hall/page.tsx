@@ -13,7 +13,7 @@ export default function TownHall() {
       <Link href="/" className="inline-flex items-center gap-1 text-sm font-bold text-muted hover:text-ink">
         <ArrowLeft size={16} aria-hidden="true" /> Village square
       </Link>
-      <section className="mt-4 rounded-[2rem] bg-card p-8 text-center shadow-soft ring-1 ring-line">
+      <section className="mt-4 rounded-2xl bg-card p-8 text-center ring-1 ring-line">
         <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-sky-soft text-sky"><Landmark aria-hidden="true" /></span>
         <h1 className="mt-4 flex items-center justify-center gap-2 font-display text-3xl">
           Town Hall <span className="rounded-full bg-sun-soft px-2.5 py-0.5 font-sans text-sm font-bold text-sun">Coming soon</span>
