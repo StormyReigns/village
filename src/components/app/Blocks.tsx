@@ -409,15 +409,18 @@ function Checklist({ block, ctx }: { block: Block; ctx: BlockContext }) {
             <Piece size={44} color={`var(--${ctx.tint})`} outline={!on}>{on ? <Check size={15} strokeWidth={3} aria-hidden="true" /> : null}</Piece>
           </button>
         </Tip>
-        <button onClick={() => set(key(e))} className="min-w-0 flex-1 text-left">
-          {next && <span className="block text-[11px] font-bold uppercase tracking-wide text-ink">Next up</span>}
-          <span className={'block font-bold leading-tight ' + (on ? 'line-through' : '')}>{e.name}</span>
+        {/* The deadline sits outside the button: its game words are buttons of their own. */}
+        <div className="min-w-0 flex-1">
+          <button onClick={() => set(key(e))} className="block w-full text-left">
+            {next && <span className="block text-[11px] font-bold uppercase tracking-wide text-ink">Next up</span>}
+            <span className={'block font-bold leading-tight ' + (on ? 'line-through' : '')}>{e.name}</span>
+          </button>
           {deadline(e) && !on && (
-            <span className={`mt-1 inline-flex items-start gap-1 rounded-lg bg-card px-2 py-0.5 text-sm ring-1 ring-line`}>
+            <span className="mt-1 inline-flex items-start gap-1 rounded-lg bg-card px-2 py-0.5 text-sm ring-1 ring-line">
               <Hourglass size={13} className={`mt-1 shrink-0 ${t.text}`} aria-hidden="true" /> <span><RichText text={deadline(e)!.split('\n')[0]} /></span>
             </span>
           )}
-        </button>
+        </div>
       </li>
     );
   };
