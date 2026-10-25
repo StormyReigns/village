@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { ArrowLeft, Backpack, BookOpen, Check, Flag, Hourglass, House, MapPin, Plus, Users, type LucideIcon } from 'lucide-react';
 import { Piece } from '@/components/Piece';
+import { Wordmark } from '@/components/Logo';
 
 export const metadata: Metadata = { title: 'Brand samples', robots: { index: false } };
 
@@ -64,6 +65,17 @@ export default function BrandLab() {
           <h1 className="text-2xl font-extrabold">The piece</h1>
         </div>
       </header>
+
+      <Section title="Logo" note="The yellow piece and the wordmark, both with the slice. The ink bar across every screen.">
+        <div className="flex flex-wrap items-center gap-6 rounded-2xl p-6 text-white" style={{ background: INK }}>
+          <Piece size={96} color={SIGNAL} />
+          <Wordmark className="text-[72px]" />
+        </div>
+        <div className="flex flex-wrap items-center gap-6 rounded-2xl bg-card p-6 ring-1 ring-line">
+          <Piece size={64} color={INK} />
+          <Wordmark className="text-[48px]" />
+        </div>
+      </Section>
 
       <Section title="Every size" note="One shape, only scaled. The slice stays visible down to tab-icon size.">
         <div className="flex flex-wrap items-end gap-6 rounded-2xl bg-card p-6 ring-1 ring-line">

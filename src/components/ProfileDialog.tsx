@@ -53,7 +53,7 @@ export function ProfileForm({ villager, onSaved }: { villager: Villager; onSaved
       </div>
       <p className="text-xs text-muted">Usernames are letters, numbers and underscores. They show on your Drafts and messages.</p>
       <div className="flex items-center gap-3">
-        <button disabled={busy} className="rounded-full bg-leaf px-5 py-2 font-bold text-paper hover:opacity-90 disabled:opacity-60">{busy ? 'Saving…' : 'Save'}</button>
+        <button disabled={busy} className="btn-primary rounded-full px-5 py-2 font-bold disabled:opacity-60">{busy ? 'Saving…' : 'Save'}</button>
         {note && <p role="status" className={'text-sm ' + (note.ok ? 'text-leaf' : 'text-berry')}>{note.text}</p>}
       </div>
     </form>

@@ -14,21 +14,24 @@ import { Avatar } from './Avatar';
  * "Sign in" when signed out; your avatar with a small menu when signed in. Moderators
  * also get their powers menu beside it, and see what the "see it as" choice shows.
  */
-/** `quiet` shows "Sign in" as a plain text link, for headers where it shouldn't compete. */
-export function AccountButton({ quiet = false }: { quiet?: boolean }) {
+/**
+ * `quiet` shows "Sign in" as a plain text link, for headers where it shouldn't compete.
+ * `dark` suits it to the ink top bar.
+ */
+export function AccountButton({ quiet = false, dark = false }: { quiet?: boolean; dark?: boolean }) {
   const real = useAccount();
   const view = useViewAsSetting();
-  if (!hasPowers(real)) return <Account villager={real} quiet={quiet} />;
+  if (!hasPowers(real)) return <Account villager={real} quiet={quiet} dark={dark} />;
   return (
     <div className="flex items-center gap-2">
       <ModPowers view={view} />
-      <Account villager={seenAs(real, view)} quiet={quiet} />
+      <Account villager={seenAs(real, view)} quiet={quiet} dark={dark} />
       <ViewAsReminder view={view} />
     </div>
   );
 }
 
-function Account({ villager, quiet }: { villager: Villager | null | undefined; quiet: boolean }) {
+function Account({ villager, quiet, dark }: { villager: Villager | null | undefined; quiet: boolean; dark: boolean }) {
   const path = usePathname() || '/';
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -41,12 +44,12 @@ function Account({ villager, quiet }: { villager: Villager | null | undefined; q
     return () => window.removeEventListener('keydown', onKey);
   }, [open, menu]);
 
-  if (villager === undefined) return <span className="inline-block h-9 w-20 rounded-full bg-card-2" aria-hidden="true" />;
+  if (villager === undefined) return <span className={'inline-block h-9 w-20 rounded-full ' + (dark ? 'bg-white/10' : 'bg-card-2')} aria-hidden="true" />;
 
   if (!villager) {
     return (
       <>
-        <button onClick={() => setOpen(true)} className={quiet ? 'shrink-0 whitespace-nowrap rounded-full px-2 py-2 text-sm font-bold text-muted hover:text-ink' : 'btn-primary rounded-full px-4 py-2 text-sm font-bold'}>Sign in</button>
+        <button onClick={() => setOpen(true)} className={quiet ? 'shrink-0 whitespace-nowrap rounded-full px-2 py-2 text-sm font-bold ' + (dark ? 'text-white/85 hover:text-white' : 'text-muted hover:text-ink') : 'btn-primary rounded-full px-4 py-2 text-sm font-bold'}>Sign in</button>
         {open && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 backdrop-blur-sm sm:items-center sm:p-6" onClick={() => setOpen(false)}>
             <div role="dialog" aria-modal="true" aria-label="Sign in" onClick={(e) => e.stopPropagation()}

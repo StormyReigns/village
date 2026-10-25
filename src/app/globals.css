@@ -79,6 +79,8 @@ body {
     outline: 3px solid var(--sky);
     outline-offset: 2px;
   }
+  /* On the ink bar, blue would barely show. */
+  .bg-ink :focus-visible { outline-color: var(--signal); }
 }
 
 /* Gloss: a soft highlight across the top half of a colored surface (buttons, badges).
@@ -87,18 +89,19 @@ body {
 /* A highlight overlay for surfaces whose background is already a picture or gradient. */
 .shine { position: absolute; inset: 0; border-radius: inherit; background: var(--gloss); pointer-events: none; }
 
-/* Primary button: solid color, flat. */
+/* The main action on a screen: signal yellow with ink text. One per screen, ideally. */
 .btn-primary {
-  background-color: var(--leaf);
-  color: #fff;
+  background-color: var(--signal);
+  color: var(--ink);
 }
-.btn-primary:hover { filter: brightness(1.05); }
+.btn-primary:hover { filter: brightness(1.04); }
+.btn-primary:disabled { filter: none; }
 .btn-quiet {
   background-color: var(--card);
   color: var(--ink);
   box-shadow: inset 0 0 0 1px var(--line);
 }
-.btn-quiet:hover { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--leaf) 45%, var(--line)); }
+.btn-quiet:hover { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 45%, var(--line)); }
 
 /* The quiet frame: a flat white panel with a hairline edge. No shadow, so the only things
    with depth on a page are Blocks (.app-block, .vblock) and things that float (.pop). */

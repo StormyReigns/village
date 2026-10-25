@@ -362,7 +362,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
               {me === null ? (
                 <SignInPrompt back="?resume=1" forWhat={fixing ? `send your fix to ${fixing.name}` : 'send your Draft'}>Sign in to submit</SignInPrompt>
               ) : (
-                <button disabled={busy || me === undefined || unchanged} className="rounded-full bg-leaf px-5 py-2.5 font-bold text-paper hover:opacity-90 disabled:opacity-60">
+                <button disabled={busy || me === undefined || unchanged} className="btn-primary rounded-full px-5 py-2.5 font-bold disabled:opacity-60">
                   {busy ? 'Submitting…' : fixing ? 'Submit fix' : 'Submit Draft'}
                 </button>
               )}

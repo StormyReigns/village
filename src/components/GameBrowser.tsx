@@ -106,7 +106,7 @@ export function GameBrowser({ games, entries = [] }: { games: Game[]; entries?: 
               <div role="group" aria-label="Sort games" className="surface flex rounded-full p-1 text-sm font-bold">
                 {(['az', 'genre'] as Order[]).map((o) => (
                   <button key={o} onClick={() => setOrder(o)} aria-pressed={order === o}
-                    className={'rounded-full px-3 py-1.5 ' + (order === o ? 'gloss btn-primary' : 'text-muted hover:text-ink')}>
+                    className={'rounded-full px-3 py-1.5 ' + (order === o ? 'bg-ink text-white' : 'text-muted hover:text-ink')}>
                     {o === "az" ? "A–Z" : "Genre"}
                   </button>
                 ))}

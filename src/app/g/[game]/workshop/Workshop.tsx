@@ -1,10 +1,9 @@
 'use client';
 
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, ChevronDown, ChevronUp, EyeOff, ExternalLink, Flag, MessageCircle, MoreHorizontal, Plus, RotateCcw, Search, Send,
+  ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, ChevronUp, EyeOff, Flag, MessageCircle, MoreHorizontal, Plus, RotateCcw, Search, Send,
   ShieldCheck, Sparkles, Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import type { Block, Page } from '@/data/pages';
@@ -19,7 +18,6 @@ import { ScrollBox } from '@/components/ScrollBox';
 import { useStored } from '@/components/useStored';
 import { house } from '@/components/house';
 import { HOW_IT_WORKS_PING, HowItWorksButton, MarketDayButton } from '@/components/HowItWorks';
-import { AccountButton } from '@/components/AccountButton';
 import { Avatar } from '@/components/Avatar';
 import { useVillager, type Villager } from '@/components/useVillager';
 import { sortStandouts } from '@/lib/standouts';
@@ -230,11 +228,8 @@ export function Workshop({ game, pages, routes }: {
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-6 pt-5 sm:px-6">
-      {/* Top bar */}
+      {/* The Workshop's name and guides. The ink bar above (page.tsx) has the way out and your account. */}
       <header className="flex flex-wrap items-center gap-3">
-        <Link href="/" className="grid size-9 place-items-center rounded-full bg-card ring-1 ring-line hover:ring-ink" aria-label="Village square">
-          <ArrowLeft size={18} aria-hidden="true" />
-        </Link>
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-muted">Workshop</p>
           <h1 className="font-display text-2xl leading-tight">{game.shortTitle}</h1>
@@ -243,10 +238,6 @@ export function Workshop({ game, pages, routes }: {
         <HowItWorksButton className="hidden sm:inline-flex" />
         <div className="ml-auto flex shrink-0 items-center gap-2">
           <HowItWorksButton compact className="inline-flex sm:hidden" />
-          <Link href={`/g/${game.id}`} aria-label="Open the app" className="btn-quiet inline-flex items-center gap-2 rounded-full p-2.5 text-sm font-bold sm:px-4 sm:py-2">
-            <span className="hidden sm:inline">Open the app</span> <ExternalLink size={16} aria-hidden="true" />
-          </Link>
-          <AccountButton quiet />
         </div>
       </header>
 
@@ -322,7 +313,7 @@ export function Workshop({ game, pages, routes }: {
                   </button>
                 </Tip>
                 <Tip text="Add something new to the app" tint="leaf" className="shrink-0">
-                  <button onClick={startNew} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-leaf px-3 py-1.5 text-sm font-bold text-paper hover:opacity-90">
+                  <button onClick={startNew} className="btn-primary inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold">
                     <Plus size={16} aria-hidden="true" /> New
                   </button>
                 </Tip>
@@ -369,7 +360,7 @@ export function Workshop({ game, pages, routes }: {
                   </p>
                   <div className="flex flex-wrap gap-2 pl-6">
                     {posted.draftId && (
-                      <button onClick={() => setDetail(posted.draftId!)} className="rounded-full bg-leaf px-3 py-1 text-xs font-bold text-paper">See my Draft</button>
+                      <button onClick={() => setDetail(posted.draftId!)} className="btn-primary rounded-full px-3 py-1 text-xs font-bold">See my Draft</button>
                     )}
                     {backTo(posted) && (
                       <a href={backTo(posted)!} className="rounded-full bg-card px-3 py-1 text-xs font-bold text-leaf ring-1 ring-leaf/40">Back to {posted.name}</a>
@@ -392,7 +383,7 @@ export function Workshop({ game, pages, routes }: {
                     <span className="font-bold">Unsent Draft:</span> {unsent.content.name.trim() || 'Untitled'}
                     <span className="text-muted"> · {placeOf(unsent.blockId)?.title ?? 'a Block'}</span>
                   </span>
-                  <button onClick={resumeUnsent} className="rounded-full bg-leaf px-3 py-1 text-xs font-bold text-paper">Continue</button>
+                  <button onClick={resumeUnsent} className="btn-primary rounded-full px-3 py-1 text-xs font-bold">Continue</button>
                   <button onClick={() => { clearUnsent(game.id); setUnsent(null); }} className="rounded-full px-2 py-1 text-xs font-bold text-muted hover:text-ink">Discard</button>
                 </div>
               )}
@@ -910,7 +901,7 @@ function Composer({ me, placeholder, onSend }: { me: Villager | null | undefined
             <EyeOff size={16} aria-hidden="true" /><span className="sr-only">Spoiler</span>
           </button>
         </Tip>
-        <button disabled={busy || !text.trim()} className="grid size-9 place-items-center rounded-full bg-sky text-paper disabled:opacity-50" aria-label="Send">
+        <button disabled={busy || !text.trim()} className="btn-primary grid size-9 place-items-center rounded-full disabled:opacity-50" aria-label="Send">
           <Send size={16} aria-hidden="true" />
         </button>
       </form>

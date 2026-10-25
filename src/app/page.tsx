@@ -4,6 +4,7 @@ import { VillageScene } from '@/components/VillageScene';
 import { MarketDayButton } from '@/components/HowItWorks';
 import { GameBrowser } from '@/components/GameBrowser';
 import { AccountButton } from '@/components/AccountButton';
+import { TopBar } from '@/components/Logo';
 import { findPicture, withCovers } from '@/lib/pictures';
 import { Suspense } from 'react';
 import type { EntryHit } from '@/components/GameBrowser';
@@ -16,18 +17,14 @@ const HERO = findPicture('/village/hero');
 
 export default function VillageSquare() {
   return (
+    <>
+    <TopBar actions={
+      <>
+        <MarketDayButton className="hidden bg-white/10 text-signal sm:inline-flex" />
+        <AccountButton quiet dark />
+      </>
+    } />
     <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-5 sm:px-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 font-display text-2xl">
-          <span className="gloss btn-primary grid size-9 place-items-center rounded-2xl">V</span>
-          Village
-        </div>
-        <div className="flex items-center gap-2">
-          <MarketDayButton className="surface hidden text-sun sm:inline-flex" />
-          <AccountButton />
-        </div>
-      </header>
-
       <section className="surface mt-5 overflow-hidden rounded-2xl">
         <div className="relative">
           {HERO ? (
@@ -57,6 +54,7 @@ export default function VillageSquare() {
         Unofficial fan project. Not affiliated with Nintendo, Intelligent Systems, or any game publisher.
       </footer>
     </main>
+    </>
   );
 }
 

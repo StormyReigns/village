@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { ArrowLeft, Hammer, Landmark } from 'lucide-react';
+import { Hammer, Landmark } from 'lucide-react';
+import { AccountButton } from '@/components/AccountButton';
+import { TopBar } from '@/components/Logo';
 import { GAMES } from '@/data/games';
 
 export const metadata: Metadata = { title: 'Town Hall' };
@@ -9,11 +11,10 @@ export const metadata: Metadata = { title: 'Town Hall' };
 // to where conversations happen today, each game's Workshop chat.
 export default function TownHall() {
   return (
+    <>
+    <TopBar actions={<AccountButton quiet dark />} />
     <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-6 sm:px-6">
-      <Link href="/" className="inline-flex items-center gap-1 text-sm font-bold text-muted hover:text-ink">
-        <ArrowLeft size={16} aria-hidden="true" /> Village square
-      </Link>
-      <section className="mt-4 rounded-2xl bg-card p-8 text-center ring-1 ring-line">
+      <section className="rounded-2xl bg-card p-8 text-center ring-1 ring-line">
         <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-sky-soft text-sky"><Landmark aria-hidden="true" /></span>
         <h1 className="mt-4 flex items-center justify-center gap-2 font-display text-3xl">
           Town Hall <span className="rounded-full bg-sun-soft px-2.5 py-0.5 font-sans text-sm font-bold text-sun">Coming soon</span>
@@ -33,5 +34,6 @@ export default function TownHall() {
         </ul>
       </section>
     </main>
+    </>
   );
 }

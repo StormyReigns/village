@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, Hammer, House, LayoutGrid, X } from 'lucide-react';
 import type { Tint } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
-import { AccountButton } from '@/components/AccountButton';
 import { TINT } from './tint';
 
 export interface NavPage { id: string; title: string; short: string; icon: string; tint: Tint; count: number }
@@ -20,8 +19,8 @@ function GameMark({ game, size }: { game: NavGame; size: string }) {
 }
 
 /**
- * The game app's navigation: a sidebar on computers, a top bar and a bottom tab bar on
- * phones. The game's name always leads back to the app's front page.
+ * The game app's navigation: a sidebar on computers, a bottom tab bar on phones. The ink
+ * top bar (in the app's layout) carries the game's name, the Workshop and your account.
  */
 export function AppNav({ game, pages }: { game: NavGame; pages: NavPage[] }) {
   const path = usePathname() || '';
@@ -43,8 +42,8 @@ export function AppNav({ game, pages }: { game: NavGame; pages: NavPage[] }) {
   return (
     <>
       {/* Computers: sidebar */}
-      <aside className="hidden lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:block">
-        <div className="sticky top-5 grid gap-4">
+      <aside className="hidden lg:col-start-1 lg:row-start-1 lg:block">
+        <div className="sticky top-20 grid gap-4">
           <Link href={home} className={'flex items-center gap-3 rounded-2xl p-2 hover:bg-card ' + (!current ? 'bg-card ring-1 ring-line' : '')}>
             <GameMark game={game} size="size-11" />
             <span className="min-w-0">
@@ -78,20 +77,6 @@ export function AppNav({ game, pages }: { game: NavGame; pages: NavPage[] }) {
           </div>
         </div>
       </aside>
-
-      {/* Top bar: the game's name (phones) and your account (everywhere) */}
-      <header className="sticky top-0 z-30 -mx-4 flex items-center gap-2 bg-paper/85 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6 lg:static lg:col-start-2 lg:mx-0 lg:bg-transparent lg:px-0 lg:py-0 lg:backdrop-blur-none">
-        <Link href={home} className="flex min-w-0 items-center gap-2 lg:hidden">
-          <GameMark game={game} size="size-8" />
-          <span className="truncate font-display text-lg">{game.shortTitle}</span>
-        </Link>
-        <span className="ml-auto" />
-        {/* The hammer alone meant nothing to new players, so it always says what it's for. */}
-        <Link href={`/g/${game.id}/workshop`} className="btn-quiet inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3 py-2 text-sm font-bold sm:px-4">
-          <Hammer size={16} className="text-leaf" aria-hidden="true" /><span className="sm:hidden">Help build</span><span className="hidden sm:inline">Workshop</span>
-        </Link>
-        <AccountButton quiet />
-      </header>
 
       {/* Phones: bottom tab bar */}
       <nav aria-label="Pages" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
