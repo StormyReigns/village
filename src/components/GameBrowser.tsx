@@ -8,19 +8,23 @@ import { GameCover } from './GameCover';
 import { Countdown } from './Countdown';
 import { GameActivity } from './GameActivity';
 import { Tip } from './Tip';
+import { initials } from './app/entries';
+import { rank } from '@/lib/search';
 
 type Order = 'az' | 'genre';
 
-function matches(g: Game, q: string) {
-  const hay = `${g.title} ${g.shortTitle} ${g.genre} ${g.platform}`.toLowerCase();
-  return q.toLowerCase().split(/\s+/).filter(Boolean).every((w) => hay.includes(w));
-}
+/** Something inside a game's app that the home search can find ("goliath" → Fortune's Weave › Goliath). */
+export interface EntryHit { key: string; game: string; name: string; where: string; href: string; text: string }
 
-export function GameBrowser({ games }: { games: Game[] }) {
+const gameText = (g: Game) => ({ name: `${g.title} ${g.shortTitle}`, text: `${g.genre} ${g.platform}` });
+
+export function GameBrowser({ games, entries = [] }: { games: Game[]; entries?: EntryHit[] }) {
   const [q, setQ] = useState('');
+  const [going, setGoing] = useState<string | null>(null);
   const [order, setOrder] = useState<Order>('az');
   const popular = useMemo(() => [...games].sort((a, b) => a.popularity - b.popularity), [games]);
-  const found = useMemo(() => (q.trim() ? games.filter((g) => matches(g, q)) : []), [games, q]);
+  const found = useMemo(() => (q.trim() ? rank(games, q, gameText) : []), [games, q]);
+  const inside = useMemo(() => (q.trim().length >= 2 ? rank(entries, q, (h) => h).slice(0, 8) : []), [entries, q]);
   const groups = useMemo(() => {
     const sorted = [...games].sort((a, b) => a.shortTitle.localeCompare(b.shortTitle));
     const key = (g: Game) => (order === 'az' ? g.shortTitle[0].toUpperCase() : g.genre);
@@ -47,20 +51,43 @@ export function GameBrowser({ games }: { games: Game[] }) {
         )}
       </label>
 
-      {q.trim() ? (
+      {/* Results sit above the usual page, which stays put underneath. */}
+      {q.trim() && (
         <section className="mt-8" aria-live="polite">
           <h2 className="font-display text-2xl">Results</h2>
-          {found.length ? (
+          {found.length > 0 && (
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {found.map((g) => <GameTile key={g.id} game={g} />)}
             </div>
-          ) : (
+          )}
+          {inside.length > 0 && (
+            <>
+              <h3 className="mt-6 text-sm font-bold uppercase tracking-wide text-muted">Inside the games</h3>
+              <ul className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {inside.map((h) => (
+                  <li key={h.key}>
+                    {/* Lights up the moment it's tapped, so a slow phone still shows something happened. */}
+                    <Link href={h.href} onClick={() => setGoing(h.key)}
+                      className={'surface lift flex items-center gap-3 rounded-2xl p-3 ' + (going === h.key ? 'animate-pulse bg-card-2' : '')}>
+                      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-card-2 font-display text-sm text-ink ring-1 ring-line">{initials(h.name)}</span>
+                      <span className="min-w-0">
+                        <span className="block font-bold leading-tight">{h.name}</span>
+                        <span className="block truncate text-sm text-muted">{h.game} › {h.where}</span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {!found.length && !inside.length && (
             <p className="surface mt-4 rounded-2xl p-6 text-center text-muted">
-              No games match “{q.trim()}” yet. You&apos;ll be able to request it in the Town Hall.
+              Nothing matches “{q.trim()}”. Try a game&apos;s name, or something from inside a game, like <span className="font-bold text-ink">Goliath</span>.
             </p>
           )}
         </section>
-      ) : (
+      )}
+      {(
         <>
           <section className="mt-8">
             <h2 className="font-display text-2xl">Popular right now</h2>

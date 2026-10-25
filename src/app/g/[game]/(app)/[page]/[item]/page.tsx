@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { GAMES, getGame } from '@/data/games';
 import { getApp } from '@/lib/app-data';
 import { PageView } from '@/components/app/PageView';
-import { TINT_HEX, clip, itemParam, resolveItem, shareAnswer } from '@/data/pages/links';
+import { TINT_HEX, clip, entryLinks, itemParam, resolveItem, shareAnswer } from '@/data/pages/links';
 
 // A shared Block or entry: /g/fortunes-weave/items/paradise-fish. It shows the Page with
 // that entry open (or that Block in view), and gives Discord and other apps a proper
@@ -64,7 +64,7 @@ async function Loaded({ params }: { params: PageProps<'/g/[game]/[page]/[item]'>
   // Guides and timelines show every entry in place; the others open it in a panel.
   const panel = hit.block.type === 'collection' || hit.block.type === 'checklist';
   return (
-    <PageView game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }} page={page}
+    <PageView game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }} page={page} links={entryLinks(game.id, await getApp(game.id))}
       openOnLoad={hit.entry && panel ? `${hit.block.id}.${hit.entry.id}` : undefined}
       scrollTo={!hit.entry ? hit.block.id : panel ? undefined : `${hit.block.id}-${hit.entry.id}`} />
   );

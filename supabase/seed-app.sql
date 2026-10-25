@@ -5,7 +5,7 @@
 insert into public.app_pages (game_id, page_key, title, short, icon, tint, blurb, position) values
   ('fortunes-weave', 'units-and-classes', 'Units and classes', 'Units', 'Users', 'berry', 'Who can join your army, how to recruit them, and every class tier.', 0),
   ('fortunes-weave', 'items', 'Items', 'Items', 'Backpack', 'sun', 'Key items, materials and gear: where to find them and what they do.', 1),
-  ('fortunes-weave', 'last-chances', 'Last chances', 'Missables', 'Hourglass', 'plum', 'Things you can miss forever, and the deadline for each. Tick them off as you go.', 2),
+  ('fortunes-weave', 'last-chances', 'Last chances', 'Last chances', 'Hourglass', 'plum', 'Things you can miss forever, and the deadline for each. Tick them off as you go.', 2),
   ('fortunes-weave', 'story', 'Story', 'Story', 'Flag', 'sky', 'The parts of the story in order, kept spoiler-light.', 3),
   ('fortunes-weave', 'world', 'World', 'World', 'MapPin', 'teal', 'Dungeons and places worth visiting, and the foes waiting in them.', 4),
   ('fortunes-weave', 'guides', 'Guides', 'Guides', 'BookOpen', 'leaf', 'How the game''s systems work, and the questions nobody has answered yet.', 5)

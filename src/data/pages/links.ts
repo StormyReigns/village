@@ -102,3 +102,8 @@ export function shareAnswer(block: Block, entry: Entry, routeNames: Record<strin
   const text = [answers.length && entry.description ? flat(entry.description) : '', ...facts.map((f) => `${f.label}: ${flat(f.text)}`)];
   return { facts, steps: [], text: clip(text.filter(Boolean).join(' · '), 300) };
 }
+
+/** Every entry a player can see, as a name and a link, for linking names inside entry text. */
+export function entryLinks(gameId: string, pages: Page[]) {
+  return pages.flatMap((p) => p.blocks.flatMap((b) => b.entries.filter((e) => !e.spoiler).map((e) => ({ name: e.name, href: sharePath(gameId, p, b, e) }))));
+}

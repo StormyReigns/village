@@ -14,20 +14,21 @@ import { Avatar } from './Avatar';
  * "Sign in" when signed out; your avatar with a small menu when signed in. Moderators
  * also get their powers menu beside it, and see what the "see it as" choice shows.
  */
-export function AccountButton() {
+/** `quiet` shows "Sign in" as a plain text link, for headers where it shouldn't compete. */
+export function AccountButton({ quiet = false }: { quiet?: boolean }) {
   const real = useAccount();
   const view = useViewAsSetting();
-  if (!hasPowers(real)) return <Account villager={real} />;
+  if (!hasPowers(real)) return <Account villager={real} quiet={quiet} />;
   return (
     <div className="flex items-center gap-2">
       <ModPowers view={view} />
-      <Account villager={seenAs(real, view)} />
+      <Account villager={seenAs(real, view)} quiet={quiet} />
       <ViewAsReminder view={view} />
     </div>
   );
 }
 
-function Account({ villager }: { villager: Villager | null | undefined }) {
+function Account({ villager, quiet }: { villager: Villager | null | undefined; quiet: boolean }) {
   const path = usePathname() || '/';
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -45,7 +46,7 @@ function Account({ villager }: { villager: Villager | null | undefined }) {
   if (!villager) {
     return (
       <>
-        <button onClick={() => setOpen(true)} className="gloss btn-primary rounded-full px-4 py-2 text-sm font-bold">Sign in</button>
+        <button onClick={() => setOpen(true)} className={quiet ? 'shrink-0 whitespace-nowrap rounded-full px-2 py-2 text-sm font-bold text-muted hover:text-ink' : 'btn-primary rounded-full px-4 py-2 text-sm font-bold'}>Sign in</button>
         {open && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 backdrop-blur-sm sm:items-center sm:p-6" onClick={() => setOpen(false)}>
             <div role="dialog" aria-modal="true" aria-label="Sign in" onClick={(e) => e.stopPropagation()}

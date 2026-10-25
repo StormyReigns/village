@@ -8,7 +8,8 @@ import { SignInPrompt } from '@/components/SignInPrompt';
 import { ScrollRow } from '@/components/ScrollRow';
 import type { Villager } from '@/components/useVillager';
 import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
-import { matches } from '@/components/app/entries';
+import { entryText } from '@/components/app/entries';
+import { rank } from '@/lib/search';
 import { changesBetween } from './changes';
 import { clearUnsent, hasWriting, saveUnsent, type Unsent } from './unsent';
 import type { NewDraft } from './useWorkshop';
@@ -143,7 +144,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
     else { clearUnsent(gameId); onPosted(page.id); }
   };
 
-  const found = find.trim() ? block.entries.filter((x) => matches(x, find)).slice(0, 6) : [];
+  const found = find.trim() ? rank(block.entries, find, entryText).slice(0, 6) : [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-0 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>

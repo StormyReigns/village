@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { Entry, Route } from '@/data/pages';
+import type { Searchable } from '@/lib/search';
 
 // Small helpers shared by the game app's Blocks.
 
@@ -24,15 +25,13 @@ export function onRoute(e: Entry, route: Route | 'all') {
   return route === 'all' || !e.routes?.length || e.routes.includes(route);
 }
 
-/** Every search word has to appear somewhere in the entry. */
-export function matches(e: Entry, query: string) {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  if (!words.length) return true;
-  const hay = [
-    e.name, e.description, ...e.sections.map((s) => `${s.label} ${s.text}`), ...Object.values(e.categories),
+/** An entry as search sees it: its name, and all its other words (see src/lib/search.ts). */
+export function entryText(e: Entry): Searchable {
+  const text = [
+    e.description, ...e.sections.map((s) => `${s.label} ${s.text}`), ...Object.values(e.categories),
     ...Object.values(e.perRoute ?? {}).flat().map((s) => s.text),
-  ].join(' ').toLowerCase();
-  return words.every((w) => hay.includes(w));
+  ].join(' ');
+  return { name: e.name, text };
 }
 
 /**

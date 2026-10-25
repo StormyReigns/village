@@ -3,13 +3,16 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Clock, Eye, EyeOff, Hourglass, Info, Search } from 'lucide-react';
-import type { Page, Route } from '@/data/pages';
+import type { Block, Entry, Page, Route } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
 import { Tip } from '@/components/Tip';
 import { usePlayerPrefs } from '@/components/usePlayerPrefs';
 import { BlockView, type BlockContext } from './Blocks';
+import { TextLinksProvider, type TextLinkData } from './TextLinks';
+import { GLOSSARY } from '@/data/glossary';
 import { EntryIcon, type RouteOption } from './EntryPanel';
-import { initials, matches, onRoute, tintFor, useRecent, useTicks } from './entries';
+import { initials, entryText, onRoute, tintFor, useRecent, useTicks } from './entries';
+import { closest, rank } from '@/lib/search';
 import { TINT } from './tint';
 
 export interface AppGame {
@@ -36,7 +39,10 @@ function RoutePicker({ game, route, onPick, solid }: { game: AppGame; route: Rou
   );
 }
 
-export function PageView({ game, page, openOnLoad, scrollTo }: { game: AppGame; page: Page; openOnLoad?: string; scrollTo?: string }) {
+export function PageView({ game, page, openOnLoad, scrollTo, links = [] }: {
+  game: AppGame; page: Page; openOnLoad?: string; scrollTo?: string; links?: TextLinkData['names'];
+}) {
+  const textLinks = useMemo(() => ({ names: links, terms: GLOSSARY[game.id] ?? {} }), [links, game.id]);
   // Arriving from a share link: open that entry (or bring that Block into view), then show
   // the usual Page address so the panel's arrows, close and Back work as normal.
   useEffect(() => {
@@ -102,9 +108,11 @@ export function PageView({ game, page, openOnLoad, scrollTo }: { game: AppGame; 
         )}
       </header>
 
-      <div className="mt-4 grid gap-4">
-        {page.blocks.map((b) => <BlockView key={b.id} block={b} ctx={ctx} />)}
-      </div>
+      <TextLinksProvider value={textLinks}>
+        <div className="mt-4 grid gap-4">
+          {page.blocks.map((b) => <BlockView key={b.id} block={b} ctx={ctx} />)}
+        </div>
+      </TextLinksProvider>
     </div>
   );
 }
@@ -112,8 +120,33 @@ export function PageView({ game, page, openOnLoad, scrollTo }: { game: AppGame; 
 /** Search across every Page. */
 function AppSearch({ gameId, pages }: { gameId: string; pages: Page[] }) {
   const [query, setQuery] = useState('');
+  const [going, setGoing] = useState<string | null>(null);
   const all = useMemo(() => pages.flatMap((p) => p.blocks.flatMap((b) => b.entries.map((e) => ({ p, b, e })))), [pages]);
-  const hits = query.trim().length < 2 ? [] : all.filter(({ e }) => !e.spoiler && matches(e, query)).slice(0, 12);
+  const view = (h: { e: Entry }) => entryText(h.e);
+  const searching = query.trim().length >= 2;
+  const open = all.filter(({ e }) => !e.spoiler);
+  const hits = searching ? rank(open, query, view).slice(0, 12) : [];
+  const near = searching && !hits.length ? closest(open, query, view) : [];
+  const spoilerHits = searching ? rank(all.filter(({ e }) => e.spoiler), query, view).length : 0;
+  const example = open.find(({ b }) => b.type === 'collection')?.e.name;
+  const href = ({ p, b, e }: { p: Page; b: Block; e: Entry }) =>
+    b.type === 'guide' || b.type === 'timeline' ? `/g/${gameId}/${p.id}#${b.id}-${e.id}` : `/g/${gameId}/${p.id}?e=${b.id}.${e.id}`;
+  const row = (h: { p: Page; b: Block; e: Entry }) => {
+    const key = `${h.b.id}.${h.e.id}`;
+    return (
+      <li key={key}>
+        {/* Lights up the moment it's tapped, so a slow phone still shows something happened. */}
+        <Link href={href(h)} onClick={() => setGoing(key)}
+          className={'flex items-center gap-3 rounded-2xl px-2 py-1.5 hover:bg-card-2 ' + (going === key ? 'animate-pulse bg-card-2 ring-1 ring-line' : '')}>
+          <EntryIcon entry={h.e} block={h.b} size="sm" />
+          <span className="min-w-0">
+            <span className="block font-bold leading-tight">{h.e.name}</span>
+            <span className="block text-sm text-muted">{h.p.title === h.b.title ? h.p.title : `${h.p.title} · ${h.b.title}`}</span>
+          </span>
+        </Link>
+      </li>
+    );
+  };
   return (
     <div className="relative">
       <label className="flex items-center gap-3 rounded-full bg-card px-4 py-3 ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
@@ -121,21 +154,20 @@ function AppSearch({ gameId, pages }: { gameId: string; pages: Page[] }) {
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search units, items, places…" aria-label="Search the app"
           className="min-w-0 flex-1 bg-transparent text-lg outline-none placeholder:text-muted" />
       </label>
-      {query.trim().length >= 2 && (
+      {searching && (
         <ul className="surface pop absolute inset-x-0 z-20 mt-2 grid max-h-[60vh] gap-1 overflow-y-auto rounded-2xl p-2">
-          {hits.length === 0 && <li className="px-3 py-2 text-sm text-muted">Nothing found for “{query}”. Spoilers are left out here.</li>}
-          {hits.map(({ p, b, e }) => (
-            <li key={`${b.id}.${e.id}`}>
-              <Link href={b.type === 'guide' || b.type === 'timeline' ? `/g/${gameId}/${p.id}#${b.id}` : `/g/${gameId}/${p.id}?e=${b.id}.${e.id}`}
-                className="flex items-center gap-3 rounded-2xl px-2 py-1.5 hover:bg-card-2">
-                <EntryIcon entry={e} block={b} size="sm" />
-                <span className="min-w-0">
-                  <span className="block font-bold leading-tight">{e.name}</span>
-                  <span className="block text-sm text-muted">{p.title} · {b.title}</span>
-                </span>
-              </Link>
+          {hits.length === 0 && (
+            <li className="grid gap-1 px-3 py-2 text-sm text-muted">
+              <span>Nothing found for “{query.trim()}”.{example && <> Try just a name, like <span className="font-bold text-ink">{example}</span>.</>}</span>
+              {near.length > 0 && <span className="text-xs font-bold uppercase tracking-wide">Did you mean</span>}
             </li>
-          ))}
+          )}
+          {(hits.length ? hits : near).map(row)}
+          {spoilerHits > 0 && (
+            <li className="px-3 py-2 text-xs text-muted">
+              {spoilerHits === 1 ? 'A spoiler also matches.' : `${spoilerHits} spoilers also match.`} Turn on spoilers on its Page to see {spoilerHits === 1 ? 'it' : 'them'}.
+            </li>
+          )}
         </ul>
       )}
     </div>

@@ -86,10 +86,11 @@ export function AppNav({ game, pages }: { game: NavGame; pages: NavPage[] }) {
           <span className="truncate font-display text-lg">{game.shortTitle}</span>
         </Link>
         <span className="ml-auto" />
-        <Link href={`/g/${game.id}/workshop`} aria-label="Workshop" className="btn-quiet inline-flex items-center gap-2 rounded-full p-2.5 text-sm font-bold sm:px-4 sm:py-2">
-          <Hammer size={16} className="text-leaf" aria-hidden="true" /><span className="hidden sm:inline">Workshop</span>
+        {/* The hammer alone meant nothing to new players, so it always says what it's for. */}
+        <Link href={`/g/${game.id}/workshop`} className="btn-quiet inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3 py-2 text-sm font-bold sm:px-4">
+          <Hammer size={16} className="text-leaf" aria-hidden="true" /><span className="sm:hidden">Help build</span><span className="hidden sm:inline">Workshop</span>
         </Link>
-        <AccountButton />
+        <AccountButton quiet />
       </header>
 
       {/* Phones: bottom tab bar */}
@@ -103,7 +104,7 @@ export function AppNav({ game, pages }: { game: NavGame; pages: NavPage[] }) {
           ))}
           {inMore.length > 0 && (
             <button onClick={() => setMore(!more)} aria-expanded={more}
-              className={'flex w-16 flex-col items-center gap-0.5 rounded-2xl py-1 text-[11px] font-bold ' + (more || (current && !inBar.includes(current)) ? 'text-ink' : 'text-muted')}>
+              className={'flex w-16 flex-col items-center gap-0.5 rounded-2xl py-1 text-center text-[11px] font-bold leading-tight ' + (more || (current && !inBar.includes(current)) ? 'text-ink' : 'text-muted')}>
               <span className={'grid h-8 w-12 place-items-center rounded-full ' + (more || (current && !inBar.includes(current)) ? 'bg-card-2 ring-1 ring-line' : '')}><LayoutGrid size={20} aria-hidden="true" /></span>
               More
             </button>
@@ -147,7 +148,7 @@ function TabLink({ href, on, label, tint, children }: { href: string; on: boolea
   const t = tint ? TINT[tint] : TINT.leaf;
   return (
     <Link href={href} aria-current={on ? 'page' : undefined}
-      className={'flex w-16 flex-col items-center gap-0.5 rounded-2xl py-1 text-[11px] font-bold ' + (on ? t.text : 'text-muted')}>
+      className={'flex w-16 flex-col items-center gap-0.5 rounded-2xl py-1 text-center text-[11px] font-bold leading-tight ' + (on ? t.text : 'text-muted')}>
       <span className={'grid h-8 w-12 place-items-center rounded-full transition ' + (on ? `gloss ${t.solid} text-white` : '')}>{children}</span>
       {label}
     </Link>

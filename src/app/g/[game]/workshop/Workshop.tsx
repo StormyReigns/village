@@ -10,7 +10,8 @@ import {
 import type { Block, Page } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
 import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
-import { matches } from '@/components/app/entries';
+import { entryText } from '@/components/app/entries';
+import { rank } from '@/lib/search';
 import { SignInPrompt } from '@/components/SignInPrompt';
 import { ScrollRow } from '@/components/ScrollRow';
 import { Tip } from '@/components/Tip';
@@ -943,14 +944,14 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts }: {
   const many = pages.length > 1;
   return (
     <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-5">
-      {query && !pages.some((p) => p.blocks.some((b) => b.entries.some((e) => matches(e, query)))) && (
+      {query && !pages.some((p) => p.blocks.some((b) => rank(b.entries, query, entryText).length > 0)) && (
         <p className="rounded-2xl bg-card-2 px-3 py-3 text-sm text-muted">Nothing matches “{query}”. Try another word, or add it as something new.</p>
       )}
       {pages.map((p) => (
         <div key={p.id} className="grid grid-cols-[minmax(0,1fr)] gap-5">
           {many && <h3 className="flex items-center gap-2 font-display text-lg"><BlockIcon name={p.icon} size={16} /> {p.title}</h3>}
           {p.blocks.map((b) => {
-            const list = b.entries.filter((e) => matches(e, query));
+            const list = rank(b.entries, query, entryText);
             if (query && !list.length) return null;
             const isFolded = folded.includes(b.id) && !query;
             return (

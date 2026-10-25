@@ -155,7 +155,7 @@ export const PAGES: Page[] = [
     blocks: [block({ type: 'collection', look: 'slots', title: 'Items', icon: 'Backpack', filters: ['Type'], entries: items() })],
   },
   {
-    id: 'last-chances', title: 'Last chances', short: 'Missables', icon: 'Hourglass', tint: 'plum',
+    id: 'last-chances', title: 'Last chances', short: 'Last chances', icon: 'Hourglass', tint: 'plum',
     blurb: "Things you can miss forever, and the deadline for each. Tick them off as you go.",
     blocks: [block({ type: 'checklist', title: 'Last chances', icon: 'Hourglass', byRoute: true, entries: missables() })],
   },

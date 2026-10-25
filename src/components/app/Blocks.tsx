@@ -10,7 +10,9 @@ import { BlockIcon } from '@/components/Icon';
 import { Tip } from '@/components/Tip';
 import { ScrollRow } from '@/components/ScrollRow';
 import { EntryIcon, EntryPanel, Lines, type RouteOption } from './EntryPanel';
-import { initials, matches, onRoute, rememberEntry, tintFor, useOpenEntry, useTicks } from './entries';
+import { entryText, initials, onRoute, rememberEntry, tintFor, useOpenEntry, useTicks } from './entries';
+import { closest, rank } from '@/lib/search';
+import { RichText } from './TextLinks';
 import { TINT } from './tint';
 
 /** What every Block needs from the page around it. */
@@ -103,6 +105,35 @@ function OpenPanel({ block, list, ctx }: { block: Block; list: Entry[]; ctx: Blo
 
 const num = (s?: string) => Number(/\d+/.exec(s ?? '')?.[0] ?? Infinity);
 
+/** When a Block's search finds nothing: an example, close names, and any spoilers that matched. */
+function NothingFound({ query, shown, block, ctx, onOpen }: {
+  query: string; shown: Entry[]; block: Block; ctx: BlockContext; onOpen: (e: Entry) => void;
+}) {
+  if (!query.trim()) return <p className="mt-6 text-center text-sm text-muted">Nothing here with that filter.</p>;
+  const near = closest(shown, query, entryText);
+  const hidden = ctx.spoilers ? [] : rank(block.entries.filter((e) => e.spoiler && onRoute(e, ctx.route)), query, entryText);
+  return (
+    <div className="mt-6 grid justify-items-center gap-2 text-center text-sm text-muted">
+      <p>Nothing matches “{query.trim()}”.{shown[0] && <> Try just a name, like <span className="font-bold text-ink">{shown[0].name}</span>.</>}</p>
+      {near.length > 0 && (
+        <p className="flex flex-wrap items-center justify-center gap-1.5">
+          Did you mean
+          {near.map((e) => (
+            <button key={e.id} type="button" onClick={() => onOpen(e)} className="rounded-full bg-card-2 px-2.5 py-1 font-bold text-ink ring-1 ring-line hover:ring-ink">{e.name}</button>
+          ))}
+          ?
+        </p>
+      )}
+      {hidden.length > 0 && (
+        <p>
+          {hidden.length === 1 ? 'A hidden spoiler matches.' : `${hidden.length} hidden spoilers match.`}{' '}
+          <button type="button" onClick={ctx.onShowSpoilers} className="font-bold text-leaf underline">Show spoilers</button>
+        </p>
+      )}
+    </div>
+  );
+}
+
 function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const { shown, offRoute, spoilers } = useVisible(block, ctx);
   const { set } = useOpenEntry();
@@ -121,7 +152,9 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
   }, [shown, filter]);
 
   const list = useMemo(() => {
-    const found = shown.filter((e) => (!pick || !filter || e.categories[filter] === pick) && matches(e, query));
+    const found = shown.filter((e) => !pick || !filter || e.categories[filter] === pick);
+    // While searching, the best matches come first.
+    if (query.trim()) return rank(found, query, entryText);
     const byName = (a: Entry, b: Entry) => a.name.localeCompare(b.name);
     if (sort === 'za') return found.sort((a, b) => byName(b, a));
     if (sort === 'stat') return found.sort((a, b) => num(a.stat) - num(b.stat) || byName(a, b));
@@ -167,7 +200,7 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
       )}
 
       {list.length === 0 ? (
-        <p className="mt-6 text-center text-sm text-muted">Nothing matches{query && ` “${query}”`}.</p>
+        <NothingFound query={query} shown={shown} block={block} ctx={ctx} onOpen={openIt} />
       ) : groups.map(([g, es]) => (
         <div key={g || 'all'} className="mt-4">
           {g && <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">{g}</h3>}
@@ -408,7 +441,7 @@ function Guide({ block, ctx }: { block: Block; ctx: BlockContext }) {
                     <li key={i} className="relative flex gap-3 pb-3 last:pb-0">
                       {i < all.length - 1 && <span className="absolute bottom-0 left-[0.8rem] top-7 w-0.5 bg-line" aria-hidden="true" />}
                       <span className={`gloss z-10 grid size-6.5 shrink-0 place-items-center rounded-full text-xs font-bold text-white ${t.solid}`}>{i + 1}</span>
-                      <span className="pt-0.5">{s}</span>
+                      <span className="pt-0.5"><RichText text={s} /></span>
                     </li>
                   ))}
                 </ol>
@@ -416,7 +449,7 @@ function Guide({ block, ctx }: { block: Block; ctx: BlockContext }) {
               {rest.map((s) => <div key={s.label} className="mt-2"><span className="font-bold">{s.label}:</span> <Lines text={s.text} /></div>)}
               {tip && (
                 <p className="mt-4 flex -rotate-[0.6deg] gap-2 rounded-xl bg-sun-soft px-3 py-2.5 text-sm">
-                  <StickyNote size={16} className="mt-0.5 shrink-0 text-sun" aria-hidden="true" />{tip.text}
+                  <StickyNote size={16} className="mt-0.5 shrink-0 text-sun" aria-hidden="true" /><span><RichText text={tip.text} /></span>
                 </p>
               )}
             </article>

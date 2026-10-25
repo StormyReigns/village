@@ -6,16 +6,19 @@ import { ChevronLeft, ChevronRight, Hammer, TriangleAlert, X } from 'lucide-reac
 import type { Block, Entry, EntryContent, Route } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
 import { ShareButton } from '@/components/ShareButton';
+import { RichText } from './TextLinks';
 import { Tip } from '@/components/Tip';
 import { initials, tintFor } from './entries';
 
 export interface RouteOption { key: Route; label: string }
 
 /** Text with several lines reads as a list; one line reads as a sentence. */
-export function Lines({ text }: { text: string }) {
+/** Entry text: one paragraph, or a bullet list when it has several lines. Names and game
+ *  words inside it link up (see TextLinks). `skip` is the entry's own name. */
+export function Lines({ text, skip }: { text: string; skip?: string }) {
   const lines = text.split('\n').filter((l) => l.trim());
-  if (lines.length < 2) return <p>{text}</p>;
-  return <ul className="grid gap-1">{lines.map((l, i) => <li key={i} className="flex gap-2"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-muted/60" />{l}</li>)}</ul>;
+  if (lines.length < 2) return <p><RichText text={text} skip={skip} /></p>;
+  return <ul className="grid gap-1">{lines.map((l, i) => <li key={i} className="flex gap-2"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-muted/60" /><span><RichText text={l} skip={skip} /></span></li>)}</ul>;
 }
 
 export function EntryIcon({ entry, block, size = 'md' }: { entry: EntryContent; block: Pick<Block, 'title' | 'icon'>; size?: 'sm' | 'md' | 'lg' }) {
@@ -131,7 +134,7 @@ export function EntryDetails({ entry, block, route, routes }: {
         </div>
       )}
 
-      {entry.description && <div className="mt-4 leading-relaxed"><Lines text={entry.description} /></div>}
+      {entry.description && <div className="mt-4 leading-relaxed"><Lines text={entry.description} skip={entry.name} /></div>}
 
       {allRoutes.length > 0 && (
         <div className="mt-4">
@@ -149,7 +152,7 @@ export function EntryDetails({ entry, block, route, routes }: {
       {entry.sections.map((s) => (
         <section key={s.label} className="mt-4">
           <h3 className="text-xs font-bold uppercase tracking-wide text-muted">{s.label}</h3>
-          <div className="mt-1"><Lines text={s.text} /></div>
+          <div className="mt-1"><Lines text={s.text} skip={entry.name} /></div>
         </section>
       ))}
 

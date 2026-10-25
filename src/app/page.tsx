@@ -7,6 +7,10 @@ import { MarketDayButton } from '@/components/HowItWorks';
 import { GameBrowser } from '@/components/GameBrowser';
 import { AccountButton } from '@/components/AccountButton';
 import { findPicture, withCovers } from '@/lib/pictures';
+import { Suspense } from 'react';
+import type { EntryHit } from '@/components/GameBrowser';
+import { getApp } from '@/lib/app-data';
+import { sharePath } from '@/data/pages/links';
 
 // Save a wide picture as public/village/hero.png (or .webp/.jpg) and it replaces the
 // drawn village automatically.
@@ -45,7 +49,9 @@ export default function VillageSquare() {
         </div>
       </section>
 
-      <GameBrowser games={withCovers(GAMES)} />
+      <Suspense fallback={<GameBrowser games={withCovers(GAMES)} />}>
+        <SearchableBrowser />
+      </Suspense>
 
       <section className="mt-10 grid gap-4 sm:grid-cols-2">
         <Link href="/town-hall" className="surface lift flex gap-4 rounded-2xl p-5">
@@ -69,4 +75,17 @@ export default function VillageSquare() {
       </footer>
     </main>
   );
+}
+
+// The home search also looks inside every game's app. Spoilers stay out.
+async function SearchableBrowser() {
+  const lists = await Promise.all(GAMES.map(async (g) => (await getApp(g.id)).flatMap((p) =>
+    p.blocks.flatMap((b) => b.entries.filter((e) => !e.spoiler).map((e): EntryHit => ({
+      key: `${g.id}.${b.id}.${e.id}`, game: g.shortTitle, name: e.name,
+      where: p.title === b.title ? p.title : `${p.title} · ${b.title}`,
+      href: sharePath(g.id, p, b, e),
+      text: [e.description, ...e.sections.map((x) => x.text), ...Object.values(e.categories)].join(' '),
+    }))),
+  )));
+  return <GameBrowser games={withCovers(GAMES)} entries={lists.flat()} />;
 }
