@@ -96,15 +96,15 @@ export async function villageCard({ tint, kicker, title, icon = false, line, fac
   const shown = rows.slice(0, 4);
   const stepsShown = steps.length === 4 ? steps : steps.slice(0, 3);
   const extra = more + rows.length - shown.length;
-  const [body, bold] = await Promise.all([fontFile('Nunito-SemiBold.ttf'), fontFile('Nunito-ExtraBold.ttf')]);
+  const [body, bold] = await Promise.all([fontFile('Rubik-Bold.ttf'), fontFile('Rubik-ExtraBold.ttf')]);
   const fonts = [
-    body && { name: 'Nunito', data: body, weight: 600 as const },
-    bold && { name: 'Nunito', data: bold, weight: 800 as const },
+    body && { name: 'Rubik', data: body, weight: 700 as const },
+    bold && { name: 'Rubik', data: bold, weight: 800 as const },
   ].filter((f): f is NonNullable<typeof f> => Boolean(f));
 
   return new ImageResponse(
     (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', fontFamily: 'Nunito', background: color, padding: '50px 64px', position: 'relative', color: 'white' }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', fontFamily: 'Rubik', background: color, padding: '50px 64px', position: 'relative', color: 'white' }}>
         {/* The brand: one big faint piece behind everything, cropped by the corner. */}
         <div style={{ position: 'absolute', right: -130, bottom: -110, display: 'flex', opacity: 0.14 }}>
           <svg width={640} height={Math.round(640 * V.height / V.width)} viewBox={VIEWBOX}><path d={PIECE_PATH} fill="white" /></svg>
@@ -166,7 +166,7 @@ export async function villageCard({ tint, kicker, title, icon = false, line, fac
             {shown.map((r, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', width: '50%', marginBottom: 16 }}>
                 <OgPiece width={90} fill="white" label={initials(r.name)} labelColor={TINT_HEX[r.tint]} fontSize={22} />
-                <div style={{ display: 'flex', fontSize: 38, fontWeight: 800, marginLeft: 20, whiteSpace: 'nowrap' }}>{wclip(r.name, 21)}</div>
+                <div style={{ display: 'flex', fontSize: 35, fontWeight: 800, marginLeft: 20, whiteSpace: 'nowrap' }}>{wclip(r.name, 19)}</div>
               </div>
             ))}
             {extra > 0 && <div style={{ display: 'flex', width: '100%', fontSize: 32, fontWeight: 800, opacity: 0.85 }}>and {extra} more</div>}
