@@ -14,8 +14,12 @@ import { changesBetween } from './changes';
 import { clearUnsent, hasWriting, saveUnsent, type Unsent } from './unsent';
 import type { NewDraft } from './useWorkshop';
 
-/** Where the form opens: a Block to add to, and optionally the entry being fixed. */
-export interface FormStart { blockId: string; entryId?: string }
+/** Where the form opens: a Block to add to, optionally the entry being fixed, and the one
+ *  part of it to fix ("description", "routes", "section:Where to get it") from an app pencil. */
+export interface FormStart { blockId: string; entryId?: string; field?: string }
+
+/** What happened when a Draft was sent, for the Workshop's thank-you note. */
+export interface Posted { pageId: string; blockId: string; entryId?: string; draftId?: string; name: string }
 
 // Suggested "+" section labels for each Block type, before the Block has its own.
 const DEFAULT_LABELS: Record<Block['type'], string[]> = {
@@ -67,9 +71,9 @@ function clean(c: EntryContent): EntryContent {
 
 const input = 'w-full rounded-2xl bg-card-2 px-3 py-2 ring-1 ring-line outline-none placeholder:text-muted focus:ring-2 focus:ring-sky';
 
-export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft, onClose, onPosted }: {
+export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft, onClose, onPosted, onDiscard }: {
   gameId: string; pages: Page[]; routes: RouteOption[]; start: FormStart; restore?: Unsent | null; me: Villager | null | undefined;
-  postDraft: (d: NewDraft) => Promise<string | null>; onClose: () => void; onPosted: (pageId: string) => void;
+  postDraft: (d: NewDraft) => Promise<{ error?: string; id?: string }>; onClose: () => void; onPosted: (p: Posted) => void; onDiscard: () => void;
 }) {
   const blocks = useMemo(() => pages.flatMap((p) => p.blocks.map((b) => ({ ...b, page: p }))), [pages]);
   const [blockId, setBlockId] = useState(start.blockId);
@@ -77,6 +81,26 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
   const [fixing, setFixing] = useState<Entry | undefined>(() => block?.entries.find((e) => e.id === start.entryId));
   const [content, setContent] = useState<EntryContent>(() => restore?.content ?? (fixing ? contentOf(fixing) : blank()));
   const [source, setSource] = useState(restore?.source ?? '');
+  // From an app pencil: show just that part, with the rest folded under "Edit other parts".
+  const [showAll, setShowAll] = useState(!start.field || !fixing);
+  const [focusSection] = useState(() => start.field?.startsWith('section:') ? content.sections.findIndex((s) => s.label === start.field!.slice(8)) : -1);
+  const [renamingRoutes, setRenamingRoutes] = useState(false);
+  const show = (part: string) => showAll || start.field === part;
+  // The part being fixed is highlighted, and is where the form scrolls to.
+  const hl = (part: string) => (!showAll && start.field === part ? ' rounded-2xl bg-sun-soft/50 p-2.5 ring-2 ring-sun' : '');
+  const fid = (part: string) => (!showAll && start.field === part ? 'fix-focus' : undefined);
+  useEffect(() => {
+    // Bring the part being fixed (or, coming back from signing in, the submit button) into view.
+    const id = restore ? 'entry-actions' : !showAll ? 'fix-focus' : null;
+    if (!id) return;
+    const t = setTimeout(() => {
+      const el = document.getElementById(id);
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      if (!restore) el?.querySelector<HTMLElement>('input, textarea')?.focus({ preventScroll: true });
+    }, 150);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the form opens
+  }, []);
 
   // Keep what's been written on this device, so signing in partway doesn't lose it.
   // A fix only counts once it differs from what's in the app.
@@ -116,6 +140,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
   const unchanged = Boolean(fixing) && changes.length === 0;
 
   const setSection = (i: number, patch: Partial<Section>) => set({ sections: content.sections.map((s, j) => (j === i ? { ...s, ...patch } : s)) });
+  const currentRouteLabel = Object.values(content.perRoute ?? {}).flat()[0]?.label ?? routeLabel;
   const perRouteText = (r: Route) => content.perRoute?.[r]?.[0]?.text ?? '';
   const setPerRoute = (r: Route, text: string) => {
     const label = Object.values(content.perRoute ?? {}).flat()[0]?.label || routeLabel || 'Note';
@@ -125,6 +150,9 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
     set({ perRoute: Object.fromEntries(routes.map((r) => [r.key, [{ label, text: perRouteText(r.key) }]])) });
   const toggleRoute = (r: Route) => {
     const now = content.routes?.length ? content.routes : routes.map((o) => o.key);
+    // Taking an entry off a route hides it for those players, so check first.
+    const label = routes.find((o) => o.key === r)?.label ?? r;
+    if (now.includes(r) && !window.confirm(`Take "${content.name || 'this entry'}" off ${label}'s route? Players on that route won't see it.`)) return;
     const next = now.includes(r) ? now.filter((x) => x !== r) : [...now, r];
     set({ routes: next.length === routes.length ? undefined : next });
   };
@@ -135,13 +163,13 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
     if (cleaned.name.length < 3 || cleaned.name.length > 120) { setNote('Names need 3 to 120 characters.'); return; }
     if (unchanged) { setNote("Nothing has changed yet. Edit a field, then submit."); return; }
     setBusy(true);
-    const err = await postDraft({
+    const res = await postDraft({
       blockKey: block.id, kind: 'fact', title: cleaned.name, content: cleaned, source: source.trim(),
       theory: cleaned.flag === 'unconfirmed', cardId: fixing?.ref?.card, baseRevision: fixing?.ref?.revision,
     });
     setBusy(false);
-    if (err) setNote(err);
-    else { clearUnsent(gameId); onPosted(page.id); }
+    if (res.error) setNote(res.error);
+    else { clearUnsent(gameId); onPosted({ pageId: page.id, blockId: block.id, entryId: fixing?.id, draftId: res.id, name: cleaned.name }); }
   };
 
   const found = find.trim() ? rank(block.entries, find, entryText).slice(0, 6) : [];
@@ -209,27 +237,31 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
 
         <div className="mt-5 grid gap-6 md:grid-cols-2">
           <form onSubmit={submit} className="grid content-start gap-3">
-            <label className="grid gap-1">
-              <span className="text-sm font-bold">Name<span className="text-berry"> *</span></span>
-              <input id="entry-name" value={content.name} onChange={(e) => set({ name: e.target.value })} maxLength={120} className={input} />
-            </label>
-            {block.type === 'timeline' && (
+            {show('name') && (
+              <label className="grid gap-1">
+                <span className="text-sm font-bold">Name<span className="text-berry"> *</span></span>
+                <input id="entry-name" value={content.name} onChange={(e) => set({ name: e.target.value })} maxLength={120} className={input} />
+              </label>
+            )}
+            {block.type === 'timeline' && show('order') && (
               <label className="grid gap-1">
                 <span className="text-sm font-bold">Order <span className="font-normal text-muted">(where it falls in the story)</span></span>
                 <input type="number" value={content.order ?? ''} onChange={(e) => set({ order: e.target.value === '' ? undefined : Number(e.target.value) })} className={input} />
               </label>
             )}
-            {showStat && (
+            {showStat && show('stat') && (
               <label className="grid gap-1">
                 <span className="text-sm font-bold">{block.statName ?? 'Key fact'} <span className="font-normal text-muted">(shown on the list, short)</span></span>
                 <input value={content.stat ?? ''} onChange={(e) => set({ stat: e.target.value })} maxLength={40} placeholder={block.statName === 'Level' ? 'Lv 12' : ''} className={input} />
               </label>
             )}
-            <label className="grid gap-1">
-              <span className="text-sm font-bold">{DESCRIPTION_LABEL[block.type]}</span>
-              <textarea value={content.description ?? ''} onChange={(e) => set({ description: e.target.value })} rows={3} className={input} />
-            </label>
-            {block.filters?.map((k) => (
+            {show('description') && (
+              <label id={fid('description')} className={'grid gap-1' + hl('description')}>
+                <span className="text-sm font-bold">{DESCRIPTION_LABEL[block.type]}</span>
+                <textarea value={content.description ?? ''} onChange={(e) => set({ description: e.target.value })} rows={3} className={input} />
+              </label>
+            )}
+            {block.filters?.filter((k) => show(`cat:${k}`)).map((k) => (
               <label key={k} className="grid gap-1">
                 <span className="text-sm font-bold">{k}</span>
                 <input value={content.categories[k] ?? ''} onChange={(e) => set({ categories: { ...content.categories, [k]: e.target.value } })}
@@ -238,11 +270,11 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
               </label>
             ))}
 
-            {byRoute && (
-              <fieldset className="grid gap-2 rounded-2xl bg-card-2 p-3 ring-1 ring-line">
+            {byRoute && show('routes') && (
+              <fieldset id={fid('routes')} className={'grid gap-2 rounded-2xl bg-card-2 p-3 ring-1 ' + (fid('routes') ? 'ring-2 ring-sun' : 'ring-line')}>
                 <legend className="px-1 text-sm font-bold">Routes</legend>
-                <div className="flex flex-wrap gap-1.5">
-                  <span className="text-sm text-muted">Appears on:</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-sm text-muted">Shows on these routes. Tap one to take it off:</span>
                   {routes.map((r) => {
                     const on = !content.routes?.length || content.routes.includes(r.key);
                     return (
@@ -251,11 +283,19 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
                     );
                   })}
                 </div>
-                <label className="grid gap-1 text-sm">
-                  <span className="font-bold">Something that differs by route <span className="font-normal text-muted">(optional)</span></span>
-                  <input value={Object.values(content.perRoute ?? {}).flat()[0]?.label ?? routeLabel ?? ''} onChange={(e) => setPerRouteLabel(e.target.value)}
-                    placeholder="What it is, e.g. Recruit" className={input} />
-                </label>
+                {/* What differs (like "Recruit") is shared by every entry, so it stays locked unless renamed on purpose. */}
+                {currentRouteLabel && !renamingRoutes ? (
+                  <p className="flex flex-wrap items-center gap-2 text-sm">
+                    <span>Differs by route: <span className="font-bold">{currentRouteLabel}</span></span>
+                    <button type="button" onClick={() => setRenamingRoutes(true)} className="text-xs font-bold text-muted underline hover:text-ink">Rename</button>
+                  </p>
+                ) : (
+                  <label className="grid gap-1 text-sm">
+                    <span className="font-bold">Something that differs by route <span className="font-normal text-muted">(optional)</span></span>
+                    <input value={currentRouteLabel ?? ''} onChange={(e) => setPerRouteLabel(e.target.value)}
+                      placeholder="What it is, e.g. Recruit" className={input} />
+                  </label>
+                )}
                 {routes.map((r) => (
                   <label key={r.key} className="flex items-center gap-2 text-sm">
                     <span className="w-20 shrink-0 font-bold">{r.label}</span>
@@ -266,8 +306,9 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
             )}
 
             <div className="grid gap-2">
-              {content.sections.map((s, i) => (
-                <div key={i} className="grid gap-1.5 rounded-2xl bg-card-2 p-2.5 ring-1 ring-line">
+              {content.sections.map((s, i) => (!showAll && i !== focusSection ? null : (
+                <div key={i} id={!showAll && i === focusSection ? 'fix-focus' : undefined}
+                  className={'grid gap-1.5 rounded-2xl bg-card-2 p-2.5 ring-1 ' + (!showAll && i === focusSection ? 'ring-2 ring-sun' : 'ring-line')}>
                   <div className="flex gap-2">
                     <input value={s.label} onChange={(e) => setSection(i, { label: e.target.value })} list="section-labels" placeholder="Label, e.g. Tips"
                       aria-label="Section label" className="min-w-0 flex-1 rounded-xl bg-card px-3 py-1.5 text-sm font-bold ring-1 ring-line outline-none focus:ring-2 focus:ring-sky" />
@@ -277,19 +318,26 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
                   <textarea value={s.text} onChange={(e) => setSection(i, { text: e.target.value })} rows={2} placeholder="One point per line becomes a list"
                     aria-label={`${s.label || 'Section'} text`} className="rounded-xl bg-card px-3 py-1.5 ring-1 ring-line outline-none focus:ring-2 focus:ring-sky" />
                 </div>
-              ))}
+              )))}
               <datalist id="section-labels">{labels.map((l) => <option key={l} value={l} />)}</datalist>
-              <button type="button" onClick={() => set({ sections: [...content.sections, { label: labels.find((l) => !content.sections.some((s) => s.label === l)) ?? '', text: '' }] })}
-                className="inline-flex items-center gap-1.5 justify-self-start rounded-full px-3 py-1.5 text-sm font-bold text-leaf ring-1 ring-line hover:ring-leaf">
-                <Plus size={15} aria-hidden="true" /> Add a section
-              </button>
+              {showAll ? (
+                <button type="button" onClick={() => set({ sections: [...content.sections, { label: labels.find((l) => !content.sections.some((s) => s.label === l)) ?? '', text: '' }] })}
+                  className="inline-flex items-center gap-1.5 justify-self-start rounded-full px-3 py-1.5 text-sm font-bold text-leaf ring-1 ring-line hover:ring-leaf">
+                  <Plus size={15} aria-hidden="true" /> Add a section
+                </button>
+              ) : (
+                <button type="button" onClick={() => setShowAll(true)}
+                  className="inline-flex items-center gap-1.5 justify-self-start rounded-full px-3 py-1.5 text-sm font-bold text-muted ring-1 ring-line hover:text-ink hover:ring-ink">
+                  Edit other parts
+                </button>
+              )}
             </div>
 
             <label className="grid gap-1">
               <span className="text-sm font-bold">Where can others check this?</span>
               <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="I saw it myself in chapter 6, or a link" className={input} />
             </label>
-            <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+            <div className={(showAll ? 'flex' : 'hidden') + ' flex-wrap gap-x-5 gap-y-2 text-sm'}>
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={Boolean(content.spoiler)} onChange={(e) => set({ spoiler: e.target.checked })} className="size-4 accent-[var(--color-leaf)]" />
                 <span><span className="font-bold">Spoiler.</span> Hidden until a player asks.</span>
@@ -300,15 +348,17 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
               </label>
             </div>
 
-            <div className="mt-2 flex flex-wrap items-center gap-3">
+            {/* On phones this bar stays at the bottom of the form, so Submit is always in reach. */}
+            <div id="entry-actions" className="sticky bottom-0 z-10 -mx-5 mt-2 flex flex-wrap items-center gap-3 border-t border-line bg-card px-5 py-3 sm:-mx-6 sm:px-6 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0">
               {me === null ? (
-                <SignInPrompt back="?resume=1">Sign in to submit</SignInPrompt>
+                <SignInPrompt back="?resume=1" forWhat={fixing ? `send your fix to ${fixing.name}` : 'send your Draft'}>Sign in to submit</SignInPrompt>
               ) : (
                 <button disabled={busy || me === undefined || unchanged} className="rounded-full bg-leaf px-5 py-2.5 font-bold text-paper hover:opacity-90 disabled:opacity-60">
                   {busy ? 'Submitting…' : fixing ? 'Submit fix' : 'Submit Draft'}
                 </button>
               )}
-              <button type="button" onClick={() => { clearUnsent(gameId); onClose(); }} className="rounded-full px-4 py-2.5 font-bold text-muted hover:text-ink">Discard</button>
+              {/* Far from Submit, and undoable from the Workshop. */}
+              <button type="button" onClick={onDiscard} className="ml-auto rounded-full px-3 py-2 text-sm font-bold text-muted hover:text-berry">Discard</button>
             </div>
             {note && <p role="status" className="text-sm text-berry">{note}</p>}
           </form>

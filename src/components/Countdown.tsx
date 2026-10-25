@@ -8,7 +8,8 @@ const subscribe = () => () => {};
 
 export function Countdown({ date, before, after }: { date: string; before: string; after: string }) {
   const days = useSyncExternalStore(subscribe, () => daysUntil(date), () => null);
-  if (days === null) return <span>{before}</span>;
+  // Before the browser takes over, show the date itself, never a bare "Out".
+  if (days === null) return <span>{before} {new Date(`${date}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}</span>;
   if (days > 1) return <span>{before} in {days} days</span>;
   if (days === 1) return <span>{before} tomorrow</span>;
   if (days === 0) return <span>{before} today</span>;

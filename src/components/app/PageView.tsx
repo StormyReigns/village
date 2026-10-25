@@ -9,6 +9,7 @@ import { Tip } from '@/components/Tip';
 import { usePlayerPrefs } from '@/components/usePlayerPrefs';
 import { BlockView, type BlockContext } from './Blocks';
 import { TextLinksProvider, type TextLinkData } from './TextLinks';
+import { HelpSolve, NewInVillage, Welcome } from './HomeHooks';
 import { GLOSSARY } from '@/data/glossary';
 import { EntryIcon, type RouteOption } from './EntryPanel';
 import { initials, entryText, onRoute, tintFor, useRecent, useTicks } from './entries';
@@ -71,6 +72,7 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [] }: {
 
   return (
     <div className="mt-3 lg:mt-0">
+      {(openOnLoad || scrollTo) && <Welcome game={game} />}
       <header className="relative px-1 pb-1">
         <div className="relative flex items-center gap-4">
           <span className={`grid size-14 shrink-0 place-items-center rounded-2xl text-white ${t.solid}`}><BlockIcon name={page.icon} size={26} /></span>
@@ -101,7 +103,7 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [] }: {
           <p className="relative mt-4 flex flex-wrap gap-2 text-sm">
             {page.blocks.map((b) => (
               <a key={b.id} href={`#${b.id}`} className="inline-flex items-center gap-1.5 rounded-full bg-card/80 px-3 py-1 font-bold ring-1 ring-line hover:ring-ink">
-                <BlockIcon name={b.icon} size={14} /> {b.title} <span className="text-muted">{b.entries.length}</span>
+                <BlockIcon name={b.icon} size={14} /> {b.title} <span className="text-muted">{b.entries.filter((e) => onRoute(e, ctx.route) && (prefs.spoilers || !e.spoiler)).length}</span>
               </a>
             ))}
           </p>
@@ -217,6 +219,12 @@ export function AppHome({ game, pages, cover }: { game: AppGame; pages: Page[]; 
 
       <AppSearch gameId={game.id} pages={pages} />
 
+      {/* Reasons to come back: open questions, and what other players found lately. */}
+      <div className="grid gap-3 md:grid-cols-2">
+        <HelpSolve gameId={game.id} pages={pages} />
+        <NewInVillage gameId={game.id} />
+      </div>
+
       {(recent.length > 0 || next) && (
         <div className="grid gap-3 md:grid-cols-2">
           {next && (
@@ -274,7 +282,7 @@ export function AppHome({ game, pages, cover }: { game: AppGame; pages: Page[]; 
 
       <p className="flex gap-2 text-sm text-muted">
         <Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-        Starter content from an early community codex. Some details may be wrong; fix them in the Workshop.
+        <span>Started from a fan codex and improved by players. Spot something? <Link href={`/g/${game.id}/workshop`} className="font-bold text-leaf underline">Fix it</Link>.</span>
       </p>
     </div>
   );

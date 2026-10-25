@@ -18,8 +18,15 @@ export function SignInPanel() {
     if (reason) setError(reason);
   }, []);
 
+  const forWhat = params.get('for')?.slice(0, 120);
+
   return (
     <>
+      {forWhat && !error && (
+        <p className="mb-4 rounded-2xl bg-leaf-soft px-4 py-3 text-sm text-leaf">
+          Sign in to {forWhat}. It&apos;s saved, and it&apos;ll be waiting when you&apos;re back.
+        </p>
+      )}
       {error && (
         <p className="mb-4 rounded-2xl bg-berry-soft px-4 py-3 text-sm text-berry">
           That sign-in didn&apos;t go through

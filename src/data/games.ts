@@ -57,7 +57,7 @@ export const GAMES: Game[] = [
     platform: 'Nintendo Switch 2',
     releaseDate: '2026-11-05',
     status: 'prelaunch',
-    next: 'Workshop opens before launch',
+    next: 'The Workshop is open: help build it before launch',
     hue: 'leaf',
     genre: 'Action-adventure',
     popularity: 2,

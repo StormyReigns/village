@@ -1,14 +1,38 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Hammer, TriangleAlert, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, Hammer, Hourglass, Pencil, TriangleAlert, X } from 'lucide-react';
 import type { Block, Entry, EntryContent, Route } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
 import { ShareButton } from '@/components/ShareButton';
 import { RichText } from './TextLinks';
 import { Tip } from '@/components/Tip';
 import { initials, tintFor } from './entries';
+import { browserClient } from '@/lib/supabase/browser';
+
+/** An open Draft that fixes this entry, if there is one (so nobody writes the same fix twice). */
+function useWaitingFix(cardId?: string) {
+  const [id, setId] = useState<string | null>(null);
+  useEffect(() => {
+    const db = browserClient();
+    if (!db || !cardId) return;
+    let live = true;
+    db.from('drafts').select('id').eq('card_id', cardId).in('status', ['open', 'checking']).limit(1)
+      .then(({ data }) => { if (live) setId(data?.[0]?.id ?? null); });
+    return () => { live = false; };
+  }, [cardId]);
+  return cardId ? id : null;
+}
+
+/** A small pencil beside one part of an entry: fix just that part. */
+function FixPencil({ href, what }: { href: string; what: string }) {
+  return (
+    <Link href={href} aria-label={`Fix ${what}`} className="grid size-7 shrink-0 place-items-center rounded-full text-muted/70 hover:bg-card-2 hover:text-leaf">
+      <Pencil size={13} aria-hidden="true" />
+    </Link>
+  );
+}
 
 export interface RouteOption { key: Route; label: string }
 
@@ -47,6 +71,8 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
   const at = list.findIndex((e) => e.id === entry.id);
   const prev = at > 0 ? list[at - 1] : undefined;
   const next = at >= 0 && at < list.length - 1 ? list[at + 1] : undefined;
+  const waiting = useWaitingFix(entry.ref?.card);
+  const fixHref = (field: string) => `/g/${gameId}/workshop?fix=${block.id}.${entry.id}&field=${encodeURIComponent(field)}`;
 
   useEffect(() => {
     box.current?.focus();
@@ -80,7 +106,13 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
         </div>
 
         <div className="overflow-y-auto px-5 pb-6 pt-3">
-          <EntryDetails entry={entry} block={block} route={route} routes={routes} />
+          {waiting && (
+            <Link href={`/g/${gameId}/workshop?draft=${waiting}`} className="mb-4 flex items-center gap-2 rounded-2xl bg-sun-soft px-3 py-2 text-sm hover:ring-1 hover:ring-sun">
+              <Hourglass size={15} className="shrink-0 text-sun" aria-hidden="true" />
+              <span className="flex-1"><span className="font-bold">A fix is waiting for votes.</span> See it before writing another</span>
+            </Link>
+          )}
+          <EntryDetails entry={entry} block={block} route={route} routes={routes} fixHref={fixHref} />
           {entry.source && <p className="mt-6 text-xs text-muted">Source: {entry.source}</p>}
           <Tip text="Opens a Draft with this entry filled in. Change what's wrong; villagers check it" tint="leaf" className="mt-4">
             <Link href={`/g/${gameId}/workshop?fix=${block.id}.${entry.id}`} className="btn-quiet inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold">
@@ -94,8 +126,10 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
 }
 
 /** What an entry says: used in the app's panel and in Workshop previews. */
-export function EntryDetails({ entry, block, route, routes }: {
+export function EntryDetails({ entry, block, route, routes, fixHref }: {
   entry: EntryContent; block: Pick<Block, 'title' | 'icon'>; route: Route | 'all'; routes: RouteOption[];
+  /** In the app, each part gets a pencil that opens a fix for just that part. */
+  fixHref?: (field: string) => string;
 }) {
   const name = (r: Route) => routes.find((o) => o.key === r)?.label ?? r;
   const mine = route !== 'all' ? entry.perRoute?.[route] : undefined;
@@ -134,11 +168,19 @@ export function EntryDetails({ entry, block, route, routes }: {
         </div>
       )}
 
-      {entry.description && <div className="mt-4 leading-relaxed"><Lines text={entry.description} skip={entry.name} /></div>}
+      {entry.description && (
+        <div className="mt-4 flex items-start gap-1 leading-relaxed">
+          <div className="min-w-0 flex-1"><Lines text={entry.description} skip={entry.name} /></div>
+          {fixHref && <FixPencil href={fixHref('description')} what="the description" />}
+        </div>
+      )}
 
       {allRoutes.length > 0 && (
         <div className="mt-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-muted">{allRoutes[0][1][0]?.label} by Flame Lord</p>
+          <div className="flex items-center">
+            <p className="flex-1 text-xs font-bold uppercase tracking-wide text-muted">{allRoutes[0][1][0]?.label} by Flame Lord</p>
+            {fixHref && <FixPencil href={fixHref('routes')} what="the route details" />}
+          </div>
           <dl className="mt-1.5 grid gap-1">
             {allRoutes.map(([r, ss]) => (
               <div key={r} className="flex gap-3 rounded-xl bg-card-2 px-3 py-1.5 text-sm">
@@ -151,7 +193,10 @@ export function EntryDetails({ entry, block, route, routes }: {
 
       {entry.sections.map((s) => (
         <section key={s.label} className="mt-4">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-muted">{s.label}</h3>
+          <div className="flex items-center">
+            <h3 className="flex-1 text-xs font-bold uppercase tracking-wide text-muted">{s.label}</h3>
+            {fixHref && <FixPencil href={fixHref(`section:${s.label}`)} what={s.label} />}
+          </div>
           <div className="mt-1"><Lines text={s.text} skip={entry.name} /></div>
         </section>
       ))}

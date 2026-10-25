@@ -98,7 +98,11 @@ export async function villageCard({ tint, kicker, title, icon = false, line, fac
           ))}
         </div>
 
-        <div style={{ display: 'flex', flexShrink: 0, fontSize: 34, fontWeight: 800, opacity: 0.85 }}>{clip(kicker, 56)}</div>
+        {/* The top line, with the Village name on the right so a shared card says where it's from. */}
+        <div style={{ display: 'flex', flexShrink: 0, alignItems: 'center', fontSize: 34, fontWeight: 800 }}>
+          <div style={{ display: 'flex', flexGrow: 1, opacity: 0.85 }}>{clip(kicker, 48)}</div>
+          <div style={{ display: 'flex', fontFamily: 'Fredoka', fontSize: 30, opacity: 0.9 }}>Village</div>
+        </div>
         <div style={{ display: 'flex', flexShrink: 0, alignItems: 'center', marginTop: icon ? 28 : 18 }}>
           {icon && (
             <div style={{ display: 'flex', flexShrink: 0, width: 210, height: 210, borderRadius: 52, background: 'white', color, alignItems: 'center', justifyContent: 'center', fontFamily: 'Fredoka', fontSize: 96, marginRight: 44 }}>{initials(title)}</div>
@@ -110,11 +114,15 @@ export async function villageCard({ tint, kicker, title, icon = false, line, fac
         {facts.length > 0 && (
           <div style={{ display: 'flex', marginTop: 34 }}>
             {facts.slice(0, 2).map((f, i) => (
-              <div key={i} style={{ display: 'flex', flexDirection: 'column', background: 'white', color: INK, borderRadius: 30, padding: '16px 28px', marginRight: 20, width: facts.length > 1 ? 500 : 1000 }}>
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', background: 'white', color: INK, borderRadius: 30, padding: '16px 28px', marginRight: 20, width: facts.length > 2 ? 440 : facts.length > 1 ? 500 : 1000 }}>
                 <div style={{ display: 'flex', fontSize: 26, fontWeight: 800, color: dark, textTransform: 'uppercase' }}>{clip(f.label, 32)}</div>
-                <div style={{ display: 'flex', fontSize: 40, lineHeight: 1.15 }}>{wclip(f.text, facts.length > 1 ? 60 : icon ? 84 : 150)}</div>
+                <div style={{ display: 'flex', fontSize: 40, lineHeight: 1.15 }}>{wclip(f.text, facts.length > 2 ? 52 : facts.length > 1 ? 60 : icon ? 84 : 150)}</div>
               </div>
             ))}
+            {/* More than fits (several routes, say): say so rather than leave them out silently. */}
+            {facts.length > 2 && (
+              <div style={{ display: 'flex', alignSelf: 'center', fontSize: 30, fontWeight: 800, background: 'rgba(255,255,255,0.22)', borderRadius: 999, padding: '10px 20px' }}>+{facts.length - 2} more</div>
+            )}
           </div>
         )}
 

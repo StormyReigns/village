@@ -27,9 +27,10 @@ import {
   REASONS, targetKey, useWorkshop,
   type ChatMessage, type LiveDraft, type ReportGroup, type ReportReason, type Target, type WorkshopData,
 } from './useWorkshop';
-import { EntryForm, ChangeList, type FormStart } from './EntryForm';
+import { EntryForm, ChangeList, type FormStart, type Posted } from './EntryForm';
+import { sharePath } from '@/data/pages/links';
 import { changesBetween } from './changes';
-import { clearUnsent, readUnsent, type Unsent } from './unsent';
+import { clearUnsent, readUnsent, saveUnsent, type Unsent } from './unsent';
 
 /** A Block together with the Page it sits on. */
 type Placed = Block & { page: Page };
@@ -66,7 +67,7 @@ export function Workshop({ game, pages, routes }: {
   // Arriving from the app: "Suggest a fix" (?fix=block.entry) or "Add" (?add=block).
   const linked = (() => {
     const fix = params.get('fix')?.split('.');
-    if (fix && placeOf(fix[0])) return { blockId: fix[0], entryId: fix[1] };
+    if (fix && placeOf(fix[0])) return { blockId: fix[0], entryId: fix[1], field: params.get('field') ?? undefined };
     const add = params.get('add');
     if (add && placeOf(add)) return { blockId: add };
     return null;
@@ -76,8 +77,10 @@ export function Workshop({ game, pages, routes }: {
   const [sort, setSort] = useState<Sort>('standouts');
   const [form, setForm] = useState<FormStart | null>(linked);
   const [allDrafts, setAllDrafts] = useState(false);
-  const [detail, setDetail] = useState<string | null>(null);
-  const [posted, setPosted] = useState('');
+  // ?draft=… (from the app's "A fix is waiting" note) opens that Draft.
+  const [detail, setDetail] = useState<string | null>(params.get('draft'));
+  const [posted, setPosted] = useState<Posted | null>(null);
+  const [discarded, setDiscarded] = useState<Unsent | null>(null);
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [itemsHidden, setItemsHidden] = useStored('village:workshop:hide-open-items', false);
@@ -125,16 +128,30 @@ export function Workshop({ game, pages, routes }: {
 
   // Next keeps a visited Workshop alive in the background, so coming back through a new
   // "Suggest a fix" link doesn't start it fresh. Follow each new link as it arrives.
-  const linkKey = `${params.get('fix') ?? ''}|${params.get('add') ?? ''}|${params.get('page') ?? ''}|${params.get('resume') ?? ''}`;
+  const linkKey = `${params.get('fix') ?? ''}|${params.get('field') ?? ''}|${params.get('add') ?? ''}|${params.get('page') ?? ''}|${params.get('resume') ?? ''}|${params.get('draft') ?? ''}`;
   const [followed, setFollowed] = useState(linkKey);
   if (linkKey !== followed) {
     setFollowed(linkKey);
     if (startPage && pages.some((p) => p.id === startPage)) setChip(startPage);
     if (linked) { setForm(linked); setAllDrafts(false); }
     if (params.get('resume')) resumeUnsent();
+    if (params.get('draft')) setDetail(params.get('draft'));
   }
   const me = useVillager();
   const live = useWorkshop(game.id, me);
+
+  /** The app address of the entry a Draft fixed, for "Back to …". */
+  const backTo = (p: Posted) => {
+    const place = placeOf(p.blockId);
+    const entry = place?.entries.find((e) => e.id === p.entryId);
+    return place && entry ? sharePath(game.id, place.page, place, entry) : null;
+  };
+  const undoDiscard = () => {
+    if (!discarded) return;
+    saveUnsent(game.id, discarded);
+    setDiscarded(null);
+    resumeUnsent();
+  };
 
   const closeForm = () => {
     setForm(null);
@@ -143,6 +160,7 @@ export function Workshop({ game, pages, routes }: {
     // Drop ?fix= and ?add= so a refresh doesn't reopen the form.
     const url = new URL(window.location.href);
     url.searchParams.delete('fix');
+    url.searchParams.delete('field');
     url.searchParams.delete('add');
     url.searchParams.delete('resume');
     window.history.replaceState({}, '', url); // a fresh state, so Next notices the change
@@ -299,9 +317,30 @@ export function Workshop({ game, pages, routes }: {
                 </div>
               )}
 
+              {/* Stays until you close it, with a way back to the entry and to your Draft. */}
               {posted && (
-                <p role="status" className="rise mt-3 flex items-start gap-2 rounded-2xl bg-leaf-soft px-3 py-2 text-sm text-leaf">
-                  <Check size={16} className="mt-0.5 shrink-0" aria-hidden="true" /> {posted}
+                <div role="status" className="rise mt-3 grid gap-2 rounded-2xl bg-leaf-soft px-3 py-2.5 text-sm text-leaf">
+                  <p className="flex items-start gap-2">
+                    <Check size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+                    <span className="flex-1">Your Draft for <span className="font-bold">{posted.name}</span> is in. It waits for votes from other Builders, then a moderator publishes it to the app on Market Day.</span>
+                    <button onClick={() => setPosted(null)} aria-label="Dismiss" className="grid size-6 shrink-0 place-items-center rounded-full hover:bg-card"><X size={14} aria-hidden="true" /></button>
+                  </p>
+                  <div className="flex flex-wrap gap-2 pl-6">
+                    {posted.draftId && (
+                      <button onClick={() => setDetail(posted.draftId!)} className="rounded-full bg-leaf px-3 py-1 text-xs font-bold text-paper">See my Draft</button>
+                    )}
+                    {backTo(posted) && (
+                      <a href={backTo(posted)!} className="rounded-full bg-card px-3 py-1 text-xs font-bold text-leaf ring-1 ring-leaf/40">Back to {posted.name}</a>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {discarded && (
+                <p role="status" className="rise mt-3 flex items-center gap-2 rounded-2xl bg-card-2 px-3 py-2 text-sm ring-1 ring-line">
+                  <span className="flex-1">Discarded{discarded.content.name.trim() ? ` “${discarded.content.name.trim()}”` : ''}.</span>
+                  <button onClick={undoDiscard} className="rounded-full bg-ink px-3 py-1 text-xs font-bold text-paper">Undo</button>
+                  <button onClick={() => setDiscarded(null)} aria-label="Dismiss" className="grid size-6 place-items-center rounded-full text-muted hover:bg-card"><X size={14} aria-hidden="true" /></button>
                 </p>
               )}
 
@@ -385,12 +424,18 @@ export function Workshop({ game, pages, routes }: {
       {form && blocks.length > 0 && (
         <EntryForm gameId={game.id} pages={pages} routes={routes} start={form} restore={restore} me={me} postDraft={live.postDraft}
           onClose={closeForm}
-          onPosted={(pageId) => {
+          onPosted={(p) => {
             closeForm();
-            setChip(pageId);
+            setChip(p.pageId);
             setAllDrafts(false);
-            setPosted('Your Draft is in. It waits for votes from other Builders, then a moderator publishes it to the app.');
-            setTimeout(() => setPosted(''), 9000);
+            setPosted(p);
+          }}
+          onDiscard={() => {
+            // Keep a copy for Undo; it's gone for good once the note is closed.
+            const copy = readUnsent(game.id);
+            clearUnsent(game.id);
+            closeForm();
+            if (copy) setDiscarded(copy);
           }} />
       )}
 

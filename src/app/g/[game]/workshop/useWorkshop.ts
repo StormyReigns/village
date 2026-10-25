@@ -285,19 +285,19 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
   }, [gameId, meId, addMessage, authorFor]);
 
   /** Saves a Draft and credits its author. Returns an error in plain words, or null. */
-  const postDraft = useCallback(async (d: NewDraft) => {
+  const postDraft = useCallback(async (d: NewDraft): Promise<{ error?: string; id?: string }> => {
     const db = browserClient();
-    if (!db || !meId) return 'Sign in to post a Draft.';
+    if (!db || !meId) return { error: 'Sign in to post a Draft.' };
     const { data, error } = await db.from('drafts')
       .insert({
         game_id: gameId, block_key: d.blockKey, kind: d.kind, title: d.title, content: d.content, source: d.source || null, theory: d.theory,
         card_id: d.cardId ?? null, base_revision_id: d.baseRevision ?? null, author_id: meId, status: 'open',
       })
       .select('id').single();
-    if (error) return plainError(error.message);
+    if (error) return { error: plainError(error.message) };
     await db.from('draft_credits').insert({ draft_id: data.id, profile_id: meId, role: 'author' });
     await loadDrafts();
-    return null;
+    return { id: data.id };
   }, [gameId, meId, loadDrafts]);
 
   /** Sets your vote on a Draft: 1, -1, or 0 to take it back. */

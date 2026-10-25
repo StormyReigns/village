@@ -1,6 +1,4 @@
-import Link from 'next/link';
 import Image from 'next/image';
-import { Landmark, Store } from 'lucide-react';
 import { GAMES } from '@/data/games';
 import { VillageScene } from '@/components/VillageScene';
 import { MarketDayButton } from '@/components/HowItWorks';
@@ -53,22 +51,7 @@ export default function VillageSquare() {
         <SearchableBrowser />
       </Suspense>
 
-      <section className="mt-10 grid gap-4 sm:grid-cols-2">
-        <Link href="/town-hall" className="surface lift flex gap-4 rounded-2xl p-5">
-          <span className="gloss grid size-12 shrink-0 place-items-center rounded-2xl bg-sky text-white"><Landmark aria-hidden="true" /></span>
-          <span>
-            <span className="flex items-center gap-2 font-display text-xl">Town Hall <span className="rounded-full bg-sun-soft px-2 py-0.5 font-sans text-xs font-bold text-sun">Coming soon</span></span>
-            <span className="block text-muted">A village-wide square for anything, and requests for the next game. For now, each game&apos;s Workshop has its own chat.</span>
-          </span>
-        </Link>
-        <div className="surface flex gap-4 rounded-2xl p-5">
-          <span className="gloss grid size-12 shrink-0 place-items-center rounded-2xl bg-berry text-white"><Store aria-hidden="true" /></span>
-          <span>
-            <span className="font-display text-xl">Your games</span>
-            <span className="block text-muted">Games you visit and help build will gather here, with your badge for each.</span>
-          </span>
-        </div>
-      </section>
+      {/* Town Hall and "Your games" come back here once they have something to show. */}
 
       <footer className="mt-12 text-center text-sm text-muted">
         Unofficial fan project. Not affiliated with Nintendo, Intelligent Systems, or any game publisher.
