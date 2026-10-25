@@ -64,6 +64,7 @@ export const GAMES: Game[] = [
     next: 'The Workshop is open: help build it before launch',
     hue: 'leaf',
     genre: 'Action-adventure',
+    shade: 'fantasy',
     popularity: 2,
   },
 ];

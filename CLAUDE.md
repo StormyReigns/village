@@ -60,7 +60,7 @@ Community-built companion apps for games, with a village theme. Two layers:
   Page in every game; a game's genre may shift the shade, never the hue. Each game picks a
   `shade` in `src/data/games.ts` (standard, cozy, fantasy, shooter, openworld; table in
   `src/lib/shades.ts`); `GameShade` applies it to that game's screens only, and share
-  pictures use it too. Fortune's Weave is fantasy.
+  pictures use it too. Fortune's Weave and Ocarina of Time are fantasy.
 - **Three levels**: a Page is its color as a light tint behind the screen, a Block is a
   white panel, an entry is a solid piece in the Page color. Each Page has its own symbol;
   in navigation the current one sits inside a piece.
