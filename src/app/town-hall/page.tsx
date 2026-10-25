@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Hammer, Landmark } from 'lucide-react';
 import { AccountButton } from '@/components/AccountButton';
 import { TopBar } from '@/components/Logo';
+import { Piece } from '@/components/Piece';
 import { GAMES } from '@/data/games';
 
 export const metadata: Metadata = { title: 'Town Hall' };
@@ -15,7 +16,8 @@ export default function TownHall() {
     <TopBar actions={<AccountButton quiet dark />} />
     <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-6 sm:px-6">
       <section className="rounded-2xl bg-card p-8 text-center ring-1 ring-line">
-        <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-sky-soft text-sky"><Landmark aria-hidden="true" /></span>
+        {/* Not built yet, so its piece is the split outline. */}
+        <span className="mx-auto block w-fit"><Piece size={88} outline><Landmark size={22} strokeWidth={2.4} aria-hidden="true" /></Piece></span>
         <h1 className="mt-4 flex items-center justify-center gap-2 font-display text-3xl">
           Town Hall <span className="rounded-full bg-sun-soft px-2.5 py-0.5 font-sans text-sm font-bold text-sun">Coming soon</span>
         </h1>

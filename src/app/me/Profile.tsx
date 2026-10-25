@@ -8,7 +8,7 @@ import { Avatar } from '@/components/Avatar';
 import { ProfileForm } from '@/components/ProfileDialog';
 import { SignInPrompt } from '@/components/SignInPrompt';
 import { Tip } from '@/components/Tip';
-import { house } from '@/components/house';
+import { Piece } from '@/components/Piece';
 import { signOut, useVillager, type Villager } from '@/components/useVillager';
 import { browserClient } from '@/lib/supabase/browser';
 import { ROLE, TENURE, activeWeeks, keeperStars, leaves, pips, standing, type Step } from '@/lib/ranks';
@@ -50,9 +50,10 @@ function useMyData(me: Villager | null | undefined) {
   return [data, setData] as const;
 }
 
-function Section({ title, tint, roof, children }: { title: string; tint: string; roof: string; children: React.ReactNode }) {
+/** A part of the profile: a flat white panel (only pieces get the brand's shape). */
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section {...house(roof, tint, { lean: false })} className="vblock vblock-quiet p-5 sm:p-6">
+    <section className="surface rounded-2xl p-5 sm:p-6">
       <h2 className="font-display text-2xl">{title}</h2>
       <div className="mt-3">{children}</div>
     </section>
@@ -70,8 +71,8 @@ function Ladder({ ladder, value, unit, tint, extra }: { ladder: Step[]; value: n
           return (
             <li key={s.name}>
               <Tip text={s.note} tint={tint} className="w-full">
-                <span style={{ '--tint': `var(--${tint})` } as React.CSSProperties} data-roof="none"
-                  className={'vblock flex w-full flex-col px-3 py-2 ' + (here ? 'is-on gloss' : reached ? '' : 'vblock-quiet opacity-70')}>
+                <span style={here ? { background: `var(--${tint})` } : undefined}
+                  className={'flex w-full flex-col rounded-xl px-3 py-2 ' + (here ? 'text-white' : reached ? 'bg-card ring-1 ring-line' : 'bg-card-2 opacity-70')}>
                   <span className="font-bold">{s.name}</span>
                   <span className={'text-xs ' + (here ? 'text-white/85' : 'text-muted')}>{s.at === 0 ? 'Start' : `${s.at} ${unit}`}</span>
                 </span>
@@ -129,8 +130,8 @@ export function Profile() {
           <p className="text-muted">@{me.username}</p>
           <p className="mt-2 flex flex-wrap items-center gap-2">
             <Tip text="Your title: how long you've been around, then what you've built" tint="leaf">
-              <span className="gloss inline-flex items-center gap-1.5 rounded-full bg-leaf px-3 py-1 text-sm font-bold text-white">
-                <Sparkles size={14} aria-hidden="true" /> {data ? title : '…'}
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1 text-sm font-bold text-white">
+                <Sparkles size={14} className="text-signal" aria-hidden="true" /> {data ? title : '…'}
                 {stars > 0 && Array.from({ length: stars }, (_, i) => <Star key={i} size={12} aria-hidden="true" />)}
               </span>
             </Tip>
@@ -143,11 +144,11 @@ export function Profile() {
         </div>
       </section>
 
-      <Section title="Your name" tint="sky" roof="name">
+      <Section title="Your name">
         <ProfileForm villager={me} />
       </Section>
 
-      <Section title="Your title" tint="leaf" roof="title">
+      <Section title="Your title">
         <p className="text-sm text-muted">
           A title has two parts: how long you&apos;ve been around, and what you&apos;ve built. They move on their own, so something is always
           growing. Nothing ever goes down for taking a break.
@@ -169,7 +170,7 @@ export function Profile() {
         </div>
       </Section>
 
-      <Section title="Badges" tint="sun" roof="badges">
+      <Section title="Badges">
         <p className="text-sm text-muted">One badge per game. It&apos;s gray once something of yours reaches the Workshop, colored once something reaches the app, and glows while it&apos;s live there now.</p>
         <ul className="mt-4 grid gap-4 pt-2 sm:grid-cols-2">
           {GAMES.map((g) => {
@@ -187,12 +188,16 @@ export function Profile() {
             return (
               <li key={g.id}>
                 <Tip text={why} tint={g.hue}>
-                  <span {...house(g.id, g.hue)} data-roof={shipped.length ? undefined : 'none'}
-                    className={'vblock flex w-full items-center gap-3 p-3 ' + (isLive ? 'is-on gloss glow-badge' : shipped.length ? '' : 'vblock-quiet grayscale')}>
-                    <span className={'grid size-11 place-items-center rounded-xl font-display text-lg ' + (isLive ? 'bg-white/25' : 'bg-white/70')}>{g.shortTitle.slice(0, 1)}</span>
+                  {/* The badge is a piece: an empty split outline before you start, gray once
+                      planted, the game's color once harvested, glowing while in season. */}
+                  <span className="flex w-full items-center gap-3 rounded-2xl bg-card-2 p-3 ring-1 ring-line">
+                    <Piece size={60} outline={state === 'Not started'} color={shipped.length ? `var(--${g.hue})` : '#9aa0ad'}
+                      style={isLive ? { filter: `drop-shadow(0 0 8px var(--${g.hue}))` } : undefined}>
+                      {g.shortTitle.slice(0, 1)}
+                    </Piece>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-bold">{g.shortTitle}</span>
-                      <span className={'block text-xs ' + (isLive ? 'text-white/85' : 'text-muted')}>
+                      <span className="block text-xs text-muted">
                         {state}
                         {state === 'Planted' && !data?.hidePlanted && ` · Planted ${mine.length}`}
                       </span>
@@ -210,7 +215,7 @@ export function Profile() {
         </ul>
       </Section>
 
-      <Section title="What you've added" tint="plum" roof="added">
+      <Section title="What you've added">
         {!data ? <p className="text-sm text-muted">Loading…</p> : data.drafts.length === 0 ? (
           <p className="text-sm text-muted">Nothing yet. Open any game&apos;s app and tap &ldquo;Suggest a fix&rdquo; on something, or say hello in a Workshop.</p>
         ) : (
@@ -233,7 +238,7 @@ export function Profile() {
         )}
       </Section>
 
-      <Section title="Settings" tint="teal" roof="settings">
+      <Section title="Settings">
         <div className="grid gap-4">
           <label className="flex items-start gap-3">
             <input type="checkbox" checked={Boolean(data?.hidePlanted)} onChange={(e) => setHidePlanted(e.target.checked)} className="mt-1 size-4 accent-[var(--color-teal)]" />

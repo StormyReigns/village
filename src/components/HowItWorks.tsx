@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CalendarDays, CircleHelp, Hammer, PencilLine, Users, X } from 'lucide-react';
 import { MarketDay } from './Countdown';
 import { Tip } from './Tip';
+import { Piece } from './Piece';
 
 // How a fix reaches the app, in plain words. Opened from the Market Day pill and from the
 // Workshop's "How it works" button, so newcomers can always find the answer.
@@ -32,11 +33,12 @@ export function HowItWorks() {
     <div>
       <h2 className="font-display text-2xl">How a fix reaches the app</h2>
       <ol className="mt-4 grid gap-3">
+        {/* The piece fills in as the fix travels: an empty split outline until it's in the app. */}
         {STEPS.map((s, i) => (
-          <li key={s.title} style={{ '--tint': `var(--${s.tint})` } as React.CSSProperties} className="vblock vblock-quiet flex gap-3 p-3" data-roof="none">
-            <span className="gloss grid size-10 shrink-0 place-items-center rounded-xl text-white" style={{ background: 'var(--tint)' }}>
-              <s.icon size={19} aria-hidden="true" />
-            </span>
+          <li key={s.title} className="flex items-start gap-3 rounded-2xl bg-card-2 p-3 ring-1 ring-line">
+            <Piece size={52} color={`var(--${s.tint})`} outline={i < STEPS.length - 1}>
+              <s.icon size={16} strokeWidth={2.4} aria-hidden="true" />
+            </Piece>
             <span>
               <span className="block font-bold">{i + 1}. {s.title}</span>
               <span className="block text-sm text-muted">{s.body}</span>

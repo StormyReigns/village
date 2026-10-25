@@ -1,19 +1,14 @@
-import Image from 'next/image';
 import { GAMES } from '@/data/games';
-import { VillageScene } from '@/components/VillageScene';
 import { MarketDayButton } from '@/components/HowItWorks';
 import { GameBrowser } from '@/components/GameBrowser';
 import { AccountButton } from '@/components/AccountButton';
 import { TopBar } from '@/components/Logo';
-import { findPicture, withCovers } from '@/lib/pictures';
+import { Piece } from '@/components/Piece';
+import { withCovers } from '@/lib/pictures';
 import { Suspense } from 'react';
 import type { EntryHit } from '@/components/GameBrowser';
 import { getApp } from '@/lib/app-data';
 import { sharePath } from '@/data/pages/links';
-
-// Save a wide picture as public/village/hero.png (or .webp/.jpg) and it replaces the
-// drawn village automatically.
-const HERO = findPicture('/village/hero');
 
 export default function VillageSquare() {
   return (
@@ -25,19 +20,20 @@ export default function VillageSquare() {
       </>
     } />
     <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-5 sm:px-6">
-      <section className="surface mt-5 overflow-hidden rounded-2xl">
-        <div className="relative">
-          {HERO ? (
-            <div className="relative aspect-[16/9] w-full sm:aspect-[21/9]">
-              <Image src={HERO} alt="A builder with a blueprint looks out over the village" fill priority sizes="(min-width: 1024px) 1024px, 100vw" className="object-cover object-[50%_55%]" />
-            </div>
-          ) : (
-            <div className="bg-gradient-to-b from-sky-soft to-card pt-6"><VillageScene /></div>
-          )}
+      {/* The village square's banner: ink, no illustration. Pieces players have built, and
+          one empty slot (the split outline) for whatever comes next. */}
+      <section className="relative overflow-hidden rounded-2xl bg-ink text-white">
+        <div aria-hidden="true" className="absolute right-8 top-1/2 hidden h-[226px] w-[316px] -translate-y-1/2 md:block">
+          {(['berry', 'sun', 'plum'] as const).map((tint, i) => (
+            <span key={tint} className="absolute" style={{ left: (i % 2) * 170, top: Math.floor(i / 2) * 124 }}>
+              <Piece size={146} color={`var(--${tint})`} />
+            </span>
+          ))}
+          <span className="absolute" style={{ left: 170, top: 124 }}><Piece size={146} outline ink="#fff" /></span>
         </div>
-        <div className="px-6 pb-7 pt-2 text-center sm:px-10">
-          <h1 className="font-display text-3xl sm:text-4xl">Companion apps, built by the people who play</h1>
-          <p className="mx-auto mt-2 max-w-2xl text-muted">
+        <div className="relative px-6 py-10 sm:px-10 sm:py-14 md:pr-[24rem]">
+          <h1 className="font-display text-4xl leading-tight sm:text-5xl">Companion apps, built by the people who play</h1>
+          <p className="mt-3 max-w-xl text-white/80">
             Every game gets its own app, shaped by its community. Share what you&apos;ve figured out, vote on
             what others found, and see it land in the app on Market Day.
           </p>

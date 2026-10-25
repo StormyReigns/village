@@ -3,9 +3,10 @@ import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
 import type { Tint } from '@/data/pages';
 import { TINT_HEX, clip } from '@/data/pages/links';
+import { PIECE_PATH, PIECE_SPOT, PIECE_VIEWBOX as V } from './piece';
 
 // The picture Discord (and Messages, Slack...) shows under a shared link: a bold poster in
-// the Page's color with a row of village roofs along the bottom. Discord shows it about a
+// the Page's color with a big faint piece behind it and the Village mark. Discord shows it about a
 // third of this size, so the type is big and there is only the name and an answer or two.
 // Drawn with next/og, which only understands flexbox, so every box is display:flex.
 
@@ -68,6 +69,22 @@ export interface CardContent {
   more?: number;
 }
 
+const VIEWBOX = `${V.x} ${V.y} ${V.width} ${V.height}`;
+
+/** The brand's piece for pictures: next/og draws plain SVG paths, so the slice comes along. */
+function OgPiece({ width, fill, label, labelColor, fontSize = 24 }: { width: number; fill: string; label?: string; labelColor?: string; fontSize?: number }) {
+  const height = Math.round(width * V.height / V.width);
+  return (
+    <div style={{ display: 'flex', position: 'relative', flexShrink: 0, width, height }}>
+      <svg width={width} height={height} viewBox={VIEWBOX}><path d={PIECE_PATH} fill={fill} /></svg>
+      {/* Initials sit below the slice, never across it. */}
+      {label && (
+        <div style={{ display: 'flex', position: 'absolute', left: PIECE_SPOT.x * width - width * 0.3, top: PIECE_SPOT.y * height - fontSize * 0.6, width: width * 0.6, height: fontSize * 1.2, alignItems: 'center', justifyContent: 'center', fontSize, fontWeight: 800, color: labelColor }}>{label}</div>
+      )}
+    </div>
+  );
+}
+
 const titleSize = (t: string, icon: boolean) => {
   const n = t.length + (icon ? 4 : 0);
   return n <= 12 ? 120 : n <= 18 ? 96 : n <= 26 ? 76 : 62;
@@ -79,9 +96,8 @@ export async function villageCard({ tint, kicker, title, icon = false, line, fac
   const shown = rows.slice(0, 4);
   const stepsShown = steps.length === 4 ? steps : steps.slice(0, 3);
   const extra = more + rows.length - shown.length;
-  const [heading, body, bold] = await Promise.all([fontFile('Fredoka-SemiBold.ttf'), fontFile('Nunito-SemiBold.ttf'), fontFile('Nunito-ExtraBold.ttf')]);
+  const [body, bold] = await Promise.all([fontFile('Nunito-SemiBold.ttf'), fontFile('Nunito-ExtraBold.ttf')]);
   const fonts = [
-    heading && { name: 'Fredoka', data: heading, weight: 600 as const },
     body && { name: 'Nunito', data: body, weight: 600 as const },
     bold && { name: 'Nunito', data: bold, weight: 800 as const },
   ].filter((f): f is NonNullable<typeof f> => Boolean(f));
@@ -89,25 +105,26 @@ export async function villageCard({ tint, kicker, title, icon = false, line, fac
   return new ImageResponse(
     (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', fontFamily: 'Nunito', background: color, padding: '50px 64px', position: 'relative', color: 'white' }}>
-        {/* The village: a row of roofs along the bottom, a shade darker than the Page. */}
-        <div style={{ position: 'absolute', left: 0, bottom: 0, width: 1200, height: 130, display: 'flex', alignItems: 'flex-end' }}>
-          {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-            <svg key={i} width="150" height={90 + (i % 3) * 20} viewBox="0 0 150 130" preserveAspectRatio="none">
-              <path d={i % 2 ? 'M8 130 L8 60 L75 10 L142 60 L142 130 Z' : 'M4 130 L4 70 Q75 0 146 70 L146 130 Z'} fill={dark} opacity={0.55} />
-            </svg>
-          ))}
+        {/* The brand: one big faint piece behind everything, cropped by the corner. */}
+        <div style={{ position: 'absolute', right: -130, bottom: -110, display: 'flex', opacity: 0.14 }}>
+          <svg width={640} height={Math.round(640 * V.height / V.width)} viewBox={VIEWBOX}><path d={PIECE_PATH} fill="white" /></svg>
         </div>
 
-        {/* The top line, with the Village name on the right so a shared card says where it's from. */}
+        {/* The top line, with the Village mark on the right so a shared card says where it's from. */}
         <div style={{ display: 'flex', flexShrink: 0, alignItems: 'center', fontSize: 34, fontWeight: 800 }}>
           <div style={{ display: 'flex', flexGrow: 1, opacity: 0.85 }}>{clip(kicker, 48)}</div>
-          <div style={{ display: 'flex', fontFamily: 'Fredoka', fontSize: 30, opacity: 0.9 }}>Village</div>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{ display: 'flex', width: 52, height: 52, borderRadius: 12, background: INK, alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+              <svg width={42} height={30} viewBox={VIEWBOX}><path d={PIECE_PATH} fill="#ffc53d" /></svg>
+            </div>
+            <div style={{ display: 'flex', fontSize: 32 }}>Village</div>
+          </div>
         </div>
         <div style={{ display: 'flex', flexShrink: 0, alignItems: 'center', marginTop: icon ? 28 : 18 }}>
           {icon && (
-            <div style={{ display: 'flex', flexShrink: 0, width: 210, height: 210, borderRadius: 52, background: 'white', color, alignItems: 'center', justifyContent: 'center', fontFamily: 'Fredoka', fontSize: 96, marginRight: 44 }}>{initials(title)}</div>
+            <div style={{ display: 'flex', marginRight: 44 }}><OgPiece width={260} fill="white" label={initials(title)} labelColor={color} fontSize={64} /></div>
           )}
-          <div style={{ display: 'flex', fontFamily: 'Fredoka', fontSize: titleSize(title, icon), lineHeight: 1.02 }}>{clip(title, 44)}</div>
+          <div style={{ display: 'flex', fontWeight: 800, fontSize: titleSize(title, icon), lineHeight: 1.02, letterSpacing: -1 }}>{clip(title, 44)}</div>
         </div>
         {line && <div style={{ display: 'flex', flexShrink: 0, fontSize: 36, opacity: 0.9, marginTop: 14, lineHeight: 1.25 }}>{wclip(line, 70)}</div>}
 
@@ -130,7 +147,7 @@ export async function villageCard({ tint, kicker, title, icon = false, line, fac
           <div style={{ display: 'flex', flexDirection: 'column', marginTop: 26 }}>
             {stepsShown.map((st, i) => (
               <div key={i} style={{ display: 'flex', alignItems: stepsShown.length === 4 ? 'center' : 'flex-start', marginBottom: 10 }}>
-                <div style={{ display: 'flex', flexShrink: 0, width: 50, height: 50, borderRadius: 999, background: 'white', color: dark, alignItems: 'center', justifyContent: 'center', fontFamily: 'Fredoka', fontSize: 28 }}>{i + 1}</div>
+                <div style={{ display: 'flex', flexShrink: 0, width: 50, height: 50, borderRadius: 999, background: 'white', color: dark, alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 28 }}>{i + 1}</div>
                 {/* Four steps get one line each; three or fewer may wrap onto a second. */}
                 <div style={{ display: 'flex', fontSize: 34, fontWeight: 800, marginLeft: 20, lineHeight: 1.15, marginTop: stepsShown.length === 4 ? 0 : 5, whiteSpace: stepsShown.length === 4 ? 'nowrap' : 'normal' }}>{wclip(st, stepsShown.length === 4 ? 56 : 104)}</div>
               </div>
@@ -148,7 +165,7 @@ export async function villageCard({ tint, kicker, title, icon = false, line, fac
           <div style={{ display: 'flex', flexWrap: 'wrap', marginTop: 28 }}>
             {shown.map((r, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', width: '50%', marginBottom: 16 }}>
-                <div style={{ display: 'flex', flexShrink: 0, width: 66, height: 66, borderRadius: 18, background: 'white', color: TINT_HEX[r.tint], alignItems: 'center', justifyContent: 'center', fontFamily: 'Fredoka', fontSize: 28 }}>{initials(r.name)}</div>
+                <OgPiece width={90} fill="white" label={initials(r.name)} labelColor={TINT_HEX[r.tint]} fontSize={22} />
                 <div style={{ display: 'flex', fontSize: 38, fontWeight: 800, marginLeft: 20, whiteSpace: 'nowrap' }}>{wclip(r.name, 21)}</div>
               </div>
             ))}
