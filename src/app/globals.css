@@ -1,27 +1,29 @@
 @import "tailwindcss";
 
-/* Village look: clean white surfaces with subtle shadows and a touch of gloss.
-   Color comes from village content (the village picture, avatars, game covers, badges),
-   not from the frame. Game cards inside a game app can carry that game's colors. */
+/* Village look (brand rules in CLAUDE.md): a flat, quiet frame in ink and signal yellow;
+   the piece is the brand. Each Page has one standard color, the same in every game: the
+   solid shade carries white text, the -soft tint is the Page's background field. A game's
+   genre may later shift these shades by overriding the variables on a wrapper. */
 :root {
-  --paper: #f7f8fa;          /* page */
-  --card: #ffffff;           /* raised surfaces */
-  --card-2: #f3f4f7;         /* inset fields, rows inside cards */
-  --ink: #1f2430;
-  --muted: #6b7280;
-  --line: #e7e9ee;
-  --leaf: #3f9a4e;
-  --leaf-soft: #e6f5e9;
-  --berry: #d9506d;
-  --berry-soft: #fde8ed;
-  --sky: #2f86c9;
-  --sky-soft: #e4f1fb;
-  --sun: #d48a10;
-  --sun-soft: #fdf1da;
-  --plum: #8a5bc4;
-  --plum-soft: #f1eafb;
-  --teal: #1b8f8a;
-  --teal-soft: #dff4f2;
+  --paper: #f4f5f7;          /* page (mist) */
+  --card: #ffffff;           /* Blocks and panels */
+  --card-2: #f1f2f5;         /* inset fields, rows inside cards */
+  --ink: #15171c;
+  --signal: #ffc53d;         /* "act on this" and "your choice"; always with ink text */
+  --muted: #555b68;          /* passes contrast on white and on every Page tint */
+  --line: #e4e6eb;
+  --leaf: #1f7a43;           /* Guides */
+  --leaf-soft: #e6f4ea;
+  --berry: #c23a5c;          /* Units and classes */
+  --berry-soft: #fbeef2;
+  --sky: #1a6bb8;            /* Story */
+  --sky-soft: #e8f1fa;
+  --sun: #a85508;            /* Items */
+  --sun-soft: #fbf1e4;
+  --plum: #7c4bc0;           /* Last chances */
+  --plum-soft: #f3eefb;
+  --teal: #0c7478;           /* World */
+  --teal-soft: #e4f3f3;
   --shadow: 0 1px 2px rgb(16 24 40 / 0.05), 0 10px 28px -14px rgb(16 24 40 / 0.22);
   --shadow-lift: 0 2px 4px rgb(16 24 40 / 0.06), 0 18px 40px -16px rgb(16 24 40 / 0.3);
   /* Retired on purpose: the frame stays flat so Blocks stand out. Kept as a variable so
@@ -38,6 +40,7 @@
   --color-card: var(--card);
   --color-card-2: var(--card-2);
   --color-ink: var(--ink);
+  --color-signal: var(--signal);
   --color-muted: var(--muted);
   --color-line: var(--line);
   --color-leaf: var(--leaf);
@@ -52,8 +55,8 @@
   --color-plum-soft: var(--plum-soft);
   --color-teal: var(--teal);
   --color-teal-soft: var(--teal-soft);
-  --font-display: var(--font-fredoka), ui-rounded, system-ui, sans-serif;
-  --font-sans: var(--font-nunito), ui-rounded, system-ui, sans-serif;
+  --font-display: var(--font-rubik), system-ui, sans-serif;
+  --font-sans: var(--font-rubik), system-ui, sans-serif;
   --shadow-soft: var(--shadow);
   --shadow-lift: var(--shadow-lift);
 }
@@ -61,6 +64,12 @@
 body {
   background: var(--paper);
   color: var(--ink);
+}
+
+/* Headings and names: Rubik at its heaviest, pulled in a touch. In the components layer,
+   so a weight utility on the same element (font-bold) still wins. */
+@layer components {
+  .font-display { font-weight: 800; letter-spacing: -0.01em; }
 }
 
 /* Keyboard focus ring. In the base layer, so a field that shows its own rounded focus glow

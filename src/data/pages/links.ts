@@ -36,7 +36,7 @@ export function resolveItem(page: Page, item: string): { block: Block; entry?: E
 
 /** The Pages' colors as plain hex, for places CSS variables can't reach (previews, Discord). */
 export const TINT_HEX: Record<Tint, string> = {
-  leaf: '#3f9a4e', sky: '#2f86c9', berry: '#d9506d', sun: '#d48a10', plum: '#8a5bc4', teal: '#1b8f8a',
+  leaf: '#1f7a43', sky: '#1a6bb8', berry: '#c23a5c', sun: '#a85508', plum: '#7c4bc0', teal: '#0c7478',
 };
 
 /** A short plain-words summary of an entry, for link previews. Spoilers stay hidden. */

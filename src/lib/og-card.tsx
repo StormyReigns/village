@@ -11,7 +11,7 @@ import { TINT_HEX, clip } from '@/data/pages/links';
 
 export const OG_SIZE = { width: 1200, height: 630 };
 
-const INK = '#1f2430';
+const INK = '#15171c';
 const TINTS: Tint[] = ['leaf', 'sky', 'berry', 'sun', 'plum', 'teal'];
 
 /** The same steady color per word as the app's icon tiles (tintFor in entries.ts). */

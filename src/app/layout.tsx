@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Fredoka, Nunito } from "next/font/google";
+import { Rubik } from "next/font/google";
 import "./globals.css";
 
-const fredoka = Fredoka({ variable: "--font-fredoka", subsets: ["latin"] });
-const nunito = Nunito({ variable: "--font-nunito", subsets: ["latin"] });
+// One family for everything (brand rules in CLAUDE.md): heavy for names, regular for reading.
+const rubik = Rubik({ variable: "--font-rubik", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   // Previews (Discord, Messages) need full addresses for their images.
@@ -20,7 +20,7 @@ export const viewport: Viewport = { colorScheme: "light" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${fredoka.variable} ${nunito.variable} h-full antialiased`}>
+    <html lang="en" className={`${rubik.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans">{children}</body>
     </html>
   );
