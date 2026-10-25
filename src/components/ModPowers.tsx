@@ -72,7 +72,7 @@ export function ViewAsReminder({ view }: { view: ViewAs }) {
       <div className="surface flex items-center gap-3 rounded-full py-1.5 pl-4 pr-1.5 text-sm">
         <Eye size={16} className="text-sun" aria-hidden="true" />
         <span>Seeing the site as <b>{view === 'villager' ? 'a villager' : 'a visitor'}</b></span>
-        <button onClick={() => setViewAs('self')} className="gloss btn-primary rounded-full px-3 py-1.5 font-bold">Back to me</button>
+        <button onClick={() => setViewAs('self')} className="btn-primary rounded-full px-3 py-1.5 font-bold">Back to me</button>
       </div>
     </div>
   );

@@ -26,7 +26,7 @@ export function ConfirmPanel() {
       <>
         <h1 className="font-display text-2xl">{reason ? "That link didn't work" : 'This link is incomplete'}</h1>
         <p className="mt-2 text-muted">{reason ? `Supabase says: ${reason}.` : "It's missing its sign-in code."} Ask for a new link and open it straight from the email.</p>
-        <Link href={`/signin?next=${encodeURIComponent(next)}`} className="gloss btn-primary mt-5 inline-block rounded-full px-5 py-2.5 font-bold">Get a new link</Link>
+        <Link href={`/signin?next=${encodeURIComponent(next)}`} className="btn-primary mt-5 inline-block rounded-full px-5 py-2.5 font-bold">Get a new link</Link>
       </>
     );
   }
@@ -46,7 +46,7 @@ export function ConfirmPanel() {
     <>
       <h1 className="font-display text-2xl">Finish signing in</h1>
       <p className="mt-2 text-muted">One tap and you&apos;re in.</p>
-      <button onClick={finish} disabled={state.kind === 'busy'} className="gloss btn-primary mt-5 rounded-full px-6 py-3 font-bold">
+      <button onClick={finish} disabled={state.kind === 'busy'} className="btn-primary mt-5 rounded-full px-6 py-3 font-bold">
         {state.kind === 'busy' ? 'Signing in…' : 'Sign me in'}
       </button>
       {state.kind === 'error' && (

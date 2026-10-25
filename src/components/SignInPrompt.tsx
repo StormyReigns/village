@@ -12,7 +12,7 @@ export function SignInPrompt({ children, back = '', forWhat }: { children: React
   const path = (usePathname() || '/') + back;
   const why = forWhat ? `&for=${encodeURIComponent(forWhat)}` : '';
   return (
-    <Link href={`/signin?next=${encodeURIComponent(path)}${why}`} className="gloss btn-primary inline-flex rounded-full px-4 py-2 text-sm font-bold">
+    <Link href={`/signin?next=${encodeURIComponent(path)}${why}`} className="btn-primary inline-flex rounded-full px-4 py-2 text-sm font-bold">
       {children}
     </Link>
   );

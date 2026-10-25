@@ -50,7 +50,7 @@ export function SignInForm({ next }: { next: string }) {
   return (
     <div className="grid gap-4">
       <button onClick={discord} disabled={status.kind === 'busy'}
-        className="gloss rounded-full bg-[#5865F2] px-5 py-3 font-bold text-white hover:brightness-105">
+        className="rounded-full bg-[#5865F2] px-5 py-3 font-bold text-white hover:brightness-105">
         Continue with Discord
       </button>
       <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-wide text-muted">

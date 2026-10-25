@@ -7,8 +7,8 @@ Matt is building this. He relies on Claude for the tech; explain choices in plai
 ## What it is
 
 Community-built companion apps for games, with a village theme. Two layers:
-- **Workshop** (community layer): one chat per game, block chips across the top ("All"
-  first, with counts, plus the Notice Board), and a Drafts panel whose cards are live
+- **Workshop** (community layer): one chat per game, Page chips across the top (a symbol
+  each, "Everything" first, with counts, plus the Notice Board), and a Drafts panel whose cards are live
   previews of the app card, showing what changes against Stable.
 - **Game app** (top layer): Pages (topics, like "Units and classes") made of Blocks.
   Blocks are preset types, nothing freeform: Collection (icon grid, tap for a detail
@@ -37,8 +37,9 @@ Community-built companion apps for games, with a village theme. Two layers:
 - **Look** (agreed 2026-10-25; replaces "soft and illustrated"): clean and slightly goofy,
   for every kind of gamer. The frame is flat and quiet; the piece is the brand. Mockups:
   the "Block Silhouettes" canvas (https://claude.ai/artifact/5Zz5xxgX5BFR1Y8PkMyjJ3),
-  boards 13 to 15. Rollout is in steps; the village theme lives in the words (Workshop,
-  Notice Board, Market Day), not in illustrations.
+  boards 13 to 15. Rolled out across the site 2026-10-25; the village theme lives in the
+  words (Workshop, Notice Board, Market Day), not in illustrations.
+- **Data**: our own words, sources cited, no game art or leaks; contributions under CC BY-SA.
 
 ## Brand rules
 
@@ -61,7 +62,12 @@ Community-built companion apps for games, with a village theme. Two layers:
   white panel, an entry is a solid piece in the Page color. Each Page has its own symbol;
   in navigation the current one sits inside a piece.
 - **Type**: Rubik only, heavy for names, regular for reading.
-- **Data**: our own words, sources cited, no game art or leaks; contributions under CC BY-SA.
+- **In code**: `Piece` (any width or `size="fill"`, `outline`, `image`), `NavSymbol` and
+  `EntryIcon` for Page symbols and entries, `Wordmark` and `TopBar` in `Logo.tsx`, colors
+  as CSS variables in `globals.css` (`--signal` is the yellow, `btn-primary` the main
+  button). Check shapes at `/lab/brand`. Share pictures (`src/lib/og-card.tsx`) draw the
+  piece with plain SVG and use the Rubik files in `src/lib/og-fonts` (next/og can't use
+  the variable font).
 
 ## Working notes
 

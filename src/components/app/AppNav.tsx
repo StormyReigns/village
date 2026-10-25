@@ -15,7 +15,7 @@ function GameMark({ game, size }: { game: NavGame; size: string }) {
   return game.cover
     // eslint-disable-next-line @next/next/no-img-element -- small cover thumbnail
     ? <img src={game.cover} alt="" className={`${size} shrink-0 rounded-xl object-cover`} />
-    : <span className={`gloss grid ${size} shrink-0 place-items-center rounded-xl bg-berry font-display text-sm text-white`}>{game.shortTitle.slice(0, 2)}</span>;
+    : <span className={`grid ${size} shrink-0 place-items-center rounded-xl bg-berry font-display text-sm text-white`}>{game.shortTitle.slice(0, 2)}</span>;
 }
 
 /**

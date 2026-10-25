@@ -7,7 +7,7 @@ const EXTENSIONS = ['webp', 'png', 'jpg', 'jpeg'];
 
 /**
  * Finds a picture saved in /public under a fixed name, whatever its file type.
- * `base` is the path without the extension, e.g. '/village/hero'.
+ * `base` is the path without the extension, e.g. '/games/fortunes-weave/cover'.
  * Checked when the site is built, so a new picture shows up on the next deploy.
  */
 export function findPicture(base: string): string | undefined {

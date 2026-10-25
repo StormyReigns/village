@@ -9,7 +9,7 @@ const TINT: Record<Game['hue'], string> = {
   sun: 'from-sun to-berry',
 };
 
-/** A game's cover picture, or a glossy colored placeholder until we have our own art. */
+/** A game's cover picture, or a colored placeholder until we have our own art. */
 export function GameCover({ game, className = '', compact = false }: { game: Game; className?: string; compact?: boolean }) {
   return (
     <div className={'relative aspect-[16/9] overflow-hidden rounded-2xl ' + className}>
@@ -23,7 +23,6 @@ export function GameCover({ game, className = '', compact = false }: { game: Gam
           </div>
         </div>
       )}
-      <span className="shine" aria-hidden="true" />
     </div>
   );
 }

@@ -257,7 +257,7 @@ export function Workshop({ game, pages, routes }: {
       <div role="tablist" aria-label="Show" className="mt-2 flex rounded-full bg-card p-1 ring-1 ring-line lg:hidden">
         {([['work', 'Build'], ['chat', `Chat · ${chat.length}`]] as const).map(([k, label]) => (
           <button key={k} role="tab" aria-selected={phoneTab === k} onClick={() => setPhoneTab(k)}
-            className={'flex-1 rounded-full px-3 py-2 text-sm font-bold ' + (phoneTab === k ? 'gloss bg-ink text-paper' : 'text-muted')}>{label}</button>
+            className={'flex-1 rounded-full px-3 py-2 text-sm font-bold ' + (phoneTab === k ? 'bg-ink text-paper' : 'text-muted')}>{label}</button>
         ))}
       </div>
 

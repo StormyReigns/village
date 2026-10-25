@@ -6,6 +6,7 @@ import { Check, ChevronRight, MapPin, Plus, X } from 'lucide-react';
 import type { Block, Entry } from '@/data/pages';
 import type { Mention } from '@/data/pages/links';
 import { TINT } from './tint';
+import { Piece } from '@/components/Piece';
 import { useTicks } from './entries';
 import type { BlockContext } from './Blocks';
 
@@ -58,8 +59,7 @@ export function RegionMap({ block, ctx, regions, onOpen }: {
             <li key={r.name} className={r.hub ? 'col-span-2' : ''}>
               <button type="button" onClick={() => onOpen(r)}
                 className={'flex h-full w-full flex-col gap-1 rounded-2xl px-3 py-2.5 text-left ring-1 transition hover:-translate-y-0.5 ' +
-                  (all ? `${t.solid} text-white ring-transparent` : done ? `${t.soft} ring-line` : 'bg-card ring-line')}
-                style={{ boxShadow: `0 4px 0 color-mix(in srgb, var(--${ctx.tint}) ${all ? 100 : 45}%, ${all ? 'black' : 'white'})` }}>
+                  (all ? `${t.solid} text-white ring-transparent` : done ? `${t.soft} ring-line` : 'bg-card ring-line')}>
                 <span className="flex items-center gap-1.5">
                   <MapPin size={14} className={all ? 'text-white' : t.text} aria-hidden="true" />
                   <span className="min-w-0 flex-1 truncate font-bold leading-tight">{r.label}</span>
@@ -133,9 +133,9 @@ export function RegionSheet({ region, block, ctx, onClose, onOpenPlace }: {
               const on = ticks.has(clearKey(block, e));
               return (
                 <li key={e.id} className="flex items-center gap-3 rounded-2xl bg-card-2 p-2.5 ring-1 ring-line">
-                  <button type="button" onClick={() => toggle(clearKey(block, e))} role="checkbox" aria-checked={on} aria-label={`Cleared: ${e.name}`}
-                    className={'grid size-8 shrink-0 place-items-center rounded-xl ring-2 ' + (on ? `${t.solid} ${t.ring} text-white` : 'bg-card ring-line hover:ring-ink')}>
-                    {on && <Check size={17} aria-hidden="true" />}
+                  {/* Like a checklist tick: a piece, the split outline until it's cleared. */}
+                  <button type="button" onClick={() => toggle(clearKey(block, e))} role="checkbox" aria-checked={on} aria-label={`Cleared: ${e.name}`} className="shrink-0">
+                    <Piece size={42} color={`var(--${ctx.tint})`} outline={!on}>{on ? <Check size={14} strokeWidth={3} aria-hidden="true" /> : null}</Piece>
                   </button>
                   <button type="button" onClick={() => onOpenPlace(e)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                     <span className="min-w-0 flex-1">

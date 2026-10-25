@@ -163,7 +163,7 @@ function GameTile({ game }: { game: Game }) {
         {game.next && <p className="mt-2 text-sm">{game.next}</p>}
         <GameActivity gameId={game.id} />
         <div className="mt-auto flex flex-wrap gap-2 pt-4">
-          <Link href={`/g/${game.id}`} className="gloss btn-primary rounded-full px-4 py-2 text-sm font-bold">Open the app</Link>
+          <Link href={`/g/${game.id}`} className="btn-primary rounded-full px-4 py-2 text-sm font-bold">Open the app</Link>
           <Tip text="The Workshop is where villagers build and fix this app together. No skills needed, just know the game" tint="leaf">
             <Link href={`/g/${game.id}/workshop`} className="btn-quiet inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold">
               <Hammer size={15} className="text-leaf" aria-hidden="true" /> Help build it

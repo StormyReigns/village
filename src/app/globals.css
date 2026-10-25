@@ -26,9 +26,6 @@
   --teal-soft: #e4f3f3;
   --shadow: 0 1px 2px rgb(16 24 40 / 0.05), 0 10px 28px -14px rgb(16 24 40 / 0.22);
   --shadow-lift: 0 2px 4px rgb(16 24 40 / 0.06), 0 18px 40px -16px rgb(16 24 40 / 0.3);
-  /* Retired on purpose: the frame stays flat so Blocks stand out. Kept as a variable so
-     anything still asking for gloss simply gets none. */
-  --gloss: none;
 }
 
 /* Always light: the village is a clean white place by design. (A dark theme can come
@@ -83,12 +80,6 @@ body {
   .bg-ink :focus-visible { outline-color: var(--signal); }
 }
 
-/* Gloss: a soft highlight across the top half of a colored surface (buttons, badges).
-   It layers over the element's own background color. Covers use .shine instead. */
-.gloss { background-image: var(--gloss); }
-/* A highlight overlay for surfaces whose background is already a picture or gradient. */
-.shine { position: absolute; inset: 0; border-radius: inherit; background: var(--gloss); pointer-events: none; }
-
 /* The main action on a screen: signal yellow with ink text. One per screen, ideally. */
 .btn-primary {
   background-color: var(--signal);
@@ -103,8 +94,8 @@ body {
 }
 .btn-quiet:hover { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 45%, var(--line)); }
 
-/* The quiet frame: a flat white panel with a hairline edge. No shadow, so the only things
-   with depth on a page are Blocks (.app-block, .vblock) and things that float (.pop). */
+/* The quiet frame: a flat white panel with a hairline edge. No shadow: only things that
+   float (.pop) get one, and only pieces (components/Piece.tsx) get the brand's shape. */
 .surface {
   background: var(--card);
   box-shadow: inset 0 0 0 1px var(--line);
@@ -135,103 +126,6 @@ body {
 /* Snapping suits swiping; with a mouse it fights the wheel, so mice scroll freely. */
 @media (pointer: fine) { .swipe { scroll-snap-type: none; } }
 
-/* Village blocks: the site's signature shape. A chunky tile with a thick lower edge, like a
-   toy building block, and a roof on top, so every block is also a little house in the
-   village. Set --tint to a village color (var(--leaf), var(--sky), ...).
-   .is-on fills it with that color; .vblock-quiet keeps a white body with a tinted edge.
-
-   Layers, back to front: the roof (::before), the block's body (::after), then the
-   block's content. The roof's base tucks under the body, so it never pokes through. */
-.vblock {
-  --tint: var(--muted);
-  --edge: color-mix(in srgb, var(--tint) 38%, white);
-  --body: color-mix(in srgb, var(--tint) 13%, white);
-  --lift: 4px;
-  --radius: 1.1rem;
-  position: relative;
-  isolation: isolate;
-  border-radius: var(--radius);
-  color: color-mix(in srgb, var(--tint) 78%, black);
-}
-.vblock::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  background-color: var(--body);
-  box-shadow: 0 var(--lift) 0 var(--edge), 0 10px 18px -12px color-mix(in srgb, var(--tint) 60%, transparent);
-  pointer-events: none;
-}
-.vblock.gloss { background-image: none; }
-.vblock.gloss::after { background-image: var(--gloss); }
-
-/* The roof: --rw and --rh are its size, including the 4px tucked under the block. It stays
-   on the flat part of the top edge, clear of the rounded corners. */
-.vblock::before {
-  --rw: 30px;
-  --rh: 14px;
-  content: '';
-  position: absolute;
-  z-index: -2;
-  top: calc(4px - var(--rh));
-  left: clamp(calc(var(--radius) + var(--rw) / 2), var(--at, 50%), calc(100% - var(--radius) - var(--rw) / 2));
-  width: var(--rw);
-  height: var(--rh);
-  transform: translateX(-50%);
-  background-color: var(--edge);
-  clip-path: polygon(50% 0, 100% 100%, 0 100%);
-  pointer-events: none;
-}
-.vblock.is-on {
-  --edge: color-mix(in srgb, var(--tint) 70%, black);
-  --body: var(--tint);
-  color: #fff;
-}
-.vblock.vblock-quiet {
-  --edge: color-mix(in srgb, var(--tint) 30%, white);
-  --body: var(--card);
-  color: var(--ink);
-}
-.vblock.vblock-quiet::after {
-  box-shadow: 0 var(--lift) 0 var(--edge), inset 0 0 0 1px color-mix(in srgb, var(--tint) 18%, white);
-}
-@media (prefers-reduced-motion: no-preference) {
-  .vblock { transition: transform 0.12s ease; }
-  .vblock::after { transition: box-shadow 0.12s ease; }
-  :is(button, a).vblock:hover { transform: translateY(-2px); }
-  :is(button, a).vblock:hover::after { --lift: 6px; }
-  :is(button, a).vblock:active { transform: translateY(3px); }
-  :is(button, a).vblock:active::after { --lift: 1px; }
-}
-
-/* Roof shapes. Pick one with data-roof="..." and move it along the top with --at
-   (e.g. style="--at: 25%"). Chimney and flag are single shapes, so they move as one. */
-.vblock[data-roof="wide"]::before { --rw: 58px; --rh: 13px; }
-.vblock[data-roof="gable"]::before { --rw: 38px; --rh: 17px; clip-path: polygon(0 100%, 18% 58%, 32% 58%, 50% 0, 68% 58%, 82% 58%, 100% 100%); }
-.vblock[data-roof="thatch"]::before { --rw: 46px; --rh: 13px; clip-path: path('M0 13 L0 9 Q5.75 0 11.5 9 Q17.25 0 23 9 Q28.75 0 34.5 9 Q40.25 0 46 9 L46 13 Z'); }
-.vblock[data-roof="bump"]::before { --rw: 22px; --rh: 12px; clip-path: none; border-radius: 11px 11px 0 0; }
-.vblock[data-roof="sprout"]::before { --rw: 26px; --rh: 23px; background-color: color-mix(in srgb, var(--leaf) 80%, var(--edge)); clip-path: path('M11.5 23 L11.5 8 C8 8.5 2.5 6.5 1 1.5 C6 0.5 10.5 2.5 12 6.5 L14 6.5 C15.5 2.5 20 0.5 25 1.5 C23.5 6.5 18 8.5 14.5 8 L14.5 23 Z'); }
-.vblock[data-roof="chimney"]::before { --rw: 34px; --rh: 18px; clip-path: polygon(0 100%, 50% 22%, 67.6% 49.7%, 67.6% 0, 82.4% 0, 82.4% 72.6%, 100% 100%); }
-.vblock[data-roof="flag"]::before { --rw: 18px; --rh: 25px; clip-path: polygon(0 0, 100% 22%, 11% 44%, 11% 100%, 0 100%); }
-.vblock[data-roof="dome"]::before { --rw: 34px; --rh: 17px; clip-path: ellipse(50% 100% at 50% 100%); }
-.vblock[data-roof="steep"]::before { --rw: 22px; --rh: 20px; }
-.vblock[data-roof="none"]::before { display: none; }
-.vblock[data-roof-side="right"]::before { top: var(--at, 50%); left: auto; right: calc(4px - var(--rh) - var(--rw) / 2 + var(--rh) / 2); transform: translateY(-50%) rotate(90deg); }
-.vblock[data-roof-side="left"]::before { top: var(--at, 50%); left: calc(4px - var(--rh) - var(--rw) / 2 + var(--rh) / 2); transform: translateY(-50%) rotate(-90deg); }
-.vblock[data-tilt="left"] { rotate: -1.5deg; }
-.vblock[data-tilt="right"] { rotate: 1.5deg; }
-
-/* Roof color: the block's edge shade (default), its own pale color, or the full color. */
-.vblock[data-roof-color="pale"]::before { background-color: var(--body); }
-.vblock[data-roof-color="full"]::before { background-color: var(--tint); }
-
-/* Scrollbars inside a block take the block's edge color, thin and rounded. */
-.vblock { scrollbar-color: var(--edge) transparent; scrollbar-width: thin; }
-.vblock ::-webkit-scrollbar { width: 8px; height: 8px; }
-.vblock ::-webkit-scrollbar-track { background: transparent; }
-.vblock ::-webkit-scrollbar-thumb { background: var(--edge); border-radius: 999px; }
-
 /* A gentle bob for "there's more this way" arrows. */
 @media (prefers-reduced-motion: no-preference) {
   .nudge-down { animation: nudge-down 1.8s ease-in-out infinite; }
@@ -260,13 +154,13 @@ body {
   }
 }
 
-/* Tooltips (components/Tip.tsx): a little village block in the trigger's color, with a
-   roof that points at what it describes. */
+/* Tooltips (components/Tip.tsx): a flat floating card edged in the trigger's color, with a
+   small pointer (.tip-roof) at what it describes. */
 .tip {
   --edge: color-mix(in srgb, var(--tint) 35%, white);
   background-color: var(--card);
   color: color-mix(in srgb, var(--tint) 70%, black);
-  box-shadow: 0 3px 0 var(--edge), inset 0 0 0 1px color-mix(in srgb, var(--tint) 22%, white), 0 12px 24px -12px rgb(16 24 40 / 0.35);
+  box-shadow: inset 0 0 0 1px var(--edge), 0 12px 24px -12px rgb(16 24 40 / 0.35);
 }
 .tip-roof {
   position: absolute;
@@ -282,6 +176,3 @@ body {
   .tip-in { animation: tip-in 0.14s ease-out; }
   @keyframes tip-in { from { opacity: 0; transform: translateY(3px) scale(0.97); } to { opacity: 1; transform: none; } }
 }
-
-/* A badge that's "in season": something of yours is live in the app right now. */
-.glow-badge::after { box-shadow: 0 var(--lift) 0 var(--edge), 0 0 22px 2px color-mix(in srgb, var(--tint) 45%, transparent); }

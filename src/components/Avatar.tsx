@@ -5,5 +5,5 @@ export function Avatar({ name, url, size = 28 }: { name: string; url?: string | 
   return url
     // eslint-disable-next-line @next/next/no-img-element -- avatars come from Discord's servers
     ? <img src={url} alt="" style={style} className="shrink-0 rounded-full bg-card-2 object-cover" />
-    : <span style={style} className="gloss grid shrink-0 place-items-center rounded-full bg-sky font-bold text-white" aria-hidden="true">{initials}</span>;
+    : <span style={style} className="grid shrink-0 place-items-center rounded-full bg-sky font-bold text-white" aria-hidden="true">{initials}</span>;
 }
