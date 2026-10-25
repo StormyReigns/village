@@ -7,6 +7,7 @@ import type { Page } from '@/data/pages';
 import { browserClient } from '@/lib/supabase/browser';
 import { MarketDay } from '@/components/Countdown';
 import { useStored } from '@/components/useStored';
+import { Piece } from '@/components/Piece';
 
 // Reasons to come back to a game's app: questions nobody has answered yet, and what other
 // players found lately.
@@ -17,10 +18,10 @@ export function HelpSolve({ gameId, pages }: { gameId: string; pages: Page[] }) 
     const open = b.entries.filter((e) => !e.spoiler && ['Open', 'Theory'].includes(e.categories.Status ?? ''));
     if (!open.length) continue;
     return (
-      <Link href={`/g/${gameId}/${p.id}#${b.id}`} className="lift flex items-start gap-3 rounded-2xl bg-plum-soft p-4 ring-1 ring-line">
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-plum text-white"><CircleHelp size={19} aria-hidden="true" /></span>
+      <Link href={`/g/${gameId}/${p.id}#${b.id}`} className="lift flex items-center gap-3 rounded-2xl bg-card p-4 ring-1 ring-line">
+        <Piece size={56} color={`var(--${p.tint})`}><CircleHelp size={17} strokeWidth={2.4} aria-hidden="true" /></Piece>
         <span className="min-w-0 flex-1">
-          <span className="block text-xs font-bold uppercase tracking-wide text-plum">Help solve · {open.length} open {open.length === 1 ? 'mystery' : 'mysteries'}</span>
+          <span className="block text-xs font-bold uppercase tracking-wide text-muted">Help solve · {open.length} open {open.length === 1 ? 'mystery' : 'mysteries'}</span>
           <span className="block font-bold leading-tight">{open[0].name}</span>
           <span className="block text-sm text-muted">Know the answer, or have a theory? Say so in the Workshop.</span>
         </span>
@@ -69,7 +70,7 @@ export function NewInVillage({ gameId }: { gameId: string }) {
       ) : (
         <p className="mt-2 text-sm text-muted">
           Nothing new yet. The first fix you send lands here, with your name on it.{' '}
-          <Link href={`/g/${gameId}/workshop`} className="font-bold text-leaf underline">Help build</Link>
+          <Link href={`/g/${gameId}/workshop`} className="font-bold text-ink underline">Help build</Link>
         </p>
       )}
     </div>

@@ -4,7 +4,6 @@ import type { Metadata } from 'next';
 import { GAMES, getGame } from '@/data/games';
 import { getApp } from '@/lib/app-data';
 import { AppHome } from '@/components/app/PageView';
-import { withCovers } from '@/lib/pictures';
 
 export function generateStaticParams() {
   return GAMES.map((g) => ({ game: g.id }));
@@ -30,10 +29,10 @@ async function Home({ params }: { params: PageProps<'/g/[game]'>['params'] }) {
   const found = getGame((await params).game);
   if (!found) notFound();
   const pages = await getApp(found.id);
-  const [game] = withCovers([found]);
+  const game = found;
   const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
   return (
     <AppHome game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }}
-      pages={pages} cover={game.cover} />
+      pages={pages} />
   );
 }

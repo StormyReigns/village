@@ -14,7 +14,7 @@ import { HelpSolve, NewInVillage, Welcome } from './HomeHooks';
 import { GLOSSARY, IN_GAME_DATES } from '@/data/glossary';
 import type { Mention } from '@/data/pages/links';
 import { EntryIcon, type RouteOption } from './EntryPanel';
-import { initials, entryText, onRoute, tintFor, useRecent, useTicks } from './entries';
+import { colorFor, entryText, onRoute, useRecent, useTicks } from './entries';
 import { closest, rank } from '@/lib/search';
 import { TINT } from './tint';
 
@@ -30,7 +30,7 @@ export interface AppGame {
 /** Pick your route: All, or one Flame Lord. Remembered on this device. */
 function RoutePicker({ game, route, onPick, solid }: { game: AppGame; route: Route | 'all'; onPick: (r: Route | 'all') => void; solid: string }) {
   return (
-    <div role="radiogroup" aria-label={game.routeQuestion ?? 'Route'} className="chip-strip flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full bg-card p-1 ring-1 ring-line">
+    <div role="radiogroup" aria-label={game.routeQuestion ?? 'Route'} className="chip-strip flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full bg-card p-1 text-ink ring-1 ring-line">
       <span className="hidden px-2 text-xs font-bold uppercase tracking-wide text-muted sm:inline">Flame Lord</span>
       {[{ key: 'all', label: 'All' } as const, ...game.routes].map((r) => (
         <button key={r.key} role="radio" aria-checked={route === r.key} onClick={() => onPick(r.key)}
@@ -185,7 +185,7 @@ function AppSearch({ gameId, pages }: { gameId: string; pages: Page[] }) {
  * The app's front page, built around a player mid-game: search, your Flame Lord, where
  * you left off, your next deadline, then every Page.
  */
-export function AppHome({ game, pages, cover }: { game: AppGame; pages: Page[]; cover?: string }) {
+export function AppHome({ game, pages }: { game: AppGame; pages: Page[] }) {
   const [prefs, setPrefs] = usePlayerPrefs(game.id);
   const recent = useRecent(game.id);
   const [ticks] = useTicks(game.id);
@@ -205,17 +205,21 @@ export function AppHome({ game, pages, cover }: { game: AppGame; pages: Page[]; 
 
   return (
     <div className="mt-3 grid gap-5 lg:mt-0">
-      <section className="relative overflow-hidden rounded-2xl ring-1 ring-line">
-        {cover
-          // eslint-disable-next-line @next/next/no-img-element -- our own cover art
-          ? <img src={cover} alt="" className="absolute inset-0 size-full object-cover" />
-          : <span className="absolute inset-0 bg-gradient-to-br from-berry via-sun to-plum" aria-hidden="true" />}
-        <span className="absolute inset-0 bg-gradient-to-t from-ink/70 via-ink/25 to-transparent" aria-hidden="true" />
-        <div className="relative px-5 pb-5 pt-16 sm:px-7 sm:pt-24">
-          <h1 className="font-display text-3xl text-white drop-shadow sm:text-4xl">{game.title}</h1>
+      {/* An ink banner, no game art: a few Pages' pieces and one empty slot for what players add next. */}
+      <section className="relative overflow-hidden rounded-2xl bg-ink text-white">
+        <div aria-hidden="true" className="absolute right-6 top-1/2 hidden h-[190px] w-[260px] -translate-y-1/2 md:block">
+          {pages.slice(0, 3).map((p, i) => (
+            <span key={p.id} className="absolute" style={{ left: (i % 2) * 140, top: Math.floor(i / 2) * 104 }}>
+              <Piece size={120} color={`var(--${p.tint})`} />
+            </span>
+          ))}
+          <span className="absolute" style={{ left: 140, top: 104 }}><Piece size={120} outline ink="#fff" /></span>
+        </div>
+        <div className="relative px-5 py-7 sm:px-7 sm:py-9 md:pr-80">
+          <h1 className="font-display text-3xl sm:text-4xl">{game.title}</h1>
           {game.routes.length > 0 && (
-            <div className="mt-3">
-              <p className="mb-1.5 text-sm font-bold text-white/90">{game.routeQuestion}</p>
+            <div className="mt-4">
+              <p className="mb-1.5 text-sm font-bold text-white/85">{game.routeQuestion}</p>
               <RoutePicker game={game} route={prefs.route} onPick={(r) => setPrefs({ route: r })} solid="bg-signal text-ink" />
             </div>
           )}
@@ -233,8 +237,8 @@ export function AppHome({ game, pages, cover }: { game: AppGame; pages: Page[]; 
       {(recent.length > 0 || next) && (
         <div className="grid gap-3 md:grid-cols-2">
           {next && (
-            <Link href={`/g/${game.id}/${next.p.id}`} className={`lift flex items-start gap-3 rounded-2xl ${TINT[next.p.tint].soft} p-4 ring-1 ring-line`}>
-              <span className={`gloss grid size-10 shrink-0 place-items-center rounded-xl text-white ${TINT[next.p.tint].solid}`}><Hourglass size={19} aria-hidden="true" /></span>
+            <Link href={`/g/${game.id}/${next.p.id}`} className="lift flex items-center gap-3 rounded-2xl bg-card p-4 ring-1 ring-line">
+              <Piece size={56} color={`var(--${next.p.tint})`}><Hourglass size={17} strokeWidth={2.4} aria-hidden="true" /></Piece>
               <span className="min-w-0 flex-1">
                 <span className={`block text-xs font-bold uppercase tracking-wide ${TINT[next.p.tint].text}`}>Your next last chance</span>
                 <span className="block font-bold leading-tight">{next.e.name}</span>
@@ -249,8 +253,8 @@ export function AppHome({ game, pages, cover }: { game: AppGame; pages: Page[]; 
               <ul className="mt-2 flex flex-wrap gap-1.5">
                 {recent.slice(0, 6).map((r) => (
                   <li key={r.href}>
-                    <Link href={r.href} title={r.where} className="inline-flex items-center gap-1.5 rounded-full bg-card-2 py-1 pl-1 pr-3 text-sm font-bold ring-1 ring-line hover:ring-ink">
-                      <span className={`grid size-6 place-items-center rounded-full text-[10px] ${tintFor(r.name)}`}>{initials(r.name)}</span>{r.name}
+                    <Link href={r.href} title={r.where} className="inline-flex items-center gap-1.5 rounded-full bg-card-2 py-1 pl-1.5 pr-3 text-sm font-bold ring-1 ring-line hover:ring-ink">
+                      <Piece size={26} color={colorFor(r.name)} />{r.name}
                     </Link>
                   </li>
                 ))}
@@ -263,22 +267,15 @@ export function AppHome({ game, pages, cover }: { game: AppGame; pages: Page[]; 
       <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {pages.map((p) => {
           const t = TINT[p.tint];
-          const faces = p.blocks.flatMap((b) => b.entries).filter((e) => !e.spoiler).slice(0, 5);
+          // A Page card is a small version of the Page: its color field and its symbol in a piece.
           return (
             <li key={p.id}>
-              <Link href={`/g/${game.id}/${p.id}`} className={`lift relative flex h-full flex-col overflow-hidden rounded-2xl bg-gradient-to-br ${t.bar} to-card p-4 ring-1 ring-line`}>
-                <span className={`pointer-events-none absolute -bottom-5 -right-4 opacity-[0.12] ${t.text}`} aria-hidden="true"><BlockIcon name={p.icon} size={110} /></span>
-                <span className={`gloss grid size-12 place-items-center rounded-2xl text-white ${t.solid}`}><BlockIcon name={p.icon} size={22} /></span>
+              <Link href={`/g/${game.id}/${p.id}`} className={`lift flex h-full flex-col rounded-2xl p-4 ${t.soft}`}
+                style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, var(--${p.tint}) 22%, var(--line))` }}>
+                <Piece size={64} color={`var(--${p.tint})`}><BlockIcon name={p.icon} size={19} strokeWidth={2.4} /></Piece>
                 <span className="mt-3 block font-display text-2xl leading-tight">{p.title}</span>
                 <span className="mt-1 block text-sm text-muted">{p.blurb}</span>
-                <span className="mt-3 flex items-center">
-                  {faces.map((e, i) => (
-                    <span key={e.id} className={`-ml-1.5 grid size-8 place-items-center rounded-full text-[11px] font-bold ring-2 ring-card first:ml-0 ${tintFor(Object.values(e.categories)[0] ?? e.name)}`} style={{ zIndex: 5 - i }}>
-                      {initials(e.name)}
-                    </span>
-                  ))}
-                  <span className="ml-2 text-xs font-bold text-muted">{p.blocks.reduce((n, b) => n + b.entries.length, 0)} entries</span>
-                </span>
+                <span className="mt-auto pt-3 text-xs font-bold text-muted">{p.blocks.reduce((n, b) => n + b.entries.length, 0)} entries</span>
               </Link>
             </li>
           );
@@ -287,7 +284,7 @@ export function AppHome({ game, pages, cover }: { game: AppGame; pages: Page[]; 
 
       <p className="flex gap-2 text-sm text-muted">
         <Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-        <span>Started from a fan codex and improved by players. Spot something? <Link href={`/g/${game.id}/workshop`} className="font-bold text-leaf underline">Fix it</Link>.</span>
+        <span>Started from a fan codex and improved by players. Spot something? <Link href={`/g/${game.id}/workshop`} className="font-bold text-ink underline">Fix it</Link>.</span>
       </p>
     </div>
   );
