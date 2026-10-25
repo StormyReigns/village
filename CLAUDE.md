@@ -34,8 +34,33 @@ Community-built companion apps for games, with a village theme. Two layers:
   titles (tenure plus role), gray/colored/glowing badges, weekly Market Day.
 - **Launch mode** starts open and tightens as needed. From day one: an AI spam check,
   a report button, spoiler tags, rate limits, and a "Theory" label on unconfirmed finds.
-- **Look**: soft and illustrated, never plain-text. The village theme goes in the frame;
-  Drafts and cards look like the game's app.
+- **Look** (agreed 2026-10-25; replaces "soft and illustrated"): clean and slightly goofy,
+  for every kind of gamer. The frame is flat and quiet; the piece is the brand. Mockups:
+  the "Block Silhouettes" canvas (https://claude.ai/artifact/5Zz5xxgX5BFR1Y8PkMyjJ3),
+  boards 13 to 15. Rollout is in steps; the village theme lives in the words (Workshop,
+  Notice Board, Market Day), not in illustrations.
+
+## Brand rules
+
+- **The piece** (`src/components/Piece.tsx`): one cut-corner block with dovetail sockets
+  (top, left) and tabs (bottom, right). Only scaled, never stretched. It is the logo, every
+  entry, every Page symbol's backing, and tick boxes. Pages and Blocks are never pieces.
+- **The slice**: one band through the middle always slides right by the same amount, on
+  the piece and on the "village" wordmark.
+- **Text never crosses the slice**: inside a piece only short initials or a symbol, sitting
+  below the band. Names go under the piece in ink, like an app-icon label.
+- **Pieces never lock together in layouts**: leave a clear gap so tabs don't reach a
+  neighbour.
+- **Solid = built, split outline = not built yet**: an empty slot, an unticked box or "add"
+  is an outline with pink (#ff2bd6) and violet (#8b3dff) offset copies. The split is also
+  the loading look. Solid pieces are one color.
+- **Colors**: ink #15171c and signal yellow #FFC53D frame every screen (ink top bar,
+  yellow piece logo). Yellow means "act on this" or "your choice". One standard color per
+  Page in every game; a game's genre may shift the shade, never the hue.
+- **Three levels**: a Page is its color as a light tint behind the screen, a Block is a
+  white panel, an entry is a solid piece in the Page color. Each Page has its own symbol;
+  in navigation the current one sits inside a piece.
+- **Type**: Rubik only, heavy for names, regular for reading.
 - **Data**: our own words, sources cited, no game art or leaks; contributions under CC BY-SA.
 
 ## Working notes
