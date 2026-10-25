@@ -16,7 +16,7 @@ import { ScrollRow } from '@/components/ScrollRow';
 import { Tip } from '@/components/Tip';
 import { ScrollBox } from '@/components/ScrollBox';
 import { useStored } from '@/components/useStored';
-import { house } from '@/components/house';
+import { Piece } from '@/components/Piece';
 import { HOW_IT_WORKS_PING, HowItWorksButton, MarketDayButton } from '@/components/HowItWorks';
 import { Avatar } from '@/components/Avatar';
 import { useVillager, type Villager } from '@/components/useVillager';
@@ -273,8 +273,10 @@ export function Workshop({ game, pages, routes }: {
         />
         </div>
 
-        {/* Ongoing work: open items, then the Page's Blocks */}
-        <section aria-label="Work" className={(phoneTab === 'work' ? 'flex' : 'hidden') + ' min-h-[28rem] min-w-0 flex-col rounded-2xl bg-card p-4 ring-1 ring-line lg:flex'}>
+        {/* Ongoing work: open items, then the Page's Blocks. With a Page chosen, this column is
+            that Page's color field, and its Drafts and Blocks sit on it as white panels. */}
+        <section aria-label="Work" style={current ? { background: `var(--${current.tint}-soft)` } : undefined}
+          className={(phoneTab === 'work' ? 'flex' : 'hidden') + ' min-h-[28rem] min-w-0 flex-col rounded-2xl p-4 lg:flex ' + (current ? '' : 'bg-card ring-1 ring-line')}>
           {chip === 'notice' ? (
             <>
               <h2 className="font-display text-xl">Notice Board</h2>
@@ -297,10 +299,11 @@ export function Workshop({ game, pages, routes }: {
                   </label>
                 ) : (
                   <>
+                    {current && <Piece size={48} color={`var(--${current.tint})`}><BlockIcon name={current.icon} size={15} strokeWidth={2.4} /></Piece>}
                     <h2 className="min-w-0 flex-1 truncate font-display text-xl" title={current?.title}>{current ? current.title : 'Everything'}</h2>
                     <Tip text="Search this Page's entries" tint="sky" className="shrink-0">
                       <button onClick={() => setSearching(true)} aria-label="Search"
-                        className="grid size-9 place-items-center rounded-full bg-card-2 ring-1 ring-line hover:ring-ink">
+                        className="grid size-9 place-items-center rounded-full bg-card ring-1 ring-line hover:ring-ink">
                         <Search size={16} aria-hidden="true" />
                       </button>
                     </Tip>
@@ -308,7 +311,7 @@ export function Workshop({ game, pages, routes }: {
                 )}
                 <Tip text={allDrafts ? "Back to this Page's Blocks" : 'Every Draft in one list, with sorting'} className="shrink-0">
                   <button onClick={() => setAllDrafts(!allDrafts)} aria-pressed={allDrafts}
-                    className={'shrink-0 rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (allDrafts ? 'bg-ink text-paper ring-ink' : 'bg-card-2 ring-line hover:ring-ink')}>
+                    className={'shrink-0 rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (allDrafts ? 'bg-ink text-paper ring-ink' : 'bg-card ring-line hover:ring-ink')}>
                     {allDrafts ? 'Blocks' : 'Drafts'}
                   </button>
                 </Tip>
@@ -393,8 +396,8 @@ export function Workshop({ game, pages, routes }: {
                 <div className="flex items-center gap-2">
                   {itemsHidden && items.length > 0 ? (
                     <button onClick={() => setItemsHidden(false)} aria-label={`Show ${items.length} open items`}
-                      className="glow-pulse inline-flex items-center gap-1.5 rounded-full bg-sun-soft px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-sun">
-                      <span className="size-1.5 rounded-full bg-sun" aria-hidden="true" /> Open items · {items.length}
+                      className="glow-pulse inline-flex items-center gap-1.5 rounded-full bg-signal px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-ink">
+                      <span className="size-1.5 rounded-full bg-ink" aria-hidden="true" /> Open items · {items.length}
                     </button>
                   ) : (
                     <Tip text="Drafts waiting on someone: your vote, your own, or ready to publish">
@@ -413,7 +416,7 @@ export function Workshop({ game, pages, routes }: {
                 {live.state === 'loading' ? (
                   <div className="mt-4 flex gap-3 overflow-hidden" aria-hidden="true">{[0, 1].map((n) => <div key={n} className="h-28 w-52 shrink-0 animate-pulse rounded-[1.1rem] bg-card-2" />)}</div>
                 ) : items.length === 0 ? (
-                  <p className="mt-2 rounded-2xl bg-card-2 px-3 py-3 text-sm text-muted">Nothing waiting{current ? ` on ${current.title}` : ''}. Pick something below to improve, or add something new.</p>
+                  <p className="mt-2 rounded-2xl bg-card px-3 py-3 text-sm text-muted ring-1 ring-line">Nothing waiting{current ? ` on ${current.title}` : ''}. Pick something below to improve, or add something new.</p>
                 ) : itemsHidden ? null : (
                   <ScrollRow as="ul" className="swipe -mx-4 flex gap-3 px-4 pb-3 pt-4">
                     {items.map(({ d, kind }) => (
@@ -506,11 +509,12 @@ function BlockChip({ on, tint, icon, label, count, onClick }: {
   );
 }
 
-const ITEM: Record<'ready' | 'yours' | 'vote' | 'voted', { label: string; tint: string }> = {
-  ready: { label: 'Ready to publish', tint: 'sun' },
-  yours: { label: 'Your Draft', tint: 'leaf' },
-  vote: { label: 'Needs your vote', tint: 'sky' },
-  voted: { label: 'You voted', tint: 'teal' },
+// Yellow is "act on this": only what needs your vote gets it; the other states stay quiet.
+const ITEM: Record<'ready' | 'yours' | 'vote' | 'voted', { label: string; pill: string }> = {
+  ready: { label: 'Ready to publish', pill: 'bg-leaf-soft text-leaf' },
+  yours: { label: 'Your Draft', pill: 'bg-sky-soft text-sky' },
+  vote: { label: 'Needs your vote', pill: 'bg-signal text-ink' },
+  voted: { label: 'You voted', pill: 'bg-card-2 text-muted' },
 };
 
 const ITEM_TIP: Record<keyof typeof ITEM, string> = {
@@ -520,7 +524,7 @@ const ITEM_TIP: Record<keyof typeof ITEM, string> = {
   voted: "You've voted. It's waiting on others",
 };
 
-/** One open item: a Draft as a village block you can tap to see and vote on. */
+/** One open item: a Draft as a white card led by its entry's piece, to tap and vote on. */
 function OpenItem({ d, kind, visitor, practice, place, onOpen, onVote }: {
   d: LiveDraft; kind: keyof typeof ITEM; visitor?: boolean; practice?: boolean; place?: Placed; onOpen: () => void;
   /** Vote straight from the card, without opening it. */
@@ -530,37 +534,36 @@ function OpenItem({ d, kind, visitor, practice, place, onOpen, onVote }: {
   const status = (d.status === 'stable' ? 'Published' : d.status === 'declined' ? 'Declined' : votes >= 5 ? `${votes} votes` : `${votes} of 5 votes`)
     + (d.practiceVote ? ' (1 practice)' : '');
   return (
-    // The card is a house from its Page's street: the same color and roof as that Page's block.
     <Tip text={visitor && kind === 'vote' ? 'Sign in to vote on this' : ITEM_TIP[kind]} tint={place?.page.tint ?? 'ink'}>
-    <div {...(place ? house(place.page.title, place.page.tint) : house(d.id, 'muted'))} className="vblock flex w-52 flex-col gap-2 px-3 pb-3 pt-3.5">
+    <div className={'flex w-56 flex-col gap-2 rounded-2xl bg-card p-3 ' + (kind === 'vote' ? 'ring-2 ring-signal' : 'ring-1 ring-line')}>
     <button onClick={onOpen} className="flex flex-col gap-2 text-left">
       <span className="flex items-center gap-1.5">
-        <span className="rounded-full bg-white/85 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: `color-mix(in srgb, var(--${ITEM[kind].tint}) 80%, black)` }}>
+        <span className={'rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ' + ITEM[kind].pill}>
           {practice ? 'Your Draft · practice' : visitor && kind === 'vote' ? 'Open for votes' : ITEM[kind].label}
         </span>
-        {place && <span className="truncate text-[11px] font-bold">{place.page.title}</span>}
+        {place && <span className="truncate text-[11px] font-bold text-muted">{place.page.title}</span>}
       </span>
-      <span className="flex items-center gap-2 text-ink">
-        {place ? <EntryIcon entry={d.content} block={place} size="sm" /> : null}
+      <span className="flex items-center gap-2.5 text-ink">
+        {place ? <EntryIcon entry={d.content} block={place} size="md" color={`var(--${place.page.tint})`} /> : null}
         <span className="min-w-0">
           <span className="block truncate font-bold leading-tight">{d.title}</span>
           <span className="block truncate text-xs text-muted">{d.cardId ? 'Fix' : 'New'} · {place?.title ?? 'Removed Block'}</span>
         </span>
       </span>
       <span className="flex items-center gap-1.5 text-xs font-bold">
-        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/80">
-          <span className="block h-full rounded-full bg-current" style={{ width: `${Math.min(100, (votes / 5) * 100)}%` }} />
+        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-card-2">
+          <span className="block h-full rounded-full bg-ink" style={{ width: `${Math.min(100, (votes / 5) * 100)}%` }} />
         </span>
         {status}
       </span>
-      {(practice || d.practiceVote) && <span className="text-[11px] leading-tight">Practice votes are saved on this device. Only you see them.</span>}
+      {(practice || d.practiceVote) && <span className="text-[11px] leading-tight text-muted">Practice votes are saved on this device. Only you see them.</span>}
     </button>
     {onVote && (
       <span className="flex gap-1.5">
-        <button type="button" onClick={() => onVote(1)} className="inline-flex flex-1 items-center justify-center gap-1 rounded-full bg-white/90 px-2 py-1 text-xs font-bold text-leaf hover:bg-white">
+        <button type="button" onClick={() => onVote(1)} className="inline-flex flex-1 items-center justify-center gap-1 rounded-full bg-card-2 px-2 py-1 text-xs font-bold text-leaf ring-1 ring-line hover:ring-leaf">
           {d.kind === 'fact' ? <><Check size={13} aria-hidden="true" /> Matches</> : <><ArrowUp size={13} aria-hidden="true" /> Yes</>}
         </button>
-        <button type="button" onClick={() => onVote(-1)} className="inline-flex flex-1 items-center justify-center gap-1 rounded-full bg-white/90 px-2 py-1 text-xs font-bold text-berry hover:bg-white">
+        <button type="button" onClick={() => onVote(-1)} className="inline-flex flex-1 items-center justify-center gap-1 rounded-full bg-card-2 px-2 py-1 text-xs font-bold text-berry ring-1 ring-line hover:ring-berry">
           {d.kind === 'fact' ? <><TriangleAlert size={13} aria-hidden="true" /> Seems wrong</> : <><ArrowDown size={13} aria-hidden="true" /> No</>}
         </button>
       </span>
@@ -715,6 +718,8 @@ function DraftCard({ draft, place, routes, me, messages, live, startOpen = false
   const leaning = total === 0 ? 'no votes yet' : draft.ups >= draft.downs ? 'leaning yes' : 'leaning no';
   const cast = async (v: 0 | 1 | -1) => setError((await live.vote(draft.id, v)) ?? '');
   const expand = () => { if (!open) live.view(draft.id); setOpen(!open); };
+  // Yellow marks a Draft that's waiting on your vote ("act on this").
+  const needsVote = Boolean(me && !mine && !draft.myVote && (draft.status === 'open' || draft.status === 'checking'));
 
   const voting = !me ? null : mine ? (
     <span className="text-sm text-muted">Your Draft · {total >= 5 ? `${draft.ups} yes · ${draft.downs} no` : leaning}{draft.practiceVote ? ' (includes your practice vote)' : ''}</span>
@@ -732,9 +737,9 @@ function DraftCard({ draft, place, routes, me, messages, live, startOpen = false
   );
 
   return (
-    <li className={'rise rounded-3xl bg-card-2 p-3 ring-1 ring-line ' + (draft.status === 'removed' ? 'opacity-60' : '')}>
+    <li className={'rise rounded-3xl bg-card p-3 ' + (needsVote ? 'ring-2 ring-signal ' : 'ring-1 ring-line ') + (draft.status === 'removed' ? 'opacity-60' : '')}>
       <button onClick={expand} className="flex w-full items-start gap-3 text-left" aria-expanded={open}>
-        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-leaf-soft text-leaf"><BlockIcon name={block.icon} size={16} /></span>
+        <EntryIcon entry={draft.content} block={block} size="sm" color={`var(--${block.page.tint})`} />
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-2">
             <span className="font-display text-lg leading-tight">{draft.title}</span>
@@ -742,6 +747,7 @@ function DraftCard({ draft, place, routes, me, messages, live, startOpen = false
               ? <Tip text="Changes an entry that's already in the app" tint="sky"><span className="rounded-full bg-sky-soft px-2 py-0.5 text-xs font-bold text-sky">fix</span></Tip>
               : <Tip text="A new entry for the app" tint="leaf"><span className="rounded-full bg-leaf-soft px-2 py-0.5 text-xs font-bold text-leaf">new</span></Tip>}
             {draft.theory && <Tip text="Not confirmed yet. Shown with a Theory label in the app" tint="sun"><span className="rounded-full bg-sun-soft px-2 py-0.5 text-xs font-bold text-sun">Theory</span></Tip>}
+            {needsVote && <span className="rounded-full bg-signal px-2 py-0.5 text-xs font-bold text-ink">Needs your vote</span>}
           </span>
           <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm text-muted">
             <Avatar name={draft.author.name} url={draft.author.avatarUrl} size={18} />
@@ -750,18 +756,18 @@ function DraftCard({ draft, place, routes, me, messages, live, startOpen = false
         </span>
       </button>
       {draft.status === 'declined' && draft.declineReason && (
-        <p className="mt-2 rounded-2xl bg-card px-3 py-2 text-sm ring-1 ring-line"><span className="font-bold">Declined:</span> {draft.declineReason}</p>
+        <p className="mt-2 rounded-2xl bg-card-2 px-3 py-2 text-sm ring-1 ring-line"><span className="font-bold">Declined:</span> {draft.declineReason}</p>
       )}
       {open && (
         <div className="mt-3 grid gap-2">
           {changes.length > 0 && (
-            <div className="rounded-2xl bg-card p-3 ring-1 ring-line">
+            <div className="rounded-2xl bg-card-2 p-3 ring-1 ring-line">
               <p className="text-xs font-bold uppercase tracking-wide text-muted">What changes</p>
               <ChangeList changes={changes} />
             </div>
           )}
           {draft.cardId && !stable && draft.status !== 'stable' && <p className="text-sm text-muted">The entry this fixes is no longer in the app.</p>}
-          <div className="rounded-2xl bg-card p-3 ring-1 ring-line"><EntryDetails entry={draft.content} block={block} route="all" routes={routes} /></div>
+          <div className="rounded-2xl bg-card-2 p-3 ring-1 ring-line"><EntryDetails entry={draft.content} block={block} route="all" routes={routes} color={`var(--${block.page.tint})`} /></div>
           {draft.source && <p className="text-sm text-muted"><span className="font-bold text-ink">Source:</span> {draft.source}</p>}
         </div>
       )}
@@ -788,7 +794,7 @@ function DraftCard({ draft, place, routes, me, messages, live, startOpen = false
       {reporting && !reported && <ReportForm target={{ draftId: draft.id }} live={live} onDone={() => setReporting(false)} />}
       {live.mod && <DraftModTools draft={draft} live={live} />}
       {discuss && (
-        <div className="mt-3 grid gap-2 rounded-2xl bg-card p-3 ring-1 ring-line">
+        <div className="mt-3 grid gap-2 rounded-2xl bg-card-2 p-3 ring-1 ring-line">
           {messages.length === 0
             ? <p className="text-sm text-muted">No one has talked about this Draft yet.</p>
             : <ul className="grid gap-3">{messages.map((m) => <Message key={m.id} m={m} me={me} live={live} />)}</ul>}
@@ -1053,10 +1059,12 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts }: {
             if (query && !list.length) return null;
             const isFolded = folded.includes(b.id) && !query;
             return (
-              <section key={b.id} {...house(p.title, p.tint, { lean: false })} className="vblock vblock-quiet min-w-0 p-3 pt-3.5">
+              // A Block of the app: a white panel with a hairline in its Page's color.
+              <section key={b.id} className="min-w-0 rounded-2xl bg-card p-3"
+                style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, var(--${p.tint}) 22%, var(--line))` }}>
                 <div className="flex items-center gap-2">
                   <button onClick={() => fold(b.id)} aria-expanded={!isFolded} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-                    <span className="grid size-7 shrink-0 place-items-center rounded-lg" style={{ background: 'color-mix(in srgb, var(--tint) 14%, white)', color: 'var(--tint)' }}><BlockIcon name={b.icon} size={15} /></span>
+                    <BlockIcon name={b.icon} size={17} className="shrink-0" style={{ color: `var(--${p.tint})` }} />
                     <h4 className="truncate font-bold">{b.title}</h4>
                     <span className="text-xs text-muted">{b.entries.length}</span>
                     <ChevronDown size={15} className={'shrink-0 text-muted transition ' + (isFolded ? '-rotate-90' : '')} aria-hidden="true" />
@@ -1077,8 +1085,8 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts }: {
                       return (
                         <li key={e.id}>
                           <button onClick={() => onFix(b.id, e.id)}
-                            className={'flex w-full items-center gap-2.5 rounded-2xl px-2 py-1.5 text-left hover:bg-card ' + (on ? 'bg-card ring-2 ring-leaf' : '')}>
-                            <EntryIcon entry={e} block={b} size="sm" />
+                            className={'flex w-full items-center gap-2.5 rounded-2xl px-2 py-1.5 text-left hover:bg-card-2 ' + (on ? 'bg-card-2 ring-2 ring-ink' : '')}>
+                            <EntryIcon entry={e} block={b} size="sm" color={`var(--${p.tint})`} />
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-sm font-bold">{e.name}</span>
                               <span className="block truncate text-xs text-muted">{e.stat ?? Object.values(e.categories)[0] ?? e.description}</span>
@@ -1086,7 +1094,7 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts }: {
                             {n > 0 && (
                               <span role="button" tabIndex={0} onClick={(ev) => { ev.stopPropagation(); onDrafts(e.ref!.card); }}
                                 onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.stopPropagation(); onDrafts(e.ref!.card); } }}
-                                className="shrink-0 rounded-full bg-sky px-2 py-0.5 text-[11px] font-bold text-white hover:opacity-90">{n} open Draft{n > 1 ? 's' : ''}</span>
+                                className="shrink-0 rounded-full bg-signal px-2 py-0.5 text-[11px] font-bold text-ink hover:brightness-95">{n} open Draft{n > 1 ? 's' : ''}</span>
                             )}
                             <span className="shrink-0 text-xs font-bold text-leaf">Fix</span>
                           </button>

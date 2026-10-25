@@ -240,12 +240,12 @@ body {
 }
 
 /* A soft glow that says "something's waiting here". Gently pulses unless motion is reduced. */
-.glow-pulse { box-shadow: 0 0 12px 1px color-mix(in srgb, var(--sun) 45%, transparent); }
+.glow-pulse { box-shadow: 0 0 12px 1px color-mix(in srgb, var(--signal) 45%, transparent); }
 @media (prefers-reduced-motion: no-preference) {
   .glow-pulse { animation: glow-pulse 2.4s ease-in-out infinite; }
   @keyframes glow-pulse {
-    0%, 100% { box-shadow: 0 0 6px 0 color-mix(in srgb, var(--sun) 35%, transparent); }
-    50% { box-shadow: 0 0 16px 3px color-mix(in srgb, var(--sun) 55%, transparent); }
+    0%, 100% { box-shadow: 0 0 6px 0 color-mix(in srgb, var(--signal) 35%, transparent); }
+    50% { box-shadow: 0 0 16px 3px color-mix(in srgb, var(--signal) 55%, transparent); }
   }
 }
 
