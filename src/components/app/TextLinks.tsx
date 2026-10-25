@@ -9,7 +9,16 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 export interface TextLinkData {
   names: { name: string; href: string }[];
   terms: Record<string, string>;
+  /** Dates in this game are in-game calendar days. */
+  gameDates?: boolean;
 }
+
+/** "Ch 9, 9/2–9/8" becomes "Ch 9, in-game 9/2–9/8", so nobody reads it as a real date. */
+// Only date ranges ("9/2–9/8") and single dates right after a chapter ("Ch 9, 9/15"), so a
+// fraction like "1/2 HP" is left alone.
+const markGameDates = (t: string) => t
+  .replace(/(?<!in-game )(?<![\d/])(\d{1,2}\/\d{1,2}\s*[–-]\s*\d{1,2}\/\d{1,2})(?![\d/])/g, 'in-game $1')
+  .replace(/(Ch \d{1,2}, )(\d{1,2}\/\d{1,2})(?![\d/–-])/g, '$1in-game $2');
 
 const TextLinks = createContext<TextLinkData | null>(null);
 export const TextLinksProvider = TextLinks.Provider;
@@ -17,8 +26,9 @@ export const TextLinksProvider = TextLinks.Provider;
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** Text with names linked and game words explained. `skip` is the entry's own name. */
-export function RichText({ text, skip }: { text: string; skip?: string }) {
+export function RichText({ text: raw, skip }: { text: string; skip?: string }) {
   const data = useContext(TextLinks);
+  const text = data?.gameDates ? markGameDates(raw) : raw;
   const found = useMemo(() => {
     if (!data) return null;
     const names = new Map(data.names.filter((n) => n.name.length >= 4 && n.name !== skip).map((n) => [n.name.toLowerCase(), n.href]));

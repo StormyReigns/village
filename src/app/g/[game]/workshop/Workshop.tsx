@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDown, ArrowLeft, ArrowUp, Check, ChevronDown, ChevronUp, EyeOff, ExternalLink, Flag, MessageCircle, MoreHorizontal, Plus, RotateCcw, Search, Send,
+  ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, ChevronDown, ChevronUp, EyeOff, ExternalLink, Flag, MessageCircle, MoreHorizontal, Plus, RotateCcw, Search, Send,
   ShieldCheck, Sparkles, Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import type { Block, Page } from '@/data/pages';
@@ -67,7 +67,7 @@ export function Workshop({ game, pages, routes }: {
   // Arriving from the app: "Suggest a fix" (?fix=block.entry) or "Add" (?add=block).
   const linked = (() => {
     const fix = params.get('fix')?.split('.');
-    if (fix && placeOf(fix[0])) return { blockId: fix[0], entryId: fix[1], field: params.get('field') ?? undefined };
+    if (fix && placeOf(fix[0])) return { blockId: fix[0], entryId: fix[1], field: params.get('field') ?? undefined, theory: params.get('theory') === '1' };
     const add = params.get('add');
     if (add && placeOf(add)) return { blockId: add };
     return null;
@@ -128,7 +128,7 @@ export function Workshop({ game, pages, routes }: {
 
   // Next keeps a visited Workshop alive in the background, so coming back through a new
   // "Suggest a fix" link doesn't start it fresh. Follow each new link as it arrives.
-  const linkKey = `${params.get('fix') ?? ''}|${params.get('field') ?? ''}|${params.get('add') ?? ''}|${params.get('page') ?? ''}|${params.get('resume') ?? ''}|${params.get('draft') ?? ''}`;
+  const linkKey = `${params.get('fix') ?? ''}|${params.get('field') ?? ''}|${params.get('add') ?? ''}|${params.get('page') ?? ''}|${params.get('resume') ?? ''}|${params.get('draft') ?? ''}|${params.get('theory') ?? ''}`;
   const [followed, setFollowed] = useState(linkKey);
   if (linkKey !== followed) {
     setFollowed(linkKey);
@@ -161,6 +161,7 @@ export function Workshop({ game, pages, routes }: {
     const url = new URL(window.location.href);
     url.searchParams.delete('fix');
     url.searchParams.delete('field');
+    url.searchParams.delete('theory');
     url.searchParams.delete('add');
     url.searchParams.delete('resume');
     window.history.replaceState({}, '', url); // a fresh state, so Next notices the change
@@ -202,6 +203,29 @@ export function Workshop({ game, pages, routes }: {
   const current = pages.find((p) => p.id === chip);
   const chat = useMemo(() => (current ? live.messages.filter((m) => m.blockKey === current.id) : live.messages), [live.messages, current]);
   const startNew = () => setForm({ blockId: current?.blocks[0]?.id ?? blocks[0]?.id });
+
+  // First steps for a new Builder. Each is one tap to start, and ticks itself off once done.
+  const myId = me && !me.practice ? me.id : null;
+  const firstVote = items.find((x) => x.kind === 'vote')?.d;
+  const steps = [
+    {
+      key: 'vote', title: 'Vote on something waiting',
+      hint: firstVote ? `Like “${firstVote.title}”. Does it match your game?` : 'Nothing is waiting right now. Check back later.',
+      done: Boolean(myId && drafts.some((d) => d.myVote !== 0)), go: () => { if (firstVote) setDetail(firstVote.id); },
+    },
+    {
+      key: 'fix', title: 'Fix or add something you know',
+      hint: 'Tap Fix next to anything below, or start something new.',
+      done: Boolean(myId && drafts.some((d) => d.author.id === myId)), go: startNew,
+    },
+    {
+      key: 'chat', title: 'Say hi, or ask the village',
+      hint: "Stuck on something, or found something? Chat's the place.",
+      done: Boolean(myId && live.messages.some((m) => m.author.id === myId)),
+      go: () => { setPhoneTab('chat'); setTimeout(() => document.getElementById('chat-input')?.focus(), 60); },
+    },
+  ];
+  const basicsDone = steps.every((x) => x.done);
   const shown = detail ? drafts.find((d) => d.id === detail) : undefined;
 
   return (
@@ -219,10 +243,10 @@ export function Workshop({ game, pages, routes }: {
         <HowItWorksButton className="hidden sm:inline-flex" />
         <div className="ml-auto flex shrink-0 items-center gap-2">
           <HowItWorksButton compact className="inline-flex sm:hidden" />
-          <Link href={`/g/${game.id}`} className="gloss btn-primary inline-flex items-center gap-2 rounded-full px-4 py-2 font-bold">
-            <span className="hidden sm:inline">Open the app</span><span className="sm:hidden">App</span> <ExternalLink size={16} aria-hidden="true" />
+          <Link href={`/g/${game.id}`} aria-label="Open the app" className="btn-quiet inline-flex items-center gap-2 rounded-full p-2.5 text-sm font-bold sm:px-4 sm:py-2">
+            <span className="hidden sm:inline">Open the app</span> <ExternalLink size={16} aria-hidden="true" />
           </Link>
-          <AccountButton />
+          <AccountButton quiet />
         </div>
       </header>
 
@@ -240,7 +264,7 @@ export function Workshop({ game, pages, routes }: {
       )}
 
       <div role="tablist" aria-label="Show" className="mt-2 flex rounded-full bg-card p-1 ring-1 ring-line lg:hidden">
-        {([['work', 'Drafts and Blocks'], ['chat', `Chat · ${chat.length}`]] as const).map(([k, label]) => (
+        {([['work', 'Build'], ['chat', `Chat · ${chat.length}`]] as const).map(([k, label]) => (
           <button key={k} role="tab" aria-selected={phoneTab === k} onClick={() => setPhoneTab(k)}
             className={'flex-1 rounded-full px-3 py-2 text-sm font-bold ' + (phoneTab === k ? 'gloss bg-ink text-paper' : 'text-muted')}>{label}</button>
         ))}
@@ -305,15 +329,33 @@ export function Workshop({ game, pages, routes }: {
               </div>
 
               {!introDone && (
-                <div ref={introRef} className="mt-3 flex items-start gap-2 rounded-2xl bg-sky-soft px-3 py-2.5 text-sm">
-                  <span className="min-w-0 flex-1">
-                    <span className="font-bold text-sky">New here?</span> Anyone can suggest a fix or add something. Other villagers check it,
-                    and on Market Day it goes into the app.
-                    <HowItWorksButton className="ml-1 mt-1.5 inline-flex !py-0.5 text-xs" />
-                  </span>
-                  <button onClick={dismissIntro} aria-label="Dismiss" className="grid size-7 shrink-0 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
-                    <X size={15} aria-hidden="true" />
-                  </button>
+                <div ref={introRef} className="mt-3 rounded-2xl bg-sky-soft px-3 py-2.5 text-sm">
+                  <div className="flex items-start gap-2">
+                    <p className="min-w-0 flex-1">
+                      <span className="font-bold text-sky">{basicsDone ? 'You’ve got the basics.' : 'Start here.'}</span>{' '}
+                      {basicsDone ? 'Welcome to the village! Close this whenever you like.' : 'Anyone can help. Villagers check each change, and on Market Day it goes into the app.'}
+                    </p>
+                    <button onClick={dismissIntro} aria-label="Dismiss" className="grid size-7 shrink-0 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
+                      <X size={15} aria-hidden="true" />
+                    </button>
+                  </div>
+                  <ol className="mt-2 grid gap-1.5">
+                    {steps.map((x, i) => (
+                      <li key={x.key}>
+                        <button onClick={x.go} className="flex w-full items-center gap-2.5 rounded-xl bg-card px-2.5 py-2 text-left ring-1 ring-line hover:ring-sky">
+                          <span className={'grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold ' + (x.done ? 'bg-leaf text-white' : 'bg-sky-soft text-sky')}>
+                            {x.done ? <Check size={13} aria-hidden="true" /> : i + 1}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className={'block font-bold leading-tight ' + (x.done ? 'text-muted line-through' : '')}>{x.title}</span>
+                            <span className="block text-xs text-muted">{x.hint}</span>
+                          </span>
+                          {!x.done && <ArrowRight size={15} className="shrink-0 text-muted" aria-hidden="true" />}
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                  <HowItWorksButton className="mt-2 inline-flex !py-0.5 text-xs" />
                 </div>
               )}
 
@@ -383,7 +425,12 @@ export function Workshop({ game, pages, routes }: {
                   <p className="mt-2 rounded-2xl bg-card-2 px-3 py-3 text-sm text-muted">Nothing waiting{current ? ` on ${current.title}` : ''}. Pick something below to improve, or add something new.</p>
                 ) : itemsHidden ? null : (
                   <ScrollRow as="ul" className="swipe -mx-4 flex gap-3 px-4 pb-3 pt-4">
-                    {items.map(({ d, kind }) => <li key={d.id} className="shrink-0"><OpenItem d={d} kind={kind} visitor={me === null} practice={Boolean(me?.practice && d.author.id === me.id)} place={placeOf(d.blockKey)} onOpen={() => setDetail(d.id)} /></li>)}
+                    {items.map(({ d, kind }) => (
+                      <li key={d.id} className="shrink-0">
+                        <OpenItem d={d} kind={kind} visitor={me === null} practice={Boolean(me?.practice && d.author.id === me.id)} place={placeOf(d.blockKey)} onOpen={() => setDetail(d.id)}
+                          onVote={kind === 'vote' && me ? (v) => { live.vote(d.id, v); } : undefined} />
+                      </li>
+                    ))}
                   </ScrollRow>
                 )}
               </div>
@@ -464,7 +511,7 @@ function BlockChip({ on, tint, icon, label, count, onClick }: {
       </span>
       <span className="line-clamp-2 text-xs font-bold leading-tight">{label}</span>
       {count ? (
-        <span className={'absolute -right-1.5 -top-1.5 grid min-w-5 place-items-center rounded-full px-1 text-[11px] font-bold ring-2 ring-paper ' + (on ? 'bg-ink text-paper' : 'bg-berry text-white')}>
+        <span className={'absolute -right-1.5 -top-1.5 grid min-w-5 place-items-center rounded-full px-1 text-[11px] font-bold ring-2 ring-paper ' + (on ? 'bg-paper text-ink' : 'bg-ink text-paper')}>
           {count}
         </span>
       ) : null}
@@ -483,20 +530,24 @@ const ITEM: Record<'ready' | 'yours' | 'vote' | 'voted', { label: string; tint: 
 const ITEM_TIP: Record<keyof typeof ITEM, string> = {
   ready: 'Has 5 or more votes, mostly yes. A moderator can publish it',
   yours: 'Your Draft. Other villagers vote on it, then a moderator decides',
-  vote: "Other villagers are checking this. Open it to vote",
+  vote: 'Other villagers are checking this. Does it match your game? Vote right here, or open it for the details',
   voted: "You've voted. It's waiting on others",
 };
 
 /** One open item: a Draft as a village block you can tap to see and vote on. */
-function OpenItem({ d, kind, visitor, practice, place, onOpen }: { d: LiveDraft; kind: keyof typeof ITEM; visitor?: boolean; practice?: boolean; place?: Placed; onOpen: () => void }) {
+function OpenItem({ d, kind, visitor, practice, place, onOpen, onVote }: {
+  d: LiveDraft; kind: keyof typeof ITEM; visitor?: boolean; practice?: boolean; place?: Placed; onOpen: () => void;
+  /** Vote straight from the card, without opening it. */
+  onVote?: (v: 1 | -1) => void;
+}) {
   const votes = d.ups + d.downs;
   const status = (d.status === 'stable' ? 'Published' : d.status === 'declined' ? 'Declined' : votes >= 5 ? `${votes} votes` : `${votes} of 5 votes`)
     + (d.practiceVote ? ' (1 practice)' : '');
   return (
     // The card is a house from its Page's street: the same color and roof as that Page's block.
     <Tip text={visitor && kind === 'vote' ? 'Sign in to vote on this' : ITEM_TIP[kind]} tint={place?.page.tint ?? 'ink'}>
-    <button onClick={onOpen} {...(place ? house(place.page.title, place.page.tint) : house(d.id, 'muted'))}
-      className="vblock flex w-52 flex-col gap-2 px-3 pb-3 pt-3.5 text-left">
+    <div {...(place ? house(place.page.title, place.page.tint) : house(d.id, 'muted'))} className="vblock flex w-52 flex-col gap-2 px-3 pb-3 pt-3.5">
+    <button onClick={onOpen} className="flex flex-col gap-2 text-left">
       <span className="flex items-center gap-1.5">
         <span className="rounded-full bg-white/85 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: `color-mix(in srgb, var(--${ITEM[kind].tint}) 80%, black)` }}>
           {practice ? 'Your Draft · practice' : visitor && kind === 'vote' ? 'Open for votes' : ITEM[kind].label}
@@ -518,6 +569,17 @@ function OpenItem({ d, kind, visitor, practice, place, onOpen }: { d: LiveDraft;
       </span>
       {(practice || d.practiceVote) && <span className="text-[11px] leading-tight">Practice votes are saved on this device. Only you see them.</span>}
     </button>
+    {onVote && (
+      <span className="flex gap-1.5">
+        <button type="button" onClick={() => onVote(1)} className="inline-flex flex-1 items-center justify-center gap-1 rounded-full bg-white/90 px-2 py-1 text-xs font-bold text-leaf hover:bg-white">
+          {d.kind === 'fact' ? <><Check size={13} aria-hidden="true" /> Matches</> : <><ArrowUp size={13} aria-hidden="true" /> Yes</>}
+        </button>
+        <button type="button" onClick={() => onVote(-1)} className="inline-flex flex-1 items-center justify-center gap-1 rounded-full bg-white/90 px-2 py-1 text-xs font-bold text-berry hover:bg-white">
+          {d.kind === 'fact' ? <><TriangleAlert size={13} aria-hidden="true" /> Seems wrong</> : <><ArrowDown size={13} aria-hidden="true" /> No</>}
+        </button>
+      </span>
+    )}
+    </div>
     </Tip>
   );
 }
@@ -840,7 +902,7 @@ function Composer({ me, placeholder, onSend }: { me: Villager | null | undefined
   return (
     <div className="mt-auto">
       <form onSubmit={submit} className="flex items-center gap-1.5 rounded-full bg-card-2 p-1.5 ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
-        <input value={text} onChange={(e) => { setText(e.target.value); if (error) setError(''); }} maxLength={4000} disabled={me === undefined}
+        <input id="chat-input" value={text} onChange={(e) => { setText(e.target.value); if (error) setError(''); }} maxLength={4000} disabled={me === undefined}
           className="min-w-0 flex-1 bg-transparent px-3 outline-none placeholder:text-muted" placeholder={placeholder} aria-label={placeholder} />
         <Tip text="Spoiler: hide this message behind a tap" className="shrink-0">
           <button type="button" onClick={() => setSpoiler(!spoiler)} aria-pressed={spoiler}
@@ -895,6 +957,11 @@ function Chat({ topic: block, notice, onAll, messages, me, live }: {
       ) : (
         <ul ref={list} aria-live="polite" className="my-3 grid flex-1 content-start gap-4 overflow-y-auto pr-1">
           {messages.map((m) => <Message key={m.id} m={m} tag={tagFor(m)} me={me} live={live} />)}
+          {messages.length < 4 && (
+            <li className="mt-2 rounded-2xl bg-card-2 px-3 py-2.5 text-sm text-muted">
+              It&apos;s quiet in here. Ask where something is, share something you found, or just say hi. Everyone here sees it right away.
+            </li>
+          )}
         </ul>
       )}
       <Composer me={me} placeholder={block ? `Message about ${block.label}` : 'Write a message'}

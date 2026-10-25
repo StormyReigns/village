@@ -2,6 +2,9 @@
 // Our own wording, based only on what the game's entries already say. Add a word by adding
 // a line; matching ignores capital letters.
 
+/** Games whose dates (like 9/2–9/8) are days on the in-game calendar, so we say so. */
+export const IN_GAME_DATES = new Set(['fortunes-weave']);
+
 export const GLOSSARY: Record<string, Record<string, string>> = {
   'fortunes-weave': {
     Renown: 'Your standing as a commander. Quests and paralogues pay it out, and recruiting units or buying class licenses asks for a minimum level.',

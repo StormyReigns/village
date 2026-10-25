@@ -12,6 +12,7 @@ import { ScrollRow } from '@/components/ScrollRow';
 import { EntryIcon, EntryPanel, Lines, type RouteOption } from './EntryPanel';
 import { entryText, initials, onRoute, rememberEntry, tintFor, useOpenEntry, useTicks } from './entries';
 import { closest, rank } from '@/lib/search';
+import { useVillager } from '@/components/useVillager';
 import { RichText } from './TextLinks';
 import { TINT } from './tint';
 
@@ -24,19 +25,29 @@ export interface BlockContext {
   route: Route | 'all';
   routes: RouteOption[];
   spoilers: boolean;
+  /** Reveal spoilers. Inside a Block this means just that Block. */
   onShowSpoilers: () => void;
+  /** Reveal spoilers on every Page (the app-wide switch). */
+  onShowAllSpoilers?: () => void;
 }
 
-export function BlockView({ block, ctx }: { block: Block; ctx: BlockContext }) {
+export function BlockView({ block, ctx: page }: { block: Block; ctx: BlockContext }) {
   const Cmp = { collection: Collection, timeline: Timeline, checklist: Checklist, guide: Guide }[block.type];
-  const t = TINT[ctx.tint];
+  const t = TINT[page.tint];
+  // "Show them" under a Block reveals that Block's spoilers only; the Page's switch does them all.
+  const [revealed, setRevealed] = useState(false);
+  const ctx: BlockContext = useMemo(() => ({
+    ...page, spoilers: page.spoilers || revealed, onShowSpoilers: () => setRevealed(true), onShowAllSpoilers: page.onShowSpoilers,
+  }), [page, revealed]);
+  // An intro that asks you to pick a Flame Lord is done once you have.
+  const intro = block.intro && !(block.byRoute && ctx.route !== 'all' && /^pick your/i.test(block.intro)) ? block.intro : null;
   return (
     <section id={block.id} aria-labelledby={`${block.id}-title`} className="app-block min-w-0 scroll-mt-20 rounded-[1.25rem] p-4 sm:p-5" style={{ '--tint': `var(--${ctx.tint})` } as React.CSSProperties}>
       <div className="flex items-center gap-3">
         <span className={`grid size-10 place-items-center rounded-2xl ${t.soft} ${t.text}`}><BlockIcon name={block.icon} size={19} /></span>
         <div className="min-w-0 flex-1">
           <h2 id={`${block.id}-title`} className="font-display text-xl leading-tight">{block.title}</h2>
-          {block.intro && <p className="text-sm text-muted">{block.intro}</p>}
+          {intro && <p className="text-sm text-muted">{intro}</p>}
         </div>
         {block.entries.length > 0 && <ShareButton path={sharePath(ctx.gameId, ctx.page, block)} title={`${block.title} · ${ctx.pageTitle}`} what="Block" tint={ctx.tint} />}
         {block.entries.length > 0 && (
@@ -78,7 +89,10 @@ function HiddenNote({ offRoute, spoilers, ctx }: { offRoute: number; spoilers: n
     <p className="mt-3 text-sm text-muted">
       {offRoute > 0 && <>{offRoute} more on other routes than {lord}&apos;s. </>}
       {spoilers > 0 && (
-        <>{spoilers} hidden as spoilers. <button onClick={ctx.onShowSpoilers} className="font-bold text-leaf underline underline-offset-2">Show them</button></>
+        <>
+          {spoilers} hidden as spoilers. <button onClick={ctx.onShowSpoilers} className="font-bold text-leaf underline underline-offset-2">Show them</button>
+          {ctx.onShowAllSpoilers && <> · <button onClick={ctx.onShowAllSpoilers} className="font-bold text-muted underline underline-offset-2 hover:text-ink">Show spoilers everywhere</button></>}
+        </>
       )}
     </p>
   );
@@ -136,6 +150,8 @@ function NothingFound({ query, shown, block, ctx, onOpen }: {
 
 function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const { shown, offRoute, spoilers } = useVisible(block, ctx);
+  const [ticks, toggle] = useTicks(ctx.gameId);
+  const recruited = shown.filter((e) => ticks.has(`recruited:${block.id}.${e.id}`)).length;
   const { set } = useOpenEntry();
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState(block.statName ? 'stat' : 'az');
@@ -192,6 +208,12 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
           </label>
         </div>
       )}
+      {(block.look ?? 'slots') === 'portraits' && (
+        <p className="mt-3 flex items-center gap-2 text-sm">
+          <span className="rounded-full bg-leaf-soft px-2.5 py-0.5 font-bold text-leaf">Recruited {recruited} / {shown.length}</span>
+          <span className="text-muted">Tap the corner of a card once they join you.</span>
+        </p>
+      )}
       {values.length > 1 && (
         <ScrollRow className="-mx-1 mt-3 flex gap-1.5 px-1 pb-1" role="group" label={`Filter by ${filter}`}>
           <FilterChip on={!pick} tint={ctx.tint} onClick={() => setPick(null)}>All · {shown.length}</FilterChip>
@@ -206,7 +228,12 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
           {g && <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">{g}</h3>}
           {look === 'portraits' && (
             <ul className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {es.map((e) => <li key={e.id}><Portrait e={e} note={mine(e) ?? (filter ? e.categories[filter] : undefined)} strong={Boolean(mine(e))} onOpen={() => openIt(e)} /></li>)}
+              {es.map((e) => (
+                <li key={e.id}>
+                  <Portrait e={e} note={mine(e) ?? (filter ? e.categories[filter] : undefined)} strong={Boolean(mine(e))} onOpen={() => openIt(e)}
+                    recruited={ticks.has(`recruited:${block.id}.${e.id}`)} onRecruit={() => toggle(`recruited:${block.id}.${e.id}`)} />
+                </li>
+              ))}
             </ul>
           )}
           {look === 'slots' && (
@@ -239,10 +266,19 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
 }
 
 /** A character card: a tall portrait with a name plate. */
-function Portrait({ e, note, strong, onOpen }: { e: Entry; note?: string; strong: boolean; onOpen: () => void }) {
+function Portrait({ e, note, strong, onOpen, recruited, onRecruit }: {
+  e: Entry; note?: string; strong: boolean; onOpen: () => void; recruited?: boolean; onRecruit?: () => void;
+}) {
   const tint = tintFor(Object.values(e.categories)[0] ?? e.name);
   return (
-    <button onClick={onOpen} className="lift flex w-full flex-col overflow-hidden rounded-2xl bg-card text-left ring-1 ring-line hover:ring-2">
+    <div className="relative">
+    {onRecruit && (
+      <button type="button" onClick={onRecruit} role="checkbox" aria-checked={recruited} aria-label={`Recruited: ${e.name}`}
+        className={'absolute right-1.5 top-1.5 z-10 grid size-7 place-items-center rounded-full ring-2 transition ' + (recruited ? 'bg-leaf text-white ring-white' : 'bg-card/80 text-muted ring-white/70 hover:text-ink')}>
+        <Check size={15} aria-hidden="true" />
+      </button>
+    )}
+    <button onClick={onOpen} className={'lift flex w-full flex-col overflow-hidden rounded-2xl bg-card text-left ring-1 hover:ring-2 ' + (recruited ? 'ring-leaf' : 'ring-line')}>
       <span className={`relative grid aspect-[6/7] w-full place-items-center ${tint}`}>
         {e.icon
           // eslint-disable-next-line @next/next/no-img-element -- community pictures, sized small
@@ -255,6 +291,7 @@ function Portrait({ e, note, strong, onOpen }: { e: Entry; note?: string; strong
         {note && <span className={'block truncate text-[11px] leading-tight ' + (strong ? 'font-bold text-leaf' : 'text-muted')}>{note}</span>}
       </span>
     </button>
+    </div>
   );
 }
 
@@ -341,6 +378,7 @@ function Ring({ done, total, tint }: { done: number; total: number; tint: Tint }
 function Checklist({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const { shown, offRoute, spoilers } = useVisible(block, ctx);
   const [ticks, toggle] = useTicks(ctx.gameId);
+  const me = useVillager();
   const [showDone, setShowDone] = useState(false);
   const { set } = useOpenEntry();
   const key = (e: Entry) => `${block.id}.${e.id}`;
@@ -357,7 +395,7 @@ function Checklist({ block, ctx }: { block: Block; ctx: BlockContext }) {
     const next = !on && i === 0;
     return (
       <li key={e.id} className={'flex items-start gap-3 rounded-2xl p-3 ring-1 ' + (next ? `${t.soft} ${t.ring}` : 'bg-card-2 ring-line') + (on ? ' opacity-60' : '')}>
-        <Tip text={on ? 'Done. Tap to untick' : 'Tick it once it\'s done. Your ticks stay on this device'} tint={ctx.tint} className="shrink-0">
+        <Tip text={on ? 'Done. Tap to untick' : 'Tick it once it\'s done'} tint={ctx.tint} className="shrink-0">
           <button onClick={() => toggle(key(e))} role="checkbox" aria-checked={on} aria-label={`Done: ${e.name}`}
             className={'grid size-8 shrink-0 place-items-center rounded-xl ring-2 ' + (on ? `${t.solid} ${t.ring} text-white` : 'bg-card ring-line hover:ring-ink')}>
             {on && <Check size={17} aria-hidden="true" />}
@@ -368,7 +406,7 @@ function Checklist({ block, ctx }: { block: Block; ctx: BlockContext }) {
           <span className={'block font-bold leading-tight ' + (on ? 'line-through' : '')}>{e.name}</span>
           {deadline(e) && !on && (
             <span className={`mt-1 inline-flex items-start gap-1 rounded-lg bg-card px-2 py-0.5 text-sm ring-1 ring-line`}>
-              <Hourglass size={13} className={`mt-1 shrink-0 ${t.text}`} aria-hidden="true" /> {deadline(e)!.split('\n')[0]}
+              <Hourglass size={13} className={`mt-1 shrink-0 ${t.text}`} aria-hidden="true" /> <span><RichText text={deadline(e)!.split('\n')[0]} /></span>
             </span>
           )}
         </button>
@@ -382,7 +420,9 @@ function Checklist({ block, ctx }: { block: Block; ctx: BlockContext }) {
         <Ring done={done.length} total={shown.length} tint={ctx.tint} />
         <p className="text-sm">
           <span className="block font-bold">{todo.length ? `${todo.length} still to do` : 'All done. Nothing missed!'}</span>
-          <span className="text-muted">Tick things off as you go. Your ticks stay on this device.</span>
+          <span className="text-muted">
+            {me ? 'Tick things off as you go. Your ticks are saved to your account.' : <>Tick things off as you go. <Link href={`/signin?next=${encodeURIComponent(`/g/${ctx.gameId}/${ctx.page.id}`)}`} className="font-bold text-leaf underline">Sign in</Link> to keep your ticks on every device.</>}
+          </span>
         </p>
       </div>
       <ul className="mt-3 grid gap-2">{todo.map(row)}</ul>

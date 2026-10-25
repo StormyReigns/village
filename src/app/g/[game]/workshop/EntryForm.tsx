@@ -16,7 +16,7 @@ import type { NewDraft } from './useWorkshop';
 
 /** Where the form opens: a Block to add to, optionally the entry being fixed, and the one
  *  part of it to fix ("description", "routes", "section:Where to get it") from an app pencil. */
-export interface FormStart { blockId: string; entryId?: string; field?: string }
+export interface FormStart { blockId: string; entryId?: string; field?: string; theory?: boolean }
 
 /** What happened when a Draft was sent, for the Workshop's thank-you note. */
 export interface Posted { pageId: string; blockId: string; entryId?: string; draftId?: string; name: string }
@@ -79,7 +79,16 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
   const [blockId, setBlockId] = useState(start.blockId);
   const block = blocks.find((b) => b.id === blockId) ?? blocks[0];
   const [fixing, setFixing] = useState<Entry | undefined>(() => block?.entries.find((e) => e.id === start.entryId));
-  const [content, setContent] = useState<EntryContent>(() => restore?.content ?? (fixing ? contentOf(fixing) : blank()));
+  const [content, setContent] = useState<EntryContent>(() => {
+    if (restore) return restore.content;
+    const c = fixing ? contentOf(fixing) : blank();
+    // From an "Add it" invitation: start the missing part, empty, ready to fill in.
+    const label = start.field?.startsWith('section:') ? start.field.slice(8) : null;
+    if (label && !c.sections.some((s) => s.label === label)) c.sections = [...c.sections, { label, text: '' }];
+    // From "Share a theory": it's marked as not confirmed yet.
+    if (start.theory) c.flag = 'unconfirmed';
+    return c;
+  });
   const [source, setSource] = useState(restore?.source ?? '');
   // From an app pencil: show just that part, with the rest folded under "Edit other parts".
   const [showAll, setShowAll] = useState(!start.field || !fixing);
@@ -106,7 +115,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
   // A fix only counts once it differs from what's in the app.
   useEffect(() => {
     const worth = fixing
-      ? Boolean(source.trim()) || JSON.stringify(content) !== JSON.stringify(contentOf(fixing))
+      ? Boolean(source.trim()) || JSON.stringify(clean(content)) !== JSON.stringify(clean(contentOf(fixing)))
       : hasWriting(content, source);
     if (worth) saveUnsent(gameId, { blockId, entryId: fixing?.id, content, source });
   }, [gameId, blockId, fixing, content, source]);

@@ -2,27 +2,65 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Hammer, Hourglass, Pencil, TriangleAlert, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Hammer, Hourglass, Pencil, TriangleAlert, X } from 'lucide-react';
 import type { Block, Entry, EntryContent, Route } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
 import { ShareButton } from '@/components/ShareButton';
 import { RichText } from './TextLinks';
 import { Tip } from '@/components/Tip';
-import { initials, tintFor } from './entries';
+import { initials, tintFor, useTicks } from './entries';
 import { browserClient } from '@/lib/supabase/browser';
 
-/** An open Draft that fixes this entry, if there is one (so nobody writes the same fix twice). */
-function useWaitingFix(cardId?: string) {
-  const [id, setId] = useState<string | null>(null);
+interface OpenFix { id: string; theory: boolean; text: string; who: string }
+type Profile = { display_name?: string; username?: string } | null;
+const nameOf = (p: unknown) => { const a = (Array.isArray(p) ? p[0] : p) as Profile; return a?.display_name || a?.username || 'a villager'; };
+
+/** Open Drafts that change this entry (so nobody writes the same fix twice, and theories show). */
+function useOpenFixes(cardId?: string) {
+  const [fixes, setFixes] = useState<OpenFix[]>([]);
   useEffect(() => {
     const db = browserClient();
     if (!db || !cardId) return;
     let live = true;
-    db.from('drafts').select('id').eq('card_id', cardId).in('status', ['open', 'checking']).limit(1)
-      .then(({ data }) => { if (live) setId(data?.[0]?.id ?? null); });
+    db.from('drafts').select('id, theory, content, author:profiles!drafts_author_id_fkey(display_name, username)')
+      .eq('card_id', cardId).in('status', ['open', 'checking']).order('created_at', { ascending: false }).limit(5)
+      .then(({ data }) => {
+        if (!live) return;
+        setFixes((data ?? []).map((d) => ({
+          id: d.id, theory: Boolean(d.theory), who: nameOf(d.author),
+          text: ((d.content as { description?: string })?.description ?? '').split('\n')[0],
+        })));
+      });
     return () => { live = false; };
   }, [cardId]);
-  return cardId ? id : null;
+  return cardId ? fixes : [];
+}
+
+/** Who wrote the change that's in the app now, if it came from a Draft. */
+function useImprovedBy(revision?: number) {
+  const [who, setWho] = useState<string | null>(null);
+  useEffect(() => {
+    const db = browserClient();
+    if (!db || !revision) return;
+    let live = true;
+    db.from('card_revisions').select('draft_id').eq('id', revision).maybeSingle().then(({ data }) => {
+      const draft = data?.draft_id as string | undefined;
+      if (!draft || !live) return;
+      db.from('drafts').select('author:profiles!drafts_author_id_fkey(display_name, username)').eq('id', draft).maybeSingle()
+        .then(({ data: d }) => { if (live && d) setWho(nameOf(d.author)); });
+    });
+    return () => { live = false; };
+  }, [revision]);
+  return revision ? who : null;
+}
+
+/** Parts most entries in this Block have, which this one is missing: invitations to add them. */
+function missingParts(entry: Entry, block: Block) {
+  const n = block.entries.length;
+  const counts = new Map<string, number>();
+  for (const e of block.entries) for (const s of e.sections) counts.set(s.label, (counts.get(s.label) ?? 0) + 1);
+  const common = [...counts].filter(([, c]) => c >= Math.max(2, n * 0.4)).map(([l]) => l);
+  return common.filter((l) => !entry.sections.some((s) => s.label === l));
 }
 
 /** A small pencil beside one part of an entry: fix just that part. */
@@ -71,7 +109,15 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
   const at = list.findIndex((e) => e.id === entry.id);
   const prev = at > 0 ? list[at - 1] : undefined;
   const next = at >= 0 && at < list.length - 1 ? list[at + 1] : undefined;
-  const waiting = useWaitingFix(entry.ref?.card);
+  const fixes = useOpenFixes(entry.ref?.card);
+  const improvedBy = useImprovedBy(entry.ref?.revision);
+  const [ticks, toggleTick] = useTicks(gameId);
+  const people = (block.look ?? 'slots') === 'portraits';
+  const recruitKey = `recruited:${block.id}.${entry.id}`;
+  // A Mystery: an open question players can answer or theorize about.
+  const status = entry.categories.Status;
+  const mystery = Boolean(status && block.filters?.includes('Status'));
+  const solved = mystery && !['Open', 'Theory'].includes(status!);
   const fixHref = (field: string) => `/g/${gameId}/workshop?fix=${block.id}.${entry.id}&field=${encodeURIComponent(field)}`;
 
   useEffect(() => {
@@ -106,14 +152,50 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
         </div>
 
         <div className="overflow-y-auto px-5 pb-6 pt-3">
-          {waiting && (
-            <Link href={`/g/${gameId}/workshop?draft=${waiting}`} className="mb-4 flex items-center gap-2 rounded-2xl bg-sun-soft px-3 py-2 text-sm hover:ring-1 hover:ring-sun">
+          {fixes.length > 0 && !mystery && (
+            <Link href={`/g/${gameId}/workshop?draft=${fixes[0].id}`} className="mb-4 flex items-center gap-2 rounded-2xl bg-sun-soft px-3 py-2 text-sm hover:ring-1 hover:ring-sun">
               <Hourglass size={15} className="shrink-0 text-sun" aria-hidden="true" />
               <span className="flex-1"><span className="font-bold">A fix is waiting for votes.</span> See it before writing another</span>
             </Link>
           )}
-          <EntryDetails entry={entry} block={block} route={route} routes={routes} fixHref={fixHref} />
+          <EntryDetails entry={entry} block={block} route={route} routes={routes} fixHref={fixHref}
+            invite={{ description: !entry.description && block.type === 'collection', sections: missingParts(entry, block) }} />
+
+          {people && (
+            <button type="button" onClick={() => toggleTick(recruitKey)} aria-pressed={ticks.has(recruitKey)}
+              className={'mt-4 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold ring-1 ' + (ticks.has(recruitKey) ? 'bg-leaf text-white ring-leaf' : 'ring-line hover:ring-leaf')}>
+              <Check size={15} aria-hidden="true" /> {ticks.has(recruitKey) ? 'Recruited' : 'Mark as recruited'}
+            </button>
+          )}
+
+          {mystery && (
+            <div className="mt-5 grid gap-3 rounded-2xl bg-plum-soft p-3">
+              {solved && improvedBy && <p className="text-sm font-bold text-plum">Solved by {improvedBy}</p>}
+              {!solved && (
+                <div className="flex flex-wrap gap-2">
+                  <Link href={fixHref('description')} className="rounded-full bg-plum px-4 py-2 text-sm font-bold text-white">I know the answer</Link>
+                  <Link href={`${fixHref('description')}&theory=1`} className="rounded-full bg-card px-4 py-2 text-sm font-bold text-plum ring-1 ring-plum/40">Share a theory</Link>
+                </div>
+              )}
+              {fixes.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-plum">{fixes.some((f) => !f.theory) ? 'Answers and theories so far' : 'Theories so far'}</p>
+                  <ul className="mt-1.5 grid gap-1.5">
+                    {fixes.map((f) => (
+                      <li key={f.id}>
+                        <Link href={`/g/${gameId}/workshop?draft=${f.id}`} className="block rounded-xl bg-card px-3 py-2 text-sm ring-1 ring-line hover:ring-plum">
+                          <span className="block">{f.text || 'See the Draft'}</span>
+                          <span className="text-xs text-muted">{f.theory ? 'Theory' : 'Answer'} by {f.who} · tap to vote</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
           {entry.source && <p className="mt-6 text-xs text-muted">Source: {entry.source}</p>}
+          {improvedBy && !solved && <p className="mt-1 text-xs text-muted">Last improved by {improvedBy}</p>}
           <Tip text="Opens a Draft with this entry filled in. Change what's wrong; villagers check it" tint="leaf" className="mt-4">
             <Link href={`/g/${gameId}/workshop?fix=${block.id}.${entry.id}`} className="btn-quiet inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold">
               <Hammer size={15} className="text-leaf" aria-hidden="true" /> Suggest a fix
@@ -126,10 +208,12 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
 }
 
 /** What an entry says: used in the app's panel and in Workshop previews. */
-export function EntryDetails({ entry, block, route, routes, fixHref }: {
+export function EntryDetails({ entry, block, route, routes, fixHref, invite }: {
   entry: EntryContent; block: Pick<Block, 'title' | 'icon'>; route: Route | 'all'; routes: RouteOption[];
   /** In the app, each part gets a pencil that opens a fix for just that part. */
   fixHref?: (field: string) => string;
+  /** In the app, parts this entry is missing, shown as invitations to add them. */
+  invite?: { description: boolean; sections: string[] };
 }) {
   const name = (r: Route) => routes.find((o) => o.key === r)?.label ?? r;
   const mine = route !== 'all' ? entry.perRoute?.[route] : undefined;
@@ -164,7 +248,7 @@ export function EntryDetails({ entry, block, route, routes, fixHref }: {
       {mine && (
         <div className="mt-4 rounded-2xl bg-leaf-soft p-3">
           <p className="text-xs font-bold uppercase tracking-wide text-leaf">As {name(route as Route)}</p>
-          {mine.map((s) => <p key={s.label} className="mt-1"><span className="font-bold">{s.label}:</span> {s.text}</p>)}
+          {mine.map((s) => <p key={s.label} className="mt-1"><span className="font-bold">{s.label}:</span> <RichText text={s.text} skip={entry.name} /></p>)}
         </div>
       )}
 
@@ -184,12 +268,14 @@ export function EntryDetails({ entry, block, route, routes, fixHref }: {
           <dl className="mt-1.5 grid gap-1">
             {allRoutes.map(([r, ss]) => (
               <div key={r} className="flex gap-3 rounded-xl bg-card-2 px-3 py-1.5 text-sm">
-                <dt className="w-20 shrink-0 font-bold">{name(r)}</dt><dd>{ss.map((s) => s.text).join(' · ')}</dd>
+                <dt className="w-20 shrink-0 font-bold">{name(r)}</dt><dd><RichText text={ss.map((s) => s.text).join(' · ')} skip={entry.name} /></dd>
               </div>
             ))}
           </dl>
         </div>
       )}
+
+      {fixHref && invite?.description && <Invite label="About" href={fixHref('description')} />}
 
       {entry.sections.map((s) => (
         <section key={s.label} className="mt-4">
@@ -201,6 +287,17 @@ export function EntryDetails({ entry, block, route, routes, fixHref }: {
         </section>
       ))}
 
+      {fixHref && invite?.sections.map((l) => <Invite key={l} label={l} href={fixHref(`section:${l}`)} />)}
     </>
+  );
+}
+
+/** A part nobody has added yet, with a way to add it. */
+function Invite({ label, href }: { label: string; href: string }) {
+  return (
+    <section className="mt-4 rounded-2xl border border-dashed border-line px-3 py-2.5">
+      <h3 className="text-xs font-bold uppercase tracking-wide text-muted">{label}</h3>
+      <p className="text-sm text-muted">Nobody&apos;s added this yet. Know it? <Link href={href} className="font-bold text-leaf underline">Add it</Link></p>
+    </section>
   );
 }

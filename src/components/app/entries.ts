@@ -1,9 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { Entry, Route } from '@/data/pages';
 import type { Searchable } from '@/lib/search';
+import { useVillager } from '@/components/useVillager';
+import { browserClient } from '@/lib/supabase/browser';
 
 // Small helpers shared by the game app's Blocks.
 
@@ -79,21 +81,71 @@ export function useRecent(gameId: string) {
   return recent;
 }
 
-/** Checklist ticks are the player's own, kept on this device. */
+// Your marks in a game: checklist ticks ("block.entry") and recruited units
+// ("recruited:block.entry"). One shared store per game, so every Block and panel agrees.
+// Kept on this device; when you're signed in, also in your account (public.player_marks),
+// so they follow you to every device.
+interface TickStore { ticks: Set<string>; listeners: Set<() => void>; loaded: boolean; account?: string }
+const tickStores = new Map<string, TickStore>();
+const NO_TICKS = new Set<string>();
+
+function tickStore(gameId: string) {
+  let s = tickStores.get(gameId);
+  if (!s) { s = { ticks: NO_TICKS, listeners: new Set(), loaded: false }; tickStores.set(gameId, s); }
+  return s;
+}
+
+function setTicks(gameId: string, next: Set<string>) {
+  const s = tickStore(gameId);
+  s.ticks = next;
+  try { localStorage.setItem(`village:${gameId}:ticks`, JSON.stringify([...next])); } catch { /* storage unavailable */ }
+  s.listeners.forEach((l) => l());
+}
+
+/** Reads this device's ticks, once per game. */
+function loadTicks(gameId: string) {
+  const s = tickStore(gameId);
+  if (s.loaded) return;
+  s.loaded = true;
+  try { setTicks(gameId, new Set(JSON.parse(localStorage.getItem(`village:${gameId}:ticks`) ?? '[]'))); } catch { /* start empty */ }
+}
+
+/** Signed in: merge with your account once, and send up anything ticked on this device. */
+function linkTicks(gameId: string, profileId: string) {
+  const s = tickStore(gameId);
+  const db = browserClient();
+  if (!db || s.account === profileId) return;
+  s.account = profileId;
+  db.from('player_marks').select('mark').eq('game_id', gameId).then(({ data, error }) => {
+    if (error) { s.account = undefined; return; } // no table yet: stay on this device
+    const saved = new Set((data ?? []).map((r) => r.mark as string));
+    const fresh = [...s.ticks].filter((t) => !saved.has(t));
+    if (fresh.length) db.from('player_marks').insert(fresh.map((mark) => ({ profile_id: profileId, game_id: gameId, mark }))).then(() => {});
+    setTicks(gameId, new Set([...s.ticks, ...saved]));
+  });
+}
+
+function flipTick(gameId: string, id: string) {
+  const s = tickStore(gameId);
+  const next = new Set(s.ticks);
+  const on = !next.has(id);
+  if (on) next.add(id); else next.delete(id);
+  setTicks(gameId, next);
+  const db = browserClient();
+  if (!db || !s.account) return;
+  if (on) db.from('player_marks').insert({ profile_id: s.account, game_id: gameId, mark: id }).then(() => {});
+  else db.from('player_marks').delete().eq('profile_id', s.account).eq('game_id', gameId).eq('mark', id).then(() => {});
+}
+
 export function useTicks(gameId: string) {
-  const key = `village:${gameId}:ticks`;
-  const [ticks, setTicks] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    try {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- reading device storage after hydration
-      setTicks(new Set(JSON.parse(localStorage.getItem(key) ?? '[]')));
-    } catch { /* storage unavailable: start empty */ }
-  }, [key]);
-  const toggle = useCallback((id: string) => setTicks((t) => {
-    const next = new Set(t);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    try { localStorage.setItem(key, JSON.stringify([...next])); } catch { /* ignore */ }
-    return next;
-  }), [key]);
+  const me = useVillager();
+  const ticks = useSyncExternalStore(
+    (cb) => { const s = tickStore(gameId); s.listeners.add(cb); return () => { s.listeners.delete(cb); }; },
+    () => tickStore(gameId).ticks,
+    () => NO_TICKS,
+  );
+  useEffect(() => loadTicks(gameId), [gameId]);
+  useEffect(() => { if (me?.id) linkTicks(gameId, me.id); }, [gameId, me?.id]);
+  const toggle = useCallback((id: string) => flipTick(gameId, id), [gameId]);
   return [ticks, toggle] as const;
 }
