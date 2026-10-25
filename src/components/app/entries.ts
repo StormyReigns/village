@@ -10,6 +10,14 @@ import { browserClient } from '@/lib/supabase/browser';
 // Small helpers shared by the game app's Blocks.
 
 const TINTS = ['bg-leaf-soft text-leaf', 'bg-sky-soft text-sky', 'bg-berry-soft text-berry', 'bg-sun-soft text-sun', 'bg-plum-soft text-plum', 'bg-teal-soft text-teal'];
+const TINT_NAMES = ['leaf', 'sky', 'berry', 'sun', 'plum', 'teal'];
+
+/** The same steady color as tintFor, as a CSS color (for pieces outside a Page). */
+export function colorFor(word: string) {
+  let h = 0;
+  for (const ch of word) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return `var(--${TINT_NAMES[h % TINT_NAMES.length]})`;
+}
 
 /** A steady soft color for a word, so each group or type gets its own tint. */
 export function tintFor(word: string) {

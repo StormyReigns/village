@@ -96,3 +96,8 @@ export const PIECE_PLAIN_PATH = toPath(rounded(corners()));
 
 /** The piece as everyone sees it: with the slice. */
 export const PIECE_PATH = toPath(slideBand(rounded(corners())));
+
+/** The piece as a CSS mask, for cutting a picture to its shape (no ids needed). */
+export const PIECE_MASK = `url("data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${PIECE_VIEWBOX.x} ${PIECE_VIEWBOX.y} ${PIECE_VIEWBOX.width} ${PIECE_VIEWBOX.height}"><path d="${PIECE_PATH}"/></svg>`,
+)}")`;

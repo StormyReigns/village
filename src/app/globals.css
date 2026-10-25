@@ -112,16 +112,12 @@ body {
 /* Menus and dropdowns really do sit above the page, so they keep a shadow. */
 .pop { box-shadow: var(--shadow-lift), inset 0 0 0 1px var(--line); }
 
-/* A game-app Block: the one raised thing on a Page. A hairline in the Page's color, a thick
-   darker bottom edge and a soft shadow. Set --tint to the Page's color. (Placeholder until
-   the new block shape is settled; every candidate keeps the thick bottom edge.) */
+/* A game-app Block: a flat white panel on its Page's color field, with a hairline in the
+   Page's color. Only entries get the piece shape. Set --tint to the Page's color. */
 .app-block {
   --tint: var(--muted);
   background: var(--card);
-  box-shadow:
-    inset 0 0 0 1.5px color-mix(in srgb, var(--tint) 35%, var(--line)),
-    0 6px 0 color-mix(in srgb, var(--tint) 75%, white),
-    0 18px 30px -18px rgb(16 24 40 / 0.35);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tint) 22%, var(--line));
 }
 
 @media (prefers-reduced-motion: no-preference) {

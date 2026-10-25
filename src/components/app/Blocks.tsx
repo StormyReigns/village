@@ -7,6 +7,7 @@ import type { Block, Entry, Page, Route, Tint } from '@/data/pages';
 import { sharePath, type Mention } from '@/data/pages/links';
 import { ShareButton } from '@/components/ShareButton';
 import { BlockIcon } from '@/components/Icon';
+import { Piece } from '@/components/Piece';
 import { Tip } from '@/components/Tip';
 import { ScrollRow } from '@/components/ScrollRow';
 import { EntryIcon, EntryPanel, Lines, type RouteOption } from './EntryPanel';
@@ -47,7 +48,7 @@ export function BlockView({ block, ctx: page }: { block: Block; ctx: BlockContex
   return (
     <section id={block.id} aria-labelledby={`${block.id}-title`} className="app-block min-w-0 scroll-mt-20 rounded-[1.25rem] p-4 sm:p-5" style={{ '--tint': `var(--${ctx.tint})` } as React.CSSProperties}>
       <div className="flex items-center gap-3">
-        <span className={`grid size-10 place-items-center rounded-2xl ${t.soft} ${t.text}`}><BlockIcon name={block.icon} size={19} /></span>
+        <BlockIcon name={block.icon} size={22} className={`shrink-0 ${t.text}`} />
         <div className="min-w-0 flex-1">
           <h2 id={`${block.id}-title`} className="font-display text-xl leading-tight">{block.title}</h2>
           {intro && <p className="text-sm text-muted">{intro}</p>}
@@ -67,7 +68,7 @@ export function BlockView({ block, ctx: page }: { block: Block; ctx: BlockContex
           <span className={`grid size-12 place-items-center rounded-full ${t.soft} ${t.text}`}><Sparkles size={20} aria-hidden="true" /></span>
           <p className="font-display text-lg">Nothing here yet</p>
           <p className="max-w-xs text-sm text-muted">Know something that belongs here? Add the first one in the Workshop.</p>
-          <Link href={`/g/${ctx.gameId}/workshop?add=${block.id}`} className={`gloss mt-1 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-white ${t.solid}`}>
+          <Link href={`/g/${ctx.gameId}/workshop?add=${block.id}`} className="btn-primary mt-1 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold">
             <Plus size={15} aria-hidden="true" /> Add the first one
           </Link>
         </div>
@@ -113,7 +114,7 @@ function OpenPanel({ block, list, ctx }: { block: Block; list: Entry[]; ctx: Blo
 
   if (!entry) return null;
   return (
-    <EntryPanel entry={entry} block={block} list={list} route={ctx.route} routes={ctx.routes} gameId={ctx.gameId} sharePath={sharePath(ctx.gameId, ctx.page, block, entry)}
+    <EntryPanel entry={entry} block={block} list={list} route={ctx.route} routes={ctx.routes} gameId={ctx.gameId} sharePath={sharePath(ctx.gameId, ctx.page, block, entry)} color={`var(--${ctx.tint})`}
       place={block.look === 'map' ? { clearKey: clearKey(block, entry), here: ctx.mentions?.[entry.name.toLowerCase()] ?? [] } : undefined}
       onGo={(e) => set(`${block.id}.${e.id}`, 'replace')} onClose={close} />
   );
@@ -167,6 +168,7 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const [region, setRegion] = useState<Region | null>(null);
   const look = isMap ? 'rows' : block.look ?? 'slots';
   const t = TINT[ctx.tint];
+  const color = `var(--${ctx.tint})`; // entries are pieces in their Page's color
 
   const values = useMemo(() => {
     if (!filter) return [];
@@ -245,18 +247,18 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
         <div key={g || 'all'} className="mt-4">
           {g && <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">{g}</h3>}
           {look === 'portraits' && (
-            <ul className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            <ul className="grid grid-cols-3 gap-x-3 gap-y-4 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {es.map((e) => (
                 <li key={e.id}>
-                  <Portrait e={e} note={mine(e) ?? (filter ? e.categories[filter] : undefined)} strong={Boolean(mine(e))} onOpen={() => openIt(e)}
+                  <Portrait e={e} color={color} note={mine(e) ?? (filter ? e.categories[filter] : undefined)} strong={Boolean(mine(e))} onOpen={() => openIt(e)}
                     recruited={ticks.has(`recruited:${block.id}.${e.id}`)} onRecruit={() => toggle(`recruited:${block.id}.${e.id}`)} />
                 </li>
               ))}
             </ul>
           )}
           {look === 'slots' && (
-            <ul className="grid grid-cols-4 gap-x-2 gap-y-3 sm:grid-cols-5 xl:grid-cols-7">
-              {es.map((e) => <li key={e.id}><Slot e={e} block={block} filter={filter} onOpen={() => openIt(e)} /></li>)}
+            <ul className="grid grid-cols-3 gap-x-3 gap-y-4 sm:grid-cols-5 xl:grid-cols-7">
+              {es.map((e) => <li key={e.id}><Slot e={e} color={color} filter={filter} onOpen={() => openIt(e)} /></li>)}
             </ul>
           )}
           {look === 'rows' && (
@@ -264,7 +266,7 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
               {es.map((e) => (
                 <li key={e.id}>
                   <button onClick={() => openIt(e)} className="flex w-full items-center gap-3 rounded-2xl bg-card-2 p-2.5 text-left ring-1 ring-line hover:ring-2 hover:ring-[var(--line)] hover:bg-card">
-                    <EntryIcon entry={e} block={block} size="sm" />
+                    <EntryIcon entry={e} block={block} size="sm" color={color} />
                     <span className="min-w-0 flex-1">
                       <span className="block font-bold leading-tight">{e.name}</span>
                       {e.description && <span className="line-clamp-1 text-sm text-muted">{e.description}</span>}
@@ -284,46 +286,35 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
   );
 }
 
-/** A character card: a tall portrait with a name plate. */
-function Portrait({ e, note, strong, onOpen, recruited, onRecruit }: {
-  e: Entry; note?: string; strong: boolean; onOpen: () => void; recruited?: boolean; onRecruit?: () => void;
+/** A character: their piece (picture or initials) with the name and a note underneath. */
+function Portrait({ e, color, note, strong, onOpen, recruited, onRecruit }: {
+  e: Entry; color: string; note?: string; strong: boolean; onOpen: () => void; recruited?: boolean; onRecruit?: () => void;
 }) {
-  const tint = tintFor(Object.values(e.categories)[0] ?? e.name);
   return (
     <div className="relative">
     {onRecruit && (
       <button type="button" onClick={onRecruit} role="checkbox" aria-checked={recruited} aria-label={`Recruited: ${e.name}`}
-        className={'absolute right-1.5 top-1.5 z-10 grid size-7 place-items-center rounded-full ring-2 transition ' + (recruited ? 'bg-leaf text-white ring-white' : 'bg-card/80 text-muted ring-white/70 hover:text-ink')}>
+        className={'absolute -right-1 -top-1 z-10 grid size-7 place-items-center rounded-full ring-2 transition ' + (recruited ? 'bg-leaf text-white ring-white' : 'bg-card text-muted ring-line hover:text-ink')}>
         <Check size={15} aria-hidden="true" />
       </button>
     )}
-    <button onClick={onOpen} className={'lift flex w-full flex-col overflow-hidden rounded-2xl bg-card text-left ring-1 hover:ring-2 ' + (recruited ? 'ring-leaf' : 'ring-line')}>
-      <span className={`relative grid aspect-[6/7] w-full place-items-center ${tint}`}>
-        {e.icon
-          // eslint-disable-next-line @next/next/no-img-element -- community pictures, sized small
-          ? <img src={e.icon} alt="" className="absolute inset-0 size-full object-cover" />
-          : <span className="font-display text-3xl opacity-80">{initials(e.name)}</span>}
-        <span className="gloss absolute inset-0" aria-hidden="true" />
-      </span>
-      <span className="px-2 py-1.5">
-        <span className="block truncate text-sm font-bold">{e.name}</span>
-        {note && <span className={'block truncate text-[11px] leading-tight ' + (strong ? 'font-bold text-leaf' : 'text-muted')}>{note}</span>}
-      </span>
+    <button onClick={onOpen} className="group flex w-full flex-col items-center gap-1 text-center">
+      <Piece size="fill" color={color} image={e.icon} className="transition-transform group-hover:-translate-y-0.5">{e.icon ? null : initials(e.name)}</Piece>
+      <span className="w-full truncate text-sm font-bold">{e.name}</span>
+      {note && <span className={'-mt-1 w-full truncate text-[11px] leading-tight ' + (strong ? 'font-bold text-leaf' : 'text-muted')}>{note}</span>}
     </button>
     </div>
   );
 }
 
-/** An inventory slot: a square frame with the item inside, its name underneath. */
-function Slot({ e, block, filter, onOpen }: { e: Entry; block: Block; filter?: string; onOpen: () => void }) {
+/** An item: its piece (picture or initials) with the name and its type underneath. */
+function Slot({ e, color, filter, onOpen }: { e: Entry; color: string; filter?: string; onOpen: () => void }) {
   const kind = filter ? e.categories[filter] : undefined;
   return (
-    <button onClick={onOpen} className="group flex w-full flex-col items-center gap-1.5 text-center">
-      <span className="lift relative grid aspect-square w-full place-items-center rounded-2xl bg-card-2 shadow-[inset_0_2px_6px_rgb(16_24_40/0.08)] ring-1 ring-line group-hover:ring-2">
-        <EntryIcon entry={e} block={block} />
-        {kind && <span className={`absolute right-1.5 top-1.5 size-2.5 rounded-full ring-2 ring-card-2 ${tintFor(kind).split(' ')[0].replace('-soft', '')}`} title={kind} />}
-      </span>
+    <button onClick={onOpen} className="group flex w-full flex-col items-center gap-1 text-center">
+      <Piece size="fill" color={color} image={e.icon} className="transition-transform group-hover:-translate-y-0.5">{e.icon ? null : initials(e.name)}</Piece>
       <span className="line-clamp-2 text-xs font-bold leading-tight">{e.name}</span>
+      {kind && <span className="-mt-0.5 text-[11px] leading-tight text-muted">{kind}</span>}
     </button>
   );
 }
@@ -354,10 +345,8 @@ function Timeline({ block, ctx }: { block: Block; ctx: BlockContext }) {
           const [part, title] = e.name.includes(': ') ? e.name.split(/: (.*)/) : ['', e.name];
           return (
             <li key={e.id} id={`${block.id}-${e.id}`} className="relative scroll-mt-20">
-              <span className={`gloss absolute -left-12 top-3 grid size-10 place-items-center rounded-full font-display text-white ${t.solid}`}>
-                {e.order === 0 ? '★' : e.order}
-              </span>
-              <article className={`group rounded-2xl bg-gradient-to-br ${t.bar} to-card p-4 ring-1 ring-line`}>
+              <span className="absolute -left-12 top-3"><Piece size={44} color={`var(--${ctx.tint})`}>{e.order === 0 ? '★' : e.order}</Piece></span>
+              <article className="group rounded-2xl bg-card-2 p-4 ring-1 ring-line">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     {part && <p className={`text-xs font-bold uppercase tracking-wide ${t.text}`}>{part}</p>}
@@ -413,15 +402,15 @@ function Checklist({ block, ctx }: { block: Block; ctx: BlockContext }) {
     const on = ticks.has(key(e));
     const next = !on && i === 0;
     return (
-      <li key={e.id} className={'flex items-start gap-3 rounded-2xl p-3 ring-1 ' + (next ? `${t.soft} ${t.ring}` : 'bg-card-2 ring-line') + (on ? ' opacity-60' : '')}>
+      <li key={e.id} className={'flex items-start gap-3 rounded-2xl p-3 ring-1 ' + (next ? 'bg-signal/15 ring-signal' : 'bg-card-2 ring-line') + (on ? ' opacity-60' : '')}>
         <Tip text={on ? 'Done. Tap to untick' : 'Tick it once it\'s done'} tint={ctx.tint} className="shrink-0">
-          <button onClick={() => toggle(key(e))} role="checkbox" aria-checked={on} aria-label={`Done: ${e.name}`}
-            className={'grid size-8 shrink-0 place-items-center rounded-xl ring-2 ' + (on ? `${t.solid} ${t.ring} text-white` : 'bg-card ring-line hover:ring-ink')}>
-            {on && <Check size={17} aria-hidden="true" />}
+          <button onClick={() => toggle(key(e))} role="checkbox" aria-checked={on} aria-label={`Done: ${e.name}`} className="shrink-0">
+            {/* The tick box is a piece: solid with a check when done, the split outline when not. */}
+            <Piece size={44} color={`var(--${ctx.tint})`} outline={!on}>{on ? <Check size={15} strokeWidth={3} aria-hidden="true" /> : null}</Piece>
           </button>
         </Tip>
         <button onClick={() => set(key(e))} className="min-w-0 flex-1 text-left">
-          {next && <span className={`block text-[11px] font-bold uppercase tracking-wide ${t.text}`}>Next up</span>}
+          {next && <span className="block text-[11px] font-bold uppercase tracking-wide text-ink">Next up</span>}
           <span className={'block font-bold leading-tight ' + (on ? 'line-through' : '')}>{e.name}</span>
           {deadline(e) && !on && (
             <span className={`mt-1 inline-flex items-start gap-1 rounded-lg bg-card px-2 py-0.5 text-sm ring-1 ring-line`}>
@@ -499,7 +488,7 @@ function Guide({ block, ctx }: { block: Block; ctx: BlockContext }) {
                   {steps.text.split('\n').filter(Boolean).map((s, i, all) => (
                     <li key={i} className="relative flex gap-3 pb-3 last:pb-0">
                       {i < all.length - 1 && <span className="absolute bottom-0 left-[0.8rem] top-7 w-0.5 bg-line" aria-hidden="true" />}
-                      <span className={`gloss z-10 grid size-6.5 shrink-0 place-items-center rounded-full text-xs font-bold text-white ${t.solid}`}>{i + 1}</span>
+                      <span className={`z-10 grid size-6.5 shrink-0 place-items-center rounded-full text-xs font-bold text-white ${t.solid}`}>{i + 1}</span>
                       <span className="pt-0.5"><RichText text={s} /></span>
                     </li>
                   ))}

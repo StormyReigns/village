@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Clock, Eye, EyeOff, Hourglass, Info, Search } from 'lucide-react';
 import type { Block, Entry, Page, Route } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
+import { Piece } from '@/components/Piece';
 import { Tip } from '@/components/Tip';
 import { usePlayerPrefs } from '@/components/usePlayerPrefs';
 import { BlockView, type BlockContext } from './Blocks';
@@ -33,7 +34,7 @@ function RoutePicker({ game, route, onPick, solid }: { game: AppGame; route: Rou
       <span className="hidden px-2 text-xs font-bold uppercase tracking-wide text-muted sm:inline">Flame Lord</span>
       {[{ key: 'all', label: 'All' } as const, ...game.routes].map((r) => (
         <button key={r.key} role="radio" aria-checked={route === r.key} onClick={() => onPick(r.key)}
-          className={'shrink-0 rounded-full px-2.5 py-1.5 text-sm font-bold sm:px-3 ' + (route === r.key ? `gloss ${solid} text-white` : 'hover:bg-card-2')}>
+          className={'shrink-0 rounded-full px-2.5 py-1.5 text-sm font-bold sm:px-3 ' + (route === r.key ? solid : 'hover:bg-card-2')}>
           {r.label}
         </button>
       ))}
@@ -74,11 +75,12 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [], mention
   };
 
   return (
-    <div className="mt-3 lg:mt-0">
+    // A Page is a field of its color; its Blocks sit on it as white panels (brand rules in CLAUDE.md).
+    <div className={`-mx-4 -mt-4 px-4 pb-6 pt-5 sm:mx-0 sm:mt-0 sm:rounded-3xl sm:p-6 ${t.soft}`}>
       {(openOnLoad || scrollTo) && <Welcome game={game} />}
       <header className="relative px-1 pb-1">
         <div className="relative flex items-center gap-4">
-          <span className={`grid size-14 shrink-0 place-items-center rounded-2xl text-white ${t.solid}`}><BlockIcon name={page.icon} size={26} /></span>
+          <Piece size={84} color={`var(--${page.tint})`}><BlockIcon name={page.icon} size={24} strokeWidth={2.4} /></Piece>
           <div className="min-w-0">
             <h1 className="font-display text-3xl leading-tight">{page.title}</h1>
             <p className="text-muted">{page.blurb}</p>
@@ -88,7 +90,7 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [], mention
           <div className="relative mt-4 flex flex-wrap items-center gap-2">
             {byRoute && (
               <Tip text="Pick your Flame Lord to see only your route's units, deadlines and story" tint={page.tint} className="max-w-full">
-                <RoutePicker game={game} route={prefs.route} onPick={(r) => setPrefs({ route: r })} solid={t.solid} />
+                <RoutePicker game={game} route={prefs.route} onPick={(r) => setPrefs({ route: r })} solid="bg-signal text-ink" />
               </Tip>
             )}
             {hasSpoilers && (
@@ -214,7 +216,7 @@ export function AppHome({ game, pages, cover }: { game: AppGame; pages: Page[]; 
           {game.routes.length > 0 && (
             <div className="mt-3">
               <p className="mb-1.5 text-sm font-bold text-white/90">{game.routeQuestion}</p>
-              <RoutePicker game={game} route={prefs.route} onPick={(r) => setPrefs({ route: r })} solid="bg-berry" />
+              <RoutePicker game={game} route={prefs.route} onPick={(r) => setPrefs({ route: r })} solid="bg-signal text-ink" />
             </div>
           )}
         </div>

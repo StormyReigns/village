@@ -8,7 +8,8 @@ import { BlockIcon } from '@/components/Icon';
 import { ShareButton } from '@/components/ShareButton';
 import { RichText } from './TextLinks';
 import { Tip } from '@/components/Tip';
-import { initials, tintFor, useTicks } from './entries';
+import { colorFor, initials, tintFor, useTicks } from './entries';
+import { Piece } from '@/components/Piece';
 import { browserClient } from '@/lib/supabase/browser';
 import type { Mention } from '@/data/pages/links';
 
@@ -84,17 +85,16 @@ export function Lines({ text, skip }: { text: string; skip?: string }) {
   return <ul className="grid gap-1">{lines.map((l, i) => <li key={i} className="flex gap-2"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-muted/60" /><span><RichText text={l} skip={skip} /></span></li>)}</ul>;
 }
 
-export function EntryIcon({ entry, block, size = 'md' }: { entry: EntryContent; block: Pick<Block, 'title' | 'icon'>; size?: 'sm' | 'md' | 'lg' }) {
-  const tint = tintFor(Object.values(entry.categories)[0] ?? block.title);
-  const box = size === 'lg' ? 'size-20 rounded-3xl text-2xl' : size === 'sm' ? 'size-10 rounded-xl text-sm' : 'size-14 rounded-2xl text-lg';
-  if (entry.icon) {
-    // eslint-disable-next-line @next/next/no-img-element -- community pictures, sized small
-    return <img src={entry.icon} alt="" className={`${box} object-cover`} />;
-  }
+/**
+ * An entry as a piece: its picture, or its initials below the slice. In a Page it takes
+ * the Page's `color`; elsewhere (Workshop, search) a steady color from its type.
+ */
+export function EntryIcon({ entry, block, size = 'md', color }: { entry: EntryContent; block: Pick<Block, 'title' | 'icon'>; size?: 'sm' | 'md' | 'lg'; color?: string }) {
+  const px = size === 'lg' ? 112 : size === 'sm' ? 46 : 64;
   return (
-    <span className={`gloss grid shrink-0 place-items-center font-display ${box} ${tint}`} aria-hidden="true">
-      {initials(entry.name) || <BlockIcon name={block.icon} size={20} />}
-    </span>
+    <Piece size={px} color={color ?? colorFor(Object.values(entry.categories)[0] ?? block.title)} image={entry.icon}>
+      {entry.icon ? null : initials(entry.name) || <BlockIcon name={block.icon} size={Math.round(px * 0.2)} />}
+    </Piece>
   );
 }
 
@@ -102,8 +102,10 @@ export function EntryIcon({ entry, block, size = 'md' }: { entry: EntryContent; 
  * An entry's details: a side panel on wide screens, a sheet from the bottom on phones.
  * Arrows (or ← →) step through the entries the player is looking at.
  */
-export function EntryPanel({ entry, block, list, route, routes, gameId, sharePath, place, onGo, onClose }: {
+export function EntryPanel({ entry, block, list, route, routes, gameId, sharePath, place, color, onGo, onClose }: {
   entry: Entry; block: Block; list: Entry[]; route: Route | 'all'; routes: RouteOption[]; gameId: string; sharePath: string;
+  /** The Page's color, for the entry's piece. */
+  color?: string;
   /** A place on a map Block: its "cleared" mark, and what else in the app mentions it. */
   place?: { clearKey: string; here: Mention[] };
   onGo: (e: Entry) => void; onClose: () => void;
@@ -161,7 +163,7 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
               <span className="flex-1"><span className="font-bold">A fix is waiting for votes.</span> See it before writing another</span>
             </Link>
           )}
-          <EntryDetails entry={entry} block={block} route={route} routes={routes} fixHref={fixHref}
+          <EntryDetails entry={entry} block={block} route={route} routes={routes} fixHref={fixHref} color={color}
             invite={{ description: !entry.description && block.type === 'collection', sections: missingParts(entry, block) }} />
 
           {place && (
@@ -223,8 +225,8 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
           {entry.source && <p className="mt-6 text-xs text-muted">Source: {entry.source}</p>}
           {improvedBy && !solved && <p className="mt-1 text-xs text-muted">Last improved by {improvedBy}</p>}
           <Tip text="Opens a Draft with this entry filled in. Change what's wrong; villagers check it" tint="leaf" className="mt-4">
-            <Link href={`/g/${gameId}/workshop?fix=${block.id}.${entry.id}`} className="btn-quiet inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold">
-              <Hammer size={15} className="text-leaf" aria-hidden="true" /> Suggest a fix
+            <Link href={`/g/${gameId}/workshop?fix=${block.id}.${entry.id}`} className="btn-primary inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold">
+              <Hammer size={15} aria-hidden="true" /> Suggest a fix
             </Link>
           </Tip>
         </div>
@@ -234,12 +236,14 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
 }
 
 /** What an entry says: used in the app's panel and in Workshop previews. */
-export function EntryDetails({ entry, block, route, routes, fixHref, invite }: {
+export function EntryDetails({ entry, block, route, routes, fixHref, invite, color }: {
   entry: EntryContent; block: Pick<Block, 'title' | 'icon'>; route: Route | 'all'; routes: RouteOption[];
   /** In the app, each part gets a pencil that opens a fix for just that part. */
   fixHref?: (field: string) => string;
   /** In the app, parts this entry is missing, shown as invitations to add them. */
   invite?: { description: boolean; sections: string[] };
+  /** The Page's color, for the entry's piece. */
+  color?: string;
 }) {
   const name = (r: Route) => routes.find((o) => o.key === r)?.label ?? r;
   const mine = route !== 'all' ? entry.perRoute?.[route] : undefined;
@@ -250,7 +254,7 @@ export function EntryDetails({ entry, block, route, routes, fixHref, invite }: {
   return (
     <>
       <div className="flex items-center gap-4">
-        <EntryIcon entry={entry} block={block} size="lg" />
+        <EntryIcon entry={entry} block={block} size="lg" color={color} />
         <div className="min-w-0">
           <h2 className="font-display text-2xl leading-tight">{entry.name}</h2>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
