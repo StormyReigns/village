@@ -2,6 +2,7 @@
 // Blocks and entries) lives in the database; see src/lib/app-data.ts.
 
 import type { Route } from '@/data/content/types';
+import type { Shade } from '@/lib/shades';
 
 export type GameStatus = 'prelaunch' | 'launch' | 'live';
 
@@ -17,6 +18,8 @@ export interface Game {
   /** Hue for this game's accents, from the village palette. */
   hue: 'berry' | 'sky' | 'leaf' | 'sun';
   genre: string;
+  /** How the genre shades the Page colors and corners (src/lib/shades.ts). Standard if unset. */
+  shade?: Shade;
   /**
    * Cover picture in /public, e.g. '/games/fortunes-weave/cover.webp' (16:9, our own art).
    * Until there is one, the tile shows a colored placeholder.
@@ -48,6 +51,7 @@ export const GAMES: Game[] = [
     next: 'Expansion Pass Wave 2 this holiday',
     hue: 'berry',
     genre: 'Tactics RPG',
+    shade: 'fantasy',
     popularity: 1,
   },
   {

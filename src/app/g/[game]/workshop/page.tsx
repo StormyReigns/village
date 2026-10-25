@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { ExternalLink } from 'lucide-react';
 import { AccountButton } from '@/components/AccountButton';
 import { TopBar } from '@/components/Logo';
+import { GameShade } from '@/components/GameShade';
 import type { Metadata } from 'next';
 import { GAMES, getGame } from '@/data/games';
 import { getApp } from '@/lib/app-data';
@@ -36,7 +37,8 @@ async function LoadedWorkshop({ params }: { params: PageProps<'/g/[game]/worksho
   const pages = await getApp(game.id);
   const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
   return (
-    <>
+    // Everything in the Workshop takes the game's genre shade.
+    <GameShade className="flex flex-1 flex-col">
       <TopBar compact actions={
         <>
           <Link href={`/g/${game.id}`} aria-label="Open the app"
@@ -50,6 +52,6 @@ async function LoadedWorkshop({ params }: { params: PageProps<'/g/[game]/worksho
         <span className="min-w-0 truncate font-bold">Workshop</span>
       </TopBar>
       <Workshop game={{ id: game.id, shortTitle: game.shortTitle, title: game.title }} pages={pages} routes={routes} />
-    </>
+    </GameShade>
   );
 }

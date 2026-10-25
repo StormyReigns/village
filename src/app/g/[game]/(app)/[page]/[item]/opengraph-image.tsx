@@ -24,14 +24,14 @@ export default async function Image({ params }: { params: Promise<{ game: string
     const answer = shareAnswer(block, entry, routes);
     const textFirst = answer.steps.length > 0 || answer.wide;
     return villageCard({
-      tint: page.tint, kicker: `${game.shortTitle} · ${type ?? block.title}`, title: entry.name, icon: !textFirst,
+      tint: page.tint, shade: game.shade, kicker: `${game.shortTitle} · ${type ?? block.title}`, title: entry.name, icon: !textFirst,
       facts: answer.facts, steps: answer.steps, tip: answer.tip,
     });
   }
 
   const visible = block.entries.filter((e) => !e.spoiler);
   return villageCard({
-    tint: page.tint, kicker: `${game.shortTitle} · ${page.title}`, title: block.title,
+    tint: page.tint, shade: game.shade, kicker: `${game.shortTitle} · ${page.title}`, title: block.title,
     rows: visible.map((e) => ({ name: e.name, tint: tintFor(Object.values(e.categories)[0] ?? block.title) })),
     more: block.entries.length - visible.length,
   });

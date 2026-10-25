@@ -6,13 +6,15 @@ import { getApp } from '@/lib/app-data';
 import { AppNav } from '@/components/app/AppNav';
 import { AccountButton } from '@/components/AccountButton';
 import { TopBar } from '@/components/Logo';
+import { GameShade } from '@/components/GameShade';
 import { withCovers } from '@/lib/pictures';
 
 // The game app: Pages made of Blocks, read from the database. The ink bar runs across the
 // top; computers get a sidebar, phones a bottom tab bar.
 export default function AppLayout({ children, params }: LayoutProps<'/g/[game]'>) {
   return (
-    <>
+    // Everything in the game's app takes its genre shade.
+    <GameShade className="flex flex-1 flex-col">
       <Suspense fallback={<TopBar compact />}>
         <Bar params={params} />
       </Suspense>
@@ -22,7 +24,7 @@ export default function AppLayout({ children, params }: LayoutProps<'/g/[game]'>
         </Suspense>
         <main className="min-w-0 lg:col-start-2">{children}</main>
       </div>
-    </>
+    </GameShade>
   );
 }
 

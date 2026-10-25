@@ -4,7 +4,8 @@ import type { Metadata } from 'next';
 import { GAMES, getGame } from '@/data/games';
 import { getApp } from '@/lib/app-data';
 import { PageView } from '@/components/app/PageView';
-import { TINT_HEX, entryLinks, mapMentions } from '@/data/pages/links';
+import { entryLinks, mapMentions } from '@/data/pages/links';
+import { shadeHex } from '@/lib/shades';
 
 export async function generateStaticParams() {
   const all = await Promise.all(GAMES.map(async (g) => (await getApp(g.id)).map((p) => ({ game: g.id, page: p.id }))));
@@ -24,7 +25,7 @@ export async function generateMetadata({ params }: PageProps<'/g/[game]/[page]'>
     twitter: { card: 'summary_large_image', title, description: p.blurb },
     // Discord colors the edge of the preview with this. It lives here, not in the viewport,
     // so the page can still be prerendered.
-    other: { 'theme-color': TINT_HEX[p.tint] },
+    other: { 'theme-color': shadeHex(p.tint, g.shade) },
   };
 }
 

@@ -13,7 +13,7 @@ export default async function Image({ params }: { params: Promise<{ game: string
   const page = (await getApp(gameId)).find((p) => p.id === pageId);
   if (!game || !page) return villageCard({ tint: 'leaf', kicker: 'Village', title: 'Not found' });
   return villageCard({
-    tint: page.tint, kicker: game.shortTitle, title: page.title, line: page.blurb,
+    tint: page.tint, shade: game.shade, kicker: game.shortTitle, title: page.title, line: page.blurb,
     rows: page.blocks.map((b) => ({ name: b.title, tint: tintFor(b.title) })),
   });
 }

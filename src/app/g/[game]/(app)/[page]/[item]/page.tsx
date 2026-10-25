@@ -4,7 +4,8 @@ import type { Metadata } from 'next';
 import { GAMES, getGame } from '@/data/games';
 import { getApp } from '@/lib/app-data';
 import { PageView } from '@/components/app/PageView';
-import { TINT_HEX, clip, entryLinks, itemParam, mapMentions, resolveItem, shareAnswer } from '@/data/pages/links';
+import { clip, entryLinks, itemParam, mapMentions, resolveItem, shareAnswer } from '@/data/pages/links';
+import { shadeHex } from '@/lib/shades';
 
 // A shared Block or entry: /g/fortunes-weave/items/paradise-fish. It shows the Page with
 // that entry open (or that Block in view), and gives Discord and other apps a proper
@@ -44,7 +45,7 @@ export async function generateMetadata({ params }: PageProps<'/g/[game]/[page]/[
     twitter: { card: 'summary_large_image', title, description },
     // Discord colors the edge of the preview with this. It lives here, not in the viewport,
     // so the page can still be prerendered.
-    other: { 'theme-color': TINT_HEX[page.tint] },
+    other: { 'theme-color': shadeHex(page.tint, game.shade) },
   };
 }
 

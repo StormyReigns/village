@@ -1,4 +1,4 @@
-import type { Block, Entry, Page, Tint } from './types';
+import type { Block, Entry, Page } from './types';
 
 // Clean, shareable addresses for a Block or an entry:
 //   /g/fortunes-weave/items/items           the Items Block
@@ -33,11 +33,6 @@ export function resolveItem(page: Page, item: string): { block: Block; entry?: E
   }
   return null;
 }
-
-/** The Pages' colors as plain hex, for places CSS variables can't reach (previews, Discord). */
-export const TINT_HEX: Record<Tint, string> = {
-  leaf: '#1f7a43', sky: '#1a6bb8', berry: '#c23a5c', sun: '#a85508', plum: '#7c4bc0', teal: '#0c7478',
-};
 
 /** A short plain-words summary of an entry, for link previews. Spoilers stay hidden. */
 export function summarize(block: Block, entry: Entry, routeNames: Record<string, string> = {}): { label: string; text: string }[] {

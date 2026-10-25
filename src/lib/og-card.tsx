@@ -2,7 +2,8 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
 import type { Tint } from '@/data/pages';
-import { TINT_HEX, clip } from '@/data/pages/links';
+import { clip } from '@/data/pages/links';
+import { shadeHex, type Shade } from './shades';
 import { PIECE_PATH, PIECE_SPOT, PIECE_VIEWBOX as V } from './piece';
 
 // The picture Discord (and Messages, Slack...) shows under a shared link: a bold poster in
@@ -67,6 +68,8 @@ export interface CardContent {
   rows?: Row[];
   /** How many more are inside than the rows show. */
   more?: number;
+  /** The game's genre shade (src/lib/shades.ts), so the picture matches its app. */
+  shade?: Shade;
 }
 
 const VIEWBOX = `${V.x} ${V.y} ${V.width} ${V.height}`;
@@ -90,8 +93,8 @@ const titleSize = (t: string, icon: boolean) => {
   return n <= 12 ? 120 : n <= 18 ? 96 : n <= 26 ? 76 : 62;
 };
 
-export async function villageCard({ tint, kicker, title, icon = false, line, facts = [], steps = [], tip, rows = [], more = 0 }: CardContent) {
-  const color = TINT_HEX[tint];
+export async function villageCard({ tint, shade: genre, kicker, title, icon = false, line, facts = [], steps = [], tip, rows = [], more = 0 }: CardContent) {
+  const color = shadeHex(tint, genre);
   const dark = shade(color, -0.3);
   const shown = rows.slice(0, 4);
   const stepsShown = steps.length === 4 ? steps : steps.slice(0, 3);
@@ -165,7 +168,7 @@ export async function villageCard({ tint, kicker, title, icon = false, line, fac
           <div style={{ display: 'flex', flexWrap: 'wrap', marginTop: 28 }}>
             {shown.map((r, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', width: '50%', marginBottom: 16 }}>
-                <OgPiece width={90} fill="white" label={initials(r.name)} labelColor={TINT_HEX[r.tint]} fontSize={22} />
+                <OgPiece width={90} fill="white" label={initials(r.name)} labelColor={shadeHex(r.tint, genre)} fontSize={22} />
                 <div style={{ display: 'flex', fontSize: 35, fontWeight: 800, marginLeft: 20, whiteSpace: 'nowrap' }}>{wclip(r.name, 19)}</div>
               </div>
             ))}
