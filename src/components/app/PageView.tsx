@@ -11,6 +11,7 @@ import { BlockView, type BlockContext } from './Blocks';
 import { TextLinksProvider, type TextLinkData } from './TextLinks';
 import { HelpSolve, NewInVillage, Welcome } from './HomeHooks';
 import { GLOSSARY, IN_GAME_DATES } from '@/data/glossary';
+import type { Mention } from '@/data/pages/links';
 import { EntryIcon, type RouteOption } from './EntryPanel';
 import { initials, entryText, onRoute, tintFor, useRecent, useTicks } from './entries';
 import { closest, rank } from '@/lib/search';
@@ -40,8 +41,9 @@ function RoutePicker({ game, route, onPick, solid }: { game: AppGame; route: Rou
   );
 }
 
-export function PageView({ game, page, openOnLoad, scrollTo, links = [] }: {
+export function PageView({ game, page, openOnLoad, scrollTo, links = [], mentions }: {
   game: AppGame; page: Page; openOnLoad?: string; scrollTo?: string; links?: TextLinkData['names'];
+  mentions?: Record<string, Mention[]>;
 }) {
   const textLinks = useMemo(() => ({ names: links, terms: GLOSSARY[game.id] ?? {}, gameDates: IN_GAME_DATES.has(game.id) }), [links, game.id]);
   // Arriving from a share link: open that entry (or bring that Block into view), then show
@@ -68,6 +70,7 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [] }: {
     routes: game.routes,
     spoilers: prefs.spoilers,
     onShowSpoilers: () => setPrefs({ spoilers: true }),
+    mentions,
   };
 
   return (

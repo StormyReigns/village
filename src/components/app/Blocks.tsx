@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Check, ChevronDown, Hourglass, Plus, Search, Sparkles, StickyNote } from 'lucide-react';
 import type { Block, Entry, Page, Route, Tint } from '@/data/pages';
-import { sharePath } from '@/data/pages/links';
+import { sharePath, type Mention } from '@/data/pages/links';
 import { ShareButton } from '@/components/ShareButton';
 import { BlockIcon } from '@/components/Icon';
 import { Tip } from '@/components/Tip';
@@ -14,6 +14,7 @@ import { entryText, initials, onRoute, rememberEntry, tintFor, useOpenEntry, use
 import { closest, rank } from '@/lib/search';
 import { useVillager } from '@/components/useVillager';
 import { RichText } from './TextLinks';
+import { RegionMap, RegionSheet, regionsOf, clearKey, type Region } from './MapBlock';
 import { TINT } from './tint';
 
 /** What every Block needs from the page around it. */
@@ -29,6 +30,8 @@ export interface BlockContext {
   onShowSpoilers: () => void;
   /** Reveal spoilers on every Page (the app-wide switch). */
   onShowAllSpoilers?: () => void;
+  /** For map Blocks: other entries that mention each region or place (lowercase name). */
+  mentions?: Record<string, Mention[]>;
 }
 
 export function BlockView({ block, ctx: page }: { block: Block; ctx: BlockContext }) {
@@ -111,6 +114,7 @@ function OpenPanel({ block, list, ctx }: { block: Block; list: Entry[]; ctx: Blo
   if (!entry) return null;
   return (
     <EntryPanel entry={entry} block={block} list={list} route={ctx.route} routes={ctx.routes} gameId={ctx.gameId} sharePath={sharePath(ctx.gameId, ctx.page, block, entry)}
+      place={block.look === 'map' ? { clearKey: clearKey(block, entry), here: ctx.mentions?.[entry.name.toLowerCase()] ?? [] } : undefined}
       onGo={(e) => set(`${block.id}.${e.id}`, 'replace')} onClose={close} />
   );
 }
@@ -157,7 +161,11 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const [sort, setSort] = useState(block.statName ? 'stat' : 'az');
   const [pick, setPick] = useState<string | null>(null);
   const filter = block.filters?.[0];
-  const look = block.look ?? 'slots';
+  // The map look shows region tiles; searching (or "List") shows the places as rows.
+  const isMap = block.look === 'map';
+  const [asList, setAsList] = useState(false);
+  const [region, setRegion] = useState<Region | null>(null);
+  const look = isMap ? 'rows' : block.look ?? 'slots';
   const t = TINT[ctx.tint];
 
   const values = useMemo(() => {
@@ -197,6 +205,14 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${block.title.toLowerCase()}`}
               aria-label={`Search ${block.title}`} className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted" />
           </label>
+          {isMap && (
+            <div role="group" aria-label="Show as" className="flex rounded-full bg-card-2 p-0.5 text-sm font-bold ring-1 ring-line">
+              {([[false, 'Map'], [true, 'List']] as const).map(([v, label]) => (
+                <button key={label} type="button" onClick={() => setAsList(v)} aria-pressed={asList === v}
+                  className={'rounded-full px-3 py-1.5 ' + (asList === v ? 'bg-card text-ink shadow-sm ring-1 ring-line' : 'text-muted hover:text-ink')}>{label}</button>
+              ))}
+            </div>
+          )}
           <label>
             <span className="sr-only">Sort</span>
             <select value={sort} onChange={(e) => setSort(e.target.value)} className="rounded-full bg-card-2 px-3 py-2 text-sm font-bold ring-1 ring-line">
@@ -214,14 +230,16 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
           <span className="text-muted">Tap the corner of a card once they join you.</span>
         </p>
       )}
-      {values.length > 1 && (
+      {values.length > 1 && !(isMap && !asList && !query.trim()) && (
         <ScrollRow className="-mx-1 mt-3 flex gap-1.5 px-1 pb-1" role="group" label={`Filter by ${filter}`}>
           <FilterChip on={!pick} tint={ctx.tint} onClick={() => setPick(null)}>All · {shown.length}</FilterChip>
           {values.map(([v, n]) => <FilterChip key={v} on={pick === v} tint={ctx.tint} onClick={() => setPick(pick === v ? null : v)}>{v} · {n}</FilterChip>)}
         </ScrollRow>
       )}
 
-      {list.length === 0 ? (
+      {isMap && !asList && !query.trim() ? (
+        <RegionMap block={block} ctx={ctx} regions={regionsOf(block, shown)} onOpen={setRegion} />
+      ) : list.length === 0 ? (
         <NothingFound query={query} shown={shown} block={block} ctx={ctx} onOpen={openIt} />
       ) : groups.map(([g, es]) => (
         <div key={g || 'all'} className="mt-4">
@@ -261,6 +279,7 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
       ))}
       <HiddenNote offRoute={offRoute} spoilers={spoilers} ctx={ctx} />
       <OpenPanel block={block} list={list} ctx={ctx} />
+      {region && <RegionSheet region={region} block={block} ctx={ctx} onClose={() => setRegion(null)} onOpenPlace={(e) => { setRegion(null); openIt(e); }} />}
     </>
   );
 }

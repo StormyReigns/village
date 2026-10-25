@@ -107,3 +107,34 @@ export function shareAnswer(block: Block, entry: Entry, routeNames: Record<strin
 export function entryLinks(gameId: string, pages: Page[]) {
   return pages.flatMap((p) => p.blocks.flatMap((b) => b.entries.filter((e) => !e.spoiler).map((e) => ({ name: e.name, href: sharePath(gameId, p, b, e) }))));
 }
+
+export interface Mention { name: string; where: string; href: string }
+
+/**
+ * For map Blocks on this Page: the other entries that mention a region or place by name
+ * (an item "in Saveilon", a unit recruited "at Dagsion"), keyed by the lowercase name.
+ * This is "What's here" when a player opens a region or a place. Spoilers stay out.
+ */
+export function mapMentions(gameId: string, pages: Page[], page: Page): Record<string, Mention[]> {
+  const names = new Set<string>();
+  for (const b of page.blocks) {
+    if (b.look !== 'map') continue;
+    const by = b.filters?.[0];
+    for (const e of b.entries) { names.add(e.name); if (by && e.categories[by]) names.add(e.categories[by]); }
+  }
+  if (!names.size) return {};
+  const all = pages.flatMap((p) => p.blocks.flatMap((b) => b.entries.filter((e) => !e.spoiler).map((e) => ({ p, b, e }))));
+  const text = (e: Entry) => [e.description, ...e.sections.map((s) => s.text), ...Object.values(e.perRoute ?? {}).flat().map((s) => s.text)].join(' ');
+  const out: Record<string, Mention[]> = {};
+  for (const n of names) {
+    if (n.length < 4) continue;
+    const re = new RegExp(`(?<![\\p{L}\\p{N}])${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}\\p{N}])`, 'iu');
+    const hits = all.filter(({ e }) => e.name !== n && re.test(text(e)));
+    if (hits.length) {
+      out[n.toLowerCase()] = hits.slice(0, 12).map(({ p, b, e }) => ({
+        name: e.name, where: p.title === b.title ? p.title : `${p.title} · ${b.title}`, href: sharePath(gameId, p, b, e),
+      }));
+    }
+  }
+  return out;
+}

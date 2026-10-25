@@ -168,7 +168,7 @@ export const PAGES: Page[] = [
     id: 'world', title: 'World', short: 'World', icon: 'MapPin', tint: 'teal',
     blurb: 'Dungeons and places worth visiting, and the foes waiting in them.',
     blocks: [
-      block({ type: 'collection', look: 'rows', title: 'Dungeons and places', icon: 'MapPin', filters: ['Region'], statName: 'Level', entries: places() }),
+      block({ type: 'collection', look: 'map', title: 'Dungeons and places', icon: 'MapPin', filters: ['Region'], statName: 'Level', entries: places() }),
       block({ type: 'collection', look: 'rows', title: 'Foes', icon: 'Swords', byRoute: true, entries: foes() }),
     ],
   },

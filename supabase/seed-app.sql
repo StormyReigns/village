@@ -18,7 +18,7 @@ insert into public.game_blocks (game_id, block_key, title, position, page_key, t
   ('fortunes-weave', 'items', 'Items', 2, 'items', 'collection', 'slots', 'Backpack', null, array['Type']::text[], false, null),
   ('fortunes-weave', 'last-chances', 'Last chances', 3, 'last-chances', 'checklist', null, 'Hourglass', null, array[]::text[], true, null),
   ('fortunes-weave', 'story', 'Story', 4, 'story', 'timeline', null, 'Flag', null, array[]::text[], true, null),
-  ('fortunes-weave', 'dungeons-and-places', 'Dungeons and places', 5, 'world', 'collection', 'rows', 'MapPin', null, array['Region']::text[], false, 'Level'),
+  ('fortunes-weave', 'dungeons-and-places', 'Dungeons and places', 5, 'world', 'collection', 'map', 'MapPin', null, array['Region']::text[], false, 'Level'),
   ('fortunes-weave', 'foes', 'Foes', 6, 'world', 'collection', 'rows', 'Swords', null, array[]::text[], true, null),
   ('fortunes-weave', 'how-to', 'How to', 7, 'guides', 'guide', null, 'BookOpen', null, array[]::text[], false, null),
   ('fortunes-weave', 'mysteries', 'Mysteries', 8, 'guides', 'collection', 'rows', 'CircleHelp', 'Open questions. Found the answer? Bring it to the Workshop.', array['Status']::text[], false, null)

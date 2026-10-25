@@ -9,8 +9,9 @@ export type { Route };
 /** A Page's color, from a fixed set. */
 export type Tint = 'leaf' | 'sky' | 'berry' | 'sun' | 'plum' | 'teal';
 
-/** How a Collection shows its entries: portrait cards, inventory slots, or a list. */
-export type Look = 'portraits' | 'slots' | 'rows';
+/** How a Collection shows its entries: portrait cards, inventory slots, a list, or a map of
+ *  region tiles (grouped by the Block's first filter, e.g. Region). */
+export type Look = 'portraits' | 'slots' | 'rows' | 'map';
 
 /** The four preset Block types. New ones come from community requests. */
 export type BlockType = 'collection' | 'guide' | 'checklist' | 'timeline';

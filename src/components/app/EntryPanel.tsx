@@ -10,6 +10,7 @@ import { RichText } from './TextLinks';
 import { Tip } from '@/components/Tip';
 import { initials, tintFor, useTicks } from './entries';
 import { browserClient } from '@/lib/supabase/browser';
+import type { Mention } from '@/data/pages/links';
 
 interface OpenFix { id: string; theory: boolean; text: string; who: string }
 type Profile = { display_name?: string; username?: string } | null;
@@ -101,8 +102,10 @@ export function EntryIcon({ entry, block, size = 'md' }: { entry: EntryContent; 
  * An entry's details: a side panel on wide screens, a sheet from the bottom on phones.
  * Arrows (or ← →) step through the entries the player is looking at.
  */
-export function EntryPanel({ entry, block, list, route, routes, gameId, sharePath, onGo, onClose }: {
+export function EntryPanel({ entry, block, list, route, routes, gameId, sharePath, place, onGo, onClose }: {
   entry: Entry; block: Block; list: Entry[]; route: Route | 'all'; routes: RouteOption[]; gameId: string; sharePath: string;
+  /** A place on a map Block: its "cleared" mark, and what else in the app mentions it. */
+  place?: { clearKey: string; here: Mention[] };
   onGo: (e: Entry) => void; onClose: () => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
@@ -160,6 +163,29 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
           )}
           <EntryDetails entry={entry} block={block} route={route} routes={routes} fixHref={fixHref}
             invite={{ description: !entry.description && block.type === 'collection', sections: missingParts(entry, block) }} />
+
+          {place && (
+            <>
+              <button type="button" onClick={() => toggleTick(place.clearKey)} aria-pressed={ticks.has(place.clearKey)}
+                className={'mt-4 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold ring-1 ' + (ticks.has(place.clearKey) ? 'bg-leaf text-white ring-leaf' : 'ring-line hover:ring-leaf')}>
+                <Check size={15} aria-hidden="true" /> {ticks.has(place.clearKey) ? 'Cleared' : 'Mark as cleared'}
+              </button>
+              {place.here.length > 0 && (
+                <section className="mt-5">
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-muted">What&apos;s here</h3>
+                  <ul className="mt-1.5 grid gap-1">
+                    {place.here.map((m) => (
+                      <li key={m.href}>
+                        <Link href={m.href} className="flex items-center justify-between gap-2 rounded-xl px-2 py-1.5 hover:bg-card-2">
+                          <span className="font-bold">{m.name}</span><span className="truncate text-xs text-muted">{m.where}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+            </>
+          )}
 
           {people && (
             <button type="button" onClick={() => toggleTick(recruitKey)} aria-pressed={ticks.has(recruitKey)}
