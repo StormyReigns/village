@@ -3,9 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Hammer, House, LayoutGrid, X } from 'lucide-react';
+import { ArrowLeft, Hammer, X } from 'lucide-react';
 import type { Tint } from '@/data/pages';
-import { BlockIcon } from '@/components/Icon';
+import { NavSymbol } from '@/components/Icon';
 import { TINT } from './tint';
 
 export interface NavPage { id: string; title: string; short: string; icon: string; tint: Tint; count: number }
@@ -57,11 +57,9 @@ export function AppNav({ game, pages }: { game: NavGame; pages: NavPage[] }) {
               const t = TINT[p.tint];
               return (
                 <Link key={p.id} href={`${home}/${p.id}`} aria-current={on ? 'page' : undefined}
-                  className={'flex items-center gap-3 rounded-2xl px-2 py-2 font-bold transition ' + (on ? `${t.soft} ${t.text}` : 'hover:bg-card-2')}>
-                  <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${on ? `gloss ${t.solid} text-white` : `${t.soft} ${t.text}`}`}>
-                    <BlockIcon name={p.icon} size={18} />
-                  </span>
-                  <span className={'min-w-0 flex-1 truncate ' + (on ? '' : 'text-ink')}>{p.title}</span>
+                  className={'flex items-center gap-3 rounded-2xl px-2 py-1.5 transition ' + (on ? `${t.soft} font-extrabold` : 'font-bold hover:bg-card-2')}>
+                  <NavSymbol name={p.icon} color={`var(--${p.tint})`} on={on} />
+                  <span className="min-w-0 flex-1 truncate text-ink">{p.title}</span>
                   <span className="text-xs text-muted">{p.count}</span>
                 </Link>
               );
@@ -81,19 +79,20 @@ export function AppNav({ game, pages }: { game: NavGame; pages: NavPage[] }) {
       {/* Phones: bottom tab bar */}
       <nav aria-label="Pages" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
         <div className="mx-auto flex max-w-md justify-around px-1 pt-1.5">
-          <TabLink href={home} on={!current && !more} label="Home"><House size={20} aria-hidden="true" /></TabLink>
+          <TabLink href={home} on={!current && !more} label="Home" icon="House" color="var(--ink)" />
           {inBar.map((p) => (
-            <TabLink key={p.id} href={`${home}/${p.id}`} on={p.id === current?.id && !more} label={p.short} tint={p.tint}>
-              <BlockIcon name={p.icon} size={20} />
-            </TabLink>
+            <TabLink key={p.id} href={`${home}/${p.id}`} on={p.id === current?.id && !more} label={p.short} icon={p.icon} color={`var(--${p.tint})`} />
           ))}
-          {inMore.length > 0 && (
-            <button onClick={() => setMore(!more)} aria-expanded={more}
-              className={'flex w-16 flex-col items-center gap-0.5 rounded-2xl py-1 text-center text-[11px] font-bold leading-tight ' + (more || (current && !inBar.includes(current)) ? 'text-ink' : 'text-muted')}>
-              <span className={'grid h-8 w-12 place-items-center rounded-full ' + (more || (current && !inBar.includes(current)) ? 'bg-card-2 ring-1 ring-line' : '')}><LayoutGrid size={20} aria-hidden="true" /></span>
-              More
-            </button>
-          )}
+          {inMore.length > 0 && (() => {
+            const on = more || Boolean(current && !inBar.includes(current));
+            return (
+              <button onClick={() => setMore(!more)} aria-expanded={more}
+                className={'flex w-16 flex-col items-center gap-0.5 rounded-2xl py-1 text-center text-[11px] font-bold leading-tight ' + (on ? 'text-ink' : 'text-muted')}>
+                <NavSymbol name="LayoutGrid" color={on ? 'var(--ink)' : 'var(--muted)'} on={on} size={44} />
+                More
+              </button>
+            );
+          })()}
         </div>
       </nav>
 
@@ -112,7 +111,7 @@ export function AppNav({ game, pages }: { game: NavGame; pages: NavPage[] }) {
                   <li key={p.id}>
                     <Link href={`${home}/${p.id}`} onClick={() => setMore(false)}
                       className={`flex flex-col items-center gap-1.5 rounded-2xl ${t.soft} px-2 py-3 text-center text-sm font-bold`}>
-                      <span className={`gloss grid size-10 place-items-center rounded-xl ${t.solid} text-white`}><BlockIcon name={p.icon} size={19} /></span>
+                      <NavSymbol name={p.icon} color={`var(--${p.tint})`} on={p.id === current?.id} size={52} />
                       {p.short}
                     </Link>
                   </li>
@@ -129,12 +128,12 @@ export function AppNav({ game, pages }: { game: NavGame; pages: NavPage[] }) {
   );
 }
 
-function TabLink({ href, on, label, tint, children }: { href: string; on: boolean; label: string; tint?: Tint; children: React.ReactNode }) {
-  const t = tint ? TINT[tint] : TINT.leaf;
+/** A tab on phones: the Page's symbol in gray, or in a piece of its color when you're on it. */
+function TabLink({ href, on, label, icon, color }: { href: string; on: boolean; label: string; icon: string; color: string }) {
   return (
     <Link href={href} aria-current={on ? 'page' : undefined}
-      className={'flex w-16 flex-col items-center gap-0.5 rounded-2xl py-1 text-center text-[11px] font-bold leading-tight ' + (on ? t.text : 'text-muted')}>
-      <span className={'grid h-8 w-12 place-items-center rounded-full transition ' + (on ? `gloss ${t.solid} text-white` : '')}>{children}</span>
+      className={'flex w-16 flex-col items-center gap-0.5 rounded-2xl py-1 text-center text-[11px] font-bold leading-tight ' + (on ? 'text-ink' : 'text-muted')}>
+      <NavSymbol name={icon} color={on ? color : 'var(--muted)'} on={on} size={44} />
       {label}
     </Link>
   );

@@ -7,7 +7,7 @@ import {
   ShieldCheck, Sparkles, Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import type { Block, Page } from '@/data/pages';
-import { BlockIcon } from '@/components/Icon';
+import { BlockIcon, NavSymbol } from '@/components/Icon';
 import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
 import { entryText } from '@/components/app/entries';
 import { rank } from '@/lib/search';
@@ -241,13 +241,13 @@ export function Workshop({ game, pages, routes }: {
         </div>
       </header>
 
-      {/* The Pages, as a row of village blocks */}
-      <ScrollRow as="nav" label="Pages" className="-mx-4 mt-3 flex gap-3 px-4 pb-3 pt-4">
+      {/* The Pages: a symbol each, the chosen one in a piece */}
+      <ScrollRow as="nav" label="Pages" className="-mx-4 mt-3 flex gap-2 px-4 pb-2 pt-1">
         <BlockChip on={chip === 'all'} tint="ink" icon="LayoutGrid" label="Everything" count={drafts.filter(isOpen).length} onClick={() => setChip('all')} />
         {pages.map((p) => (
           <BlockChip key={p.id} on={chip === p.id} tint={p.tint} icon={p.icon} label={p.title} count={counts[p.id]} onClick={() => setChip(p.id)} />
         ))}
-        <BlockChip on={chip === 'notice'} tint="berry" icon="Flag" label="Notice Board" count={live.mod ? live.reports.length : 0} onClick={() => setChip('notice')} />
+        <BlockChip on={chip === 'notice'} tint="muted" icon="Megaphone" label="Notice Board" count={live.mod ? live.reports.length : 0} onClick={() => setChip('notice')} />
       </ScrollRow>
 
       {live.state === 'offline' && (
@@ -489,23 +489,18 @@ export function Workshop({ game, pages, routes }: {
   );
 }
 
-/** A Page in the row across the top: a village block in that Page's color. */
+/** A Page in the row across the top: its symbol in its color, in a piece when chosen, and how many Drafts wait there. */
 function BlockChip({ on, tint, icon, label, count, onClick }: {
   on: boolean; tint: string; icon: string; label: string; count?: number; onClick: () => void;
 }) {
   return (
     <Tip text={count ? `${count} open Draft${count === 1 ? '' : 's'} waiting here` : 'Nothing waiting here right now'} tint={tint} className="shrink-0">
-    <button onClick={onClick} aria-pressed={on} {...house(label, tint)}
-      className={'vblock flex w-24 shrink-0 flex-col items-center gap-1 px-1.5 pb-2 pt-2.5 text-center sm:w-28 sm:gap-1.5 sm:px-2 sm:pb-2.5 sm:pt-3 ' + (on ? 'is-on gloss' : '')}>
-      <span className={'grid size-9 place-items-center rounded-xl ' + (on ? 'bg-white/25' : 'bg-white/70')}>
-        <BlockIcon name={icon} size={18} />
-      </span>
-      <span className="line-clamp-2 text-xs font-bold leading-tight">{label}</span>
-      {count ? (
-        <span className={'absolute -right-1.5 -top-1.5 grid min-w-5 place-items-center rounded-full px-1 text-[11px] font-bold ring-2 ring-paper ' + (on ? 'bg-paper text-ink' : 'bg-ink text-paper')}>
-          {count}
-        </span>
-      ) : null}
+    <button onClick={onClick} aria-pressed={on}
+      style={on ? { background: `color-mix(in srgb, var(--${tint}) 10%, white)`, boxShadow: `inset 0 0 0 1.5px var(--${tint})` } : undefined}
+      className={'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full py-1 pl-1.5 pr-3.5 text-sm ' + (on ? 'font-extrabold' : 'bg-card font-bold ring-1 ring-line hover:ring-ink')}>
+      <NavSymbol name={icon} color={`var(--${tint})`} on={on} size={38} />
+      {label}
+      {count ? <span className="grid min-w-5 place-items-center rounded-full bg-ink px-1.5 text-[11px] font-bold text-paper">{count}</span> : null}
     </button>
     </Tip>
   );
