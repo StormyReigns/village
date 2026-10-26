@@ -13,8 +13,8 @@ import { Piece } from './Piece';
 export function Wordmark({ className = '', glitch = false }: { className?: string; glitch?: boolean }) {
   // The band sits across the middle of the lowercase letters (Rubik, line height 1).
   const copy = 'absolute inset-0';
-  // The loud version: pink and violet copies just off the letters, like the glitch piece.
-  const split = glitch ? { textShadow: '0.045em -0.02em 0 #ff2bd6, -0.045em 0.02em 0 #8b3dff' } : undefined;
+  // The loud version: yellow and violet copies just off the letters, like the glitch piece.
+  const split = glitch ? { textShadow: '0.045em -0.02em 0 var(--signal), -0.045em 0.02em 0 #8b3dff' } : undefined;
   return (
     <span role="img" aria-label="Village" style={split} className={`relative inline-block font-extrabold leading-none tracking-[-0.03em] ${className}`}>
       <span aria-hidden="true" className="invisible">village</span>

@@ -26,7 +26,7 @@ export function Piece({ size, color = 'var(--ink)', outline = false, glitch = fa
   size: number | 'fill';
   color?: string;
   outline?: boolean;
-  /** A solid piece with pink and violet copies peeking out: the loud, hype version (the banner logo). */
+  /** A solid piece with yellow and violet copies peeking out: the loud, hype version (the banner logo). */
   glitch?: boolean;
   ink?: string;
   image?: string;
@@ -58,7 +58,7 @@ export function Piece({ size, color = 'var(--ink)', outline = false, glitch = fa
             {glitch && (
               <>
                 <path d={PIECE_PATH} fill={GLITCH.violet} transform={`translate(${-nudge * 1.4} ${nudge / 2})`} />
-                <path d={PIECE_PATH} fill={GLITCH.pink} transform={`translate(${nudge * 1.4} ${-nudge / 2})`} />
+                <path d={PIECE_PATH} fill="var(--signal)" transform={`translate(${nudge * 1.4} ${-nudge / 2})`} />
               </>
             )}
             <path d={PIECE_PATH} fill={color} />
