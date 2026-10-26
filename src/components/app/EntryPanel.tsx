@@ -12,6 +12,7 @@ import { colorFor, initials, tintFor, useTicks } from './entries';
 import { Piece } from '@/components/Piece';
 import { browserClient } from '@/lib/supabase/browser';
 import type { Mention } from '@/data/pages/links';
+import { placeText, statFacts } from '@/lib/stats';
 
 interface OpenFix { id: string; theory: boolean; text: string; who: string }
 type Profile = { display_name?: string; username?: string } | null;
@@ -236,8 +237,36 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
 }
 
 /** What an entry says: used in the app's panel and in Workshop previews. */
+/** The entry's numbers, each colored and placed against the rest of its Block. */
+function StatTiles({ entry, block, fix }: { entry: EntryContent; block: Partial<Pick<Block, 'stats' | 'entries'>>; fix?: string }) {
+  // A Draft's numbers are compared against everyone else as they are now.
+  const me = { ...entry, id: '' } as Entry;
+  const among = [...(block.entries ?? []).filter((e) => e.name !== entry.name), me];
+  return (
+    <section className="mt-4">
+      <div className="flex items-center">
+        <h3 className="flex-1 text-xs font-bold uppercase tracking-wide text-muted">Stats</h3>
+        {fix && <FixPencil href={fix} what="the stats" />}
+      </div>
+      <dl className="mt-1.5 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+        {block.stats!.map((d) => {
+          const f = statFacts(d, me, among);
+          return (
+            <div key={d.key} className={'rounded-xl px-3 py-2 ' + (f ? '' : 'bg-card-2')} style={f ? { background: f.color } : undefined}>
+              <dt className="text-xs font-bold">{d.label}</dt>
+              <dd className="font-display text-2xl leading-tight tabular-nums">{f ? f.value : '–'}</dd>
+              <dd className="text-xs">{f ? placeText(f) || ' ' : 'Not added yet'}</dd>
+            </div>
+          );
+        })}
+      </dl>
+    </section>
+  );
+}
+
 export function EntryDetails({ entry, block, route, routes, fixHref, invite, color }: {
-  entry: EntryContent; block: Pick<Block, 'title' | 'icon'>; route: Route | 'all'; routes: RouteOption[];
+  /** With its stats and entries, the stats show how this entry compares. */
+  entry: EntryContent; block: Pick<Block, 'title' | 'icon'> & Partial<Pick<Block, 'stats' | 'entries'>>; route: Route | 'all'; routes: RouteOption[];
   /** In the app, each part gets a pencil that opens a fix for just that part. */
   fixHref?: (field: string) => string;
   /** In the app, parts this entry is missing, shown as invitations to add them. */
@@ -289,6 +318,8 @@ export function EntryDetails({ entry, block, route, routes, fixHref, invite, col
         </div>
       )}
 
+      {block.stats?.length && entry.stats ? <StatTiles entry={entry} block={block} fix={fixHref?.('stats')} /> : null}
+
       {allRoutes.length > 0 && (
         <div className="mt-4">
           <div className="flex items-center">
@@ -306,6 +337,7 @@ export function EntryDetails({ entry, block, route, routes, fixHref, invite, col
       )}
 
       {fixHref && invite?.description && <Invite label="About" href={fixHref('description')} />}
+      {fixHref && invite && block.stats?.length && !entry.stats ? <Invite label="Stats" href={fixHref('stats')} /> : null}
 
       {entry.sections.map((s) => (
         <section key={s.label} className="mt-4">

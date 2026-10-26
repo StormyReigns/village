@@ -3,6 +3,7 @@
 import { CARDS } from '../content/fortunes-weave.ts';
 import type { Card, Route } from '../content/types.ts';
 import type { Block, Entry, Page, Section } from './types.ts';
+import { WEAPON_STATS, weapons } from './fortunes-weave-weapons.ts';
 
 const ROUTE_NAMES: Record<string, Route> = { Cai: 'cai', Dietrich: 'dietrich', Theodora: 'theodora', Leda: 'leda' };
 
@@ -151,8 +152,12 @@ export const PAGES: Page[] = [
   },
   {
     id: 'items', title: 'Items', short: 'Items', icon: 'Backpack', tint: 'sun',
-    blurb: 'Key items, materials and gear: where to find them and what they do.',
-    blocks: [block({ type: 'collection', look: 'slots', title: 'Items', icon: 'Backpack', filters: ['Type'], entries: items() })],
+    blurb: 'Key items, materials, weapons and magic: where to find them and how they compare.',
+    blocks: [
+      block({ type: 'collection', look: 'slots', title: 'Items', icon: 'Backpack', filters: ['Type'], entries: items() }),
+      block({ type: 'collection', look: 'table', title: 'Weapons and magic', icon: 'Swords', filters: ['Rank'], stats: WEAPON_STATS, entries: weapons(),
+        intro: 'Every number side by side: teal is better. Tap a column to sort, or a row for details.' }),
+    ],
   },
   {
     id: 'last-chances', title: 'Last chances', short: 'Last chances', icon: 'Hourglass', tint: 'plum',

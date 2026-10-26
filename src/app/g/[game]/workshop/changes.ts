@@ -5,7 +5,7 @@ import type { RouteOption } from '@/components/app/EntryPanel';
 
 export interface Change { label: string; before?: string; after?: string }
 
-export function changesBetween(before: EntryContent | undefined, after: EntryContent, block: Pick<Block, 'statName'>, routes: RouteOption[]): Change[] {
+export function changesBetween(before: EntryContent | undefined, after: EntryContent, block: Pick<Block, 'statName' | 'stats'>, routes: RouteOption[]): Change[] {
   const out: Change[] = [];
   const add = (label: string, a?: string, b?: string) => {
     const x = (a ?? '').trim(), y = (b ?? '').trim();
@@ -15,6 +15,7 @@ export function changesBetween(before: EntryContent | undefined, after: EntryCon
 
   add('Name', before?.name, after.name);
   add(block.statName ?? 'Key fact', before?.stat, after.stat);
+  for (const d of block.stats ?? []) add(d.label, before?.stats?.[d.key]?.toString(), after.stats?.[d.key]?.toString());
   add('Order', before?.order?.toString(), after.order?.toString());
   add('Description', before?.description, after.description);
   for (const k of new Set([...Object.keys(before?.categories ?? {}), ...Object.keys(after.categories)])) {

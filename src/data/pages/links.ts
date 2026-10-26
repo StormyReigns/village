@@ -1,4 +1,5 @@
 import type { Block, Entry, Page } from './types';
+import { placeText, statFacts } from '../../lib/stats';
 
 // Clean, shareable addresses for a Block or an entry:
 //   /g/fortunes-weave/items/items           the Items Block
@@ -39,6 +40,10 @@ export function summarize(block: Block, entry: Entry, routeNames: Record<string,
   if (entry.spoiler) return [{ label: 'Spoiler', text: 'Open it in the app to read.' }];
   const facts: { label: string; text: string }[] = [];
   if (entry.stat) facts.push({ label: block.statName ?? 'Key fact', text: entry.stat });
+  for (const d of block.stats ?? []) {
+    const f = statFacts(d, entry, block.entries);
+    if (f) facts.push({ label: d.label, text: [f.value, placeText(f)].filter(Boolean).join(' · ') });
+  }
   for (const [k, v] of Object.entries(entry.categories)) facts.push({ label: k, text: v });
   if (entry.perRoute) {
     for (const [r, ss] of Object.entries(entry.perRoute)) {

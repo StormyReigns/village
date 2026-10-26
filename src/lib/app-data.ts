@@ -23,7 +23,7 @@ export async function getApp(gameId: string): Promise<Page[]> {
   const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
   const [p, b, e] = await Promise.all([
     db.from('app_pages').select('page_key, title, short, icon, tint, blurb').eq('game_id', gameId).order('position'),
-    db.from('game_blocks').select('block_key, page_key, title, type, look, icon, intro, filters, by_route, stat_name')
+    db.from('game_blocks').select('*')
       .eq('game_id', gameId).not('page_key', 'is', null).order('position'),
     db.from('card_pointers')
       .select('card:cards!inner(id, game_id, block_key, slug, position), revision:card_revisions(id, content)')
@@ -58,6 +58,7 @@ export async function getApp(gameId: string): Promise<Page[]> {
       filters: (r.filters as string[])?.length ? (r.filters as string[]) : undefined,
       byRoute: Boolean(r.by_route),
       statName: (r.stat_name as string) ?? undefined,
+      stats: (r.stats as Block['stats']) ?? undefined,
       entries: (entries.get(r.block_key as string) ?? []).sort((x, y) => x.position - y.position).map((x) => { const entry: Entry & { position?: number } = { ...x }; delete entry.position; return entry; }),
     });
     blocks.set(r.page_key as string, list);

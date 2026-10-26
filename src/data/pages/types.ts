@@ -9,9 +9,18 @@ export type { Route };
 /** A Page's color, from a fixed set. */
 export type Tint = 'leaf' | 'sky' | 'berry' | 'sun' | 'plum' | 'teal';
 
-/** How a Collection shows its entries: portrait cards, inventory slots, a list, or a map of
- *  region tiles (grouped by the Block's first filter, e.g. Region). */
-export type Look = 'portraits' | 'slots' | 'rows' | 'map';
+/** How a Collection shows its entries: portrait cards, inventory slots, a list, a map of
+ *  region tiles (grouped by the Block's first filter, e.g. Region), or a table of its
+ *  stats colored as a heatmap. */
+export type Look = 'portraits' | 'slots' | 'rows' | 'map' | 'table';
+
+/** A number every entry in a Block can have, like a weapon's Might. */
+export interface StatDef {
+  key: string;
+  label: string;
+  /** Which way is good, so colors and rankings point the right way (Weight: lower is better). */
+  better: 'high' | 'low';
+}
 
 /** The four preset Block types. New ones come from community requests. */
 export type BlockType = 'collection' | 'guide' | 'checklist' | 'timeline';
@@ -34,6 +43,8 @@ export interface Entry {
   perRoute?: Partial<Record<Route, Section[]>>;
   /** A short key fact shown on the tile or row, like "Lv 12". */
   stat?: string;
+  /** Numbers for the Block's stats, keyed by StatDef.key: { might: 14, hit: 70 }. */
+  stats?: Record<string, number>;
   /** Timeline position. */
   order?: number;
   spoiler?: boolean;
@@ -55,6 +66,8 @@ export interface Block {
   look?: Look;
   /** Collection only: what the entries' stat means when it's a number, e.g. "Level". Adds a sort. */
   statName?: string;
+  /** Collection only: the numbers each entry has, shown as a heatmap by the "table" look. */
+  stats?: StatDef[];
   /** A sentence under the title saying what's here. */
   intro?: string;
   /** Category names players can filter by (Collection only). */

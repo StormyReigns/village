@@ -59,6 +59,7 @@ function clean(c: EntryContent): EntryContent {
     name: c.name.trim(),
     description: t(c.description),
     stat: t(c.stat),
+    stats: c.stats && Object.keys(c.stats).length ? c.stats : undefined,
     sections,
     categories,
     perRoute: Object.keys(perRoute).length ? perRoute : undefined,
@@ -148,6 +149,12 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
   const changes = fixing ? changesBetween(contentOf(fixing), cleaned, block, routes) : [];
   const unchanged = Boolean(fixing) && changes.length === 0;
 
+  // A blank box takes that stat away; the numbers keep the Block's own order.
+  const setStat = (key: string, v: string) => {
+    const next = { ...content.stats };
+    if (v.trim() === '' || !Number.isFinite(Number(v))) delete next[key]; else next[key] = Number(v);
+    set({ stats: Object.keys(next).length ? next : undefined });
+  };
   const setSection = (i: number, patch: Partial<Section>) => set({ sections: content.sections.map((s, j) => (j === i ? { ...s, ...patch } : s)) });
   const currentRouteLabel = Object.values(content.perRoute ?? {}).flat()[0]?.label ?? routeLabel;
   const perRouteText = (r: Route) => content.perRoute?.[r]?.[0]?.text ?? '';
@@ -264,6 +271,19 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
                 <input value={content.stat ?? ''} onChange={(e) => set({ stat: e.target.value })} maxLength={40} placeholder={block.statName === 'Level' ? 'Lv 12' : ''} className={input} />
               </label>
             )}
+            {block.stats?.length && show('stats') ? (
+              <div role="group" aria-labelledby="stats-label" id={fid('stats')} className={'grid gap-1.5' + hl('stats')}>
+                <span id="stats-label" className="text-sm font-bold">Stats <span className="font-normal text-muted">(numbers, as the game shows them)</span></span>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {block.stats.map((d) => (
+                    <label key={d.key} className="grid gap-1">
+                      <span className="text-xs font-bold text-muted">{d.label}</span>
+                      <input type="number" inputMode="decimal" value={content.stats?.[d.key] ?? ''} onChange={(e) => setStat(d.key, e.target.value)} className={input} />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {show('description') && (
               <label id={fid('description')} className={'grid gap-1' + hl('description')}>
                 <span className="text-sm font-bold">{DESCRIPTION_LABEL[block.type]}</span>

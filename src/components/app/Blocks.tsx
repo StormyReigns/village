@@ -17,6 +17,8 @@ import { useVillager } from '@/components/useVillager';
 import { RichText } from './TextLinks';
 import { RegionMap, RegionSheet, regionsOf, clearKey, type Region } from './MapBlock';
 import { TINT } from './tint';
+import { StatTable, statSort } from './StatTable';
+import { byStat } from '@/lib/stats';
 
 /** What every Block needs from the page around it. */
 export interface BlockContext {
@@ -183,10 +185,12 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
     if (query.trim()) return rank(found, query, entryText);
     const byName = (a: Entry, b: Entry) => a.name.localeCompare(b.name);
     if (sort === 'za') return found.sort((a, b) => byName(b, a));
+    const def = block.stats?.find((d) => sort.startsWith(statSort(d.key)));
+    if (def) return found.sort((a, b) => byStat(def, sort.endsWith(':worst'))(a, b) || byName(a, b));
     if (sort === 'stat') return found.sort((a, b) => num(a.stat) - num(b.stat) || byName(a, b));
     if (sort === 'group' && filter) return found.sort((a, b) => a.categories[filter].localeCompare(b.categories[filter]) || byName(a, b));
     return found.sort(byName);
-  }, [shown, pick, filter, query, sort]);
+  }, [shown, pick, filter, query, sort, block.stats]);
 
   const mine = (e: Entry) => (ctx.route !== 'all' ? e.perRoute?.[ctx.route]?.[0]?.text : undefined);
   const groups = sort === 'group' && filter
@@ -219,6 +223,8 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
             <span className="sr-only">Sort</span>
             <select value={sort} onChange={(e) => setSort(e.target.value)} className="rounded-full bg-card-2 px-3 py-2 text-sm font-bold ring-1 ring-line">
               {block.statName && <option value="stat">By {block.statName.toLowerCase()}</option>}
+              {block.stats?.map((d) => <option key={d.key} value={statSort(d.key)}>Best {d.label.toLowerCase()}</option>)}
+              {sort.endsWith(':worst') && <option value={sort}>Worst first</option>}
               <option value="az">A to Z</option>
               <option value="za">Z to A</option>
               {filter && <option value="group">By {filter.toLowerCase()}</option>}
@@ -261,6 +267,7 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
               {es.map((e) => <li key={e.id}><Slot e={e} color={color} filter={filter} onOpen={() => openIt(e)} /></li>)}
             </ul>
           )}
+          {look === 'table' && <StatTable block={block} entries={es} among={shown} sort={sort} onSort={setSort} onOpen={openIt} filter={filter} />}
           {look === 'rows' && (
             <ul className="grid gap-2">
               {es.map((e) => (
