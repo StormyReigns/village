@@ -38,7 +38,8 @@ Community-built companion apps for games, with a village theme. Two layers:
   for every kind of gamer. The frame is flat and quiet; the piece is the brand. Mockups:
   the "Block Silhouettes" canvas (https://claude.ai/artifact/5Zz5xxgX5BFR1Y8PkMyjJ3),
   boards 13 to 15. Rolled out across the site 2026-10-25; the village theme lives in the
-  words (Workshop, Notice Board, Market Day), not in illustrations.
+  words (Workshop, Notice Board, Market Day). One illustration: the front page banner
+  (`public/village/banner.jpg`, added 2026-10-26), which is that page's header.
 - **Data**: our own words, sources cited, no game art or leaks; contributions under CC BY-SA.
 
 ## Brand rules

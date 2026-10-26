@@ -2,7 +2,9 @@ import { GAMES } from '@/data/games';
 import { MarketDayButton } from '@/components/HowItWorks';
 import { GameBrowser } from '@/components/GameBrowser';
 import { AccountButton } from '@/components/AccountButton';
-import { TopBar } from '@/components/Logo';
+import Image from 'next/image';
+import Link from 'next/link';
+import { Wordmark } from '@/components/Logo';
 import { Piece } from '@/components/Piece';
 import { withCovers } from '@/lib/pictures';
 import { Suspense } from 'react';
@@ -13,32 +15,29 @@ import { sharePath } from '@/data/pages/links';
 export default function VillageSquare() {
   return (
     <>
-    <TopBar actions={
-      <>
-        <MarketDayButton className="hidden bg-white/10 text-signal sm:inline-flex" />
-        <AccountButton quiet dark />
-      </>
-    } />
+    {/* The village square's header is the banner itself: the logo and your account along
+        the top, one line on the sky, and the players on their hill. The ink bar is for the
+        other screens. */}
+    <header className="relative isolate overflow-hidden">
+      <Image src="/village/banner.jpg" alt="Players from many kinds of games sit together on a hill, looking out over a castle, a lake and a city"
+        fill priority sizes="100vw" className="-z-10 object-cover object-[50%_80%]" />
+      <div className="mx-auto flex h-[250px] w-full max-w-6xl flex-col px-4 pt-3 sm:h-[300px] sm:px-6 lg:h-[340px]">
+        <div className="flex items-center gap-3">
+          <Link href="/" aria-label="Village square" className="flex items-center gap-2 rounded-lg">
+            <Piece size={40} color="var(--ink)" />
+            <Wordmark className="text-[26px] text-ink" />
+          </Link>
+          <div className="ml-auto flex items-center gap-1 rounded-full bg-ink/85 p-1">
+            <MarketDayButton className="hidden text-signal sm:inline-flex" />
+            <AccountButton quiet dark />
+          </div>
+        </div>
+        <h1 className="mx-auto mt-5 max-w-2xl text-balance text-center font-display text-2xl leading-tight text-ink [text-shadow:0_0_18px_rgb(255_255_255/0.8)] sm:mt-8 sm:text-4xl">
+          Companion apps, built by the people who play
+        </h1>
+      </div>
+    </header>
     <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-5 sm:px-6">
-      {/* The village square's banner: ink, no illustration. Pieces players have built, and
-          one empty slot (the split outline) for whatever comes next. */}
-      <section className="relative overflow-hidden rounded-2xl bg-ink text-white">
-        <div aria-hidden="true" className="absolute right-8 top-1/2 hidden h-[226px] w-[316px] -translate-y-1/2 md:block">
-          {(['berry', 'sun', 'plum'] as const).map((tint, i) => (
-            <span key={tint} className="absolute" style={{ left: (i % 2) * 170, top: Math.floor(i / 2) * 124 }}>
-              <Piece size={146} color={`var(--${tint})`} />
-            </span>
-          ))}
-          <span className="absolute" style={{ left: 170, top: 124 }}><Piece size={146} outline ink="#fff" /></span>
-        </div>
-        <div className="relative px-6 py-10 sm:px-10 sm:py-14 md:pr-[24rem]">
-          <h1 className="font-display text-4xl leading-tight sm:text-5xl">Companion apps, built by the people who play</h1>
-          <p className="mt-3 max-w-xl text-white/80">
-            Every game gets its own app, shaped by its community. Share what you&apos;ve figured out, vote on
-            what others found, and see it land in the app on Market Day.
-          </p>
-        </div>
-      </section>
 
       <Suspense fallback={<GameBrowser games={withCovers(GAMES)} />}>
         <SearchableBrowser />
