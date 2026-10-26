@@ -86,11 +86,22 @@ function missables(): Entry[] {
   });
 }
 
+// Weapons live with the other weapons, in the stats table.
+const isWeapon = (c: Card) => /weapon|sword/i.test(c.content.type ?? '');
+
 function items(): Entry[] {
-  return of('items').map((c) => ({
+  return of('items').filter((c) => !isWeapon(c)).map((c) => ({
     ...base(c, c.content.name),
     sections: sections(['Where to get it', c.content.where], ['Used for', c.content.use]),
     categories: { Type: c.content.type || 'Other' },
+  }));
+}
+
+function weaponItems(): Entry[] {
+  return of('items').filter(isWeapon).map((c) => ({
+    ...base(c, c.content.name),
+    sections: sections(['Where to get it', c.content.where], ['Used for', c.content.use], ['Note', /1\.01/.test(c.content.type ?? '') ? 'Added in update 1.01.' : undefined]),
+    categories: { Rank: 'Unlisted' },
   }));
 }
 
@@ -155,7 +166,7 @@ export const PAGES: Page[] = [
     blurb: 'Key items, materials, weapons and magic: where to find them and how they compare.',
     blocks: [
       block({ type: 'collection', look: 'slots', title: 'Items', icon: 'Backpack', filters: ['Type'], entries: items() }),
-      block({ type: 'collection', look: 'table', title: 'Weapons and magic', icon: 'Swords', filters: ['Rank'], stats: WEAPON_STATS, entries: weapons(),
+      block({ type: 'collection', look: 'table', title: 'Weapons and magic', icon: 'Swords', filters: ['Rank'], stats: WEAPON_STATS, entries: [...weapons(), ...weaponItems()],
         intro: 'Every number side by side: teal is better. Tap a column to sort, or a row for details.' }),
     ],
   },
