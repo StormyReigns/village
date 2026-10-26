@@ -35,7 +35,8 @@ export function GameBrowser({ games, entries = [] }: { games: Game[]; entries?: 
 
   return (
     <>
-      <label className="surface mx-auto mt-6 flex max-w-xl items-center gap-2 rounded-full px-4 py-3 focus-within:ring-2 focus-within:ring-sky">
+      {/* Half over the banner above it (the front page header), floating with a shadow. */}
+      <label className="surface pop relative z-10 mx-auto -mt-[45px] flex max-w-xl items-center gap-2 rounded-full px-4 py-3 focus-within:ring-2 focus-within:ring-sky">
         <Search size={18} className="text-muted" aria-hidden="true" />
         <input
           value={q}

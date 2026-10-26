@@ -10,11 +10,13 @@ import { Piece } from './Piece';
  * through the middle of the letters slides right. Drawn as three clipped copies of the
  * word, so it stays real text in the site's font. Set the size and color with className.
  */
-export function Wordmark({ className = '' }: { className?: string }) {
+export function Wordmark({ className = '', glitch = false }: { className?: string; glitch?: boolean }) {
   // The band sits across the middle of the lowercase letters (Rubik, line height 1).
   const copy = 'absolute inset-0';
+  // The loud version: pink and violet copies just off the letters, like the glitch piece.
+  const split = glitch ? { textShadow: '0.045em -0.02em 0 #ff2bd6, -0.045em 0.02em 0 #8b3dff' } : undefined;
   return (
-    <span role="img" aria-label="Village" className={`relative inline-block font-extrabold leading-none tracking-[-0.03em] ${className}`}>
+    <span role="img" aria-label="Village" style={split} className={`relative inline-block font-extrabold leading-none tracking-[-0.03em] ${className}`}>
       <span aria-hidden="true" className="invisible">village</span>
       <span aria-hidden="true" className={copy} style={{ clipPath: 'inset(-0.3em -0.3em 48% -0.3em)' }}>village</span>
       <span aria-hidden="true" className={copy} style={{ clipPath: 'inset(52% -0.3em 36% -0.3em)', transform: 'translateX(0.09em)' }}>village</span>

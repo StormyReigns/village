@@ -24,8 +24,8 @@ export default function VillageSquare() {
       <div className="mx-auto flex h-[250px] w-full max-w-6xl flex-col px-4 pt-3 sm:h-[300px] sm:px-6 lg:h-[340px]">
         <div className="flex items-center gap-3">
           <Link href="/" aria-label="Village square" className="flex items-center gap-2 rounded-lg">
-            <Piece size={40} color="var(--ink)" />
-            <Wordmark className="text-[26px] text-ink" />
+            <Piece size={40} color="var(--ink)" glitch />
+            <Wordmark className="text-[26px] text-ink" glitch />
           </Link>
           <div className="ml-auto flex items-center gap-1 rounded-full bg-ink/85 p-1">
             <MarketDayButton className="hidden text-signal sm:inline-flex" />

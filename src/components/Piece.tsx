@@ -22,10 +22,12 @@ export const pieceHeight = (size: number) => Math.round(size * ASPECT * 10) / 10
  * Children (short initials or a symbol) sit in the body below the slice, so text never
  * crosses it. Names belong under the piece, not in it.
  */
-export function Piece({ size, color = 'var(--ink)', outline = false, ink = 'var(--ink)', image, label, className = '', style, children }: {
+export function Piece({ size, color = 'var(--ink)', outline = false, glitch = false, ink = 'var(--ink)', image, label, className = '', style, children }: {
   size: number | 'fill';
   color?: string;
   outline?: boolean;
+  /** A solid piece with pink and violet copies peeking out: the loud, hype version (the banner logo). */
+  glitch?: boolean;
   ink?: string;
   image?: string;
   /** Read out instead of the picture, when the piece means something on its own. */
@@ -52,7 +54,15 @@ export function Piece({ size, color = 'var(--ink)', outline = false, ink = 'var(
             <path d={PIECE_PATH} stroke={ink} />
           </g>
         ) : (
-          <path d={PIECE_PATH} fill={color} />
+          <>
+            {glitch && (
+              <>
+                <path d={PIECE_PATH} fill={GLITCH.violet} transform={`translate(${-nudge * 1.4} ${nudge / 2})`} />
+                <path d={PIECE_PATH} fill={GLITCH.pink} transform={`translate(${nudge * 1.4} ${-nudge / 2})`} />
+              </>
+            )}
+            <path d={PIECE_PATH} fill={color} />
+          </>
         )}
       </svg>
       {image && (

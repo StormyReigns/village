@@ -55,7 +55,8 @@ Community-built companion apps for games, with a village theme. Two layers:
   neighbour.
 - **Solid = built, split outline = not built yet**: an empty slot, an unticked box or "add"
   is an outline with pink (#ff2bd6) and violet (#8b3dff) offset copies. The split is also
-  the loading look. Solid pieces are one color.
+  the loading look, and the banner logo on the front page (`glitch` on `Piece` and
+  `Wordmark`) is its one loud use. Other solid pieces are one color.
 - **Colors**: ink #15171c and signal yellow #FFC53D frame every screen (ink top bar,
   yellow piece logo). Yellow means "act on this" or "your choice". One standard color per
   Page in every game; a game's genre may shift the shade, never the hue. Each game picks a
