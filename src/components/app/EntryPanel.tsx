@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, Hammer, Hourglass, Pencil, TriangleAlert, X } from 'lucide-react';
 import type { Block, Entry, EntryContent, Route } from '@/data/pages';
-import { BlockIcon } from '@/components/Icon';
+import { BlockIcon, hasIcon } from '@/components/Icon';
 import { ShareButton } from '@/components/ShareButton';
 import { RichText } from './TextLinks';
 import { Tip } from '@/components/Tip';
@@ -12,7 +12,7 @@ import { colorFor, initials, tintFor, useTicks } from './entries';
 import { Piece } from '@/components/Piece';
 import { browserClient } from '@/lib/supabase/browser';
 import type { Mention } from '@/data/pages/links';
-import { placeText, statFacts } from '@/lib/stats';
+import { heatFill, placeText, statFacts } from '@/lib/stats';
 
 interface OpenFix { id: string; theory: boolean; text: string; who: string }
 type Profile = { display_name?: string; username?: string } | null;
@@ -90,11 +90,22 @@ export function Lines({ text, skip }: { text: string; skip?: string }) {
  * An entry as a piece: its picture, or its initials below the slice. In a Page it takes
  * the Page's `color`; elsewhere (Workshop, search) a steady color from its type.
  */
-export function EntryIcon({ entry, block, size = 'md', color }: { entry: EntryContent; block: Pick<Block, 'title' | 'icon'>; size?: 'sm' | 'md' | 'lg'; color?: string }) {
-  const px = size === 'lg' ? 112 : size === 'sm' ? 46 : 64;
+/** The symbol for an entry's group (its first filter value), when its Block sets one. */
+export function symbolFor(entry: EntryContent, block: Partial<Pick<Block, 'symbols' | 'filters'>>) {
+  const value = block.filters?.[0] ? entry.categories[block.filters[0]] : undefined;
+  const name = value ? block.symbols?.[value] : undefined;
+  return hasIcon(name) ? name : undefined;
+}
+
+export function EntryIcon({ entry, block, size = 'md', color }: {
+  entry: EntryContent; block: Pick<Block, 'title' | 'icon'> & Partial<Pick<Block, 'symbols' | 'filters'>>; size?: 'sm' | 'md' | 'lg'; color?: string;
+}) {
+  const px = size === 'lg' ? 136 : size === 'sm' ? 46 : 64;
+  const symbol = symbolFor(entry, block);
   return (
     <Piece size={px} color={color ?? colorFor(Object.values(entry.categories)[0] ?? block.title)} image={entry.icon}>
-      {entry.icon ? null : initials(entry.name) || <BlockIcon name={block.icon} size={Math.round(px * 0.2)} />}
+      {entry.icon ? null : symbol ? <BlockIcon name={symbol} size={Math.round(px * 0.2)} strokeWidth={2.4} />
+        : initials(entry.name) || <BlockIcon name={block.icon} size={Math.round(px * 0.2)} />}
     </Piece>
   );
 }
@@ -238,7 +249,7 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
 
 /** What an entry says: used in the app's panel and in Workshop previews. */
 /** The entry's numbers, each colored and placed against the rest of its Block. */
-function StatTiles({ entry, block, fix }: { entry: EntryContent; block: Partial<Pick<Block, 'stats' | 'entries'>>; fix?: string }) {
+function StatTiles({ entry, block, fix, color = 'var(--ink)' }: { entry: EntryContent; block: Partial<Pick<Block, 'stats' | 'entries'>>; fix?: string; color?: string }) {
   // A Draft's numbers are compared against everyone else as they are now.
   const me = { ...entry, id: '' } as Entry;
   const among = [...(block.entries ?? []).filter((e) => e.name !== entry.name), me];
@@ -252,7 +263,7 @@ function StatTiles({ entry, block, fix }: { entry: EntryContent; block: Partial<
         {block.stats!.map((d) => {
           const f = statFacts(d, me, among);
           return (
-            <div key={d.key} className={'rounded-xl px-3 py-2 ' + (f ? '' : 'bg-card-2')} style={f ? { background: f.color } : undefined}>
+            <div key={d.key} className={'rounded-xl px-3 py-2 ' + (f ? '' : 'bg-card-2')} style={f ? { background: heatFill(f.goodness, color) } : undefined}>
               <dt className="text-xs font-bold">{d.label}</dt>
               <dd className="font-display text-2xl leading-tight tabular-nums">{f ? f.value : '–'}</dd>
               <dd className="text-xs">{f ? placeText(f) || ' ' : 'Not added yet'}</dd>
@@ -318,7 +329,7 @@ export function EntryDetails({ entry, block, route, routes, fixHref, invite, col
         </div>
       )}
 
-      {block.stats?.length && entry.stats ? <StatTiles entry={entry} block={block} fix={fixHref?.('stats')} /> : null}
+      {block.stats?.length && entry.stats ? <StatTiles entry={entry} block={block} fix={fixHref?.('stats')} color={color} /> : null}
 
       {allRoutes.length > 0 && (
         <div className="mt-4">

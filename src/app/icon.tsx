@@ -1,5 +1,5 @@
 import { ImageResponse } from 'next/og';
-import { PIECE_PATH, PIECE_VIEWBOX as V } from '@/lib/piece';
+import { PIECE_SMALL_PATH, PIECE_VIEWBOX as V } from '@/lib/piece';
 
 // The browser tab icon: the yellow piece on an ink square (brand rules in CLAUDE.md).
 
@@ -12,7 +12,7 @@ export default function Icon() {
     (
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#15171c', borderRadius: 7 }}>
         <svg width={w} height={h} viewBox={`${V.x} ${V.y} ${V.width} ${V.height}`}>
-          <path d={PIECE_PATH} fill="#ffc53d" />
+          <path d={PIECE_SMALL_PATH} fill="#ffc53d" />
         </svg>
       </div>
     ),

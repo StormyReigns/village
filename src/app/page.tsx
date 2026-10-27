@@ -23,7 +23,8 @@ export default function VillageSquare() {
         fill priority sizes="100vw" className="-z-10 object-cover object-[50%_80%]" />
       <div className="mx-auto flex h-[250px] w-full max-w-6xl flex-col px-4 pt-3 sm:h-[300px] sm:px-6 lg:h-[340px]">
         <div className="flex items-center gap-3">
-          <Link href="/" aria-label="Village square" className="flex items-center gap-2 rounded-lg">
+          {/* On a solid chip, so the logo reads on the busy sky. */}
+          <Link href="/" aria-label="Village square" className="flex items-center gap-2 rounded-2xl bg-card py-1.5 pl-2.5 pr-4 shadow-sm">
             <Piece size={40} color="var(--ink)" glitch />
             <Wordmark className="text-[26px] text-ink" glitch />
           </Link>

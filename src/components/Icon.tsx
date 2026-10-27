@@ -1,13 +1,18 @@
 import {
   Backpack, BookOpen, CircleHelp, Flag, Hourglass, House, LayoutGrid, MapPin, Megaphone, Shield, Swords, Trophy, Users,
+  Bird, Castle, Compass, Crown, Droplet, Flame, Flower2, Landmark, Lighthouse, Moon, Star, Tent, Wind,
   type LucideIcon, type LucideProps,
 } from 'lucide-react';
 import { Piece, pieceHeight } from './Piece';
 
-// Only the icons blocks and navigation use, so the bundle stays small.
+// Only the icons blocks, navigation and entry symbols use, so the bundle stays small.
 const ICONS: Record<string, LucideIcon> = {
   Backpack, BookOpen, CircleHelp, Flag, Hourglass, House, LayoutGrid, MapPin, Megaphone, Shield, Swords, Trophy, Users,
+  Bird, Castle, Compass, Crown, Droplet, Flame, Flower2, Landmark, Lighthouse, Moon, Star, Tent, Wind,
 };
+
+/** Whether a symbol name is one we can draw. */
+export const hasIcon = (name?: string) => Boolean(name && ICONS[name]);
 
 export function BlockIcon({ name, ...props }: { name: string } & LucideProps) {
   const Cmp = ICONS[name] ?? CircleHelp;

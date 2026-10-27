@@ -68,6 +68,9 @@ export interface Block {
   statName?: string;
   /** Collection only: the numbers each entry has, shown as a heatmap by the "table" look. */
   stats?: StatDef[];
+  /** Collection only: a symbol (icon name) for each value of the first filter, shown in
+   *  entries' pieces instead of initials, e.g. { 'Fiery Mane': 'Flame' }. */
+  symbols?: Record<string, string>;
   /** A sentence under the title saying what's here. */
   intro?: string;
   /** Category names players can filter by (Collection only). */

@@ -1,16 +1,18 @@
 'use client';
 
 import type { Block, Entry } from '@/data/pages';
-import { heatColor, placeText, statFacts } from '@/lib/stats';
+import { heatFill, placeText, statFacts } from '@/lib/stats';
 
 // The "table" look for a Collection: every entry's stats side by side, each column colored
-// from worse (orange) to better (teal) like the heatmaps players make. Tap a column to sort
-// it best first (again for worst first), or a row to open the entry.
+// from worse (gray) to better (the Page's color) like the heatmaps players make. Tap a column
+// to sort it best first (again for worst first), or a row to open the entry.
 
 export const statSort = (key: string, worst = false) => `stat:${key}${worst ? ':worst' : ''}`;
 
-export function StatTable({ block, entries, among, sort, onSort, onOpen, filter }: {
+export function StatTable({ block, entries, among, sort, onSort, onOpen, filter, color }: {
   block: Block;
+  /** The Page's color, for the better end of the heatmap. */
+  color: string;
   entries: Entry[];
   /** What the colors and places compare against: everything shown, not just this filter. */
   among: Entry[];
@@ -62,7 +64,7 @@ export function StatTable({ block, entries, among, sort, onSort, onOpen, filter 
                   const f = statFacts(d, e, among);
                   return (
                     <td key={d.key} title={f ? `${d.label} ${f.value}: ${placeText(f)}` : `No ${d.label.toLowerCase()} yet`}
-                      style={f ? { background: f.color } : undefined}
+                      style={f ? { background: heatFill(f.goodness, color) } : undefined}
                       className={'min-w-11 rounded-md px-1 py-1.5 text-center tabular-nums sm:min-w-12 sm:px-2 ' + (f ? (f.place === 1 ? 'font-extrabold' : '') : 'bg-card-2 text-muted')}>
                       {f ? f.value : '–'}
                     </td>
@@ -77,7 +79,7 @@ export function StatTable({ block, entries, among, sort, onSort, onOpen, filter 
         <span className="flex items-center gap-1.5">
           Worse
           <span className="h-2.5 w-20 rounded-full ring-1 ring-line" aria-hidden="true"
-            style={{ background: `linear-gradient(to right, ${heatColor(0)}, ${heatColor(0.5)}, ${heatColor(1)})` }} />
+            style={{ background: `linear-gradient(to right, ${heatFill(0, color)}, ${heatFill(1, color)})` }} />
           Better
         </span>
         {lower.length > 0 && <span>Lower is better for {lower.join(' and ')}.</span>}

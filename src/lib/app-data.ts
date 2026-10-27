@@ -59,6 +59,7 @@ export async function getApp(gameId: string): Promise<Page[]> {
       byRoute: Boolean(r.by_route),
       statName: (r.stat_name as string) ?? undefined,
       stats: (r.stats as Block['stats']) ?? undefined,
+      symbols: (r.symbols as Block['symbols']) ?? undefined,
       entries: (entries.get(r.block_key as string) ?? []).sort((x, y) => x.position - y.position).map((x) => { const entry: Entry & { position?: number } = { ...x }; delete entry.position; return entry; }),
     });
     blocks.set(r.page_key as string, list);

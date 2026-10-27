@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronRight, MapPin, Plus, X } from 'lucide-react';
 import type { Block, Entry } from '@/data/pages';
 import type { Mention } from '@/data/pages/links';
@@ -90,6 +90,7 @@ export function RegionSheet({ region, block, ctx, onClose, onOpenPlace }: {
   region: Region; block: Block; ctx: BlockContext; onClose: () => void; onOpenPlace: (e: Entry) => void;
 }) {
   const [ticks, toggle] = useTicks(ctx.gameId);
+  const [snapped, setSnapped] = useState<string | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const t = TINT[ctx.tint];
   useEffect(() => {
@@ -134,8 +135,8 @@ export function RegionSheet({ region, block, ctx, onClose, onOpenPlace }: {
               return (
                 <li key={e.id} className="flex items-center gap-3 rounded-2xl bg-card-2 p-2.5 ring-1 ring-line">
                   {/* Like a checklist tick: a piece, the split outline until it's cleared. */}
-                  <button type="button" onClick={() => toggle(clearKey(block, e))} role="checkbox" aria-checked={on} aria-label={`Cleared: ${e.name}`} className="shrink-0">
-                    <Piece size={42} color={`var(--${ctx.tint})`} outline={!on}>{on ? <Check size={14} strokeWidth={3} aria-hidden="true" /> : null}</Piece>
+                  <button type="button" onClick={() => { toggle(clearKey(block, e)); setSnapped(clearKey(block, e)); }} role="checkbox" aria-checked={on} aria-label={`Cleared: ${e.name}`} className="shrink-0">
+                    <Piece size={42} color={`var(--${ctx.tint})`} outline={!on} snap={on && snapped === clearKey(block, e)}>{on ? <Check size={14} strokeWidth={3} aria-hidden="true" /> : null}</Piece>
                   </button>
                   <button type="button" onClick={() => onOpenPlace(e)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                     <span className="min-w-0 flex-1">

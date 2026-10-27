@@ -30,11 +30,11 @@ export const SHADES: Record<Exclude<Shade, 'standard'>, ShadeSet> = {
     },
     radius: { xl: '0.9rem', '2xl': '1.25rem', '3xl': '1.75rem' },
   },
-  // Deeper jewel tones on parchment fields, slightly tighter corners.
+  // Rich jewel tones on clean, lightly warm fields, slightly tighter corners.
   fantasy: {
     colors: {
-      berry: ['#b62d4f', '#f2dad2'], sun: ['#974800', '#eedec8'], plum: ['#6e38ba', '#e9dce0'],
-      sky: ['#0f5eaa', '#dce1de'], teal: ['#046266', '#dbe1d5'], leaf: ['#156a37', '#dde2cf'],
+      berry: ['#b81f4a', '#f8e2e6'], sun: ['#9a4600', '#f7e7d2'], plum: ['#6a2cc6', '#eee4f8'],
+      sky: ['#0a5cb8', '#e0eaf7'], teal: ['#00676c', '#dbefec'], leaf: ['#0d6e36', '#ddf0e0'],
     },
     radius: { xl: '0.6rem', '2xl': '0.75rem', '3xl': '1.15rem' },
   },

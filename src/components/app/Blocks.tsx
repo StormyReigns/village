@@ -10,7 +10,7 @@ import { BlockIcon } from '@/components/Icon';
 import { Piece } from '@/components/Piece';
 import { Tip } from '@/components/Tip';
 import { ScrollRow } from '@/components/ScrollRow';
-import { EntryIcon, EntryPanel, Lines, type RouteOption } from './EntryPanel';
+import { EntryIcon, EntryPanel, Lines, symbolFor, type RouteOption } from './EntryPanel';
 import { entryText, initials, onRoute, rememberEntry, tintFor, useOpenEntry, useTicks } from './entries';
 import { closest, rank } from '@/lib/search';
 import { useVillager } from '@/components/useVillager';
@@ -256,7 +256,7 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
             <ul className="grid grid-cols-3 gap-x-3 gap-y-4 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {es.map((e) => (
                 <li key={e.id}>
-                  <Portrait e={e} color={color} note={mine(e) ?? (filter ? e.categories[filter] : undefined)} strong={Boolean(mine(e))} onOpen={() => openIt(e)}
+                  <Portrait e={e} color={color} symbol={symbolFor(e, block)} note={mine(e) ?? (filter ? e.categories[filter] : undefined)} strong={Boolean(mine(e))} onOpen={() => openIt(e)}
                     recruited={ticks.has(`recruited:${block.id}.${e.id}`)} onRecruit={() => toggle(`recruited:${block.id}.${e.id}`)} />
                 </li>
               ))}
@@ -264,10 +264,10 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
           )}
           {look === 'slots' && (
             <ul className="grid grid-cols-3 gap-x-3 gap-y-4 sm:grid-cols-5 xl:grid-cols-7">
-              {es.map((e) => <li key={e.id}><Slot e={e} color={color} filter={filter} onOpen={() => openIt(e)} /></li>)}
+              {es.map((e) => <li key={e.id}><Slot e={e} color={color} symbol={symbolFor(e, block)} filter={filter} onOpen={() => openIt(e)} /></li>)}
             </ul>
           )}
-          {look === 'table' && <StatTable block={block} entries={es} among={shown} sort={sort} onSort={setSort} onOpen={openIt} filter={filter} />}
+          {look === 'table' && <StatTable block={block} entries={es} among={shown} sort={sort} onSort={setSort} onOpen={openIt} filter={filter} color={color} />}
           {look === 'rows' && (
             <ul className="grid gap-2">
               {es.map((e) => (
@@ -293,33 +293,41 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
   );
 }
 
-/** A character: their piece (picture or initials) with the name and a note underneath. */
-function Portrait({ e, color, note, strong, onOpen, recruited, onRecruit }: {
-  e: Entry; color: string; note?: string; strong: boolean; onOpen: () => void; recruited?: boolean; onRecruit?: () => void;
+/** What goes in a tile's piece: its picture, else its group's symbol, else initials. */
+function PieceMark({ e, symbol }: { e: Entry; symbol?: string }) {
+  if (e.icon) return null;
+  return symbol ? <BlockIcon name={symbol} size="1.5em" strokeWidth={2.4} /> : <>{initials(e.name)}</>;
+}
+
+/** A character: their piece with the name and a note underneath; the recruited tick sits beside the name. */
+function Portrait({ e, color, symbol, note, strong, onOpen, recruited, onRecruit }: {
+  e: Entry; color: string; symbol?: string; note?: string; strong: boolean; onOpen: () => void; recruited?: boolean; onRecruit?: () => void;
 }) {
   return (
-    <div className="relative">
-    {onRecruit && (
-      <button type="button" onClick={onRecruit} role="checkbox" aria-checked={recruited} aria-label={`Recruited: ${e.name}`}
-        className={'absolute -right-1 -top-1 z-10 grid size-7 place-items-center rounded-full ring-2 transition ' + (recruited ? 'bg-leaf text-white ring-white' : 'bg-card text-muted ring-line hover:text-ink')}>
-        <Check size={15} aria-hidden="true" />
+    <div className="flex flex-col items-center gap-1 text-center">
+      <button onClick={onOpen} aria-label={e.name} className="group w-full">
+        <Piece size="fill" color={color} image={e.icon} className="transition-transform group-hover:-translate-y-0.5"><PieceMark e={e} symbol={symbol} /></Piece>
       </button>
-    )}
-    <button onClick={onOpen} className="group flex w-full flex-col items-center gap-1 text-center">
-      <Piece size="fill" color={color} image={e.icon} className="transition-transform group-hover:-translate-y-0.5">{e.icon ? null : initials(e.name)}</Piece>
-      <span className="w-full truncate text-sm font-bold">{e.name}</span>
+      <span className="flex w-full items-center justify-center gap-1">
+        {onRecruit && (
+          <button type="button" onClick={onRecruit} role="checkbox" aria-checked={recruited} aria-label={`Recruited: ${e.name}`}
+            className={'grid size-5 shrink-0 place-items-center rounded-full ring-1 transition ' + (recruited ? 'bg-leaf text-white ring-leaf' : 'bg-card text-muted ring-line hover:text-ink hover:ring-ink')}>
+            <Check size={12} strokeWidth={3} aria-hidden="true" />
+          </button>
+        )}
+        <button type="button" onClick={onOpen} className="min-w-0 truncate text-sm font-bold">{e.name}</button>
+      </span>
       {note && <span className={'-mt-1 w-full truncate text-[11px] leading-tight ' + (strong ? 'font-bold text-leaf' : 'text-muted')}>{note}</span>}
-    </button>
     </div>
   );
 }
 
-/** An item: its piece (picture or initials) with the name and its type underneath. */
-function Slot({ e, color, filter, onOpen }: { e: Entry; color: string; filter?: string; onOpen: () => void }) {
+/** An item: its piece (picture, symbol or initials) with the name and its type underneath. */
+function Slot({ e, color, symbol, filter, onOpen }: { e: Entry; color: string; symbol?: string; filter?: string; onOpen: () => void }) {
   const kind = filter ? e.categories[filter] : undefined;
   return (
     <button onClick={onOpen} className="group flex w-full flex-col items-center gap-1 text-center">
-      <Piece size="fill" color={color} image={e.icon} className="transition-transform group-hover:-translate-y-0.5">{e.icon ? null : initials(e.name)}</Piece>
+      <Piece size="fill" color={color} image={e.icon} className="transition-transform group-hover:-translate-y-0.5"><PieceMark e={e} symbol={symbol} /></Piece>
       <span className="line-clamp-2 text-xs font-bold leading-tight">{e.name}</span>
       {kind && <span className="-mt-0.5 text-[11px] leading-tight text-muted">{kind}</span>}
     </button>
@@ -397,8 +405,15 @@ function Checklist({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const [showDone, setShowDone] = useState(false);
   const { set } = useOpenEntry();
   const key = (e: Entry) => `${block.id}.${e.id}`;
-  const todo = shown.filter((e) => !ticks.has(key(e)));
-  const done = shown.filter((e) => ticks.has(key(e)));
+  // A box just ticked stays put for a moment, so the snap can play before it moves to Done.
+  const [snapped, setSnapped] = useState<string | null>(null);
+  const tick = (k: string) => {
+    toggle(k);
+    setSnapped(ticks.has(k) ? null : k);
+    setTimeout(() => setSnapped((s) => (s === k ? null : s)), 700);
+  };
+  const todo = shown.filter((e) => !ticks.has(key(e)) || key(e) === snapped);
+  const done = shown.filter((e) => ticks.has(key(e)) && key(e) !== snapped);
   const t = TINT[ctx.tint];
   const deadline = (e: Entry) => {
     if (ctx.route !== 'all') return e.perRoute?.[ctx.route]?.[0]?.text ?? e.sections.find((s) => s.label === 'Before')?.text;
@@ -411,9 +426,9 @@ function Checklist({ block, ctx }: { block: Block; ctx: BlockContext }) {
     return (
       <li key={e.id} className={'flex items-start gap-3 rounded-2xl p-3 ring-1 ' + (next ? 'bg-signal/15 ring-signal' : 'bg-card-2 ring-line') + (on ? ' opacity-60' : '')}>
         <Tip text={on ? 'Done. Tap to untick' : 'Tick it once it\'s done'} tint={ctx.tint} className="shrink-0">
-          <button onClick={() => toggle(key(e))} role="checkbox" aria-checked={on} aria-label={`Done: ${e.name}`} className="shrink-0">
+          <button onClick={() => tick(key(e))} role="checkbox" aria-checked={on} aria-label={`Done: ${e.name}`} className="shrink-0">
             {/* The tick box is a piece: solid with a check when done, the split outline when not. */}
-            <Piece size={44} color={`var(--${ctx.tint})`} outline={!on}>{on ? <Check size={15} strokeWidth={3} aria-hidden="true" /> : null}</Piece>
+            <Piece size={44} color={`var(--${ctx.tint})`} outline={!on} snap={on && key(e) === snapped}>{on ? <Check size={15} strokeWidth={3} aria-hidden="true" /> : null}</Piece>
           </button>
         </Tip>
         {/* The deadline sits outside the button: its game words are buttons of their own. */}

@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
-import { PIECE_MASK, PIECE_PATH, PIECE_SPOT, PIECE_VIEWBOX as V } from '@/lib/piece';
+import { PIECE_MASK, PIECE_PATH, PIECE_SMALL_PATH, PIECE_SPOT, PIECE_VIEWBOX as V, SMALL_BELOW, SNAP_PATHS } from '@/lib/piece';
 
 // The Village piece, the one shape of the brand (rules in CLAUDE.md, "Brand rules").
 // Works in server and client components: no hooks, no clip masks, no ids.
@@ -21,13 +21,16 @@ export const pieceHeight = (size: number) => Math.round(size * ASPECT * 10) / 10
  * - `image` fills the piece with a picture, cut to its shape.
  * Children (short initials or a symbol) sit in the body below the slice, so text never
  * crosses it. Names belong under the piece, not in it.
+ * Under 48px the piece uses its small joint (shorter, chunkier tabs) so it stays crisp.
  */
-export function Piece({ size, color = 'var(--ink)', outline = false, glitch = false, ink = 'var(--ink)', image, label, className = '', style, children }: {
+export function Piece({ size, color = 'var(--ink)', outline = false, glitch = false, snap = false, ink = 'var(--ink)', image, label, className = '', style, children }: {
   size: number | 'fill';
   color?: string;
   outline?: boolean;
   /** A solid piece with yellow and violet copies peeking out: the loud, hype version (the banner logo). */
   glitch?: boolean;
+  /** Play the snap as it appears: the slice slides into place (a tick, something shipping). */
+  snap?: boolean;
   ink?: string;
   image?: string;
   /** Read out instead of the picture, when the piece means something on its own. */
@@ -37,6 +40,12 @@ export function Piece({ size, color = 'var(--ink)', outline = false, glitch = fa
   children?: ReactNode;
 }) {
   const fill = size === 'fill';
+  const small = !fill && size < SMALL_BELOW;
+  const d = small ? PIECE_SMALL_PATH : PIECE_PATH;
+  const snapPaths = SNAP_PATHS[small ? 'small' : 'full'];
+  const snapStyle = snap
+    ? { '--slice-from': `path('${snapPaths.from}')`, '--slice-over': `path('${snapPaths.over}')`, '--slice-to': `path('${d}')` } as CSSProperties
+    : undefined;
   const unit = fill ? 3 : V.width / size; // piece units per pixel ('fill' assumes about 80px)
   const line = fill ? 2 : Math.min(4, Math.max(1.5, size / 36)); // outline thickness in pixels
   const nudge = line * 0.9 * unit;
@@ -49,19 +58,19 @@ export function Piece({ size, color = 'var(--ink)', outline = false, glitch = fa
       <svg viewBox={VIEWBOX} width="100%" height="100%" aria-hidden="true" className="absolute inset-0 overflow-visible">
         {outline ? (
           <g fill="none" strokeWidth={line * unit} strokeLinejoin="round">
-            <path d={PIECE_PATH} stroke={GLITCH.violet} transform={`translate(${-nudge} ${nudge / 3})`} />
-            <path d={PIECE_PATH} stroke={GLITCH.pink} transform={`translate(${nudge} ${-nudge / 3})`} />
-            <path d={PIECE_PATH} stroke={ink} />
+            <path d={d} stroke={GLITCH.violet} transform={`translate(${-nudge} ${nudge / 3})`} />
+            <path d={d} stroke={GLITCH.pink} transform={`translate(${nudge} ${-nudge / 3})`} />
+            <path d={d} stroke={ink} />
           </g>
         ) : (
           <>
             {glitch && (
               <>
-                <path d={PIECE_PATH} fill={GLITCH.violet} transform={`translate(${-nudge * 1.4} ${nudge / 2})`} />
-                <path d={PIECE_PATH} fill="var(--signal)" transform={`translate(${nudge * 1.4} ${-nudge / 2})`} />
+                <path d={d} fill={GLITCH.violet} transform={`translate(${-nudge * 1.4} ${nudge / 2})`} />
+                <path d={d} fill="var(--signal)" transform={`translate(${nudge * 1.4} ${-nudge / 2})`} />
               </>
             )}
-            <path d={PIECE_PATH} fill={color} />
+            <path d={d} fill={color} className={snap ? 'slice-snap' : undefined} style={snapStyle} />
           </>
         )}
       </svg>

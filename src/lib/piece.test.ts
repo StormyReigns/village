@@ -1,7 +1,7 @@
 // Run with: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { slideBand, toPath, PIECE_PATH, PIECE_PLAIN_PATH, PIECE_VIEWBOX, type Point } from './piece.ts';
+import { slideBand, toPath, PIECE_PATH, PIECE_PLAIN_PATH, PIECE_SMALL_PATH, PIECE_VIEWBOX, type Point } from './piece.ts';
 
 test('sliding a band steps a square out on both sides', () => {
   const square: Point[] = [[0, 0], [100, 0], [100, 100], [0, 100]];
@@ -31,4 +31,12 @@ test('the slice changes the outline and nothing is lost', () => {
   assert.notEqual(PIECE_PATH, PIECE_PLAIN_PATH);
   assert.ok(!PIECE_PATH.includes('NaN'));
   assert.ok(toPath([[0, 0], [1, 1]]).endsWith('Z'));
+});
+
+test('the small piece keeps the body and the slice, with shorter tabs', () => {
+  const n = numbers(PIECE_SMALL_PATH);
+  const xs = n.filter((_, i) => i % 2 === 0), ys = n.filter((_, i) => i % 2 === 1);
+  assert.equal(Math.max(...xs), 208, 'the right tab, slid by the slice, reaches 208');
+  assert.equal(Math.max(...ys), 144, 'the bottom tab reaches 144');
+  assert.notEqual(PIECE_SMALL_PATH, PIECE_PATH);
 });

@@ -23,10 +23,22 @@ export const PIECE_SPOT = {
 
 export type Point = [number, number];
 
+/** The dovetail tabs and sockets: how far they reach, and their width at the edge and at the end. */
+export interface Joint { tab: number; neck: number; flare: number }
+
+/** The full joint, for pieces 48px and up. */
+const JOINT: Joint = { tab: PIECE.tab, neck: 11, flare: 19 };
+
+/**
+ * The joint for small pieces (under 48px): shorter and chunkier, so the tabs still read as
+ * tabs instead of turning into specks. Same body, corners and slice.
+ */
+const SMALL_JOINT: Joint = { tab: 12, neck: 15, flare: 20 };
+
 /** The corners of the piece, each with how much to round it: [x, y, radius]. */
-function corners(): [number, number, number][] {
-  const { width: W, height: H, corner: c, tab: d } = PIECE;
-  const cx = W / 2, cy = H / 2, neck = 11, flare = 19, j = 4, q = 2;
+function corners({ tab: d, neck, flare }: Joint = JOINT): [number, number, number][] {
+  const { width: W, height: H, corner: c } = PIECE;
+  const cx = W / 2, cy = H / 2, j = 4, q = 2;
   return [
     [0, c, j], [c, 0, j],
     [cx - neck, 0, q], [cx - flare, d, q], [cx + flare, d, q], [cx + neck, 0, q],
@@ -96,6 +108,19 @@ export const PIECE_PLAIN_PATH = toPath(rounded(corners()));
 
 /** The piece as everyone sees it: with the slice. */
 export const PIECE_PATH = toPath(slideBand(rounded(corners())));
+
+/** The small piece, for sizes under 48px (favicons, nav, badges, tick boxes). */
+export const PIECE_SMALL_PATH = toPath(slideBand(rounded(corners(SMALL_JOINT))));
+
+/** The same outlines with the band not slid yet, and slid a little too far: the snap motion
+ *  runs between them (same points, so the shape can move smoothly). */
+export const SNAP_PATHS = {
+  full: { from: toPath(slideBand(rounded(corners()), { ...SLICE, shift: 0 })), over: toPath(slideBand(rounded(corners()), { ...SLICE, shift: SLICE.shift * 1.7 })) },
+  small: { from: toPath(slideBand(rounded(corners(SMALL_JOINT)), { ...SLICE, shift: 0 })), over: toPath(slideBand(rounded(corners(SMALL_JOINT)), { ...SLICE, shift: SLICE.shift * 1.7 })) },
+} as const;
+
+/** Pieces narrower than this use the small joint. */
+export const SMALL_BELOW = 48;
 
 /** The piece as a CSS mask, for cutting a picture to its shape (no ids needed). */
 export const PIECE_MASK = `url("data:image/svg+xml,${encodeURIComponent(

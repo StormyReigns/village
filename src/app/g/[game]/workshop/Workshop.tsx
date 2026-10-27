@@ -509,11 +509,12 @@ function BlockChip({ on, tint, icon, label, count, onClick }: {
   );
 }
 
-// Yellow is "act on this": only what needs your vote gets it; the other states stay quiet.
+// Labels stay quiet: what needs your vote gets an ink outline. Yellow is kept for the one
+// main action in each area (+ New, signing in).
 const ITEM: Record<'ready' | 'yours' | 'vote' | 'voted', { label: string; pill: string }> = {
   ready: { label: 'Ready to publish', pill: 'bg-leaf-soft text-leaf' },
   yours: { label: 'Your Draft', pill: 'bg-sky-soft text-sky' },
-  vote: { label: 'Needs your vote', pill: 'bg-signal text-ink' },
+  vote: { label: 'Needs your vote', pill: 'text-ink ring-1 ring-ink' },
   voted: { label: 'You voted', pill: 'bg-card-2 text-muted' },
 };
 
@@ -535,7 +536,7 @@ function OpenItem({ d, kind, visitor, practice, place, onOpen, onVote }: {
     + (d.practiceVote ? ' (1 practice)' : '');
   return (
     <Tip text={visitor && kind === 'vote' ? 'Sign in to vote on this' : ITEM_TIP[kind]} tint={place?.page.tint ?? 'ink'}>
-    <div className={'flex w-56 flex-col gap-2 rounded-2xl bg-card p-3 ' + (kind === 'vote' ? 'ring-2 ring-signal' : 'ring-1 ring-line')}>
+    <div className={'flex w-56 flex-col gap-2 rounded-2xl bg-card p-3 ' + (kind === 'vote' ? 'ring-1 ring-ink/40' : 'ring-1 ring-line')}>
     <button onClick={onOpen} className="flex flex-col gap-2 text-left">
       <span className="flex items-center gap-1.5">
         <span className={'rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ' + ITEM[kind].pill}>
@@ -737,7 +738,7 @@ function DraftCard({ draft, place, routes, me, messages, live, startOpen = false
   );
 
   return (
-    <li className={'rise rounded-3xl bg-card p-3 ' + (needsVote ? 'ring-2 ring-signal ' : 'ring-1 ring-line ') + (draft.status === 'removed' ? 'opacity-60' : '')}>
+    <li className={'rise rounded-3xl bg-card p-3 ' + (needsVote ? 'ring-1 ring-ink/40 ' : 'ring-1 ring-line ') + (draft.status === 'removed' ? 'opacity-60' : '')}>
       <button onClick={expand} className="flex w-full items-start gap-3 text-left" aria-expanded={open}>
         <EntryIcon entry={draft.content} block={block} size="sm" color={`var(--${block.page.tint})`} />
         <span className="min-w-0 flex-1">
@@ -747,7 +748,7 @@ function DraftCard({ draft, place, routes, me, messages, live, startOpen = false
               ? <Tip text="Changes an entry that's already in the app" tint="sky"><span className="rounded-full bg-sky-soft px-2 py-0.5 text-xs font-bold text-sky">fix</span></Tip>
               : <Tip text="A new entry for the app" tint="leaf"><span className="rounded-full bg-leaf-soft px-2 py-0.5 text-xs font-bold text-leaf">new</span></Tip>}
             {draft.theory && <Tip text="Not confirmed yet. Shown with a Theory label in the app" tint="sun"><span className="rounded-full bg-sun-soft px-2 py-0.5 text-xs font-bold text-sun">Theory</span></Tip>}
-            {needsVote && <span className="rounded-full bg-signal px-2 py-0.5 text-xs font-bold text-ink">Needs your vote</span>}
+            {needsVote && <span className="rounded-full px-2 py-0.5 text-xs font-bold text-ink ring-1 ring-ink">Needs your vote</span>}
           </span>
           <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm text-muted">
             <Avatar name={draft.author.name} url={draft.author.avatarUrl} size={18} />
@@ -1094,7 +1095,7 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts }: {
                             {n > 0 && (
                               <span role="button" tabIndex={0} onClick={(ev) => { ev.stopPropagation(); onDrafts(e.ref!.card); }}
                                 onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.stopPropagation(); onDrafts(e.ref!.card); } }}
-                                className="shrink-0 rounded-full bg-signal px-2 py-0.5 text-[11px] font-bold text-ink hover:brightness-95">{n} open Draft{n > 1 ? 's' : ''}</span>
+                                className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold text-ink ring-1 ring-ink hover:bg-card-2">{n} open Draft{n > 1 ? 's' : ''}</span>
                             )}
                             <span className="shrink-0 text-xs font-bold text-leaf">Fix</span>
                           </button>

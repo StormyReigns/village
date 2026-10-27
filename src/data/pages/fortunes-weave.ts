@@ -151,12 +151,29 @@ function mysteries(): Entry[] {
 
 const block = (b: Omit<Block, 'id'>): Block => ({ id: slug(b.title), ...b });
 
+/** A simple symbol per faction, picked from its name (our own icons, not the game's crests). */
+const FACTIONS: Record<string, string> = {
+  "Promised One's Army": 'Star',
+  'Ribeira Winds': 'Wind',
+  'House Lamine': 'Castle',
+  "Megaira's Beacon": 'Lighthouse',
+  'Rose Tempest': 'Flower2',
+  'Fiery Mane': 'Flame',
+  'Tale of the Moon': 'Moon',
+  'Linaria Dewdrops': 'Droplet',
+  'Bridal Party of the Pale Raven': 'Bird',
+  'Kingdom of Arago': 'Crown',
+  'Clan leader': 'Tent',
+  'Temple Army': 'Landmark',
+  Unaffiliated: 'Compass',
+};
+
 export const PAGES: Page[] = [
   {
     id: 'units-and-classes', title: 'Units and classes', short: 'Units', icon: 'Users', tint: 'berry',
     blurb: 'Who can join your army, how to recruit them, and every class tier.',
     blocks: [
-      block({ type: 'collection', look: 'portraits', title: 'Units', icon: 'Users', filters: ['Group'], byRoute: true, entries: units(),
+      block({ type: 'collection', look: 'portraits', title: 'Units', icon: 'Users', filters: ['Group'], byRoute: true, entries: units(), symbols: FACTIONS,
         intro: 'Pick your Flame Lord to see who can join you and what it takes.' }),
       block({ type: 'collection', look: 'slots', title: 'Classes', icon: 'Shield', filters: ['Tier'], entries: classes() }),
     ],
@@ -167,7 +184,7 @@ export const PAGES: Page[] = [
     blocks: [
       block({ type: 'collection', look: 'slots', title: 'Items', icon: 'Backpack', filters: ['Type'], entries: items() }),
       block({ type: 'collection', look: 'table', title: 'Weapons and magic', icon: 'Swords', filters: ['Rank'], stats: WEAPON_STATS, entries: [...weapons(), ...weaponItems()],
-        intro: 'Every number side by side: teal is better. Tap a column to sort, or a row for details.' }),
+        intro: 'Every number side by side: the stronger the color, the better. Tap a column to sort, or a row for details.' }),
     ],
   },
   {

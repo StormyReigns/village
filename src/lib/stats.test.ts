@@ -1,7 +1,7 @@
 // Run with: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { goodness, heatColor, placeOf, placeText, rangeOf } from './stats.ts';
+import { goodness, heatFill, placeOf, placeText, rangeOf } from './stats.ts';
 import type { Entry, StatDef } from '../data/pages/types.ts';
 
 const e = (name: string, stats: Record<string, number>): Entry => ({ id: name, name, sections: [], categories: {}, stats });
@@ -30,9 +30,8 @@ test('places count ties and say it plainly', () => {
   assert.equal(placeText({ place: 12, of: 30, tied: false }), '12th of 30');
 });
 
-test('the middle is neutral gray and the ends lean orange and teal', () => {
-  assert.equal(heatColor(0.5), '#f1f2f5');
-  const [r0, , b0] = [1, 3, 5].map((i) => parseInt(heatColor(0).slice(i, i + 2), 16));
-  const [r1, , b1] = [1, 3, 5].map((i) => parseInt(heatColor(1).slice(i, i + 2), 16));
-  assert.ok(r0 > b0 && b1 > r1);
+test('worst is plain gray and best is the most Page color', () => {
+  assert.equal(heatFill(0, 'var(--sun)'), 'color-mix(in srgb, var(--sun) 0%, var(--card-2))');
+  assert.equal(heatFill(1, 'var(--sun)'), 'color-mix(in srgb, var(--sun) 55%, var(--card-2))');
+  assert.equal(heatFill(2, 'red'), heatFill(1, 'red'));
 });

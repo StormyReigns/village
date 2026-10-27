@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArrowLeft, Backpack, BookOpen, Check, Flag, Hourglass, House, MapPin, Plus, Users, type LucideIcon } from 'lucide-react';
 import { Piece } from '@/components/Piece';
@@ -54,6 +55,8 @@ function Entry({ name, color, size = 120 }: { name: string; color: string; size?
 }
 
 export default function BrandLab() {
+  // Only on our own computers while building; the live site says it doesn't exist.
+  if (process.env.NODE_ENV === 'production') notFound();
   return (
     <main className="mx-auto grid w-full max-w-5xl gap-10 px-4 py-6 sm:px-6">
       <header className="flex items-center gap-3">

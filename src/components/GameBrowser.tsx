@@ -92,16 +92,24 @@ export function GameBrowser({ games, entries = [] }: { games: Game[]; entries?: 
         <>
           <section className="mt-8">
             <h2 className="font-display text-2xl">Popular right now</h2>
-            <div className="swipe -mx-4 mt-4 flex gap-4 overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6">
-              {popular.map((g) => (
-                <div key={g.id} className="w-[85%] shrink-0 sm:w-[340px]">
-                  <GameTile game={g} />
-                </div>
-              ))}
-            </div>
+            {/* A few games fill the row; once there are more, they become a strip to swipe. */}
+            {popular.length <= 3 ? (
+              <div className={'mt-4 grid gap-4 ' + (popular.length > 1 ? 'sm:grid-cols-2 ' : '') + (popular.length > 2 ? 'lg:grid-cols-3' : '')}>
+                {popular.map((g) => <GameTile key={g.id} game={g} />)}
+              </div>
+            ) : (
+              <div className="swipe -mx-4 mt-4 flex gap-4 overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6">
+                {popular.map((g) => (
+                  <div key={g.id} className="w-[85%] shrink-0 sm:w-[340px]">
+                    <GameTile game={g} />
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
-          <section className="mt-6">
+          {/* The full list earns its place once there are enough games to look through. */}
+          {games.length >= 6 && <section className="mt-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="font-display text-2xl">All games</h2>
               <div role="group" aria-label="Sort games" className="surface flex rounded-full p-1 text-sm font-bold">
@@ -133,7 +141,7 @@ export function GameBrowser({ games, entries = [] }: { games: Game[]; entries?: 
                 </div>
               ))}
             </div>
-          </section>
+          </section>}
         </>
       )}
     </>

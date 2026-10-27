@@ -39,23 +39,16 @@ export function placeText(p: { place: number; of: number; tied: boolean }) {
   return `${p.tied ? 'Tied ' : ''}${ordinal(p.place)} of ${p.of}`;
 }
 
-// Heatmap colors: orange (worse) through a neutral gray to teal (better), as soft tints that
-// keep ink text readable. Red and green tints look alike to many colorblind players; orange
-// and teal stay apart (checked with the dataviz palette validator), and every cell shows its number.
-const BAD = [230, 140, 40];   // a warm orange
-const MID = [241, 242, 245];  // --card-2
-const GOOD = [12, 116, 120];  // --teal
-const WHITE = [255, 255, 255];
+// Heatmap colors: one hue, gray for worse up to the Page's own color for better, so the
+// table belongs to its Page. One hue reads by lightness alone, which works for colorblind
+// players too, and every cell also shows its number. Ink text stays readable at the top end.
 
-const mix = (a: number[], b: number[], t: number) => a.map((x, i) => Math.round(x + (b[i] - x) * t));
-const hex = (c: number[]) => '#' + c.map((x) => x.toString(16).padStart(2, '0')).join('');
+/** How much of the Page color the best cell gets, in percent. */
+export const HEAT_MAX = 55;
 
-/** The cell color for a goodness from 0 to 1. */
-export function heatColor(g: number): string {
-  const d = Math.min(1, Math.abs(g - 0.5) * 2);
-  if (d < 0.08) return hex(MID);
-  const pole = mix(WHITE, g > 0.5 ? GOOD : BAD, g > 0.5 ? 0.55 : 0.35);
-  return hex(mix(MID, pole, d));
+/** The cell color for a goodness from 0 to 1, as CSS: gray mixed with the Page color. */
+export function heatFill(g: number, color: string): string {
+  return `color-mix(in srgb, ${color} ${Math.round(Math.max(0, Math.min(1, g)) * HEAT_MAX)}%, var(--card-2))`;
 }
 
 /** A stat's value, goodness and place within the given entries, or null if the entry lacks it. */
@@ -64,7 +57,7 @@ export function statFacts(def: StatDef, entry: Entry, among: Entry[]) {
   const r = rangeOf(among, def.key);
   if (typeof v !== 'number' || !r) return null;
   const g = goodness(def, v, r);
-  return { value: v, goodness: g, color: heatColor(g), ...placeOf(def, v, among) };
+  return { value: v, goodness: g, ...placeOf(def, v, among) };
 }
 
 /** Orders entries by a stat, best first (or worst first). Entries without it go last. */

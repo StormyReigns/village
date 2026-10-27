@@ -47,8 +47,12 @@ Community-built companion apps for games, with a village theme. Two layers:
 - **The piece** (`src/components/Piece.tsx`): one cut-corner block with dovetail sockets
   (top, left) and tabs (bottom, right). Only scaled, never stretched. It is the logo, every
   entry, every Page symbol's backing, and tick boxes. Pages and Blocks are never pieces.
+  Under 48px it uses a small joint (shorter, chunkier tabs) so it stays crisp; same body
+  and slice. Entries show a group symbol (a Block's `symbols`, e.g. one per faction) when
+  set, else initials.
 - **The slice**: one band through the middle always slides right by the same amount, on
-  the piece and on the "village" wordmark.
+  the piece and on the "village" wordmark. The one signature motion: when something turns
+  solid (a tick), the band snaps into place (`snap` on `Piece`).
 - **Text never crosses the slice**: inside a piece only short initials or a symbol, sitting
   below the band. Names go under the piece in ink, like an app-icon label.
 - **Pieces never lock together in layouts**: leave a clear gap so tabs don't reach a

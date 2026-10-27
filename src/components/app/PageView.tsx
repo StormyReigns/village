@@ -228,14 +228,10 @@ export function AppHome({ game, pages }: { game: AppGame; pages: Page[] }) {
 
       <AppSearch gameId={game.id} pages={pages} />
 
-      {/* Reasons to come back: open questions, and what other players found lately. */}
-      <div className="grid gap-3 md:grid-cols-2">
+      {/* Reasons to come back: open questions, your next deadline, what other players found
+          lately and where you left off. Two to a row; a card left on its own fills the row. */}
+      <div className="grid gap-3 md:grid-cols-2 md:[&>*:last-child:nth-child(odd)]:col-span-2">
         <HelpSolve gameId={game.id} pages={pages} />
-        <NewInVillage gameId={game.id} />
-      </div>
-
-      {(recent.length > 0 || next) && (
-        <div className="grid gap-3 md:grid-cols-2">
           {next && (
             <Link href={`/g/${game.id}/${next.p.id}`} className="lift flex items-center gap-3 rounded-2xl bg-card p-4 ring-1 ring-line">
               <Piece size={56} color={`var(--${next.p.tint})`}><Hourglass size={17} strokeWidth={2.4} aria-hidden="true" /></Piece>
@@ -261,8 +257,8 @@ export function AppHome({ game, pages }: { game: AppGame; pages: Page[] }) {
               </ul>
             </div>
           )}
-        </div>
-      )}
+        <NewInVillage gameId={game.id} />
+      </div>
 
       <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {pages.map((p) => {

@@ -176,3 +176,14 @@ body {
   .tip-in { animation: tip-in 0.14s ease-out; }
   @keyframes tip-in { from { opacity: 0; transform: translateY(3px) scale(0.97); } to { opacity: 1; transform: none; } }
 }
+
+/* The snap (components/Piece.tsx, snap): as a piece turns solid, its slice slides into place,
+   a little too far and back. */
+@media (prefers-reduced-motion: no-preference) {
+  .slice-snap { animation: slice-snap 0.45s cubic-bezier(0.3, 1.2, 0.5, 1); }
+  @keyframes slice-snap {
+    from { d: var(--slice-from); }
+    55% { d: var(--slice-over); }
+    to { d: var(--slice-to); }
+  }
+}

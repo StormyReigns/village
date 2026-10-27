@@ -7,15 +7,15 @@ import { ArrowLeft, Hammer, X } from 'lucide-react';
 import type { Tint } from '@/data/pages';
 import { NavSymbol } from '@/components/Icon';
 import { TINT } from './tint';
+import { Piece } from '@/components/Piece';
+import { initials } from './entries';
 
 export interface NavPage { id: string; title: string; short: string; icon: string; tint: Tint; count: number }
 export interface NavGame { id: string; shortTitle: string; cover?: string }
 
-function GameMark({ game, size }: { game: NavGame; size: string }) {
-  return game.cover
-    // eslint-disable-next-line @next/next/no-img-element -- small cover thumbnail
-    ? <img src={game.cover} alt="" className={`${size} shrink-0 rounded-xl object-cover`} />
-    : <span className={`grid ${size} shrink-0 place-items-center rounded-xl bg-berry font-display text-sm text-white`}>{game.shortTitle.slice(0, 2)}</span>;
+/** The game's badge: an ink piece with its initials, or its cover cut to the piece. */
+function GameMark({ game }: { game: NavGame }) {
+  return <Piece size={44} color="var(--ink)" image={game.cover}>{game.cover ? null : initials(game.shortTitle)}</Piece>;
 }
 
 /**
@@ -45,7 +45,7 @@ export function AppNav({ game, pages }: { game: NavGame; pages: NavPage[] }) {
       <aside className="hidden lg:col-start-1 lg:row-start-1 lg:block">
         <div className="sticky top-20 grid gap-4">
           <Link href={home} className={'flex items-center gap-3 rounded-2xl p-2 hover:bg-card ' + (!current ? 'bg-card ring-1 ring-line' : '')}>
-            <GameMark game={game} size="size-11" />
+            <GameMark game={game} />
             <span className="min-w-0">
               <span className="block truncate font-display text-lg leading-tight">{game.shortTitle}</span>
               <span className="block text-xs font-bold text-muted">App home</span>
@@ -87,7 +87,7 @@ export function AppNav({ game, pages }: { game: NavGame; pages: NavPage[] }) {
             const on = more || Boolean(current && !inBar.includes(current));
             return (
               <button onClick={() => setMore(!more)} aria-expanded={more}
-                className={'flex w-16 flex-col items-center gap-0.5 rounded-2xl py-1 text-center text-[11px] font-bold leading-tight ' + (on ? 'text-ink' : 'text-muted')}>
+                className={'flex w-16 flex-col items-center gap-0.5 rounded-2xl py-1 text-center text-xs font-bold leading-tight ' + (on ? 'text-ink' : 'text-muted')}>
                 <NavSymbol name="LayoutGrid" color={on ? 'var(--ink)' : 'var(--muted)'} on={on} size={44} />
                 More
               </button>
@@ -132,7 +132,7 @@ export function AppNav({ game, pages }: { game: NavGame; pages: NavPage[] }) {
 function TabLink({ href, on, label, icon, color }: { href: string; on: boolean; label: string; icon: string; color: string }) {
   return (
     <Link href={href} aria-current={on ? 'page' : undefined}
-      className={'flex w-16 flex-col items-center gap-0.5 rounded-2xl py-1 text-center text-[11px] font-bold leading-tight ' + (on ? 'text-ink' : 'text-muted')}>
+      className={'flex w-16 flex-col items-center gap-0.5 rounded-2xl py-1 text-center text-xs font-bold leading-tight ' + (on ? 'text-ink' : 'text-muted')}>
       <NavSymbol name={icon} color={on ? color : 'var(--muted)'} on={on} size={44} />
       {label}
     </Link>

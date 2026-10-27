@@ -12,20 +12,20 @@ insert into public.app_pages (game_id, page_key, title, short, icon, tint, blurb
 on conflict (game_id, page_key) do update set title = excluded.title, short = excluded.short, icon = excluded.icon,
   tint = excluded.tint, blurb = excluded.blurb, position = excluded.position;
 
-insert into public.game_blocks (game_id, block_key, title, position, page_key, type, look, icon, intro, filters, by_route, stat_name, stats) values
-  ('fortunes-weave', 'units', 'Units', 0, 'units-and-classes', 'collection', 'portraits', 'Users', 'Pick your Flame Lord to see who can join you and what it takes.', array['Group']::text[], true, null, null),
-  ('fortunes-weave', 'classes', 'Classes', 1, 'units-and-classes', 'collection', 'slots', 'Shield', null, array['Tier']::text[], false, null, null),
-  ('fortunes-weave', 'items', 'Items', 2, 'items', 'collection', 'slots', 'Backpack', null, array['Type']::text[], false, null, null),
-  ('fortunes-weave', 'weapons-and-magic', 'Weapons and magic', 3, 'items', 'collection', 'table', 'Swords', 'Every number side by side: teal is better. Tap a column to sort, or a row for details.', array['Rank']::text[], false, null, '[{"key":"might","label":"Might","better":"high"},{"key":"hit","label":"Hit","better":"high"},{"key":"weight","label":"Weight","better":"low"},{"key":"crit","label":"Crit","better":"high"}]'::jsonb),
-  ('fortunes-weave', 'last-chances', 'Last chances', 4, 'last-chances', 'checklist', null, 'Hourglass', null, array[]::text[], true, null, null),
-  ('fortunes-weave', 'story', 'Story', 5, 'story', 'timeline', null, 'Flag', null, array[]::text[], true, null, null),
-  ('fortunes-weave', 'dungeons-and-places', 'Dungeons and places', 6, 'world', 'collection', 'map', 'MapPin', null, array['Region']::text[], false, 'Level', null),
-  ('fortunes-weave', 'foes', 'Foes', 7, 'world', 'collection', 'rows', 'Swords', null, array[]::text[], true, null, null),
-  ('fortunes-weave', 'how-to', 'How to', 8, 'guides', 'guide', null, 'BookOpen', null, array[]::text[], false, null, null),
-  ('fortunes-weave', 'mysteries', 'Mysteries', 9, 'guides', 'collection', 'rows', 'CircleHelp', 'Open questions. Found the answer? Bring it to the Workshop.', array['Status']::text[], false, null, null)
+insert into public.game_blocks (game_id, block_key, title, position, page_key, type, look, icon, intro, filters, by_route, stat_name, stats, symbols) values
+  ('fortunes-weave', 'units', 'Units', 0, 'units-and-classes', 'collection', 'portraits', 'Users', 'Pick your Flame Lord to see who can join you and what it takes.', array['Group']::text[], true, null, null, '{"Promised One''s Army":"Star","Ribeira Winds":"Wind","House Lamine":"Castle","Megaira''s Beacon":"Lighthouse","Rose Tempest":"Flower2","Fiery Mane":"Flame","Tale of the Moon":"Moon","Linaria Dewdrops":"Droplet","Bridal Party of the Pale Raven":"Bird","Kingdom of Arago":"Crown","Clan leader":"Tent","Temple Army":"Landmark","Unaffiliated":"Compass"}'::jsonb),
+  ('fortunes-weave', 'classes', 'Classes', 1, 'units-and-classes', 'collection', 'slots', 'Shield', null, array['Tier']::text[], false, null, null, null),
+  ('fortunes-weave', 'items', 'Items', 2, 'items', 'collection', 'slots', 'Backpack', null, array['Type']::text[], false, null, null, null),
+  ('fortunes-weave', 'weapons-and-magic', 'Weapons and magic', 3, 'items', 'collection', 'table', 'Swords', 'Every number side by side: the stronger the color, the better. Tap a column to sort, or a row for details.', array['Rank']::text[], false, null, '[{"key":"might","label":"Might","better":"high"},{"key":"hit","label":"Hit","better":"high"},{"key":"weight","label":"Weight","better":"low"},{"key":"crit","label":"Crit","better":"high"}]'::jsonb, null),
+  ('fortunes-weave', 'last-chances', 'Last chances', 4, 'last-chances', 'checklist', null, 'Hourglass', null, array[]::text[], true, null, null, null),
+  ('fortunes-weave', 'story', 'Story', 5, 'story', 'timeline', null, 'Flag', null, array[]::text[], true, null, null, null),
+  ('fortunes-weave', 'dungeons-and-places', 'Dungeons and places', 6, 'world', 'collection', 'map', 'MapPin', null, array['Region']::text[], false, 'Level', null, null),
+  ('fortunes-weave', 'foes', 'Foes', 7, 'world', 'collection', 'rows', 'Swords', null, array[]::text[], true, null, null, null),
+  ('fortunes-weave', 'how-to', 'How to', 8, 'guides', 'guide', null, 'BookOpen', null, array[]::text[], false, null, null, null),
+  ('fortunes-weave', 'mysteries', 'Mysteries', 9, 'guides', 'collection', 'rows', 'CircleHelp', 'Open questions. Found the answer? Bring it to the Workshop.', array['Status']::text[], false, null, null, null)
 on conflict (game_id, block_key) do update set title = excluded.title, position = excluded.position,
   page_key = excluded.page_key, type = excluded.type, look = excluded.look, icon = excluded.icon, intro = excluded.intro,
-  filters = excluded.filters, by_route = excluded.by_route, stat_name = excluded.stat_name, stats = excluded.stats;
+  filters = excluded.filters, by_route = excluded.by_route, stat_name = excluded.stat_name, stats = excluded.stats, symbols = excluded.symbols;
 
 -- 186 starter entries, each with a first revision on Stable
 do $$
@@ -52,17 +52,17 @@ insert into public.app_pages (game_id, page_key, title, short, icon, tint, blurb
 on conflict (game_id, page_key) do update set title = excluded.title, short = excluded.short, icon = excluded.icon,
   tint = excluded.tint, blurb = excluded.blurb, position = excluded.position;
 
-insert into public.game_blocks (game_id, block_key, title, position, page_key, type, look, icon, intro, filters, by_route, stat_name, stats) values
-  ('ocarina-of-time', 'story', 'Dungeons', 0, 'story', 'timeline', null, 'Flag', null, array[]::text[], false, null, null),
-  ('ocarina-of-time', 'collectibles', 'Collectibles', 1, 'collectibles', 'checklist', null, 'Trophy', null, array[]::text[], false, null, null),
-  ('ocarina-of-time', 'items', 'Items', 2, 'items', 'collection', 'slots', 'Backpack', null, array['Type']::text[], false, null, null),
-  ('ocarina-of-time', 'places', 'Places', 3, 'world', 'collection', 'rows', 'MapPin', null, array['Region']::text[], false, null, null),
-  ('ocarina-of-time', 'foes', 'Foes', 4, 'world', 'collection', 'rows', 'Swords', null, array[]::text[], false, null, null),
-  ('ocarina-of-time', 'how-to', 'How to', 5, 'guides', 'guide', null, 'BookOpen', null, array[]::text[], false, null, null),
-  ('ocarina-of-time', 'mysteries', 'Mysteries', 6, 'guides', 'collection', 'rows', 'CircleHelp', null, array['Status']::text[], false, null, null)
+insert into public.game_blocks (game_id, block_key, title, position, page_key, type, look, icon, intro, filters, by_route, stat_name, stats, symbols) values
+  ('ocarina-of-time', 'story', 'Dungeons', 0, 'story', 'timeline', null, 'Flag', null, array[]::text[], false, null, null, null),
+  ('ocarina-of-time', 'collectibles', 'Collectibles', 1, 'collectibles', 'checklist', null, 'Trophy', null, array[]::text[], false, null, null, null),
+  ('ocarina-of-time', 'items', 'Items', 2, 'items', 'collection', 'slots', 'Backpack', null, array['Type']::text[], false, null, null, null),
+  ('ocarina-of-time', 'places', 'Places', 3, 'world', 'collection', 'rows', 'MapPin', null, array['Region']::text[], false, null, null, null),
+  ('ocarina-of-time', 'foes', 'Foes', 4, 'world', 'collection', 'rows', 'Swords', null, array[]::text[], false, null, null, null),
+  ('ocarina-of-time', 'how-to', 'How to', 5, 'guides', 'guide', null, 'BookOpen', null, array[]::text[], false, null, null, null),
+  ('ocarina-of-time', 'mysteries', 'Mysteries', 6, 'guides', 'collection', 'rows', 'CircleHelp', null, array['Status']::text[], false, null, null, null)
 on conflict (game_id, block_key) do update set title = excluded.title, position = excluded.position,
   page_key = excluded.page_key, type = excluded.type, look = excluded.look, icon = excluded.icon, intro = excluded.intro,
-  filters = excluded.filters, by_route = excluded.by_route, stat_name = excluded.stat_name, stats = excluded.stats;
+  filters = excluded.filters, by_route = excluded.by_route, stat_name = excluded.stat_name, stats = excluded.stats, symbols = excluded.symbols;
 
 -- Old blocks the Pages replaced
 delete from public.game_blocks where page_key is null;

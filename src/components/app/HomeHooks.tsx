@@ -53,26 +53,19 @@ export function NewInVillage({ gameId }: { gameId: string }) {
     return () => { live = false; };
   }, [gameId]);
 
+  // Only shown once something has landed, so the home page has no empty boxes.
+  if (!found?.length) return null;
   return (
     <div className="surface rounded-2xl p-4">
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold uppercase tracking-wide text-muted">
         <span className="flex items-center gap-1.5"><Sparkles size={13} aria-hidden="true" /> New in the village</span>
         <span className="ml-auto rounded-full bg-sun-soft px-2 py-0.5 normal-case tracking-normal text-sun"><MarketDay /></span>
       </p>
-      {found === null ? (
-        <p className="mt-2 h-10" aria-hidden="true" />
-      ) : found.length ? (
-        <ul className="mt-2 grid gap-1 text-sm">
-          {found.map((f) => (
-            <li key={f.id}><span className="font-bold">{f.title}</span> <span className="text-muted">· found by {f.who}</span></li>
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-2 text-sm text-muted">
-          Nothing new yet. The first fix you send lands here, with your name on it.{' '}
-          <Link href={`/g/${gameId}/workshop`} className="font-bold text-ink underline">Help build</Link>
-        </p>
-      )}
+      <ul className="mt-2 grid gap-1 text-sm">
+        {found.map((f) => (
+          <li key={f.id}><span className="font-bold">{f.title}</span> <span className="text-muted">· found by {f.who}</span></li>
+        ))}
+      </ul>
     </div>
   );
 }
