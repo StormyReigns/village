@@ -45,6 +45,10 @@ const wclip = (t: string, n: number) => (t.length <= n ? t : t.slice(0, Math.max
 // still draws in the default font.
 const fontFile = (name: string) => readFile(join(process.cwd(), 'src/lib/og-fonts', name)).catch(() => null);
 
+// The Village logo for the corner of every picture, kept beside the fonts the same way.
+const logoFile = () => readFile(join(process.cwd(), 'src/lib/og-art', 'logo.png'))
+  .then((b) => `data:image/png;base64,${b.toString('base64')}`).catch(() => null);
+
 // Vercel keeps each picture for a day and hands out the saved copy instantly. Discord
 // gives up on slow pictures, and keeps its own copy anyway.
 const CACHE = 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800';
@@ -99,7 +103,7 @@ export async function villageCard({ tint, shade: genre, kicker, title, icon = fa
   const shown = rows.slice(0, 4);
   const stepsShown = steps.length === 4 ? steps : steps.slice(0, 3);
   const extra = more + rows.length - shown.length;
-  const [body, bold] = await Promise.all([fontFile('Rubik-Bold.ttf'), fontFile('Rubik-ExtraBold.ttf')]);
+  const [body, bold, logo] = await Promise.all([fontFile('Rubik-Bold.ttf'), fontFile('Rubik-ExtraBold.ttf'), logoFile()]);
   const fonts = [
     body && { name: 'Rubik', data: body, weight: 700 as const },
     bold && { name: 'Rubik', data: bold, weight: 800 as const },
@@ -117,8 +121,11 @@ export async function villageCard({ tint, shade: genre, kicker, title, icon = fa
         <div style={{ display: 'flex', flexShrink: 0, alignItems: 'center', fontSize: 34, fontWeight: 800 }}>
           <div style={{ display: 'flex', flexGrow: 1, opacity: 0.85 }}>{clip(kicker, 48)}</div>
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            <div style={{ display: 'flex', width: 52, height: 52, borderRadius: 12, background: INK, alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
-              <svg width={42} height={30} viewBox={VIEWBOX}><path d={PIECE_PATH} fill="#ffc53d" /></svg>
+            {/* On a white tile, so the logo's colors hold up on any Page color. */}
+            <div style={{ display: 'flex', width: 64, height: 64, borderRadius: 16, background: 'white', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+              {/* next/og draws plain <img> only. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {logo && <img src={logo} width={54} height={49} alt="" />}
             </div>
             <div style={{ display: 'flex', fontSize: 32 }}>Village</div>
           </div>

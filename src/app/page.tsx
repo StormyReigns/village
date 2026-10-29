@@ -4,8 +4,7 @@ import { GameBrowser } from '@/components/GameBrowser';
 import { AccountButton } from '@/components/AccountButton';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Wordmark } from '@/components/Logo';
-import { Piece } from '@/components/Piece';
+import { LogoMark, Wordmark } from '@/components/Logo';
 import { withCovers } from '@/lib/pictures';
 import { Suspense } from 'react';
 import type { EntryHit } from '@/components/GameBrowser';
@@ -25,8 +24,8 @@ export default function VillageSquare() {
         <div className="flex items-center gap-3">
           {/* On a solid chip, so the logo reads on the busy sky. */}
           <Link href="/" aria-label="Village square" className="flex items-center gap-2 rounded-2xl bg-card py-1.5 pl-2.5 pr-4 shadow-sm">
-            <Piece size={40} color="var(--ink)" glitch />
-            <Wordmark className="text-[26px] text-ink" glitch />
+            <LogoMark height={46} />
+            <Wordmark className="text-[26px] text-ink" />
           </Link>
           <div className="ml-auto flex items-center gap-1 rounded-full bg-ink/85 p-1">
             <MarketDayButton className="hidden text-signal sm:inline-flex" />

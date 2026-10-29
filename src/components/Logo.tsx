@@ -1,9 +1,14 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Piece } from './Piece';
 
-// The Village logo: the yellow piece and the "village" wordmark, both with the slice
-// (brand rules in CLAUDE.md). Works in server and client components.
+// The Village logo: the house and flag in its ring of genre tiles, beside the "village"
+// wordmark with the slice (brand rules in CLAUDE.md). Works in server and client components.
+
+/** The logo picture (public/village/logo.png), sized by its height. */
+export function LogoMark({ height, className = '' }: { height: number; className?: string }) {
+  return <Image src="/village/logo.png" alt="" width={Math.round(height * 320 / 290)} height={height} className={`shrink-0 ${className}`} />;
+}
 
 /**
  * The word "village" in Rubik at its heaviest, with the same slice as the piece: one band
@@ -35,7 +40,7 @@ export function TopBar({ children, actions, compact = false }: { children?: Reac
     <header className="sticky top-0 z-30 bg-ink text-white">
       <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-2.5 sm:px-6">
         <Link href="/" aria-label="Village square" className="flex shrink-0 items-center gap-2 rounded-lg">
-          <Piece size={36} color="var(--signal)" />
+          <LogoMark height={38} />
           <span className={compact ? 'hidden sm:flex' : 'flex'}><Wordmark className="text-[23px]" /></span>
         </Link>
         {children}

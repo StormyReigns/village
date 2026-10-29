@@ -44,8 +44,14 @@ Community-built companion apps for games, with a village theme. Two layers:
 
 ## Brand rules
 
+- **The logo** (agreed 2026-10-29): a navy house with a yellow flag in a ring of five genre
+  tiles (fantasy, shooter, open world, platformer, racing), Matt's picture
+  `public/village/logo.png`, next to the "village" wordmark. It is used in the top bar, the
+  front page banner, the tab and phone icons, and the corner of share pictures. Matt's
+  one-color version is for later; it turns to noise below about 64px. A designer brief for a
+  cleaner redraw: https://claude.ai/artifact/DLc7FovwZVqYeShr4JQgwJ
 - **The piece** (`src/components/Piece.tsx`): one cut-corner block with dovetail sockets
-  (top, left) and tabs (bottom, right). Only scaled, never stretched. It is the logo, every
+  (top, left) and tabs (bottom, right). Only scaled, never stretched. It is every
   entry, every Page symbol's backing, and tick boxes. Pages and Blocks are never pieces.
   Under 48px it uses a small joint (shorter, chunkier tabs) so it stays crisp; same body
   and slice. Entries show a group symbol (a Block's `symbols`, e.g. one per faction) when
@@ -59,11 +65,10 @@ Community-built companion apps for games, with a village theme. Two layers:
   neighbour.
 - **Solid = built, split outline = not built yet**: an empty slot, an unticked box or "add"
   is an outline with pink (#ff2bd6) and violet (#8b3dff) offset copies. The split is also
-  the loading look. The banner logo on the front page is its one loud use, with yellow in
-  place of the pink (`glitch` on `Piece` and
-  `Wordmark`). Other solid pieces are one color.
+  the loading look. Solid pieces are one color. (`glitch` on `Piece` and `Wordmark`, a
+  yellow and violet split, was the old banner logo's look and is unused for now.)
 - **Colors**: ink #15171c and signal yellow #FFC53D frame every screen (ink top bar,
-  yellow piece logo). Yellow means "act on this" or "your choice". One standard color per
+  yellow main button). Yellow means "act on this" or "your choice". One standard color per
   Page in every game; a game's genre may shift the shade, never the hue. Each game picks a
   `shade` in `src/data/games.ts` (standard, cozy, fantasy, shooter, openworld; table in
   `src/lib/shades.ts`); `GameShade` applies it to that game's screens only, and share
@@ -73,11 +78,12 @@ Community-built companion apps for games, with a village theme. Two layers:
   in navigation the current one sits inside a piece.
 - **Type**: Rubik only, heavy for names, regular for reading.
 - **In code**: `Piece` (any width or `size="fill"`, `outline`, `image`), `NavSymbol` and
-  `EntryIcon` for Page symbols and entries, `Wordmark` and `TopBar` in `Logo.tsx`, colors
+  `EntryIcon` for Page symbols and entries, `LogoMark`, `Wordmark` and `TopBar` in `Logo.tsx`, colors
   as CSS variables in `globals.css` (`--signal` is the yellow, `btn-primary` the main
   button). Check shapes at `/lab/brand`. Share pictures (`src/lib/og-card.tsx`) draw the
   piece with plain SVG and use the Rubik files in `src/lib/og-fonts` (next/og can't use
-  the variable font).
+  the variable font) and the logo in `src/lib/og-art`. The tab and phone icons are the
+  plain files `src/app/icon.png` and `apple-icon.png`.
 
 ## Working notes
 
