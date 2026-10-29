@@ -22,17 +22,19 @@ export default function VillageSquare() {
         fill priority sizes="100vw" className="-z-10 object-cover object-[50%_80%]" />
       <div className="mx-auto flex h-[250px] w-full max-w-6xl flex-col px-4 pt-3 sm:h-[300px] sm:px-6 lg:h-[340px]">
         <div className="flex items-center gap-3">
-          {/* On a solid chip, so the logo reads on the busy sky. */}
-          <Link href="/" aria-label="Village square" className="flex items-center gap-2 rounded-2xl bg-card py-1.5 pl-2.5 pr-4 shadow-sm">
-            <LogoMark height={46} />
-            <Wordmark className="text-[26px] text-ink" />
+          {/* The wordmark sits on a solid chip so it reads on the busy sky; the logo is
+              bigger than the chip and spills over its lower edge (the negative margins keep
+              the chip's own height), and the wordmark tucks over it in a white glow. */}
+          <Link href="/" aria-label="Village square" className="flex items-start rounded-2xl bg-card py-1.5 pl-1 pr-4 shadow-sm">
+            <LogoMark height={110} className="-mb-[34px] -ml-2 -mt-1 h-[80px] w-[88px] drop-shadow-[0_4px_6px_rgb(0_0_0/0.25)] sm:-mb-[58px] sm:-mt-1.5 sm:h-[110px] sm:w-[121px]" />
+            <Wordmark className="relative -ml-3 text-[30px] text-ink [text-shadow:0_0_3px_white,0_0_6px_white,0_0_10px_white] sm:text-[34px]" />
           </Link>
           <div className="ml-auto flex items-center gap-1 rounded-full bg-ink/85 p-1">
             <MarketDayButton className="hidden text-signal sm:inline-flex" />
             <AccountButton quiet dark />
           </div>
         </div>
-        <h1 className="mx-auto mt-5 max-w-2xl text-balance text-center font-display text-2xl leading-tight text-ink [text-shadow:0_0_18px_rgb(255_255_255/0.8)] sm:mt-8 sm:text-4xl">
+        <h1 className="mx-auto mt-9 max-w-2xl text-balance text-center font-display text-2xl leading-tight text-ink [text-shadow:0_0_18px_rgb(255_255_255/0.8)] sm:mt-8 sm:text-4xl">
           Companion apps, built by the people who play
         </h1>
       </div>
