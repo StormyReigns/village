@@ -43,7 +43,9 @@ export function TopBar({ children, actions, compact = false }: { children?: Reac
         <Link href="/" aria-label="Village square" className="flex shrink-0 items-center rounded-lg">
           {/* Takes 38px of the bar's height, so the bar stays the same size. */}
           <LogoMark height={68} className="-mb-[26px] -mt-1 drop-shadow-[0_3px_4px_rgb(0_0_0/0.3)]" />
-          <span className={`relative -ml-2 ${compact ? 'hidden sm:flex' : 'flex'}`}>
+          {/* Nudged down toward the logo's middle (which sits below the bar's), but only
+              so far that the "g" stays inside the bar. */}
+          <span className={`relative ml-1 translate-y-[4px] ${compact ? 'hidden sm:flex' : 'flex'}`}>
             <Wordmark className="text-[26px] [text-shadow:0_0_2px_var(--ink),0_0_4px_var(--ink),0_0_8px_var(--ink)]" />
           </span>
         </Link>
