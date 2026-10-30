@@ -20,6 +20,28 @@ export function Tip({ text, tint = 'ink', className = '', children }: { text: Re
   const hide = () => { clearTimeout(timer.current); setOpen(false); setPlace(null); };
   useEffect(() => () => clearTimeout(timer.current), []);
 
+  // It's pinned to the screen, not the page, so it closes as soon as anything scrolls
+  // (the page or a panel) or the window changes size, rather than floating in place.
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener('scroll', hide, { capture: true, passive: true });
+    window.addEventListener('resize', hide);
+    return () => {
+      window.removeEventListener('scroll', hide, { capture: true });
+      window.removeEventListener('resize', hide);
+    };
+  }, [open]);
+
+  // On a touch screen a tap counts as hovering, and nothing un-hovers until the next tap
+  // somewhere else, so there the tip shows briefly and then goes away by itself.
+  const fade = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const touched = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') return;
+    clearTimeout(fade.current);
+    fade.current = setTimeout(hide, 2500);
+  };
+  useEffect(() => () => clearTimeout(fade.current), []);
+
   // Place it under the trigger (or above, near the bottom of the screen), kept on screen.
   useLayoutEffect(() => {
     if (!open || !wrap.current || !bubble.current) return;
@@ -36,7 +58,7 @@ export function Tip({ text, tint = 'ink', className = '', children }: { text: Re
     : children;
 
   return (
-    <span ref={wrap} className={'inline-flex ' + className} onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide}>
+    <span ref={wrap} className={'inline-flex ' + className} onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide} onPointerDown={touched}>
       {trigger}
       {open && createPortal(
         <div ref={bubble} id={id} role="tooltip"
