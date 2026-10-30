@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, Hammer, Hourglass, Pencil, TriangleAlert, X } from 'lucide-react';
 import type { Block, Entry, EntryContent, Route } from '@/data/pages';
-import { BlockIcon, hasIcon } from '@/components/Icon';
+import { BlockIcon } from '@/components/Icon';
+import { symbolFor } from './symbols';
 import { ShareButton } from '@/components/ShareButton';
 import { RichText } from './TextLinks';
 import { Tip } from '@/components/Tip';
@@ -13,6 +14,7 @@ import { Piece } from '@/components/Piece';
 import { browserClient } from '@/lib/supabase/browser';
 import type { Mention } from '@/data/pages/links';
 import { heatFill, placeText, statFacts } from '@/lib/stats';
+import { CharacterCard } from './CharacterCard';
 
 interface OpenFix { id: string; theory: boolean; text: string; who: string }
 type Profile = { display_name?: string; username?: string } | null;
@@ -90,12 +92,7 @@ export function Lines({ text, skip }: { text: string; skip?: string }) {
  * An entry as a piece: its picture, or its initials below the slice. In a Page it takes
  * the Page's `color`; elsewhere (Workshop, search) a steady color from its type.
  */
-/** The symbol for an entry's group (its first filter value), when its Block sets one. */
-export function symbolFor(entry: EntryContent, block: Partial<Pick<Block, 'symbols' | 'filters'>>) {
-  const value = block.filters?.[0] ? entry.categories[block.filters[0]] : undefined;
-  const name = value ? block.symbols?.[value] : undefined;
-  return hasIcon(name) ? name : undefined;
-}
+export { symbolFor } from './symbols';
 
 export function EntryIcon({ entry, block, size = 'md', color }: {
   entry: EntryContent; block: Pick<Block, 'title' | 'icon'> & Partial<Pick<Block, 'symbols' | 'filters'>>; size?: 'sm' | 'md' | 'lg'; color?: string;
@@ -129,7 +126,7 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
   const fixes = useOpenFixes(entry.ref?.card);
   const improvedBy = useImprovedBy(entry.ref?.revision);
   const [ticks, toggleTick] = useTicks(gameId);
-  const people = (block.look ?? 'slots') === 'portraits';
+  const people = (block.look ?? 'slots') === 'portraits' || (block.type === 'characters' && (block.fields ?? []).some((f) => !f.off && /recruit/i.test(`${f.key} ${f.label}`)));
   const recruitKey = `recruited:${block.id}.${entry.id}`;
   // A Mystery: an open question players can answer or theorize about.
   const status = entry.categories.Status;
@@ -175,7 +172,7 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
               <span className="flex-1"><span className="font-bold">A fix is waiting for votes.</span> See it before writing another</span>
             </Link>
           )}
-          <EntryDetails entry={entry} block={block} route={route} routes={routes} fixHref={fixHref} color={color}
+          <EntryDetails entry={entry} block={block} route={route} routes={routes} fixHref={fixHref} color={color} onGo={onGo}
             invite={{ description: !entry.description && block.type === 'collection', sections: missingParts(entry, block) }} />
 
           {place && (
@@ -275,16 +272,20 @@ function StatTiles({ entry, block, fix, color = 'var(--ink)' }: { entry: EntryCo
   );
 }
 
-export function EntryDetails({ entry, block, route, routes, fixHref, invite, color }: {
+export function EntryDetails({ entry, block, route, routes, fixHref, invite, color, onGo }: {
   /** With its stats and entries, the stats show how this entry compares. */
-  entry: EntryContent; block: Pick<Block, 'title' | 'icon'> & Partial<Pick<Block, 'stats' | 'entries'>>; route: Route | 'all'; routes: RouteOption[];
+  entry: EntryContent; block: Pick<Block, 'title' | 'icon'> & Partial<Pick<Block, 'type' | 'fields' | 'stats' | 'entries' | 'symbols' | 'filters'>>; route: Route | 'all'; routes: RouteOption[];
   /** In the app, each part gets a pencil that opens a fix for just that part. */
   fixHref?: (field: string) => string;
   /** In the app, parts this entry is missing, shown as invitations to add them. */
   invite?: { description: boolean; sections: string[] };
   /** The Page's color, for the entry's piece. */
   color?: string;
+  /** Characters: open someone named in Relationships. */
+  onGo?: (e: Entry) => void;
 }) {
+  // Characters lay themselves out by their Block's fields.
+  if (block.type === 'characters') return <CharacterCard entry={entry} block={block} route={route} routes={routes} color={color} fixHref={fixHref} onGo={onGo} size={136} />;
   const name = (r: Route) => routes.find((o) => o.key === r)?.label ?? r;
   const mine = route !== 'all' ? entry.perRoute?.[route] : undefined;
   // In the game's own route order (the database keeps object keys in its own order).

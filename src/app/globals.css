@@ -154,6 +154,11 @@ body {
   }
 }
 
+/* A spoiler field on a character card (components/app/CharacterCard.tsx): striped until tapped. */
+.spoiler-cover {
+  background: repeating-linear-gradient(135deg, var(--card-2) 0 8px, var(--card) 8px 16px);
+}
+
 /* Tooltips (components/Tip.tsx): a flat floating card edged in the trigger's color, with a
    small pointer (.tip-roof) at what it describes. */
 .tip {

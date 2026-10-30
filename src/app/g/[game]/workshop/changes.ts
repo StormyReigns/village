@@ -5,7 +5,7 @@ import type { RouteOption } from '@/components/app/EntryPanel';
 
 export interface Change { label: string; before?: string; after?: string }
 
-export function changesBetween(before: EntryContent | undefined, after: EntryContent, block: Pick<Block, 'statName' | 'stats'>, routes: RouteOption[]): Change[] {
+export function changesBetween(before: EntryContent | undefined, after: EntryContent, block: Pick<Block, 'statName' | 'stats'> & Partial<Pick<Block, 'fields'>>, routes: RouteOption[]): Change[] {
   const out: Change[] = [];
   const add = (label: string, a?: string, b?: string) => {
     const x = (a ?? '').trim(), y = (b ?? '').trim();
@@ -22,7 +22,7 @@ export function changesBetween(before: EntryContent | undefined, after: EntryCon
     add(k, before?.categories?.[k], after.categories[k]);
   }
   for (const label of new Set([...(before?.sections ?? []).map((s) => s.label), ...after.sections.map((s) => s.label)])) {
-    add(label, before?.sections.find((s) => s.label === label)?.text, after.sections.find((s) => s.label === label)?.text);
+    add(block.fields?.find((f) => f.key === label)?.label ?? label, before?.sections.find((s) => s.label === label)?.text, after.sections.find((s) => s.label === label)?.text);
   }
   if (routeNames(before?.routes) !== routeNames(after.routes)) out.push({ label: 'Appears on', before: before ? routeNames(before.routes) : undefined, after: routeNames(after.routes) });
   for (const r of routes) {

@@ -4,6 +4,7 @@ import { CARDS } from '../content/fortunes-weave.ts';
 import type { Card, Route } from '../content/types.ts';
 import type { Block, Entry, Page, Section } from './types.ts';
 import { WEAPON_STATS, weapons } from './fortunes-weave-weapons.ts';
+import { COMMON_FIELDS } from '../../lib/fields.ts';
 
 const ROUTE_NAMES: Record<string, Route> = { Cai: 'cai', Dietrich: 'dietrich', Theodora: 'theodora', Leda: 'leda' };
 
@@ -152,6 +153,12 @@ function mysteries(): Entry[] {
 const block = (b: Omit<Block, 'id'>): Block => ({ id: slug(b.title), ...b });
 
 /** A simple symbol per faction, picked from its name (our own icons, not the game's crests). */
+/** The common character fields, plus each unit's group, and the names our starter cards already use. */
+const UNIT_FIELDS = [
+  { key: 'Group', label: 'Group', kind: 'tag' as const },
+  ...COMMON_FIELDS.map((f) => (f.key === 'How to recruit' ? { ...f, key: 'Recruit' } : f.key === 'Likes and gifts' ? { ...f, key: 'Likes', off: false } : f)),
+];
+
 const FACTIONS: Record<string, string> = {
   "Promised One's Army": 'Star',
   'Ribeira Winds': 'Wind',
@@ -173,7 +180,7 @@ export const PAGES: Page[] = [
     id: 'units-and-classes', title: 'Units and classes', short: 'Units', icon: 'Users', tint: 'berry',
     blurb: 'Who can join your army, how to recruit them, and every class tier.',
     blocks: [
-      block({ type: 'collection', look: 'portraits', title: 'Units', icon: 'Users', filters: ['Group'], byRoute: true, entries: units(), symbols: FACTIONS,
+      block({ type: 'characters', title: 'Units', icon: 'Users', filters: ['Group'], byRoute: true, entries: units(), symbols: FACTIONS, fields: UNIT_FIELDS,
         intro: 'Pick your Flame Lord to see who can join you and what it takes.' }),
       block({ type: 'collection', look: 'slots', title: 'Classes', icon: 'Shield', filters: ['Tier'], entries: classes() }),
     ],

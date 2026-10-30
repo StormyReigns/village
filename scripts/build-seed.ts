@@ -30,13 +30,15 @@ for (const [game, pages] of Object.entries(GAMES)) {
   out.push('');
 
   const blocks = pages.flatMap((p) => p.blocks.map((b) => ({ p, b })));
-  out.push('insert into public.game_blocks (game_id, block_key, title, position, page_key, type, look, icon, intro, filters, by_route, stat_name, stats, symbols) values');
+  out.push('insert into public.game_blocks (game_id, block_key, title, position, page_key, type, look, icon, intro, filters, by_route, stat_name, stats, symbols, fields) values');
   out.push(blocks.map(({ p, b }, i) =>
-    `  (${q(game)}, ${q(b.id)}, ${q(b.title)}, ${i}, ${q(p.id)}, ${q(b.type)}, ${q(b.look)}, ${q(b.icon)}, ${q(b.intro)}, ${arr(b.filters)}, ${b.byRoute ? 'true' : 'false'}, ${q(b.statName)}, ${b.stats ? `${q(JSON.stringify(b.stats))}::jsonb` : 'null'}, ${b.symbols ? `${q(JSON.stringify(b.symbols))}::jsonb` : 'null'})`,
+    `  (${q(game)}, ${q(b.id)}, ${q(b.title)}, ${i}, ${q(p.id)}, ${q(b.type)}, ${q(b.look)}, ${q(b.icon)}, ${q(b.intro)}, ${arr(b.filters)}, ${b.byRoute ? 'true' : 'false'}, ${q(b.statName)}, ${b.stats ? `${q(JSON.stringify(b.stats))}::jsonb` : 'null'}, ${b.symbols ? `${q(JSON.stringify(b.symbols))}::jsonb` : 'null'}, ${b.fields ? `${q(JSON.stringify(b.fields))}::jsonb` : 'null'})`,
   ).join(',\n'));
   out.push('on conflict (game_id, block_key) do update set title = excluded.title, position = excluded.position,');
   out.push('  page_key = excluded.page_key, type = excluded.type, look = excluded.look, icon = excluded.icon, intro = excluded.intro,');
-  out.push('  filters = excluded.filters, by_route = excluded.by_route, stat_name = excluded.stat_name, stats = excluded.stats, symbols = excluded.symbols;');
+  out.push('  filters = excluded.filters, by_route = excluded.by_route, stat_name = excluded.stat_name, stats = excluded.stats, symbols = excluded.symbols,');
+  // Builders set up a Block's fields in the Workshop; the starter set only fills a gap.
+  out.push('  fields = coalesce(public.game_blocks.fields, excluded.fields);');
   out.push('');
 
   const entries = blocks.flatMap(({ b }) => b.entries.map((e, i) => {

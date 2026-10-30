@@ -19,6 +19,14 @@ Community-built companion apps for games, with a village theme. Two layers:
   page then shows a route switcher. Workshop chips are Pages. Entry edits are Drafts;
   Block and Page changes are Drafts with a longer vote plus moderator approval.
   (Agreed 2026-10-21; replaces the per-game block presets in `src/lib/blocks.ts`.)
+- **Building it** (from 2026-10-29): one genre first (fantasy and adventure), one Block at a
+  time. Block 1 is **Characters** (`src/components/app/Characters.tsx`): Profiles (a strip
+  of pieces above one card) by default, or a List; each device remembers which, per Block.
+  The card is laid out by the Block's `fields` (`src/lib/fields.ts`): common ones to switch,
+  rename and reorder, plus builders' own, all optional. Values live on entries as they
+  always have (tags as categories, the rest as sections under the field's key), so Drafts
+  work unchanged. Builders set fields up in the Workshop ("Set up", with a "John Doe"
+  preview); moderators save for now, voting on setups comes later.
 
 ## Decisions to keep
 
@@ -40,7 +48,10 @@ Community-built companion apps for games, with a village theme. Two layers:
   boards 13 to 15. Rolled out across the site 2026-10-25; the village theme lives in the
   words (Workshop, Notice Board, Market Day). One illustration: the front page banner
   (`public/village/banner.jpg`, added 2026-10-26), which is that page's header.
-- **Data**: our own words, sources cited, no game art or leaks; contributions under CC BY-SA.
+- **Data**: our own words, sources cited, no leaks; contributions under CC BY-SA. Game art
+  (portraits, icons) is preferred, credited to its source, and left out only where using it
+  would be a legal problem (agreed 2026-10-29; replaces "no game art"). Without art, an
+  entry's piece shows its group symbol or initials.
 
 ## Brand rules
 

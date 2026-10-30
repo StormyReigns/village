@@ -1,44 +1,31 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Check, ChevronDown, Hourglass, Plus, Search, Sparkles, StickyNote } from 'lucide-react';
-import type { Block, Entry, Page, Route, Tint } from '@/data/pages';
-import { sharePath, type Mention } from '@/data/pages/links';
+import type { Block, Entry, Route, Tint } from '@/data/pages';
+import { sharePath } from '@/data/pages/links';
 import { ShareButton } from '@/components/ShareButton';
 import { BlockIcon } from '@/components/Icon';
 import { Piece } from '@/components/Piece';
 import { Tip } from '@/components/Tip';
 import { ScrollRow } from '@/components/ScrollRow';
-import { EntryIcon, EntryPanel, Lines, symbolFor, type RouteOption } from './EntryPanel';
-import { entryText, initials, onRoute, rememberEntry, tintFor, useOpenEntry, useTicks } from './entries';
+import { EntryIcon, Lines, symbolFor } from './EntryPanel';
+import { entryText, initials, onRoute, tintFor, useOpenEntry, useTicks } from './entries';
 import { closest, rank } from '@/lib/search';
 import { useVillager } from '@/components/useVillager';
 import { RichText } from './TextLinks';
-import { RegionMap, RegionSheet, regionsOf, clearKey, type Region } from './MapBlock';
+import { RegionMap, RegionSheet, regionsOf, type Region } from './MapBlock';
 import { TINT } from './tint';
 import { StatTable, statSort } from './StatTable';
+import { Characters } from './Characters';
+import { FilterChip, HiddenNote, OpenPanel, useVisible, type BlockContext } from './blockParts';
+
+export type { BlockContext } from './blockParts';
 import { byStat } from '@/lib/stats';
 
-/** What every Block needs from the page around it. */
-export interface BlockContext {
-  gameId: string;
-  page: Page;
-  pageTitle: string;
-  tint: Tint;
-  route: Route | 'all';
-  routes: RouteOption[];
-  spoilers: boolean;
-  /** Reveal spoilers. Inside a Block this means just that Block. */
-  onShowSpoilers: () => void;
-  /** Reveal spoilers on every Page (the app-wide switch). */
-  onShowAllSpoilers?: () => void;
-  /** For map Blocks: other entries that mention each region or place (lowercase name). */
-  mentions?: Record<string, Mention[]>;
-}
-
 export function BlockView({ block, ctx: page }: { block: Block; ctx: BlockContext }) {
-  const Cmp = { collection: Collection, timeline: Timeline, checklist: Checklist, guide: Guide }[block.type];
+  const Cmp = { collection: Collection, timeline: Timeline, checklist: Checklist, guide: Guide, characters: Characters }[block.type];
   const t = TINT[page.tint];
   // "Show them" under a Block reveals that Block's spoilers only; the Page's switch does them all.
   const [revealed, setRevealed] = useState(false);
@@ -76,49 +63,6 @@ export function BlockView({ block, ctx: page }: { block: Block; ctx: BlockContex
         </div>
       ) : <Cmp block={block} ctx={ctx} />}
     </section>
-  );
-}
-
-/** Entries the player can see: on their route, and no spoilers unless they asked. */
-function useVisible(block: Block, ctx: BlockContext) {
-  return useMemo(() => {
-    const routed = block.byRoute ? block.entries.filter((e) => onRoute(e, ctx.route)) : block.entries;
-    const shown = ctx.spoilers ? routed : routed.filter((e) => !e.spoiler);
-    return { shown, offRoute: block.entries.length - routed.length, spoilers: routed.length - shown.length };
-  }, [block, ctx.route, ctx.spoilers]);
-}
-
-function HiddenNote({ offRoute, spoilers, ctx }: { offRoute: number; spoilers: number; ctx: BlockContext }) {
-  if (!offRoute && !spoilers) return null;
-  const lord = ctx.routes.find((r) => r.key === ctx.route)?.label;
-  return (
-    <p className="mt-3 text-sm text-muted">
-      {offRoute > 0 && <>{offRoute} more on other routes than {lord}&apos;s. </>}
-      {spoilers > 0 && (
-        <>
-          {spoilers} hidden as spoilers. <button onClick={ctx.onShowSpoilers} className="font-bold text-leaf underline underline-offset-2">Show them</button>
-          {ctx.onShowAllSpoilers && <> · <button onClick={ctx.onShowAllSpoilers} className="font-bold text-muted underline underline-offset-2 hover:text-ink">Show spoilers everywhere</button></>}
-        </>
-      )}
-    </p>
-  );
-}
-
-/** The details panel for whichever of this Block's entries is open. */
-function OpenPanel({ block, list, ctx }: { block: Block; list: Entry[]; ctx: BlockContext }) {
-  const { open, set, close } = useOpenEntry();
-  const [blockId, entryId] = open?.split('.') ?? [];
-  const entry = blockId === block.id ? block.entries.find((e) => e.id === entryId) : undefined;
-
-  useEffect(() => {
-    if (entry) rememberEntry(ctx.gameId, { href: `${window.location.pathname}?e=${block.id}.${entry.id}`, name: entry.name, where: `${ctx.pageTitle} · ${block.title}` });
-  }, [entry, block, ctx.gameId, ctx.pageTitle]);
-
-  if (!entry) return null;
-  return (
-    <EntryPanel entry={entry} block={block} list={list} route={ctx.route} routes={ctx.routes} gameId={ctx.gameId} sharePath={sharePath(ctx.gameId, ctx.page, block, entry)} color={`var(--${ctx.tint})`}
-      place={block.look === 'map' ? { clearKey: clearKey(block, entry), here: ctx.mentions?.[entry.name.toLowerCase()] ?? [] } : undefined}
-      onGo={(e) => set(`${block.id}.${e.id}`, 'replace')} onClose={close} />
   );
 }
 
@@ -330,16 +274,6 @@ function Slot({ e, color, symbol, filter, onOpen }: { e: Entry; color: string; s
       <Piece size="fill" color={color} image={e.icon} className="transition-transform group-hover:-translate-y-0.5"><PieceMark e={e} symbol={symbol} /></Piece>
       <span className="line-clamp-2 text-xs font-bold leading-tight">{e.name}</span>
       {kind && <span className="-mt-0.5 text-[11px] leading-tight text-muted">{kind}</span>}
-    </button>
-  );
-}
-
-function FilterChip({ on, tint, onClick, children }: { on: boolean; tint: Tint; onClick: () => void; children: React.ReactNode }) {
-  const t = TINT[tint];
-  return (
-    <button onClick={onClick} aria-pressed={on}
-      className={'shrink-0 rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (on ? `${t.solid} ${t.ring} text-white` : 'bg-card ring-line hover:ring-ink')}>
-      {children}
     </button>
   );
 }

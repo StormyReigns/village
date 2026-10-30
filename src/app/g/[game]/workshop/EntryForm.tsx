@@ -10,6 +10,7 @@ import type { Villager } from '@/components/useVillager';
 import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
 import { entryText } from '@/components/app/entries';
 import { rank } from '@/lib/search';
+import { DESCRIPTION, FIELD_KINDS, STATS, fieldsOf, shownFields } from '@/lib/fields';
 import { changesBetween } from './changes';
 import { clearUnsent, hasWriting, saveUnsent, type Unsent } from './unsent';
 import type { NewDraft } from './useWorkshop';
@@ -27,6 +28,7 @@ const DEFAULT_LABELS: Record<Block['type'], string[]> = {
   guide: ['Steps', 'Tip'],
   checklist: ['Before'],
   timeline: [],
+  characters: [],
 };
 
 const DESCRIPTION_LABEL: Record<Block['type'], string> = {
@@ -34,6 +36,7 @@ const DESCRIPTION_LABEL: Record<Block['type'], string> = {
   guide: 'Intro (optional)',
   checklist: 'How not to miss it',
   timeline: 'What happens (spoiler-light)',
+  characters: 'Description',
 };
 
 const blank = (): EntryContent => ({ name: '', sections: [], categories: {} });
@@ -155,6 +158,13 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
     if (v.trim() === '' || !Number.isFinite(Number(v))) delete next[key]; else next[key] = Number(v);
     set({ stats: Object.keys(next).length ? next : undefined });
   };
+  // Characters: each field is asked for by name; its value is the section (or tag) under the field's key.
+  const people = block.type === 'characters';
+  const fieldKeys = new Set(people ? fieldsOf(block).map((f) => f.key) : []);
+  const personFields = people ? shownFields(block).filter((f) => f.kind !== 'chart' && f.key !== DESCRIPTION && !(f.kind === 'tag' && block.filters?.includes(f.key))) : [];
+  const fieldOn = (key: string) => !people || shownFields(block).some((f) => f.key === key);
+  const setField = (key: string, text: string) => set({ sections: content.sections.some((s) => s.label === key)
+    ? content.sections.map((s) => (s.label === key ? { ...s, text } : s)) : [...content.sections, { label: key, text }] });
   const setSection = (i: number, patch: Partial<Section>) => set({ sections: content.sections.map((s, j) => (j === i ? { ...s, ...patch } : s)) });
   const currentRouteLabel = Object.values(content.perRoute ?? {}).flat()[0]?.label ?? routeLabel;
   const perRouteText = (r: Route) => content.perRoute?.[r]?.[0]?.text ?? '';
@@ -271,7 +281,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
                 <input value={content.stat ?? ''} onChange={(e) => set({ stat: e.target.value })} maxLength={40} placeholder={block.statName === 'Level' ? 'Lv 12' : ''} className={input} />
               </label>
             )}
-            {block.stats?.length && show('stats') ? (
+            {block.stats?.length && show('stats') && fieldOn(STATS) ? (
               <div role="group" aria-labelledby="stats-label" id={fid('stats')} className={'grid gap-1.5' + hl('stats')}>
                 <span id="stats-label" className="text-sm font-bold">Stats <span className="font-normal text-muted">(numbers, as the game shows them)</span></span>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -284,9 +294,9 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
                 </div>
               </div>
             ) : null}
-            {show('description') && (
+            {show('description') && fieldOn(DESCRIPTION) && (
               <label id={fid('description')} className={'grid gap-1' + hl('description')}>
-                <span className="text-sm font-bold">{DESCRIPTION_LABEL[block.type]}</span>
+                <span className="text-sm font-bold">{people ? fieldsOf(block).find((x) => x.key === DESCRIPTION)?.label ?? 'Description' : DESCRIPTION_LABEL[block.type]}</span>
                 <textarea value={content.description ?? ''} onChange={(e) => set({ description: e.target.value })} rows={3} className={input} />
               </label>
             )}
@@ -298,6 +308,28 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
                 <datalist id={`values-${k}`}>{values(k).map((v) => <option key={v} value={v} />)}</datalist>
               </label>
             ))}
+
+            {personFields.map((fd) => {
+              const part = fd.kind === 'tag' ? `cat:${fd.key}` : `section:${fd.key}`;
+              if (!show(part)) return null;
+              const v = fd.kind === 'tag' ? content.categories[fd.key] ?? '' : content.sections.find((x) => x.label === fd.key)?.text ?? '';
+              const put = (t: string) => (fd.kind === 'tag' ? set({ categories: { ...content.categories, [fd.key]: t } }) : setField(fd.key, t));
+              const long = fd.kind === 'list' || fd.kind === 'links' || fd.kind === 'longtext';
+              const hint = FIELD_KINDS.find((k) => k.kind === fd.kind)?.hint;
+              return (
+                <label key={fd.key} id={fid(part)} className={'grid gap-1' + hl(part)}>
+                  <span className="text-sm font-bold">{fd.label}{(fd.kind === 'list' || fd.kind === 'links') && <span className="font-normal text-muted"> ({hint})</span>}</span>
+                  {fd.kind === 'yesno' ? (
+                    <select value={v} onChange={(e) => put(e.target.value)} className={input}><option value="">Not set</option><option>Yes</option><option>No</option></select>
+                  ) : long ? (
+                    <textarea value={v} onChange={(e) => put(e.target.value)} rows={fd.kind === 'longtext' ? 3 : 2} className={input} />
+                  ) : (
+                    <input value={v} onChange={(e) => put(e.target.value)} inputMode={fd.kind === 'number' ? 'decimal' : undefined} list={fd.kind === 'tag' ? `values-${fd.key}` : undefined} className={input} />
+                  )}
+                  {fd.kind === 'tag' && <datalist id={`values-${fd.key}`}>{values(fd.key).map((x) => <option key={x} value={x} />)}</datalist>}
+                </label>
+              );
+            })}
 
             {byRoute && show('routes') && (
               <fieldset id={fid('routes')} className={'grid gap-2 rounded-2xl bg-card-2 p-3 ring-1 ' + (fid('routes') ? 'ring-2 ring-sun' : 'ring-line')}>
@@ -335,7 +367,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
             )}
 
             <div className="grid gap-2">
-              {content.sections.map((s, i) => (!showAll && i !== focusSection ? null : (
+              {content.sections.map((s, i) => (fieldKeys.has(s.label) || (!showAll && i !== focusSection) ? null : (
                 <div key={i} id={!showAll && i === focusSection ? 'fix-focus' : undefined}
                   className={'grid gap-1.5 rounded-2xl bg-card-2 p-2.5 ring-1 ' + (!showAll && i === focusSection ? 'ring-2 ring-sun' : 'ring-line')}>
                   <div className="flex gap-2">
@@ -349,7 +381,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
                 </div>
               )))}
               <datalist id="section-labels">{labels.map((l) => <option key={l} value={l} />)}</datalist>
-              {showAll ? (
+              {showAll ? (people ? null :
                 <button type="button" onClick={() => set({ sections: [...content.sections, { label: labels.find((l) => !content.sections.some((s) => s.label === l)) ?? '', text: '' }] })}
                   className="inline-flex items-center gap-1.5 justify-self-start rounded-full px-3 py-1.5 text-sm font-bold text-leaf ring-1 ring-line hover:ring-leaf">
                   <Plus size={15} aria-hidden="true" /> Add a section

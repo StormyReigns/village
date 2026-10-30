@@ -4,7 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, ChevronUp, EyeOff, Flag, MessageCircle, MoreHorizontal, Plus, RotateCcw, Search, Send,
-  ShieldCheck, Sparkles, Trash2, TriangleAlert, X,
+  ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import type { Block, Page } from '@/data/pages';
 import { BlockIcon, NavSymbol } from '@/components/Icon';
@@ -26,6 +26,7 @@ import {
   type ChatMessage, type LiveDraft, type ReportGroup, type ReportReason, type Target, type WorkshopData,
 } from './useWorkshop';
 import { EntryForm, ChangeList, type FormStart, type Posted } from './EntryForm';
+import { FieldSetup } from './FieldSetup';
 import { sharePath } from '@/data/pages/links';
 import { changesBetween } from './changes';
 import { clearUnsent, readUnsent, saveUnsent, type Unsent } from './unsent';
@@ -74,6 +75,8 @@ export function Workshop({ game, pages, routes }: {
   const [chip, setChip] = useState<string>(startPage && pages.some((p) => p.id === startPage) ? startPage : 'all');
   const [sort, setSort] = useState<Sort>('standouts');
   const [form, setForm] = useState<FormStart | null>(linked);
+  // A Characters Block whose fields are being set up.
+  const [setup, setSetup] = useState<string | null>(null);
   const [allDrafts, setAllDrafts] = useState(false);
   // ?draft=… (from the app's "A fix is waiting" note) opens that Draft.
   const [detail, setDetail] = useState<string | null>(params.get('draft'));
@@ -454,13 +457,17 @@ export function Workshop({ game, pages, routes }: {
                 </>
               ) : (
                 <AppContents pages={current ? [current] : pages} drafts={drafts} query={query} focus={form?.entryId ? `${form.blockId}.${form.entryId}` : undefined}
-                  onFix={(blockId, entryId) => setForm({ blockId, entryId })} onAdd={(blockId) => setForm({ blockId })}
+                  onFix={(blockId, entryId) => setForm({ blockId, entryId })} onAdd={(blockId) => setForm({ blockId })} onSetup={setSetup}
                   onDrafts={(cardId) => { const d = drafts.find((x) => x.cardId === cardId && isOpen(x)); if (d) setDetail(d.id); }} />
               )}
             </>
           )}
         </section>
       </div>
+
+      {setup && blocks.some((b) => b.id === setup) && (
+        <FieldSetup gameId={game.id} block={blocks.find((b) => b.id === setup)!} routes={routes} canSave={live.mod} onClose={() => setSetup(null)} />
+      )}
 
       {form && blocks.length > 0 && (
         <EntryForm gameId={game.id} pages={pages} routes={routes} start={form} restore={restore} me={me} postDraft={live.postDraft}
@@ -1035,9 +1042,11 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
  * "In the app": what's on the selected Page right now, Block by Block, so villagers can
  * pick something to fix or add to without leaving the Workshop.
  */
-function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts }: {
+function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSetup }: {
   pages: Page[]; drafts: LiveDraft[]; query: string; focus?: string;
   onFix: (blockId: string, entryId: string) => void; onAdd: (blockId: string) => void; onDrafts: (cardId: string) => void;
+  /** Characters Blocks: open their field setup. */
+  onSetup: (blockId: string) => void;
 }) {
   const [folded, setFolded] = useStored<string[]>('village:workshop:folded-blocks', []);
   const fold = (id: string) => setFolded(folded.includes(id) ? folded.filter((x) => x !== id) : [...folded, id]);
@@ -1070,6 +1079,13 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts }: {
                     <span className="text-xs text-muted">{b.entries.length}</span>
                     <ChevronDown size={15} className={'shrink-0 text-muted transition ' + (isFolded ? '-rotate-90' : '')} aria-hidden="true" />
                   </button>
+                  {b.type === 'characters' && (
+                    <Tip text={`Choose the fields ${b.title} cards show, with a preview`} tint={p.tint} className="shrink-0">
+                      <button onClick={() => onSetup(b.id)} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">
+                        <SlidersHorizontal size={13} aria-hidden="true" /> Set up
+                      </button>
+                    </Tip>
+                  )}
                   <Tip text={`Add something new to ${b.title}`} tint={p.tint} className="shrink-0">
                     <button onClick={() => onAdd(b.id)} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-leaf">
                       <Plus size={13} aria-hidden="true" /> Add
