@@ -13,7 +13,7 @@ import { entryText } from '@/components/app/entries';
 import { rank } from '@/lib/search';
 import { fieldsOf } from '@/lib/fields';
 import { CharacterInputs } from './CharacterInputs';
-import { SplitToggle, splitHeight, useWide, type Split } from './split';
+import { SHEET, SheetHandle, useWide } from './split';
 import { changesBetween } from './changes';
 import { clearUnsent, hasWriting, saveUnsent, type Unsent } from './unsent';
 import type { NewDraft } from './useWorkshop';
@@ -127,8 +127,8 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
     if (worth) saveUnsent(gameId, { blockId, entryId: fixing?.id, content, source });
   }, [gameId, blockId, fixing, content, source]);
   const [find, setFind] = useState('');
-  // Characters on a phone: the form on top, the preview underneath (see split.tsx).
-  const [split, setSplit] = useState<Split>('half');
+  // Characters on a phone: the form on top, the preview on a sheet underneath (see split.tsx).
+  const [sheet, setSheet] = useState<number>(SHEET.start);
   const wide = useWide();
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -204,6 +204,14 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
 
   const found = find.trim() ? rank(block.entries, find, entryText).slice(0, 6) : [];
 
+  // Old and new for each field a fix changes.
+  const changeBox = fixing ? (
+    <div className="rounded-2xl bg-card p-3 ring-1 ring-line">
+      <p className="text-xs font-bold uppercase tracking-wide text-muted">What changes</p>
+      {changes.length === 0 ? <p className="mt-1 text-sm text-muted">Nothing yet. Edit a field and the change shows here.</p> : <ChangeList changes={changes} />}
+    </div>
+  ) : null;
+
   // Notes and the Page and Block choice. For characters they scroll with the form, so on a
   // phone the preview below keeps its room.
   const intro = (
@@ -267,7 +275,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
       <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-label={fixing ? `Fix ${fixing.name}` : 'New entry'} onClick={(e) => e.stopPropagation()}
         className={people
           // Characters on a phone: full screen, the form and the preview each scrolling on their own.
-          ? 'rise flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden bg-card shadow-soft outline-none md:block md:h-auto md:max-h-[92vh] md:overflow-y-auto md:rounded-[2rem] md:p-6'
+          ? 'workbench rise flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden shadow-soft outline-none md:block md:h-auto md:max-h-[92vh] md:overflow-y-auto md:rounded-[2rem] md:p-6'
           : 'rise max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-t-[2rem] bg-card p-5 shadow-soft outline-none sm:rounded-[2rem] sm:p-6'}>
         <div className={'flex items-center gap-3' + (people ? ' shrink-0 px-4 py-2.5 md:p-0' : '')}>
           <h2 className={'font-display ' + (people ? 'truncate text-xl md:text-2xl' : 'text-2xl')}>{fixing ? `Fix: ${fixing.name}` : `New in ${block.title}`}</h2>
@@ -276,7 +284,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
 
         {!people && intro}
 
-        <div className={people ? 'flex min-h-0 flex-1 flex-col md:mt-5 md:grid md:grid-cols-2 md:gap-6' : 'mt-5 grid gap-6 md:grid-cols-2'}>
+        <div data-split className={people ? 'flex min-h-0 flex-1 flex-col md:mt-5 md:grid md:grid-cols-2 md:gap-6' : 'mt-5 grid gap-6 md:grid-cols-2'}>
           <div className={people ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 md:overflow-visible md:p-0' : 'contents'}>
           {people && intro}
           <form onSubmit={submit} className={'grid content-start gap-3' + (people ? ' mt-3' : '')}>
@@ -410,6 +418,8 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
             </div>
 
             {/* On phones this bar stays at the bottom of the form, so Submit is always in reach. */}
+            {people && changeBox}
+
             <div id="entry-actions" className={'sticky bottom-0 z-10 mt-2 flex flex-wrap items-center gap-3 border-t border-line bg-card py-3 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 '
               + (people ? '-mx-4 px-4' : '-mx-5 px-5 sm:-mx-6 sm:px-6')}>
               {me === null ? (
@@ -426,22 +436,19 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
           </form>
           </div>
 
-          <div className={people ? 'flex shrink-0 flex-col border-t-2 border-line md:sticky md:top-0 md:grid md:h-auto md:content-start md:gap-3 md:self-start md:border-0 ' + splitHeight(split) : 'grid content-start gap-3'}>
+          {/* The preview. For characters it's exactly the app: the Page's tint behind the card, on a
+              sheet over the Workbench that's dragged to resize on a phone. */}
+          <div className={people ? 'flex shrink-0 flex-col rounded-t-[1.5rem] shadow-[0_-1px_0_var(--line),0_-10px_24px_-14px_rgba(21,23,28,0.35)] md:sticky md:top-0 md:grid md:h-auto md:content-start md:self-start md:rounded-[1.5rem] md:p-3 md:shadow-none' : 'grid content-start gap-3'}
+            style={people ? { ...(wide ? {} : { height: `${sheet}%` }), background: `var(--${page.tint}-soft)` } : undefined}>
             {people && (
-              <div className="flex shrink-0 items-center gap-2 px-4 py-2 md:hidden">
-                <p className="flex-1 text-xs font-bold uppercase tracking-wide text-muted">Preview</p>
-                <SplitToggle split={split} onChange={setSplit} />
-              </div>
+              <SheetHandle pct={sheet} onChange={setSheet}>
+                <p className="text-xs font-bold uppercase tracking-wide text-muted md:hidden">Players see</p>
+              </SheetHandle>
             )}
-            <div className={people ? 'min-h-0 flex-1 content-start gap-3 overflow-y-auto overscroll-contain px-4 pb-4 md:grid md:overflow-visible md:p-0 ' + (split === 'small' ? 'hidden' : 'grid') : 'contents'}>
-            {fixing && (
-              <div className="rounded-2xl bg-card-2 p-3 ring-1 ring-line">
-                <p className="text-xs font-bold uppercase tracking-wide text-muted">What changes</p>
-                {changes.length === 0 ? <p className="mt-1 text-sm text-muted">Nothing yet. Edit a field and the change shows here.</p> : <ChangeList changes={changes} />}
-              </div>
-            )}
-            <p className={'text-xs font-bold uppercase tracking-wide text-muted' + (people ? ' hidden md:block' : '')}>Live preview: how it will look in the app</p>
-            <div className={'rounded-2xl ring-1 ring-line ' + (people ? 'p-3 md:p-4' : 'p-4')}>
+            <div className={people ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 md:overflow-visible md:p-0' : 'contents'}>
+            {!people && changeBox}
+            {!people && <p className="text-xs font-bold uppercase tracking-wide text-muted">Live preview: how it will look in the app</p>}
+            <div className={people ? 'rounded-2xl bg-card p-3 ring-1 ring-line md:p-4' : 'rounded-2xl p-4 ring-1 ring-line'}>
               {!cleaned.name
                 ? <p className="text-sm text-muted">Start with a name, and the entry appears here.</p>
                 : people

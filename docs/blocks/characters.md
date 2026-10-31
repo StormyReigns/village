@@ -94,7 +94,7 @@ suits its kind. Lists and other characters are one row per item with "Add anothe
 character's name is offered from the Block), yes or no is a Yes / No / Not sure choice,
 stats are a compact grid, and tags and short values offer what other characters already
 use as one-tap chips. On a phone it's the same split as the setup: the form on top, the
-live preview (with what changes) underneath. On desktop the preview stays in view.
+live preview underneath. On desktop the preview stays in view.
 Code: `src/app/g/[game]/workshop/CharacterInputs.tsx` and the shared `split.tsx`.
 
 ## Decisions
@@ -130,6 +130,11 @@ Code: `src/app/g/[game]/workshop/CharacterInputs.tsx` and the shared `split.tsx`
   a choice for yes or no, chips of values already used), fields in the setup's order, and
   the phone split with the live preview. Why: the lessons from the setup apply to the
   people filling characters in, who do it far more often.
+- 2026-10-31: Set up and the character form sit on the Workbench (dot grid, ink-edged boxes,
+  yellow ring when typing); the preview looks exactly like the app, on a sheet with a drag
+  handle on phones. "What changes" moved to the editor, above Submit. Why: the preview was
+  hard to tell from the editor, and the preview should stay true to the app, so the editor
+  carries the difference. The Workbench is meant for the whole Workshop.
 - 2026-10-31: charts are a web beside the portrait plus heat-colored number boxes that open
   the full heatmap, each switchable per chart; bars are gone. A Block can have any number of
   charts. Why: webs are what players expect, the heat colors answer "how does this one

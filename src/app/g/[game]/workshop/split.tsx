@@ -1,16 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
-// On a phone, builder screens split in two: what you're filling in on top, the preview
-// underneath, each scrolling on its own. These are the shared pieces of that split.
+// On a phone, builder screens split in two: what you're filling in on top (on the Workbench,
+// see globals.css), and the preview underneath on a sheet that looks exactly like the app.
+// Drag the sheet's handle to give either side more room. From md up they sit side by side.
 
-/** How much of the screen the preview takes on a phone: half, most, or just its bar. */
-export type Split = 'half' | 'big' | 'small';
-
-/** Height classes for the preview pane on a phone (it sits beside the form from md up). */
-export const splitHeight = (s: Split) => (s === 'big' ? 'h-[68%]' : s === 'small' ? 'h-auto' : 'h-[46%]');
+/** The sheet's height on a phone, in percent of the screen: the default, and its limits. */
+export const SHEET = { start: 46, min: 9, max: 85 } as const;
 
 /** Whether the screen is wide enough (md) for the form and preview to sit side by side. */
 export function useWide() {
@@ -25,13 +22,45 @@ export function useWide() {
   return wide;
 }
 
-/** The button on the preview's bar (phones only) that steps it through its three sizes. */
-export function SplitToggle({ split, onChange }: { split: Split; onChange: (s: Split) => void }) {
+/**
+ * The grab handle on top of the preview sheet (phones only). Drag it up or down to resize;
+ * a tap tucks the sheet away or brings it back; arrow keys nudge it. `pct` is the sheet's
+ * height as a percent of the element marked `data-split`.
+ */
+export function SheetHandle({ pct, onChange, children }: { pct: number; onChange: (pct: number) => void; children?: React.ReactNode }) {
+  const drag = useRef<{ y: number; moved: boolean; box: DOMRect } | null>(null);
+  const clamp = (n: number) => Math.round(Math.min(SHEET.max, Math.max(SHEET.min, n)));
+  const down = (e: React.PointerEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('button:not([data-handle])')) return;
+    const box = e.currentTarget.closest('[data-split]')?.getBoundingClientRect();
+    if (!box) return;
+    drag.current = { y: e.clientY, moved: false, box };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* the drag still works without it */ }
+  };
+  const move = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d) return;
+    if (Math.abs(e.clientY - d.y) > 4) d.moved = true;
+    if (d.moved) onChange(clamp(((d.box.bottom - e.clientY) / d.box.height) * 100));
+  };
+  const up = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (d && !d.moved) onChange(pct <= SHEET.min + 2 ? SHEET.start : SHEET.min);
+  };
   return (
-    <button type="button" onClick={() => onChange(split === 'half' ? 'big' : split === 'big' ? 'small' : 'half')}
-      aria-label={split === 'half' ? 'Make the preview bigger' : split === 'big' ? 'Tuck the preview away' : 'Show the preview'}
-      className="grid size-7 shrink-0 place-items-center rounded-full bg-card-2 ring-1 ring-line md:hidden">
-      {split === 'big' ? <ChevronDown size={15} aria-hidden="true" /> : <ChevronUp size={15} aria-hidden="true" />}
-    </button>
+    <div onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { drag.current = null; }}
+      className="flex shrink-0 touch-none select-none flex-col gap-1.5 px-4 pb-2 pt-1.5 md:contents">
+      <button type="button" data-handle role="separator" aria-orientation="horizontal" aria-label="Preview size: drag, or use the arrow keys"
+        aria-valuenow={pct} aria-valuemin={SHEET.min} aria-valuemax={SHEET.max}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowUp') { e.preventDefault(); onChange(clamp(pct + 8)); }
+          if (e.key === 'ArrowDown') { e.preventDefault(); onChange(clamp(pct - 8)); }
+        }}
+        className="mx-auto h-4 w-16 cursor-row-resize rounded-full md:hidden">
+        <span className="mx-auto block h-1.5 w-10 rounded-full bg-ink/25" />
+      </button>
+      {children}
+    </div>
   );
 }
