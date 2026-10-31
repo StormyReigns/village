@@ -63,6 +63,17 @@ body {
   color: var(--ink);
 }
 
+/* The page never drifts sideways on a phone, on any screen:
+   - nothing can widen it (clip, unlike hidden, keeps sticky headers working);
+   - two quick taps (stepping through characters, ticking boxes) don't zoom in, though
+     pinching still does;
+   - tapping a box with small text doesn't zoom in either (phones zoom below 16px). */
+html, body { overflow-x: clip; }
+html { touch-action: manipulation; }
+@media (pointer: coarse) {
+  input, select, textarea { font-size: max(16px, 1em); }
+}
+
 /* Headings and names: Rubik at its heaviest, pulled in a touch. In the components layer,
    so a weight utility on the same element (font-bold) still wins. */
 @layer components {
@@ -122,6 +133,8 @@ body {
 .chip-strip, .swipe { scrollbar-width: none; }
 .chip-strip::-webkit-scrollbar, .swipe::-webkit-scrollbar { display: none; }
 .swipe { scroll-snap-type: x mandatory; scroll-padding-inline: 1rem; overscroll-behavior-x: contain; }
+/* A sideways swipe that reaches the end of a strip stops there, instead of carrying on. */
+.chip-strip, .overflow-x-auto { overscroll-behavior-x: contain; }
 .swipe > * { scroll-snap-align: start; }
 /* Snapping suits swiping; with a mouse it fights the wheel, so mice scroll freely. */
 @media (pointer: fine) { .swipe { scroll-snap-type: none; } }
