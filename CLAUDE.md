@@ -27,6 +27,13 @@ Community-built companion apps for games, with a village theme. Two layers:
   always have (tags as categories, the rest as sections under the field's key), so Drafts
   work unchanged. Builders set fields up in the Workshop ("Set up", with a "John Doe"
   preview); moderators save for now, voting on setups comes later.
+- **Block specs** (`docs/blocks/`, from 2026-10-31): one file per Block, the source of truth
+  for its purpose, fields, layout, decisions and open questions; the roadmap and how we
+  work are in `docs/blocks/README.md`. Each Block gets its own chat ("Village · Block:
+  <name>"), which reads its file first and updates it as things are decided. Changes to
+  parts every Block shares (the piece, `src/lib/fields.ts`, the entry panel, the Workshop,
+  the database) go through the hub chat, "Village · Main". Only one Block chat builds at
+  a time.
 
 ## Decisions to keep
 
