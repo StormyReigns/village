@@ -28,13 +28,13 @@ fantasy or adventure game has a cast, which is why it's Block 1.
 ## The card
 
 Laid out by the Block's fields (Matt's layout, 2026-10-29):
-- **Portrait** as a piece: game art when there is some, else the group's symbol (e.g. a
+- **Portrait** as a piece, on the left: game art when there is some, else the group's symbol (e.g. a
   flame for Fiery Mane), else initials.
 - **Name** in bold, with a short field beside it (Age).
 - **Tags** under the name as pills (Role or class, Group, yes/no fields).
 - **Location**, with **Time of arrival** beside it (a chapter, a date, a time).
-- **Charts** (Stats, Growths...): a web chart just right of the portrait (the first chart
-  with one), and a row of number boxes, "STR" over each, colored from gray to the Page's
+- **Charts** (Stats, Growths...): a web chart on the right, its foot level with the name and
+  reaching up beside the portrait (the first chart with one; the name never moves for it), and a row of number boxes, "STR" over each, colored from gray to the Page's
   color against every other character. Tapping a box opens the full heatmap of everyone,
   sorted by that stat, with this character picked out. Builders can switch the web or the
   boxes off for each chart.
@@ -135,6 +135,9 @@ Code: `src/app/g/[game]/workshop/CharacterInputs.tsx` and the shared `split.tsx`
   handle on phones. "What changes" moved to the editor, above Submit. Why: the preview was
   hard to tell from the editor, and the preview should stay true to the app, so the editor
   carries the difference. The Workbench is meant for the whole Workshop.
+- 2026-10-31: the portrait sits on the left and the web is a little smaller, on the right,
+  level with the name and age, so the name isn't pushed down. The preview sheet's drag moves
+  the sheet directly, frame by frame, so it keeps up with the finger.
 - 2026-10-31: charts are a web beside the portrait plus heat-colored number boxes that open
   the full heatmap, each switchable per chart; bars are gone. A Block can have any number of
   charts. Why: webs are what players expect, the heat colors answer "how does this one

@@ -438,7 +438,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
 
           {/* The preview. For characters it's exactly the app: the Page's tint behind the card, on a
               sheet over the Workbench that's dragged to resize on a phone. */}
-          <div className={people ? 'flex shrink-0 flex-col rounded-t-[1.5rem] shadow-[0_-1px_0_var(--line),0_-10px_24px_-14px_rgba(21,23,28,0.35)] md:sticky md:top-0 md:grid md:h-auto md:content-start md:self-start md:rounded-[1.5rem] md:p-3 md:shadow-none' : 'grid content-start gap-3'}
+          <div data-sheet className={people ? 'flex shrink-0 flex-col rounded-t-[1.5rem] shadow-[0_-1px_0_var(--line),0_-10px_24px_-14px_rgba(21,23,28,0.35)] md:sticky md:top-0 md:grid md:h-auto md:content-start md:self-start md:rounded-[1.5rem] md:p-3 md:shadow-none' : 'grid content-start gap-3'}
             style={people ? { ...(wide ? {} : { height: `${sheet}%` }), background: `var(--${page.tint}-soft)` } : undefined}>
             {people && (
               <SheetHandle pct={sheet} onChange={setSheet}>

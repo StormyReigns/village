@@ -49,31 +49,37 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
   const [heat, setHeat] = useState<{ chart: FieldDef; sort: string } | null>(null);
   const among = [...(block.entries ?? []).filter((e) => e.name !== entry.name), { ...entry, id: '' } as Entry];
   const chartColor = sample ? '#9aa0ad' : color;
+  const webSize = Math.round(Math.max(size * 0.92, 96));
 
   return (
     <article className="relative min-w-0">
       {sample && <span className="absolute right-0 top-0 rounded-full bg-card-2 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">Sample</span>}
-      <div className="flex items-center justify-center">
+      <div className="flex">
         <Piece size={size} color={portrait} image={entry.icon}>
           {entry.icon ? null : symbol ? <BlockIcon name={symbol} size={Math.round(size * 0.2)} strokeWidth={2.4} /> : initials(entry.name) || <BlockIcon name={block.icon} size={Math.round(size * 0.2)} />}
         </Piece>
-        {/* The web sits just right of the portrait, tucked in a little. */}
-        {web && (
-          <Spoiler f={web} on={spoilers}>
-            <Web defs={withNumbers(web)} entry={entry} among={among} color={chartColor} size={Math.round(Math.max(size * 1.15, 112))} style={{ marginLeft: -Math.round(size * 0.05) }} />
-          </Spoiler>
-        )}
       </div>
 
       <div className="mt-3 grid gap-1.5">
-        <h2 className="flex flex-wrap items-baseline gap-x-2 font-display text-[1.7rem] leading-tight">
-          {entry.name || 'Name'}
-          {at('beside').map((f) => (
-            <Spoiler key={f.key} f={f} on={spoilers} small>
-              <span className="font-sans text-sm font-normal text-muted">{besideText(f, short(valueOf(entry, f)))}</span>
-            </Spoiler>
-          ))}
-        </h2>
+        {/* The web sits on the right, its foot level with the name, reaching up beside the
+            portrait, so the name stays right under the portrait whether there's a web or not. */}
+        <div className="relative" style={web ? { paddingRight: Math.round(webSize * 0.85) } : undefined}>
+          <h2 className="flex flex-wrap items-baseline gap-x-2 font-display text-[1.7rem] leading-tight">
+            {entry.name || 'Name'}
+            {at('beside').map((f) => (
+              <Spoiler key={f.key} f={f} on={spoilers} small>
+                <span className="font-sans text-sm font-normal text-muted">{besideText(f, short(valueOf(entry, f)))}</span>
+              </Spoiler>
+            ))}
+          </h2>
+          {web && (
+            <div className="absolute -bottom-1 right-0">
+              <Spoiler f={web} on={spoilers}>
+                <Web defs={withNumbers(web)} entry={entry} among={among} color={chartColor} size={webSize} />
+              </Spoiler>
+            </div>
+          )}
+        </div>
         {(at('tags').length > 0 || entry.routes?.length) ? (
           <div className="flex flex-wrap gap-1.5">
             {at('tags').map((f, i) => {
