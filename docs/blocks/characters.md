@@ -74,7 +74,9 @@ shows the card those choices make, before anyone adds a real character. While ad
 field, a small example card shows that kind of field with the name typed so far (under the
 preview on wider screens, inside the add box on a phone). Stat names come with a
 **Suggestions** menu: whole sets (Tactics RPG, Classic RPG, Tabletop, Action RPG, Monster
-battler) or one stat at a time. The how-to text sits behind an "i" beside the title.
+battler) or one stat at a time. The how-to text sits behind an "i" beside the title. On a
+phone the setup fills the screen as a split: the fields on top and the preview underneath,
+each scrolling on its own; a button on the preview's bar makes it bigger or tucks it away.
 Anyone can try a setup; for now only the game's moderators can save it.
 
 ## Decisions
@@ -99,6 +101,9 @@ Anyone can try a setup; for now only the game's moderators can save it.
 - 2026-10-31: the setup's how-to text moved behind an "i" (hover, focus or tap), and stat
   names got a Suggestions menu that floats over the setup. Why: less to read up front, and
   quicker stats without taking more room.
+- 2026-10-31: on phones the setup is a top and bottom split (fields above, preview below),
+  each scrolling on its own. Why: building and seeing the result at the same time, without
+  scrolling past one to reach the other.
 
 ## Open questions
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, Info, Plus, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Eye, EyeOff, Info, Plus, Trash2, X } from 'lucide-react';
 import type { Block, FieldDef, FieldKind, Page, StatDef } from '@/data/pages';
 import type { RouteOption } from '@/components/app/EntryPanel';
 import { CharacterCard } from '@/components/app/CharacterCard';
@@ -29,6 +29,16 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
   const [statNames, setStatNames] = useState(() => (block.stats ?? []).map((d) => d.label).join(', '));
   const [adding, setAdding] = useState<{ label: string; kind: FieldKind }>({ label: '', kind: 'text' });
   const [view, setView] = useState<'profile' | 'row'>('profile');
+  // Phones: how much of the screen the preview takes (half, most, or just its bar).
+  const [split, setSplit] = useState<'half' | 'big' | 'small'>('half');
+  const [wide, setWide] = useState(true);
+  useEffect(() => {
+    const md = window.matchMedia('(min-width: 768px)');
+    const update = () => setWide(md.matches);
+    update();
+    md.addEventListener('change', update);
+    return () => md.removeEventListener('change', update);
+  }, []);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const dialog = useRef<HTMLDivElement>(null);
@@ -82,12 +92,15 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
+    // On a phone the setup fills the screen in two halves that scroll on their own: what
+    // you're building on top, the preview underneath, so both stay in view. From md up
+    // they sit side by side.
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 backdrop-blur-sm md:items-center md:p-6" onClick={onClose}>
       <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`Set up ${block.title}`} onClick={(e) => e.stopPropagation()}
-        className="rise max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-t-[2rem] bg-card p-5 shadow-soft outline-none sm:rounded-[2rem] sm:p-6">
-        <div className="flex items-start gap-3">
+        className="rise flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden bg-card shadow-soft outline-none md:block md:h-auto md:max-h-[92vh] md:overflow-y-auto md:rounded-[2rem] md:p-6">
+        <div className="flex shrink-0 items-center gap-3 px-4 py-2.5 md:items-start md:p-0">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <h2 className="font-display text-2xl">Set up {block.title}</h2>
+            <h2 className="truncate font-display text-xl md:text-2xl">Set up {block.title}</h2>
             <Tip text="Every field is optional. Switch them on or off, rename them, put them in order, or add your own. Empty ones don't show on a card.">
               <button type="button" aria-label="How setting up works" className="grid size-7 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink">
                 <Info size={17} aria-hidden="true" />
@@ -97,8 +110,8 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
           <button onClick={onClose} className="grid size-9 shrink-0 place-items-center rounded-full bg-card-2 ring-1 ring-line" aria-label="Close"><X size={18} aria-hidden="true" /></button>
         </div>
 
-        <div className="mt-5 grid gap-6 md:grid-cols-[minmax(0,1fr)_22rem]">
-          <div className="grid content-start gap-3">
+        <div className="flex min-h-0 flex-1 flex-col md:mt-5 md:grid md:grid-cols-[minmax(0,1fr)_22rem] md:gap-6">
+          <div className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto overscroll-contain px-4 pb-4 md:overflow-visible md:p-0">
             <ul className="grid rounded-2xl ring-1 ring-line">
               <li className="flex items-center gap-2 rounded-t-2xl bg-card-2 px-3 py-2 text-sm">
                 <span className="w-8" /><span className="font-bold">Name</span><span className="ml-auto text-xs text-muted">Always on, bold at the top</span>
@@ -171,8 +184,9 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
           </div>
 
           {/* The preview: John Doe, filled in for every field that's on. */}
-          <div className="grid content-start gap-3 md:sticky md:top-0">
-            <div className="flex items-center gap-2">
+          <div className={'flex shrink-0 flex-col border-t-2 border-line md:sticky md:top-0 md:grid md:h-auto md:content-start md:gap-3 md:border-0 '
+            + (split === 'big' ? 'h-[68%]' : split === 'small' ? 'h-auto' : 'h-[46%]')}>
+            <div className="flex shrink-0 items-center gap-2 px-4 py-2 md:p-0">
               <p className="flex-1 text-xs font-bold uppercase tracking-wide text-muted">Preview</p>
               <div role="group" aria-label="Preview as" className="flex rounded-full bg-card-2 p-0.5 text-xs font-bold ring-1 ring-line">
                 {([['profile', 'Profile'], ['row', 'List row']] as const).map(([v, label]) => (
@@ -180,17 +194,25 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
                     className={'rounded-full px-3 py-1 ' + (view === v ? 'bg-signal text-ink' : 'text-muted hover:text-ink')}>{label}</button>
                 ))}
               </div>
+              {/* Phones only: give the preview more room, or tuck it down to this bar. */}
+              <button type="button" onClick={() => setSplit(split === 'half' ? 'big' : split === 'big' ? 'small' : 'half')}
+                aria-label={split === 'half' ? 'Make the preview bigger' : split === 'big' ? 'Tuck the preview away' : 'Show the preview'}
+                className="grid size-7 place-items-center rounded-full bg-card-2 ring-1 ring-line md:hidden">
+                {split === 'half' ? <ChevronUp size={15} aria-hidden="true" /> : split === 'big' ? <ChevronDown size={15} aria-hidden="true" /> : <ChevronUp size={15} aria-hidden="true" />}
+              </button>
             </div>
-            <div className="rounded-2xl p-3" style={{ background: `color-mix(in srgb, ${color} 10%, white)` }}>
-              <div className="rounded-2xl bg-card p-4 ring-1 ring-line">
-                {view === 'profile' ? (
-                  <CharacterCard entry={sample} block={draft} route="all" routes={routes} color={color} sample size={120} />
-                ) : (
-                  <SampleRow draft={draft} />
-                )}
+            <div className={'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 md:overflow-visible md:p-0 ' + (split === 'small' ? 'hidden md:block' : '')}>
+              <div className="rounded-2xl p-2 md:p-3" style={{ background: `color-mix(in srgb, ${color} 10%, white)` }}>
+                <div className="rounded-2xl bg-card p-3 ring-1 ring-line md:p-4">
+                  {view === 'profile' ? (
+                    <CharacterCard entry={sample} block={draft} route="all" routes={routes} color={color} sample size={wide ? 120 : 76} />
+                  ) : (
+                    <SampleRow draft={draft} />
+                  )}
+                </div>
               </div>
             </div>
-            <p className="text-xs text-muted">Made-up values, so you can see each field&apos;s place. Spoiler fields show covered, the way players first see them.</p>
+            <p className="hidden text-xs text-muted md:block">Made-up values, so you can see each field&apos;s place. Spoiler fields show covered, the way players first see them.</p>
             <KindExample {...adding} block={block} routes={routes} color={color} className="hidden md:block" />
           </div>
         </div>
