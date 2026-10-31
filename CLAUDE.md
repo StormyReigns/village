@@ -61,19 +61,22 @@ Community-built companion apps for games, with a village theme. Two layers:
   front page banner, the tab and phone icons, and the corner of share pictures. Matt's
   one-color version is for later; it turns to noise below about 64px. A designer brief for a
   cleaner redraw: https://claude.ai/artifact/DLc7FovwZVqYeShr4JQgwJ
-- **The piece** (`src/components/Piece.tsx`): one cut-corner block with dovetail sockets
-  (top, left) and tabs (bottom, right). Only scaled, never stretched. It is every
-  entry, every Page symbol's backing, and tick boxes. Pages and Blocks are never pieces.
-  Under 48px it uses a small joint (shorter, chunkier tabs) so it stays crisp; same body
-  and slice. Entries show a group symbol (a Block's `symbols`, e.g. one per faction) when
-  set, else initials.
-- **The slice**: one band through the middle always slides right by the same amount, on
-  the piece and on the "village" wordmark. The one signature motion: when something turns
-  solid (a tick), the band snaps into place (`snap` on `Piece`).
-- **Text never crosses the slice**: inside a piece only short initials or a symbol, sitting
-  below the band. Names go under the piece in ink, like an app-icon label.
-- **Pieces never lock together in layouts**: leave a clear gap so tabs don't reach a
-  neighbour.
+- **The piece** (`src/components/Piece.tsx`, outline in `src/lib/piece.ts`): the logo's
+  silhouette, the house in its ring of genre tiles, as one flat shape (Matt's
+  `logo-silhouette-*.svg`, agreed 2026-10-31; replaces the cut-corner dovetail block). Only
+  scaled, never stretched. It is every entry, every Page symbol's backing, and tick boxes.
+  Pages and Blocks are never pieces. Entries show a group symbol (a Block's `symbols`, e.g.
+  one per faction) when set, else initials.
+- **Never blank**: a solid piece with no picture, symbol or initials has "village" cut out
+  of it (a lone "v" under 64px), plain: the letters just show what's behind, no added
+  color, with the wordmark's slice. The cutout is made once by `scripts/build-cutout.ts`
+  into `src/lib/piece-cutout.ts`; rerun it if the outline changes.
+- **The slice**: one band through the middle of the letters slides right, on the "village"
+  wordmark and the cutout. The one signature motion: when something turns solid (a tick), a
+  band of the piece snaps into place (`snap` on `Piece`).
+- **Inside a piece** only short initials or a symbol, in the middle. Names go under the
+  piece in ink, like an app-icon label.
+- **Pieces never touch in layouts**: leave a clear gap between them.
 - **Solid = built, split outline = not built yet**: an empty slot, an unticked box or "add"
   is an outline with pink (#ff2bd6) and violet (#8b3dff) offset copies. The split is also
   the loading look. Solid pieces are one color. (`glitch` on `Piece` and `Wordmark`, a

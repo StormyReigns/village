@@ -5,6 +5,7 @@ import type { Tint } from '@/data/pages';
 import { clip } from '@/data/pages/links';
 import { shadeHex, type Shade } from './shades';
 import { PIECE_PATH, PIECE_SPOT, PIECE_VIEWBOX as V } from './piece';
+import { PIECE_CUTOUT_PATH } from './piece-cutout';
 
 // The picture Discord (and Messages, Slack...) shows under a shared link: a bold poster in
 // the Page's color with a big faint piece behind it and the Village mark. Discord shows it about a
@@ -78,13 +79,12 @@ export interface CardContent {
 
 const VIEWBOX = `${V.x} ${V.y} ${V.width} ${V.height}`;
 
-/** The brand's piece for pictures: next/og draws plain SVG paths, so the slice comes along. */
+/** The brand's piece for pictures: next/og draws plain SVG paths. */
 function OgPiece({ width, fill, label, labelColor, fontSize = 24 }: { width: number; fill: string; label?: string; labelColor?: string; fontSize?: number }) {
   const height = Math.round(width * V.height / V.width);
   return (
     <div style={{ display: 'flex', position: 'relative', flexShrink: 0, width, height }}>
       <svg width={width} height={height} viewBox={VIEWBOX}><path d={PIECE_PATH} fill={fill} /></svg>
-      {/* Initials sit below the slice, never across it. */}
       {label && (
         <div style={{ display: 'flex', position: 'absolute', left: PIECE_SPOT.x * width - width * 0.3, top: PIECE_SPOT.y * height - fontSize * 0.6, width: width * 0.6, height: fontSize * 1.2, alignItems: 'center', justifyContent: 'center', fontSize, fontWeight: 800, color: labelColor }}>{label}</div>
       )}
@@ -112,9 +112,9 @@ export async function villageCard({ tint, shade: genre, kicker, title, icon = fa
   return new ImageResponse(
     (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', fontFamily: 'Rubik', background: color, padding: '50px 64px', position: 'relative', color: 'white' }}>
-        {/* The brand: one big faint piece behind everything, cropped by the corner. */}
+        {/* The brand: one big faint piece behind everything, cropped by the corner, with "village" cut out. */}
         <div style={{ position: 'absolute', right: -130, bottom: -110, display: 'flex', opacity: 0.14 }}>
-          <svg width={640} height={Math.round(640 * V.height / V.width)} viewBox={VIEWBOX}><path d={PIECE_PATH} fill="white" /></svg>
+          <svg width={640} height={Math.round(640 * V.height / V.width)} viewBox={VIEWBOX}><path d={PIECE_CUTOUT_PATH} fill="white" /></svg>
         </div>
 
         {/* The top line, with the Village mark on the right so a shared card says where it's from. */}

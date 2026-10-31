@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ArrowLeft, Backpack, BookOpen, Check, Flag, Hourglass, House, MapPin, Plus, Users, type LucideIcon } from 'lucide-react';
-import { Piece } from '@/components/Piece';
+import { Piece, pieceHeight } from '@/components/Piece';
 import { Wordmark } from '@/components/Logo';
 
 export const metadata: Metadata = { title: 'Brand samples', robots: { index: false } };
@@ -69,7 +69,7 @@ export default function BrandLab() {
         </div>
       </header>
 
-      <Section title="Logo" note="The yellow piece and the wordmark, both with the slice. The ink bar across every screen.">
+      <Section title="Logo" note="A piece with nothing on it has the word village cut out, slice and all, beside the wordmark.">
         <div className="flex flex-wrap items-center gap-6 rounded-2xl p-6 text-white" style={{ background: INK }}>
           <Piece size={96} color={SIGNAL} />
           <Wordmark className="text-[72px]" />
@@ -80,7 +80,7 @@ export default function BrandLab() {
         </div>
       </Section>
 
-      <Section title="Every size" note="One shape, only scaled. The slice stays visible down to tab-icon size.">
+      <Section title="Every size" note="One shape, only scaled. Under 64px the cutout is just its v.">
         <div className="flex flex-wrap items-end gap-6 rounded-2xl bg-card p-6 ring-1 ring-line">
           {SIZES.map((s) => <Piece key={s} size={s} color={INK} label={`${s} pixels wide`} />)}
         </div>
@@ -100,7 +100,7 @@ export default function BrandLab() {
         </div>
       </Section>
 
-      <Section title="Entries" note="Initials in the piece, below the slice; the name underneath. A clear gap, so tabs never reach a neighbour.">
+      <Section title="Entries" note="Initials in the piece; the name underneath. A clear gap between pieces.">
         <div className="flex flex-wrap gap-x-3 gap-y-4 rounded-2xl p-6" style={{ background: 'var(--berry-soft)' }}>
           {UNITS.map((u) => <Entry key={u} name={u} color="var(--berry)" />)}
         </div>
@@ -112,7 +112,7 @@ export default function BrandLab() {
             <span key={label} className={`flex flex-col items-center gap-1 text-xs font-bold ${on ? 'text-ink' : 'text-muted'}`}>
               {on
                 ? <Piece size={46} color={color}><Icon size={16} strokeWidth={2.4} aria-hidden="true" /></Piece>
-                : <span className="grid h-[33px] place-items-center" style={{ color }}><Icon size={20} aria-hidden="true" /></span>}
+                : <span className="grid place-items-center" style={{ color, height: pieceHeight(46) }}><Icon size={20} aria-hidden="true" /></span>}
               {label}
             </span>
           ))}

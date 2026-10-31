@@ -1,74 +1,37 @@
-// The Village piece: a cut-corner block with dovetail sockets on the top and left and tabs
-// on the bottom and right, with one band through the middle slid to the right (the slice).
-// Worked out once as a single plain outline, with no clip masks, so it draws the same in the
-// app, in share images and in icons, and any number of pieces can sit on one page.
-
-/** The body is 180 x 132 piece units; tabs stick out 20 more on the bottom and right. */
-export const PIECE = { width: 180, height: 132, corner: 30, tab: 20 } as const;
-
-/** The slice: this band of the piece slides right by `shift`. The same on every piece. */
-export const SLICE = { top: 50, bottom: 66, shift: 16 } as const;
-
-/** Room for the tabs, the slide and an outline's stroke. */
-export const PIECE_VIEWBOX = { x: -8, y: -8, width: 232, height: 168 } as const;
-
-/**
- * Where initials or a symbol go: the middle of the body below the slice, as fractions of
- * the view box. Text there never crosses the band or the socket on the left.
- */
-export const PIECE_SPOT = {
-  x: (PIECE.width / 2 - PIECE_VIEWBOX.x) / PIECE_VIEWBOX.width,
-  y: (94 - PIECE_VIEWBOX.y) / PIECE_VIEWBOX.height,
-} as const;
+// The Village piece: the outline of the logo, the house in its ring of five genre tiles, as
+// one flat shape in one color. Worked out once as a single plain outline, with no clip masks,
+// so it draws the same in the app, in share images and in icons, and any number of pieces
+// can sit on one page. A piece with nothing on it shows "village" cut out of it
+// (`piece-cutout.ts`, made by `scripts/build-cutout.ts`).
 
 export type Point = [number, number];
 
-/** The dovetail tabs and sockets: how far they reach, and their width at the edge and at the end. */
-export interface Joint { tab: number; neck: number; flare: number }
+/** Matt's silhouette of the logo (logo-silhouette-*.svg), in the logo picture's units. */
+export const OUTLINE: Point[] = [
+  [1295, 74], [1278, 72], [1250, 78], [1146, 136], [1087, 93], [1035, 76], [1002, 75], [970, 80], [906, 107], [904, 68],
+  [898, 54], [886, 42], [872, 34], [850, 29], [825, 30], [803, 37], [784, 52], [775, 72], [774, 334], [765, 340],
+  [762, 334], [762, 240], [752, 216], [741, 206], [523, 82], [499, 73], [483, 72], [463, 77], [212, 210], [170, 236],
+  [153, 260], [89, 506], [87, 539], [103, 605], [111, 620], [128, 636], [217, 685], [250, 699], [265, 697], [276, 689],
+  [293, 645], [300, 637], [314, 637], [330, 646], [329, 658], [278, 705], [275, 796], [258, 804], [246, 802], [237, 788],
+  [230, 748], [220, 740], [206, 739], [112, 784], [90, 806], [83, 825], [30, 1069], [31, 1088], [45, 1134], [59, 1159],
+  [90, 1184], [354, 1346], [382, 1348], [392, 1345], [466, 1298], [474, 1355], [486, 1374], [501, 1388], [825, 1570], [850, 1575],
+  [878, 1572], [901, 1562], [1210, 1387], [1236, 1358], [1243, 1334], [1246, 1298], [1340, 1359], [1356, 1363], [1385, 1360], [1695, 1170],
+  [1711, 1151], [1732, 1090], [1733, 1064], [1682, 825], [1675, 808], [1650, 785], [1550, 742], [1539, 743], [1528, 752], [1520, 797],
+  [1512, 807], [1499, 810], [1481, 802], [1478, 717], [1473, 709], [1432, 680], [1431, 659], [1449, 649], [1459, 648], [1469, 656],
+  [1477, 681], [1486, 693], [1499, 699], [1514, 698], [1635, 633], [1659, 605], [1676, 535], [1675, 510], [1608, 257], [1600, 243],
+  [1579, 225],
+];
 
-/** The full joint, for pieces 48px and up. */
-const JOINT: Joint = { tab: PIECE.tab, neck: 11, flare: 19 };
+/** The silhouette with a little room around it for an outline's stroke. */
+export const PIECE_VIEWBOX = { x: 0, y: 0, width: 1772, height: 1610 } as const;
 
 /**
- * The joint for small pieces (under 48px): shorter and chunkier, so the tabs still read as
- * tabs instead of turning into specks. Same body, corners and slice.
+ * Where initials or a symbol go: the middle of the body, as fractions of the view box.
  */
-const SMALL_JOINT: Joint = { tab: 12, neck: 15, flare: 20 };
+export const PIECE_SPOT = { x: 884 / PIECE_VIEWBOX.width, y: 860 / PIECE_VIEWBOX.height } as const;
 
-/** The corners of the piece, each with how much to round it: [x, y, radius]. */
-function corners({ tab: d, neck, flare }: Joint = JOINT): [number, number, number][] {
-  const { width: W, height: H, corner: c } = PIECE;
-  const cx = W / 2, cy = H / 2, j = 4, q = 2;
-  return [
-    [0, c, j], [c, 0, j],
-    [cx - neck, 0, q], [cx - flare, d, q], [cx + flare, d, q], [cx + neck, 0, q],
-    [W - c, 0, j], [W, c, j],
-    [W, cy - neck, q], [W + d, cy - flare, q], [W + d, cy + flare, q], [W, cy + neck, q],
-    [W, H - c, j], [W - c, H, j],
-    [cx + neck, H, q], [cx + flare, H + d, q], [cx - flare, H + d, q], [cx - neck, H, q],
-    [c, H, j], [0, H - c, j],
-    [0, cy + neck, q], [d, cy + flare, q], [d, cy - flare, q], [0, cy - neck, q],
-  ];
-}
-
-/** Round each corner with a short curve, drawn as a few straight steps. */
-function rounded(points: [number, number, number][], steps = 4): Point[] {
-  const out: Point[] = [];
-  const n = points.length;
-  for (let i = 0; i < n; i++) {
-    const [px, py] = points[(i - 1 + n) % n], [x, y, r] = points[i], [nx, ny] = points[(i + 1) % n];
-    const l1 = Math.hypot(px - x, py - y), l2 = Math.hypot(nx - x, ny - y);
-    const t = Math.min(r, l1 / 2, l2 / 2);
-    if (t <= 0) { out.push([x, y]); continue; }
-    const a: Point = [x + (px - x) / l1 * t, y + (py - y) / l1 * t];
-    const b: Point = [x + (nx - x) / l2 * t, y + (ny - y) / l2 * t];
-    for (let s = 0; s <= steps; s++) {
-      const u = s / steps, v = 1 - u;
-      out.push([v * v * a[0] + 2 * v * u * x + u * u * b[0], v * v * a[1] + 2 * v * u * y + u * u * b[1]]);
-    }
-  }
-  return out;
-}
+/** The slice for the snap: this band slides back into place when a piece turns solid. */
+export const SLICE = { top: 860, bottom: 1000, shift: 120 } as const;
 
 /**
  * Slide one band of an outline sideways. Every point inside the band moves right; where an
@@ -103,24 +66,15 @@ export function toPath(points: Point[]): string {
   return points.map(([x, y], i) => `${i ? 'L' : 'M'}${r1(x)} ${r1(y)}`).join(' ') + ' Z';
 }
 
-/** The piece without the slice (for tests and comparisons). */
-export const PIECE_PLAIN_PATH = toPath(rounded(corners()));
+/** The piece as everyone sees it. Drawn through `slideBand` with no slide, so it has the
+ *  same points as the snap outlines and can move smoothly between them. */
+export const PIECE_PATH = toPath(slideBand(OUTLINE, { ...SLICE, shift: 0 }));
 
-/** The piece as everyone sees it: with the slice. */
-export const PIECE_PATH = toPath(slideBand(rounded(corners())));
-
-/** The small piece, for sizes under 48px (favicons, nav, badges, tick boxes). */
-export const PIECE_SMALL_PATH = toPath(slideBand(rounded(corners(SMALL_JOINT))));
-
-/** The same outlines with the band not slid yet, and slid a little too far: the snap motion
- *  runs between them (same points, so the shape can move smoothly). */
+/** The band slid out, and slid a little past home the other way: the snap runs between them. */
 export const SNAP_PATHS = {
-  full: { from: toPath(slideBand(rounded(corners()), { ...SLICE, shift: 0 })), over: toPath(slideBand(rounded(corners()), { ...SLICE, shift: SLICE.shift * 1.7 })) },
-  small: { from: toPath(slideBand(rounded(corners(SMALL_JOINT)), { ...SLICE, shift: 0 })), over: toPath(slideBand(rounded(corners(SMALL_JOINT)), { ...SLICE, shift: SLICE.shift * 1.7 })) },
+  from: toPath(slideBand(OUTLINE)),
+  over: toPath(slideBand(OUTLINE, { ...SLICE, shift: -SLICE.shift * 0.4 })),
 } as const;
-
-/** Pieces narrower than this use the small joint. */
-export const SMALL_BELOW = 48;
 
 /** The piece as a CSS mask, for cutting a picture to its shape (no ids needed). */
 export const PIECE_MASK = `url("data:image/svg+xml,${encodeURIComponent(

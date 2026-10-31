@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
-import { PIECE_MASK, PIECE_PATH, PIECE_SMALL_PATH, PIECE_SPOT, PIECE_VIEWBOX as V, SMALL_BELOW, SNAP_PATHS } from '@/lib/piece';
+import { PIECE_MASK, PIECE_PATH, PIECE_SPOT, PIECE_VIEWBOX as V, SNAP_PATHS } from '@/lib/piece';
+import { CUTOUT_WORD_FROM, PIECE_CUTOUT_PATH, PIECE_CUTOUT_SMALL_PATH } from '@/lib/piece-cutout';
 
 // The Village piece, the one shape of the brand (rules in CLAUDE.md, "Brand rules").
 // Works in server and client components: no hooks, no clip masks, no ids.
@@ -19,9 +20,10 @@ export const pieceHeight = (size: number) => Math.round(size * ASPECT * 10) / 10
  * - Solid (the default) is something built, in `color`.
  * - `outline` is a slot nobody has filled yet: an `ink` line with pink and violet copies.
  * - `image` fills the piece with a picture, cut to its shape.
- * Children (short initials or a symbol) sit in the body below the slice, so text never
- * crosses it. Names belong under the piece, not in it.
- * Under 48px the piece uses its small joint (shorter, chunkier tabs) so it stays crisp.
+ * Children (short initials or a symbol) sit in the middle of the body. Names belong under
+ * the piece, not in it.
+ * A solid piece is never blank: with no children and no picture, "village" is cut out of it
+ * (a lone "v" under 64px), so the letters show whatever is behind.
  */
 export function Piece({ size, color = 'var(--ink)', outline = false, glitch = false, snap = false, ink = 'var(--ink)', image, label, className = '', style, children }: {
   size: number | 'fill';
@@ -40,13 +42,12 @@ export function Piece({ size, color = 'var(--ink)', outline = false, glitch = fa
   children?: ReactNode;
 }) {
   const fill = size === 'fill';
-  const small = !fill && size < SMALL_BELOW;
-  const d = small ? PIECE_SMALL_PATH : PIECE_PATH;
-  const snapPaths = SNAP_PATHS[small ? 'small' : 'full'];
-  const snapStyle = snap
-    ? { '--slice-from': `path('${snapPaths.from}')`, '--slice-over': `path('${snapPaths.over}')`, '--slice-to': `path('${d}')` } as CSSProperties
+  const cutout = !outline && !image && children == null;
+  const d = !cutout ? PIECE_PATH : fill || size >= CUTOUT_WORD_FROM ? PIECE_CUTOUT_PATH : PIECE_CUTOUT_SMALL_PATH;
+  const snapStyle = snap && !cutout
+    ? { '--slice-from': `path('${SNAP_PATHS.from}')`, '--slice-over': `path('${SNAP_PATHS.over}')`, '--slice-to': `path('${d}')` } as CSSProperties
     : undefined;
-  const unit = fill ? 3 : V.width / size; // piece units per pixel ('fill' assumes about 80px)
+  const unit = V.width / (fill ? 80 : size); // piece units per pixel ('fill' assumes about 80px)
   const line = fill ? 2 : Math.min(4, Math.max(1.5, size / 36)); // outline thickness in pixels
   const nudge = line * 0.9 * unit;
   const box: CSSProperties = fill
@@ -70,7 +71,7 @@ export function Piece({ size, color = 'var(--ink)', outline = false, glitch = fa
                 <path d={d} fill="var(--signal)" transform={`translate(${nudge * 1.4} ${-nudge / 2})`} />
               </>
             )}
-            <path d={d} fill={color} className={snap ? 'slice-snap' : undefined} style={snapStyle} />
+            <path d={d} fill={color} className={snapStyle ? 'slice-snap' : undefined} style={snapStyle} />
           </>
         )}
       </svg>
@@ -82,7 +83,7 @@ export function Piece({ size, color = 'var(--ink)', outline = false, glitch = fa
       {children != null && (
         <span aria-hidden={label ? true : undefined}
           className="absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center whitespace-nowrap font-extrabold leading-none"
-          style={{ left: `${PIECE_SPOT.x * 100}%`, top: `${PIECE_SPOT.y * 100}%`, fontSize: fill ? '15cqw' : Math.round(size * 0.15), color: outline ? ink : '#fff' }}>
+          style={{ left: `${PIECE_SPOT.x * 100}%`, top: `${PIECE_SPOT.y * 100}%`, fontSize: fill ? '19cqw' : Math.round(size * 0.19), color: outline ? ink : '#fff' }}>
           {children}
         </span>
       )}
