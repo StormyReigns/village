@@ -21,6 +21,7 @@ import { FilterChip, HiddenNote, OpenPanel, useVisible, type BlockContext } from
 import { statSort } from './StatTable';
 
 type View = 'profiles' | 'list';
+type Dir = -1 | 0 | 1;
 
 /**
  * Characters: one profile at a time with a strip of pieces to jump between them (the
@@ -63,7 +64,9 @@ export function Characters({ block, ctx }: { block: Block; ctx: BlockContext }) 
   const [blockId, entryId] = open?.split('.') ?? [];
   const cur = list.find((e) => blockId === block.id && e.id === entryId) ?? list[0];
   const at = cur ? list.indexOf(cur) : -1;
-  const go = (e: Entry | undefined) => { if (e) set(`${block.id}.${e.id}`, 'replace'); };
+  // Which side the next card slides in from: 1 the right (going forward), -1 the left, 0 just fades in.
+  const [enter, setEnter] = useState<Dir>(0);
+  const go = (e: Entry | undefined, dir: Dir = 0) => { if (e) { setEnter(dir); set(`${block.id}.${e.id}`, 'replace'); } };
   const switchTo = (v: View) => {
     setView(v);
     // The address holds the card in Profiles, but opens a panel in List.
@@ -110,8 +113,8 @@ export function Characters({ block, ctx }: { block: Block; ctx: BlockContext }) 
         <Nothing query={query} shown={shown} onOpen={go} />
       ) : view === 'profiles' && cur ? (
         <>
-          <Strip block={block} list={list} cur={cur} color={color} onPick={go} />
-          <Profile key={cur.id} block={block} ctx={ctx} e={cur} prev={list[at - 1]} next={list[at + 1]} n={at + 1} of={list.length} color={color} onGo={go}
+          <Strip block={block} list={list} cur={cur} color={color} onPick={(e) => go(e, Math.sign(list.indexOf(e) - at) as Dir)} />
+          <Profile key={cur.id} block={block} ctx={ctx} e={cur} prev={list[at - 1]} next={list[at + 1]} n={at + 1} of={list.length} color={color} onGo={go} enter={enter}
             recruited={recruits ? ticks.has(`recruited:${block.id}.${cur.id}`) : undefined} onRecruit={() => toggle(`recruited:${block.id}.${cur.id}`)} />
         </>
       ) : (
@@ -179,27 +182,67 @@ function Strip({ block, list, cur, color, onPick }: { block: Block; list: Entry[
   );
 }
 
-/** The card for one character, with arrows (and a swipe on phones) to the next. */
-function Profile({ block, ctx, e, prev, next, n, of, color, onGo, recruited, onRecruit }: {
+/**
+ * The card for one character, with arrows to the next. On a touchscreen it follows a
+ * sideways swipe: let go past a quarter of the way and it slides off as the next one
+ * slides in; let go sooner and it springs back. Up-and-down still scrolls the page.
+ */
+function Profile({ block, ctx, e, prev, next, n, of, color, onGo, enter, recruited, onRecruit }: {
   block: Block; ctx: BlockContext; e: Entry; prev?: Entry; next?: Entry; n: number; of: number; color: string;
-  onGo: (e: Entry | undefined) => void; recruited?: boolean; onRecruit: () => void;
+  onGo: (e: Entry | undefined, dir?: Dir) => void; enter: Dir; recruited?: boolean; onRecruit: () => void;
 }) {
-  const start = useRef<number | null>(null);
+  const card = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ x: number; y: number; dx: number; side?: boolean } | null>(null);
   const arrow = 'grid size-9 shrink-0 place-items-center rounded-full bg-card-2 ring-1 ring-line hover:ring-ink disabled:opacity-30';
+  // The card moves by its style directly, so a swipe never waits on React.
+  const place = (dx: number, animate: boolean) => {
+    const el = card.current;
+    if (!el) return;
+    el.style.transition = animate ? 'transform 220ms cubic-bezier(.2,.8,.2,1), opacity 220ms ease-out' : 'none';
+    el.style.transform = dx ? `translateX(${dx}px) rotate(${dx / 60}deg)` : '';
+    el.style.opacity = dx ? String(Math.max(0.4, 1 - Math.abs(dx) / el.offsetWidth)) : '';
+  };
+  const down = (p: React.PointerEvent) => {
+    if (p.pointerType === 'mouse') return;
+    drag.current = { x: p.clientX, y: p.clientY, dx: 0 };
+  };
+  const move = (p: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d) return;
+    const mx = p.clientX - d.x, my = p.clientY - d.y;
+    // Decide once which way the finger is going: sideways is ours, up and down is the page's.
+    if (d.side === undefined) {
+      if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+      d.side = Math.abs(mx) > Math.abs(my);
+      if (!d.side) { drag.current = null; return; }
+      try { card.current?.setPointerCapture(p.pointerId); } catch { /* the pointer already ended */ }
+    }
+    // Past the first or last character it drags with a pull, so it's clear there's no more.
+    d.dx = (mx < 0 ? next : prev) ? mx : mx * 0.25;
+    place(d.dx, false);
+  };
+  const up = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (!d?.side) return;
+    const to = d.dx < 0 ? next : prev;
+    const width = card.current?.offsetWidth ?? 320;
+    if (to && Math.abs(d.dx) > width * 0.25) {
+      const dir: Dir = d.dx < 0 ? 1 : -1;
+      place(-dir * width * 1.1, true);
+      setTimeout(() => onGo(to, dir), 180);
+    } else place(0, true);
+  };
   return (
-    <div className="mt-3 rounded-2xl p-4 ring-1 ring-line"
-      onTouchStart={(t) => { start.current = t.touches[0].clientX; }}
-      onTouchEnd={(t) => {
-        if (start.current == null) return;
-        const dx = t.changedTouches[0].clientX - start.current;
-        start.current = null;
-        if (Math.abs(dx) > 60) onGo(dx < 0 ? next : prev);
-      }}>
+    // Clipped, so a card on its way out never widens the page.
+    <div className="-mx-1 mt-3 overflow-hidden px-1 py-px">
+    <div ref={card} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
+      className={'touch-pan-y rounded-2xl bg-card p-4 ring-1 ring-line ' + (enter === 1 ? 'card-in-right' : enter === -1 ? 'card-in-left' : 'card-in')}>
       <div className="flex items-center gap-1">
         <p className="flex-1 text-xs font-bold uppercase tracking-wide text-muted">{n} of {of}</p>
         <ShareButton path={sharePath(ctx.gameId, ctx.page, block, e)} title={e.name} what="character" tint={ctx.tint} quiet />
-        <button type="button" onClick={() => onGo(prev!)} disabled={!prev} aria-label={prev ? `Back to ${prev.name}` : 'Back'} className={arrow}><ChevronLeft size={18} aria-hidden="true" /></button>
-        <button type="button" onClick={() => onGo(next!)} disabled={!next} aria-label={next ? `On to ${next.name}` : 'Next'} className={arrow}><ChevronRight size={18} aria-hidden="true" /></button>
+        <button type="button" onClick={() => onGo(prev!, -1)} disabled={!prev} aria-label={prev ? `Back to ${prev.name}` : 'Back'} className={arrow}><ChevronLeft size={18} aria-hidden="true" /></button>
+        <button type="button" onClick={() => onGo(next!, 1)} disabled={!next} aria-label={next ? `On to ${next.name}` : 'Next'} className={arrow}><ChevronRight size={18} aria-hidden="true" /></button>
       </div>
       <div className="mx-auto mt-1 max-w-xl">
         <CharacterCard entry={e} block={block} route={ctx.route} routes={ctx.routes} color={color} spoilers={ctx.spoilers} onGo={onGo} />
@@ -218,6 +261,7 @@ function Profile({ block, ctx, e, prev, next, n, of, color, onGo, recruited, onR
         </div>
         {e.source && <p className="mt-4 text-xs text-muted">Source: {e.source}</p>}
       </div>
+    </div>
     </div>
   );
 }
