@@ -3,7 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, ChevronDown, EyeOff, Flag, MessageCircle, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus,
+  ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, EyeOff, FileText, Flag, Hammer, MessageCircle, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus,
   RotateCcw, Search, Send, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import type { Block, Page } from '@/data/pages';
@@ -27,7 +27,8 @@ import {
 } from './useWorkshop';
 import { EntryForm, ChangeList, type FormStart, type Posted } from './EntryForm';
 import { FieldSetup } from './FieldSetup';
-import { EditorChat } from './EditorShell';
+import { EditorChat, EditSwap } from './EditorShell';
+import { useBeside } from './split';
 import { sharePath } from '@/data/pages/links';
 import { changesBetween } from './changes';
 import { clearUnsent, readUnsent, saveUnsent, type Unsent } from './unsent';
@@ -91,6 +92,10 @@ export function Workshop({ game, pages, routes }: {
   const [chatFolded, setChatFolded] = useStored('village:workshop:chat-folded', false);
   const [introDone, setIntroDone] = useStored('village:workshop:intro-seen', false);
   const [phoneTab, setPhoneTab] = useState<'work' | 'chat'>('work');
+  // Smaller screens: the chat opened over an editor, as a side trip from it. It belongs to
+  // that one edit, so closing the editor puts it away too.
+  const [chatOver, setChatOver] = useState<string | null>(null);
+  const beside = useBeside();
   const introRef = useRef<HTMLDivElement>(null);
 
   // Closing the "New here?" note sends it flying into the "How it works" button, so it's
@@ -248,6 +253,7 @@ export function Workshop({ game, pages, routes }: {
   const editLabel = editing === 'form'
     ? (form?.entryId ? `Fix: ${editBlock?.entries.find((e) => e.id === form.entryId)?.name ?? 'an entry'}` : `New in ${editBlock?.title ?? 'the app'}`)
     : setupBlock ? `Set up ${setupBlock.title}` : '';
+  const editKey = editing ? `${editing}:${form?.blockId}.${form?.entryId}:${setup}` : null;
 
   return (
     <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col px-4 pb-6 pt-5 sm:px-6 lg:min-h-0 lg:pb-4 lg:pt-4">
@@ -278,7 +284,7 @@ export function Workshop({ game, pages, routes }: {
       )}
 
       <div role="tablist" aria-label="Show" className="mt-2 flex rounded-full bg-card p-1 ring-1 ring-line lg:hidden">
-        {([['work', editing ? 'Editing' : 'Build'], ['chat', `Chat · ${chat.length}`]] as const).map(([k, label]) => (
+        {([['work', 'Build'], ['chat', `Chat · ${chat.length}`]] as const).map(([k, label]) => (
           <button key={k} role="tab" aria-selected={phoneTab === k} onClick={() => setPhoneTab(k)}
             className={'flex-1 rounded-full px-3 py-2 text-sm font-bold ' + (phoneTab === k ? 'bg-ink text-paper' : 'text-muted')}>{label}</button>
         ))}
@@ -300,12 +306,6 @@ export function Workshop({ game, pages, routes }: {
           </div>
         )}
         <div className={(phoneTab === 'chat' ? 'flex' : 'hidden') + ' min-w-0 flex-col gap-2 lg:min-h-0 lg:w-80 lg:shrink-0 2xl:w-96 ' + (chatFolded ? 'lg:hidden' : 'lg:flex')}>
-          {editing && (
-            <button onClick={() => setPhoneTab('work')}
-              className="flex items-center gap-2 rounded-2xl bg-signal px-4 py-2.5 text-left text-sm font-bold text-ink lg:hidden">
-              <ArrowLeft size={16} aria-hidden="true" /> <span className="min-w-0 flex-1 truncate">Back to {editLabel}</span>
-            </button>
-          )}
           <Chat
             topic={current ? { key: current.id, label: current.title } : null}
             notice={chip === 'notice'}
@@ -319,7 +319,7 @@ export function Workshop({ game, pages, routes }: {
 
         <div className={(phoneTab === 'work' ? 'flex' : 'hidden') + ' min-w-0 flex-1 flex-col lg:flex lg:min-h-0'}>
           {editing ? (
-            <EditorChat.Provider value={{ count: chat.length, open: () => setPhoneTab('chat') }}>
+            <EditorChat.Provider value={{ count: chat.length, open: () => setChatOver(editKey) }}>
               {editing === 'form' ? (
                 <EntryForm gameId={game.id} pages={pages} routes={routes} start={form!} restore={restore} me={me} postDraft={live.postDraft}
                   onClose={closeForm}
@@ -368,8 +368,13 @@ export function Workshop({ game, pages, routes }: {
                       </label>
                     ) : (
                       <>
-                        {current && <Piece size={48} color={`var(--${current.tint})`}><BlockIcon name={current.icon} size={15} strokeWidth={2.4} /></Piece>}
-                        <h2 className="min-w-0 flex-1 truncate font-display text-xl" title={current?.title}>{current ? current.title : 'Everything'}</h2>
+                        {current && <span className="hidden shrink-0 sm:block"><Piece size={48} color={`var(--${current.tint})`}><BlockIcon name={current.icon} size={15} strokeWidth={2.4} /></Piece></span>}
+                        <div className="min-w-0 flex-1">
+                          <h2 className="truncate font-display text-xl leading-tight" title={current?.title}>{current ? current.title : 'Everything'}</h2>
+                          <p className="truncate text-xs font-bold text-muted">
+                            {view === 'drafts' ? (waiting.length ? `Drafts · ${waiting.length} waiting on you` : 'Drafts') : 'In the app'}
+                          </p>
+                        </div>
                         <Tip text={view === 'drafts' ? 'Search these Drafts' : "Search this Page's entries"} tint="sky" className="shrink-0">
                           <button onClick={() => setSearching(true)} aria-label="Search"
                             className="grid size-9 place-items-center rounded-full bg-card ring-1 ring-line hover:ring-ink">
@@ -378,28 +383,32 @@ export function Workshop({ game, pages, routes }: {
                         </Tip>
                       </>
                     )}
+                    {/* Two views of one Page: the changes people have suggested (paper), and what's in
+                        the app now, to fix or add to (hammer). */}
+                    <div role="tablist" aria-label="Show" className="inline-flex shrink-0 rounded-full bg-card p-0.5 ring-1 ring-line">
+                      <Tip text={waiting.length ? `Drafts: ${waiting.length} waiting on you` : 'Drafts: changes villagers have suggested'}>
+                        <button role="tab" aria-selected={view === 'drafts'} onClick={() => setTab('drafts')} aria-label="Drafts"
+                          className={'relative grid size-8 place-items-center rounded-full ' + (view === 'drafts' ? 'bg-ink text-paper' : 'text-muted hover:text-ink')}>
+                          <FileText size={16} aria-hidden="true" />
+                          {waiting.length > 0 && (
+                            <span aria-hidden="true" className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-signal px-1 text-[10px] font-bold leading-4 text-ink ring-2 ring-card">{waiting.length}</span>
+                          )}
+                        </button>
+                      </Tip>
+                      <Tip text="In the app: what's there now, to fix or add to">
+                        <button role="tab" aria-selected={view === 'app'} onClick={() => setTab('app')} aria-label="In the app"
+                          className={'grid size-8 place-items-center rounded-full ' + (view === 'app' ? 'bg-ink text-paper' : 'text-muted hover:text-ink')}>
+                          <Hammer size={16} aria-hidden="true" />
+                        </button>
+                      </Tip>
+                    </div>
                     <Tip text="Add something new to the app" tint="leaf" className="shrink-0">
-                      <button onClick={startNew} className="btn-primary inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold">
-                        <Plus size={16} aria-hidden="true" /> New
+                      <button onClick={startNew} aria-label="New" className="btn-primary inline-flex h-9 shrink-0 items-center gap-1 rounded-full px-2.5 text-sm font-bold sm:px-3">
+                        <Plus size={16} aria-hidden="true" /> <span className="hidden sm:inline">New</span>
                       </button>
                     </Tip>
                   </div>
 
-                  {/* Two views of one Page: the changes people have suggested, and what's in the app now. */}
-                  <div role="tablist" aria-label="Show" className="mt-3 flex rounded-full bg-card p-1 ring-1 ring-line">
-                    <button role="tab" aria-selected={view === 'drafts'} onClick={() => setTab('drafts')}
-                      className={'inline-flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold ' + (view === 'drafts' ? 'bg-ink text-paper' : 'text-muted hover:text-ink')}>
-                      Drafts
-                      {waiting.length > 0 && (
-                        <span aria-label={`${waiting.length} waiting on you`}
-                          className={'grid min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold ' + (view === 'drafts' ? 'bg-signal text-ink' : 'bg-ink text-paper')}>{waiting.length}</span>
-                      )}
-                    </button>
-                    <button role="tab" aria-selected={view === 'app'} onClick={() => setTab('app')}
-                      className={'flex-1 rounded-full px-3 py-1.5 text-sm font-bold ' + (view === 'app' ? 'bg-ink text-paper' : 'text-muted hover:text-ink')}>
-                      In the app
-                    </button>
-                  </div>
                 </div>
 
                 {!introDone && (
@@ -524,6 +533,24 @@ export function Workshop({ game, pages, routes }: {
           )}
         </div>
       </div>
+
+      {/* On smaller screens the chat opens over the editor, with the same switch in the same
+          place, so it feels like flipping between the two rather than leaving the edit. */}
+      {editing && !beside && chatOver === editKey && (
+        <div role="dialog" aria-modal="true" aria-label="Chat" className="rise fixed inset-0 z-[60] flex h-[100dvh] flex-col bg-card"
+          onKeyDown={(e) => { if (e.key === 'Escape') setChatOver(null); }}>
+          <Chat
+            topic={current ? { key: current.id, label: current.title } : null}
+            notice={chip === 'notice'}
+            onAll={() => setChip('all')}
+            bar={<EditSwap on="chat" count={chat.length} editLabel={`Back to ${editLabel}`} onEdit={() => setChatOver(null)} />}
+            className="rounded-none px-4 pb-4 pt-2.5 ring-0"
+            messages={chat}
+            me={me}
+            live={live}
+          />
+        </div>
+      )}
 
       {shown && (
         <Sheet label={shown.title} onClose={() => setDetail(null)}>
@@ -893,10 +920,13 @@ function Composer({ me, placeholder, onSend }: { me: Villager | null | undefined
   );
 }
 
-function Chat({ topic: block, notice, onAll, onFold, messages, me, live }: {
+function Chat({ topic: block, notice, onAll, onFold, bar, className = '', messages, me, live }: {
   topic: { key: string; label: string } | null; notice: boolean; onAll: () => void;
   /** Wide screens: fold the chat to a thin strip. */
-  onFold: () => void;
+  onFold?: () => void;
+  /** Before the heading, like the edit and chat switch over an editor. */
+  bar?: React.ReactNode;
+  className?: string;
   messages: ChatMessage[];
   me: Villager | null | undefined; live: WorkshopData;
 }) {
@@ -913,21 +943,22 @@ function Chat({ topic: block, notice, onAll, onFold, messages, me, live }: {
   const tagFor = (m: ChatMessage) => (m.draftId && titles.has(m.draftId) ? `on “${titles.get(m.draftId)}”` : null);
 
   return (
-    <section aria-label="Chat" className="relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl bg-card p-4 ring-1 ring-line lg:min-h-0">
+    <section aria-label="Chat" className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl bg-card p-4 ring-1 ring-line lg:min-h-0 ' + className}>
       <div className="flex flex-wrap items-center gap-x-2">
+        {bar && <span className="mr-1 shrink-0">{bar}</span>}
         <h2 className="font-display text-xl">Chat</h2>
         {(block || notice) && (
           <span className="order-last basis-full text-sm text-muted">
             about {block?.label ?? 'the Notice Board'} · <button onClick={onAll} className="font-bold text-leaf underline underline-offset-2">show all</button>
           </span>
         )}
-        <span className="ml-auto hidden shrink-0 lg:block">
+        {onFold && <span className="ml-auto hidden shrink-0 lg:block">
           <Tip text="Fold the chat away, for more room">
             <button onClick={onFold} aria-label="Fold the chat away" className="grid size-8 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink">
               <PanelLeftClose size={17} aria-hidden="true" />
             </button>
           </Tip>
-        </span>
+        </span>}
       </div>
       {live.state === 'loading' ? (
         <div className="m-auto py-10 text-sm text-muted">Opening the workshop doors…</div>

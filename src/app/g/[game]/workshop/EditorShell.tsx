@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { MessageCircle, X } from 'lucide-react';
+import { MessageCircle, PenLine, X } from 'lucide-react';
 import { SheetHandle, useBeside, useSheetSize, useWideBox } from './split';
 
 /**
@@ -10,6 +10,27 @@ import { SheetHandle, useBeside, useSheetSize, useWideBox } from './split';
  * and the chat has a way back. The editor stays open meanwhile, nothing lost.
  */
 export const EditorChat = createContext<{ count: number; open: () => void } | null>(null);
+
+/**
+ * Smaller screens: one switch between the edit (a pencil) and the chat (a bubble and its
+ * count), in the editor's bar and again in the chat's, so going to the chat reads as
+ * flipping over rather than leaving.
+ */
+export function EditSwap({ on, count, editLabel, onEdit, onChat }: {
+  on: 'edit' | 'chat'; count: number; editLabel: string; onEdit?: () => void; onChat?: () => void;
+}) {
+  const side = (active: boolean) => 'inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-sm font-bold ' + (active ? 'bg-ink text-paper' : 'text-muted hover:text-ink');
+  return (
+    <span role="group" aria-label="Edit or chat" className="inline-flex shrink-0 rounded-full bg-card p-0.5 ring-1 ring-line lg:hidden">
+      <button type="button" onClick={onEdit} aria-pressed={on === 'edit'} aria-label={editLabel} className={side(on === 'edit')}>
+        <PenLine size={16} aria-hidden="true" />
+      </button>
+      <button type="button" onClick={onChat} aria-pressed={on === 'chat'} aria-label={`Chat, ${count} messages`} className={side(on === 'chat')}>
+        <MessageCircle size={16} aria-hidden="true" /> {count}
+      </button>
+    </span>
+  );
+}
 
 /**
  * The frame every Workshop editor shares (Set up, the entry form): the title with its main
@@ -61,16 +82,12 @@ export function EditorShell({ label, title, titleExtra, actions, note, onClose, 
         onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); if (asking) setAsking(false); else close(); } }}
         className="@container workbench rise relative flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden shadow-soft outline-none md:h-[92vh] md:rounded-[2rem] lg:h-full lg:max-w-none lg:rounded-2xl lg:shadow-none lg:ring-1 lg:ring-line">
         <div className="flex shrink-0 items-center gap-3 px-4 py-2.5 @3xl:px-6 @3xl:pb-3 @3xl:pt-4">
+          {/* First in the bar, where the chat has it too. */}
+          {chat && <EditSwap on="edit" count={chat.count} editLabel={`Editing ${title}`} onChat={chat.open} />}
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <h2 className="truncate font-display text-xl @3xl:text-2xl">{title}</h2>
             {titleExtra}
           </div>
-          {chat && (
-            <button type="button" onClick={chat.open} aria-label={`Chat, ${chat.count} messages. Your edit stays open`}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-card px-3 py-2 text-sm font-bold ring-1 ring-line hover:ring-ink lg:hidden">
-              <MessageCircle size={16} aria-hidden="true" /> {chat.count}
-            </button>
-          )}
           {actions && <div id="entry-actions" className="shrink-0">{actions}</div>}
           <button type="button" onClick={close} className="grid size-9 shrink-0 place-items-center rounded-full bg-card ring-1 ring-line" aria-label="Close"><X size={18} aria-hidden="true" /></button>
         </div>
