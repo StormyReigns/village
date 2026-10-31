@@ -882,6 +882,7 @@ function Message({ m, tag, me, live }: { m: ChatMessage; tag?: string | null; me
 /** The message box: a text field, a spoiler switch and Send. Visitors get a sign-in button. */
 function Composer({ me, placeholder, onSend }: { me: Villager | null | undefined; placeholder: string; onSend: (body: string, spoiler: boolean) => Promise<string | null> }) {
   const [text, setText] = useState('');
+  const field = useRef<HTMLInputElement>(null);
   const [spoiler, setSpoiler] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -901,9 +902,11 @@ function Composer({ me, placeholder, onSend }: { me: Villager | null | undefined
 
   return (
     <div className="mt-auto">
-      <form onSubmit={submit} className="flex items-center gap-1.5 rounded-full bg-card-2 p-1.5 ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
-        <input id="chat-input" value={text} onChange={(e) => { setText(e.target.value); if (error) setError(''); }} maxLength={4000} disabled={me === undefined}
-          className="min-w-0 flex-1 bg-transparent px-3 outline-none placeholder:text-muted" placeholder={placeholder} aria-label={placeholder} />
+      {/* The whole box takes a click: the text field fills its height, and a click on its edge lands in the field. */}
+      <form onSubmit={submit} onMouseDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); field.current?.focus(); } }}
+        className="flex cursor-text items-center gap-1.5 rounded-full bg-card-2 p-1.5 ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
+        <input ref={field} id="chat-input" value={text} onChange={(e) => { setText(e.target.value); if (error) setError(''); }} maxLength={4000} disabled={me === undefined}
+          className="min-w-0 flex-1 self-stretch bg-transparent px-3 outline-none placeholder:text-muted" placeholder={placeholder} aria-label={placeholder} />
         <Tip text="Spoiler: hide this message behind a tap" className="shrink-0">
           <button type="button" onClick={() => setSpoiler(!spoiler)} aria-pressed={spoiler}
             className={'grid size-9 place-items-center rounded-full ' + (spoiler ? 'bg-ink text-paper' : 'text-muted hover:text-ink')}>
