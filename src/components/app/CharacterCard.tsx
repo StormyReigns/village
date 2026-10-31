@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Clock, EyeOff, Maximize2, MapPin, Minimize2, Pencil, TriangleAlert } from 'lucide-react';
+import { Check, Clock, EyeOff, Maximize2, MapPin, Minimize2, Pencil, TriangleAlert } from 'lucide-react';
 import type { Block, Entry, EntryContent, FieldDef, Route } from '@/data/pages';
 import { Piece } from '@/components/Piece';
 import { BlockIcon } from '@/components/Icon';
@@ -68,9 +68,10 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
               if (f.kind === 'yesno' && !/^(y|yes|true)$/i.test(v)) return null;
               return (
                 <Spoiler key={f.key} f={f} on={spoilers} small>
-                  <span className="rounded-full px-2.5 py-0.5 text-xs font-bold"
+                  {/* A yes shows with a tick, so it reads as "yes, this one is" rather than a tag. */}
+                  <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold"
                     style={i === 0 ? { background: `color-mix(in srgb, ${color} 14%, white)`, color } : { background: 'var(--card-2)' }}>
-                    {f.kind === 'yesno' ? f.label : v}
+                    {f.kind === 'yesno' ? <><Check size={12} strokeWidth={3} aria-hidden="true" />{f.label}</> : v}
                   </span>
                 </Spoiler>
               );

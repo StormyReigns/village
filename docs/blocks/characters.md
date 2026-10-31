@@ -56,7 +56,8 @@ Every Characters Block starts from these common fields (`COMMON_FIELDS`); all ar
 | Likes and gifts | list | no |
 
 Builders can add their own fields of any kind: short text, number, tag, place, when,
-list, links, long text, or yes or no.
+list, other characters (links to characters in the same Block), long text, or yes or no
+(a pill with a tick when yes).
 
 Values live on entries as they always have: tags as categories, the description as the
 description, stats as stats, everything else as sections named by the field's key. A
@@ -104,6 +105,10 @@ Anyone can try a setup; for now only the game's moderators can save it.
 - 2026-10-31: on phones the setup is a top and bottom split (fields above, preview below),
   each scrolling on its own. Why: building and seeing the result at the same time, without
   scrolling past one to reach the other.
+- 2026-10-31: the field kind "Links" is now called "Other characters", and yes or no pills
+  carry a tick. Each kind's example uses a likely name (Recruitable, Family, Skills), shows
+  several items where a kind holds several, and has a line on how it behaves. Why: "Links"
+  read as web links, and a yes looked like a tag.
 
 ## Open questions
 

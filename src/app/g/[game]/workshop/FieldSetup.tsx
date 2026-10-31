@@ -124,7 +124,7 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
                       <span className={'absolute top-0.5 size-4 rounded-full bg-card transition-all ' + (f.off ? 'left-0.5' : 'left-[1.15rem]')} />
                     </button>
                     <input value={f.label} onChange={(e) => patch(i, { label: e.target.value })} aria-label="Field name" className={input + ' min-w-0 flex-1 font-bold' + (f.off ? ' text-muted' : '')} />
-                    <span className="hidden w-16 shrink-0 rounded-md bg-card-2 py-0.5 text-center text-[11px] font-bold sm:inline">{kindLabel(f.kind)}</span>
+                    <span className="hidden w-28 shrink-0 truncate rounded-md bg-card-2 px-1 py-0.5 text-center text-[11px] font-bold sm:inline">{kindLabel(f.kind)}</span>
                     <button type="button" onClick={() => patch(i, { spoiler: !f.spoiler || undefined })} aria-pressed={Boolean(f.spoiler)} aria-label={`${f.label} is a spoiler`}
                       title={f.spoiler ? 'Spoiler: hidden until tapped' : 'Not a spoiler'}
                       className={'grid size-8 shrink-0 place-items-center rounded-full ' + (f.spoiler ? 'text-berry' : 'text-muted/60 hover:text-ink')}>
@@ -276,20 +276,50 @@ function StatSuggestions({ current, onPick }: { current: string; onPick: (stats:
   );
 }
 
+/** A likely name for each kind, until the builder types one. */
+const EXAMPLE_NAMES: Record<FieldKind, string> = {
+  text: 'Voice actor', number: 'Level', tag: 'Weapon', place: 'Hometown', when: 'Joins', chart: 'Stats',
+  list: 'Skills', links: 'Family', longtext: 'Backstory', yesno: 'Recruitable',
+};
+
+/** Kinds that hold several things get several in their example, so it's clear they can. */
+const EXAMPLE_VALUES: Partial<Record<FieldKind, string>> = {
+  list: 'Fire Wall: Blocks a lane for two turns.\nQuick Step: Moves again after acting.\nSecond Wind: Heals a little when hurt.',
+  links: 'Jane Doe: Sister\nOld Tom: Mentor\nThe Baron: Rival',
+};
+
+/** One line under the example on how that kind behaves. */
+const EXAMPLE_NOTES: Record<FieldKind, string> = {
+  text: 'A few words. Tick "beside the name" to show it small next to the name, like Age.',
+  number: 'A number. Tick "beside the name" to show it small next to the name.',
+  tag: 'A pill under the name. Players can also filter the list by it.',
+  place: 'Under the name, with a pin.',
+  when: 'Under the name, with a clock: a chapter, a date or a time.',
+  chart: '',
+  list: 'Each line is its own item. "Name: what it does" puts the name in bold.',
+  links: "Other characters from this Block. Players tap one to open that character's profile.",
+  longtext: 'A few sentences under its own heading.',
+  yesno: "A pill with a tick when the answer is yes. When it's no, nothing shows.",
+};
+
 /**
  * The field being added, on its own on a small John Doe card: how that kind of field looks
  * and where it sits, using the name typed so far.
  */
 function KindExample({ label, kind, block, routes, color, className = '' }: { label: string; kind: FieldKind; block: Block; routes: RouteOption[]; color: string; className?: string }) {
-  const name = label.trim() || kindLabel(kind);
+  const name = label.trim() || EXAMPLE_NAMES[kind];
   const draft = { title: block.title, icon: block.icon, fields: [{ key: name, label: name, kind }], stats: [] };
+  const entry = johnDoe(draft);
+  const more = EXAMPLE_VALUES[kind];
+  if (more) entry.sections = entry.sections.map((s) => ({ ...s, text: more }));
   return (
     <div className={className}>
       <div className="grid gap-2 rounded-2xl border border-dashed border-line p-3">
         <p className="text-xs font-bold uppercase tracking-wide text-muted">Example: {kindLabel(kind)}</p>
         <div className="rounded-xl bg-card p-3 ring-1 ring-line">
-          <CharacterCard entry={johnDoe(draft)} block={draft} route="all" routes={routes} color={color} sample size={56} />
+          <CharacterCard entry={entry} block={draft} route="all" routes={routes} color={color} sample size={56} />
         </div>
+        <p className="text-xs text-muted">{EXAMPLE_NOTES[kind]}</p>
       </div>
     </div>
   );

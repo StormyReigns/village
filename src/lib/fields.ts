@@ -16,7 +16,7 @@ export const FIELD_KINDS: { kind: FieldKind; label: string; hint: string }[] = [
   { kind: 'place', label: 'Place', hint: 'Shown under the name with a pin' },
   { kind: 'when', label: 'When', hint: 'A chapter, date or time, with a clock' },
   { kind: 'list', label: 'List', hint: 'One per line. "Name: what it does" works' },
-  { kind: 'links', label: 'Links', hint: 'Other characters, one per line: "Name: how they know them"' },
+  { kind: 'links', label: 'Other characters', hint: 'Other characters, one per line: "Name: how they know them"' },
   { kind: 'longtext', label: 'Long text', hint: 'A few sentences' },
   { kind: 'yesno', label: 'Yes or no', hint: 'Shows as a pill when it is yes' },
 ];
