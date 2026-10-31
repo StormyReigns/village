@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
-import { SHEET, SheetHandle, useWide } from './split';
+import { SheetHandle, useSheetSize, useWide } from './split';
 
 /**
  * The frame every Workshop editor shares (Set up, the character form): the title with its
@@ -37,7 +37,7 @@ export function EditorShell({ label, title, titleExtra, actions, note, onClose, 
   aside?: ReactNode;
 }) {
   const dialog = useRef<HTMLDivElement>(null);
-  const [sheet, setSheet] = useState<number>(SHEET.start);
+  const [sheet, setSheet] = useSheetSize();
   const [asking, setAsking] = useState(false);
   const wide = useWide();
   useEffect(() => { dialog.current?.focus(); }, []);
@@ -47,7 +47,7 @@ export function EditorShell({ label, title, titleExtra, actions, note, onClose, 
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 backdrop-blur-sm md:items-center md:p-6" onClick={close}>
       <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-label={label} onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); if (asking) setAsking(false); else close(); } }}
-        className="workbench rise relative flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden shadow-soft outline-none md:h-auto md:max-h-[92vh] md:rounded-[2rem]">
+        className="workbench rise relative flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden shadow-soft outline-none md:h-[92vh] md:rounded-[2rem]">
         <div className="flex shrink-0 items-center gap-3 px-4 py-2.5 md:px-6 md:pb-3 md:pt-5">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <h2 className="truncate font-display text-xl md:text-2xl">{title}</h2>
@@ -58,13 +58,13 @@ export function EditorShell({ label, title, titleExtra, actions, note, onClose, 
         </div>
         {note && <div className="shrink-0 px-4 pb-1 text-sm md:px-6">{note}</div>}
 
-        {/* Phones: the editor and the sheet scroll on their own. Wide: the two sit side by side
-            and scroll together under the pinned title, the preview staying in view. */}
-        <div data-split className="flex min-h-0 flex-1 flex-col md:grid md:grid-cols-[minmax(0,1fr)_22rem] md:gap-6 md:overflow-y-auto md:px-6 md:pb-6 md:pt-1">
-          <div className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto overscroll-contain px-4 pb-4 md:overflow-visible md:p-0">
+        {/* The editor and the preview each scroll on their own: on a phone the preview is a sheet
+            below, on wider screens a column on the right past a thin line. */}
+        <div data-split className="flex min-h-0 flex-1 flex-col md:grid md:grid-cols-[minmax(0,1fr)_23.5rem] md:border-t md:border-line">
+          <div className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto overscroll-contain px-4 pb-4 md:px-6 md:pb-6 md:pt-4">
             {editor}
           </div>
-          <div data-sheet className="relative z-10 flex shrink-0 flex-col rounded-t-[1.5rem] shadow-[0_-1px_0_var(--line),0_-14px_28px_-8px_rgba(21,23,28,0.38)] md:sticky md:top-0 md:grid md:h-auto md:content-start md:gap-3 md:self-start md:rounded-none md:shadow-none"
+          <div data-sheet className="relative z-10 flex shrink-0 flex-col rounded-t-[1.5rem] shadow-[0_-1px_0_var(--line),0_-14px_28px_-8px_rgba(21,23,28,0.38)] md:block md:h-auto md:min-h-0 md:overflow-y-auto md:overscroll-contain md:rounded-none md:border-l md:border-line md:px-6 md:pb-6 md:pt-4 md:shadow-none"
             style={wide ? undefined : { height: `${sheet}%`, background: `var(--${tint}-soft)` }}>
             <SheetHandle pct={sheet} onChange={setSheet}>
               <div className="flex items-center gap-2">
@@ -72,11 +72,11 @@ export function EditorShell({ label, title, titleExtra, actions, note, onClose, 
                 {sheetExtra}
               </div>
             </SheetHandle>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 md:overflow-visible md:rounded-[1.5rem] md:p-3"
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 md:mt-2 md:overflow-visible md:rounded-[1.5rem] md:p-3"
               style={wide ? { background: `var(--${tint}-soft)` } : undefined}>
               {preview}
             </div>
-            {aside && <div className="hidden gap-3 md:grid">{aside}</div>}
+            {aside && <div className="hidden gap-3 md:mt-3 md:grid">{aside}</div>}
           </div>
         </div>
 

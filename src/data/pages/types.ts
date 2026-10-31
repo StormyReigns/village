@@ -31,7 +31,7 @@ export type BlockType = 'collection' | 'guide' | 'checklist' | 'timeline' | 'cha
  * (the line under the name), a stats chart, a list (one item per line, "Name: what it
  * does"), links to other entries in the Block, long text, or yes/no.
  */
-export type FieldKind = 'text' | 'number' | 'tag' | 'place' | 'when' | 'chart' | 'list' | 'links' | 'longtext' | 'yesno';
+export type FieldKind = 'text' | 'number' | 'tag' | 'place' | 'when' | 'chart' | 'list' | 'links' | 'longtext' | 'yesno' | 'playable';
 
 /**
  * One field of a Characters Block, as its builders set it up. Every field is optional on

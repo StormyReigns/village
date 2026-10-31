@@ -22,7 +22,13 @@ export const FIELD_KINDS: { kind: FieldKind; label: string; hint: string }[] = [
   { kind: 'chart', label: 'Chart', hint: 'Numbers like stats or growths: a web by the portrait and boxes colored against the rest' },
 ];
 
-export const kindLabel = (k: FieldKind) => FIELD_KINDS.find((x) => x.kind === k)?.label ?? k;
+export const kindLabel = (k: FieldKind) => FIELD_KINDS.find((x) => x.kind === k)?.label ?? (k === 'playable' ? 'Playable or NPC' : k);
+
+/** "Playable or NPC": one of the common fields (not one builders add), a green or red pill. */
+export const PLAYABLE = { yes: 'Playable', no: 'NPC' } as const;
+
+/** Fields kept as an entry's category (so they can be filtered on), not as a section. */
+export const isCategory = (f: FieldDef) => f.kind === 'tag' || f.kind === 'playable';
 
 /** A chart's stats: the Block's own for its first chart, else the field's. */
 export const chartDefs = (block: Pick<Block, 'stats'>, f: FieldDef): StatDef[] => (f.key === STATS ? block.stats ?? [] : f.stats ?? []);
@@ -35,6 +41,7 @@ export const statKeyFor = (f: FieldDef, slug: string) => (f.key === STATS ? slug
 
 /** The common fields every new Characters Block starts with. Builders switch, rename and reorder them. */
 export const COMMON_FIELDS: FieldDef[] = [
+  { key: 'Playable', label: 'Playable or NPC', kind: 'playable', off: true },
   { key: 'Age', label: 'Age', kind: 'text', beside: true },
   { key: 'Role or class', label: 'Role or class', kind: 'tag' },
   { key: 'Location', label: 'Location', kind: 'place' },
@@ -47,6 +54,13 @@ export const COMMON_FIELDS: FieldDef[] = [
   { key: 'Likes and gifts', label: 'Likes and gifts', kind: 'list', off: true },
 ];
 
+/** A Block's own fields plus any common field it doesn't have yet (switched off), so a Block
+ *  set up before a common field existed can still switch it on. */
+export const withCommon = (fields: FieldDef[]) => [...fields, ...COMMON_FIELDS.filter((c) => !fields.some((f) => sameField(f, c))).map((c) => ({ ...c, off: true }))];
+
+/** The same common field, even if a Block keeps it under another key ('Recruit' for How to recruit). */
+const sameField = (f: FieldDef, c: FieldDef) => f.key === c.key || f.label.toLowerCase() === c.label.toLowerCase() || (c.kind === 'playable' && f.kind === 'playable');
+
 /** A Block's fields, or the common ones if it hasn't set any. */
 export const fieldsOf = (block: Pick<Block, 'fields'>) => block.fields?.length ? block.fields : COMMON_FIELDS;
 
@@ -58,7 +72,7 @@ export type Spot = 'beside' | 'tags' | 'meta' | 'chart' | 'body' | 'section';
 export function spotOf(f: FieldDef): Spot {
   if (f.beside) return 'beside';
   if (f.key === DESCRIPTION) return 'body';
-  return ({ tag: 'tags', yesno: 'tags', place: 'meta', when: 'meta', chart: 'chart' } as Partial<Record<FieldKind, Spot>>)[f.kind] ?? 'section';
+  return ({ tag: 'tags', yesno: 'tags', playable: 'tags', place: 'meta', when: 'meta', chart: 'chart' } as Partial<Record<FieldKind, Spot>>)[f.kind] ?? 'section';
 }
 
 /** A value beside the name: "Age 34" for ages and numbers, else just the value. */
@@ -69,7 +83,7 @@ export interface FieldValue { text?: string; byRoute: [Route, string][] }
 
 export function valueOf(entry: EntryContent, f: FieldDef): FieldValue {
   if (f.key === DESCRIPTION) return { text: entry.description?.trim() || undefined, byRoute: [] };
-  if (f.kind === 'tag') return { text: entry.categories[f.key]?.trim() || undefined, byRoute: [] };
+  if (isCategory(f)) return { text: entry.categories[f.key]?.trim() || undefined, byRoute: [] };
   const text = entry.sections.find((s) => s.label === f.key)?.text.trim() || undefined;
   const byRoute = Object.entries(entry.perRoute ?? {}).flatMap(([r, ss]) => {
     const t = (ss as Section[]).find((s) => s.label === f.key)?.text.trim();
@@ -100,7 +114,7 @@ export function listItems(text: string) {
 /** Made-up values for the builder's preview, one per kind. */
 const SAMPLE: Record<FieldKind, string> = {
   text: 'Sample', number: '12', tag: 'Tag', place: 'Some town', when: 'Chapter 3', chart: '',
-  list: 'Skill name: What it does.', links: 'Jane Doe: Friend', longtext: 'A sentence or two goes here.', yesno: 'Yes',
+  list: 'Skill name: What it does.', links: 'Jane Doe: Friend', longtext: 'A sentence or two goes here.', yesno: 'Yes', playable: PLAYABLE.yes,
 };
 
 /**
@@ -115,7 +129,7 @@ export function johnDoe(block: Pick<Block, 'fields' | 'stats'>): EntryContent {
     if (f.kind === 'chart') continue;
     if (f.key === DESCRIPTION) { description = 'A few lines about who they are and why you would bring them along go here.'; continue; }
     const v = /\bage\b/i.test(f.label) ? '30' : f.kind === 'tag' ? f.label : SAMPLE[f.kind];
-    if (f.kind === 'tag') categories[f.key] = v;
+    if (isCategory(f)) categories[f.key] = v;
     else sections.push({ label: f.key, text: v });
   }
   const defs = shownFields(block).filter((f) => f.kind === 'chart').flatMap((f) => chartDefs(block, f));

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 // On a phone, builder screens split in two: what you're filling in on top (on the Workbench,
 // see globals.css), and the preview underneath on a sheet that looks exactly like the app.
@@ -8,6 +8,25 @@ import { useEffect, useRef, useState } from 'react';
 
 /** The sheet's height on a phone, in percent of the screen: the default, and its limits. */
 export const SHEET = { start: 46, min: 9, max: 85 } as const;
+
+/**
+ * The sheet's height, remembered on this device, so every editor opens the preview at the
+ * size it was last left at.
+ */
+export function useSheetSize() {
+  // Read after the page has loaded (the server has no saved size), so both agree at first.
+  const saved = useSyncExternalStore(noChanges, readSheet, () => null);
+  const [chosen, setChosen] = useState<number | null>(null);
+  const n = Number(saved);
+  const pct = chosen ?? (n >= SHEET.min && n <= SHEET.max ? n : SHEET.start);
+  const set = (next: number) => {
+    setChosen(next);
+    try { localStorage.setItem('village:sheet', String(next)); } catch { /* not remembered this time */ }
+  };
+  return [pct, set] as const;
+}
+const noChanges = () => () => {};
+const readSheet = () => { try { return localStorage.getItem('village:sheet'); } catch { return null; } };
 
 /** Whether the screen is wide enough (md) for the form and preview to sit side by side. */
 export function useWide() {

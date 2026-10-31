@@ -10,7 +10,7 @@ import { RichText } from './TextLinks';
 import { initials } from './entries';
 import type { RouteOption } from './EntryPanel';
 import { symbolFor } from './symbols';
-import { STATS, besideText, chartDefs, listItems, shownFields, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
+import { PLAYABLE, STATS, besideText, chartDefs, listItems, shownFields, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
 import { byStat, heatFill, placeText, rangeOf, statFacts } from '@/lib/stats';
 import { StatTable, statSort } from './StatTable';
 
@@ -48,6 +48,8 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
   const web = at('chart').find((c) => !c.noWeb && withNumbers(c).length >= 3);
   const [heat, setHeat] = useState<{ chart: FieldDef; sort: string } | null>(null);
   const among = [...(block.entries ?? []).filter((e) => e.name !== entry.name), { ...entry, id: '' } as Entry];
+  // The first real tag (not Playable or a yes) carries the Page color.
+  const firstTag = at('tags').find((t) => t.kind === 'tag');
   const chartColor = sample ? '#9aa0ad' : color;
   const webSize = Math.round(Math.max(size * 0.92, 96));
 
@@ -82,14 +84,23 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
         </div>
         {(at('tags').length > 0 || entry.routes?.length) ? (
           <div className="flex flex-wrap gap-1.5">
-            {at('tags').map((f, i) => {
+            {at('tags').map((f) => {
               const v = short(valueOf(entry, f));
               if (f.kind === 'yesno' && !/^(y|yes|true)$/i.test(v)) return null;
+              // Playable or not: a light green or red pill, whatever the Page's color.
+              if (f.kind === 'playable') {
+                const yes = v === PLAYABLE.yes;
+                return (
+                  <Spoiler key={f.key} f={f} on={spoilers} small>
+                    <span className={'rounded-full px-2.5 py-0.5 text-xs font-bold ' + (yes ? 'bg-leaf-soft text-leaf' : 'bg-berry-soft text-berry')}>{yes ? PLAYABLE.yes : PLAYABLE.no}</span>
+                  </Spoiler>
+                );
+              }
               return (
                 <Spoiler key={f.key} f={f} on={spoilers} small>
                   {/* A yes shows with a tick, so it reads as "yes, this one is" rather than a tag. */}
                   <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold"
-                    style={i === 0 ? { background: `color-mix(in srgb, ${color} 14%, white)`, color } : { background: 'var(--card-2)' }}>
+                    style={f === firstTag ? { background: `color-mix(in srgb, ${color} 14%, white)`, color } : { background: 'var(--card-2)' }}>
                     {f.kind === 'yesno' ? <><Check size={12} strokeWidth={3} aria-hidden="true" />{f.label}</> : v}
                   </span>
                 </Spoiler>

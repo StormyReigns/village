@@ -50,6 +50,7 @@ Every Characters Block starts from these common fields (`COMMON_FIELDS`); all ar
 
 | Field | Kind | On by default |
 |-------|------|---------------|
+| Playable or NPC | a green "Playable" or red "NPC" pill (kept as a category, so it can be filtered on) | no |
 | Age | short text, beside the name | yes |
 | Role or class | tag | yes |
 | Location | place | yes |
@@ -101,7 +102,9 @@ Code: `src/app/g/[game]/workshop/CharacterInputs.tsx`, and the shared `EditorShe
 `split.tsx`. Set up and the character form share one frame: the title with its main action
 (Submit, Save setup) and the X pinned at the top, the editor on the Workbench, the preview
 beside it or in the sheet. Closing with unsaved changes asks: Save draft (kept on this
-device for next time) or Discard.
+device for next time) or Discard. On wider screens the editor and the preview scroll on their
+own, with a thin line between them; on a phone the sheet opens at the size it was last left at
+(remembered on the device).
 
 ## Decisions
 
@@ -141,6 +144,11 @@ device for next time) or Discard.
   handle on phones. "What changes" moved to the editor, above Submit. Why: the preview was
   hard to tell from the editor, and the preview should stay true to the app, so the editor
   carries the difference. The Workbench is meant for the whole Workshop.
+- 2026-10-31: "Playable or NPC" joined the common fields, off until a builder switches it on
+  in Set up; then the character form asks Playable / NPC / Not sure, and the profile shows a
+  light green "Playable" or red "NPC" pill. Common fields added later are offered in Set up
+  (switched off) for Blocks set up before them. The editors scroll each side on their own on
+  wider screens, and the phone's preview sheet keeps its size between editors.
 - 2026-10-31: Set up and the character form now share one editor frame (EditorShell): the
   header stays pinned on desktop too, Save setup sits beside the X like Submit, and closing
   with unsaved changes offers Save draft or Discard. A setup's draft is kept on the device and

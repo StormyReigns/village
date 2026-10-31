@@ -12,7 +12,7 @@ import { useWide } from './split';
 import { EditorShell } from './EditorShell';
 import { browserClient } from '@/lib/supabase/browser';
 import { appChanged } from '@/app/actions';
-import { DESCRIPTION, FIELD_KINDS, besideText, STATS, chartDefs, fieldsOf, hasValue, johnDoe, kindLabel, shownFields, spotOf, statKeyFor, valueOf } from '@/lib/fields';
+import { DESCRIPTION, FIELD_KINDS, besideText, STATS, chartDefs, fieldsOf, hasValue, withCommon, johnDoe, kindLabel, shownFields, spotOf, statKeyFor, valueOf } from '@/lib/fields';
 
 const input = 'w-full rounded-xl bg-card px-2.5 py-1.5 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-sky';
 const slug = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_]+/g, '-');
@@ -30,7 +30,8 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
   // A setup saved as a draft on this device (closing with changes offers it) picks up here.
   const draftKey = `village:setup:${gameId}:${block.id}`;
   const [saved] = useState(() => readDraft(draftKey));
-  const [fields, setFields] = useState<FieldDef[]>(() => saved?.fields ?? fieldsOf(block).map((f) => ({ ...f })));
+  // Common fields added since this Block was set up are offered too, switched off.
+  const [fields, setFields] = useState<FieldDef[]>(() => saved?.fields ?? withCommon(fieldsOf(block)).map((f) => ({ ...f })));
   // Each chart's stat names as typed, by the chart's key.
   const [names, setNames] = useState<Record<string, string>>(() => saved?.names ?? Object.fromEntries(fieldsOf(block).filter((f) => f.kind === 'chart')
     .map((f) => [f.key, chartDefs(block, f).map((d) => d.label).join(', ')])));
@@ -54,7 +55,7 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
   const draft = { ...block, fields: drafted, stats };
   const sample = johnDoe(draft);
   // What the Block has now, to tell whether anything would be lost by closing.
-  const [baseline, setBaseline] = useState(() => JSON.stringify({ fields: fieldsOf(block), stats: block.stats ?? [] }));
+  const [baseline, setBaseline] = useState(() => JSON.stringify({ fields: withCommon(fieldsOf(block)), stats: block.stats ?? [] }));
   const dirty = JSON.stringify({ fields: drafted, stats }) !== baseline;
 
   const patch = (i: number, p: Partial<FieldDef>) => { setFields(fields.map((f, j) => (j === i ? { ...f, ...p } : f))); setNote(''); };
@@ -292,7 +293,7 @@ function StatSuggestions({ current, onPick }: { current: string; onPick: (stats:
 /** A likely name for each kind, until the builder types one. */
 const EXAMPLE_NAMES: Record<FieldKind, string> = {
   text: 'Voice actor', number: 'Level', tag: 'Weapon', place: 'Hometown', when: 'Joins', chart: 'Growths',
-  list: 'Skills', links: 'Family', longtext: 'Backstory', yesno: 'Recruitable',
+  list: 'Skills', links: 'Family', longtext: 'Backstory', yesno: 'Recruitable', playable: 'Playable or NPC',
 };
 
 /** Kinds that hold several things get several in their example, so it's clear they can. */
@@ -313,6 +314,7 @@ const EXAMPLE_NOTES: Record<FieldKind, string> = {
   links: "Other characters from this Block. Players tap one to open that character's profile.",
   longtext: 'A few sentences under its own heading.',
   yesno: "A pill with a tick when the answer is yes. When it's no, nothing shows.",
+  playable: 'A green Playable or red NPC pill under the name.',
 };
 
 /**

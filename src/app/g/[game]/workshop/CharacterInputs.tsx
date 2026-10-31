@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import type { Block, EntryContent, FieldDef } from '@/data/pages';
-import { DESCRIPTION, STATS, chartDefs, listItems, shownFields } from '@/lib/fields';
+import { DESCRIPTION, PLAYABLE, STATS, chartDefs, isCategory, listItems, shownFields } from '@/lib/fields';
 
 // The same boxes as the rest of the entry form.
 const input = 'w-full rounded-2xl bg-card-2 px-3 py-2 ring-1 ring-line outline-none placeholder:text-muted focus:ring-2 focus:ring-sky';
@@ -34,7 +34,7 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
   others: string[];
 }) {
   // Values other characters already have, so the same thing is written the same way.
-  const used = (f: FieldDef) => [...new Set(block.entries.map((e) => (f.kind === 'tag' ? e.categories[f.key] : e.sections.find((s) => s.label === f.key)?.text)?.trim())
+  const used = (f: FieldDef) => [...new Set(block.entries.map((e) => (isCategory(f) ? e.categories[f.key] : e.sections.find((s) => s.label === f.key)?.text)?.trim())
     .filter((v): v is string => Boolean(v) && v!.length <= 40))];
 
   return (
@@ -68,16 +68,29 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
             </label>
           );
         }
-        const part = f.kind === 'tag' ? `cat:${f.key}` : `section:${f.key}`;
+        const part = isCategory(f) ? `cat:${f.key}` : `section:${f.key}`;
         if (!show(part)) return null;
-        const v = f.kind === 'tag' ? content.categories[f.key] ?? '' : content.sections.find((s) => s.label === f.key)?.text ?? '';
-        const put = (t: string) => (f.kind === 'tag' ? set({ categories: { ...content.categories, [f.key]: t } }) : setField(f.key, t));
+        const v = isCategory(f) ? content.categories[f.key] ?? '' : content.sections.find((s) => s.label === f.key)?.text ?? '';
+        const put = (t: string) => (isCategory(f) ? set({ categories: { ...content.categories, [f.key]: t } }) : setField(f.key, t));
 
         if (f.kind === 'list' || f.kind === 'links') {
           return (
             <div key={f.key} role="group" aria-label={f.label} id={fid(part)} className={'grid gap-1.5' + hl(part)}>
               <span className="text-sm font-bold">{f.label}</span>
               <Rows text={v} onChange={put} links={f.kind === 'links'} names={others} label={f.label} />
+            </div>
+          );
+        }
+        if (f.kind === 'playable') {
+          return (
+            <div key={f.key} role="group" aria-label={f.label} id={fid(part)} className={'flex items-center gap-3' + hl(part)}>
+              <span className="flex-1 text-sm font-bold">{f.label}</span>
+              <div className="flex rounded-full bg-card p-0.5 text-sm font-bold ring-1 ring-line">
+                {([PLAYABLE.yes, PLAYABLE.no, ''] as const).map((o) => (
+                  <button key={o || 'unset'} type="button" onClick={() => put(o)} aria-pressed={v === o}
+                    className={'rounded-full px-3 py-1 ' + (v === o ? (o === PLAYABLE.yes ? 'bg-leaf text-paper' : o === PLAYABLE.no ? 'bg-berry text-paper' : 'bg-ink text-paper') : 'text-muted hover:text-ink')}>{o || 'Not sure'}</button>
+                ))}
+              </div>
             </div>
           );
         }
