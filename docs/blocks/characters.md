@@ -135,6 +135,10 @@ Code: `src/app/g/[game]/workshop/CharacterInputs.tsx` and the shared `split.tsx`
   handle on phones. "What changes" moved to the editor, above Submit. Why: the preview was
   hard to tell from the editor, and the preview should stay true to the app, so the editor
   carries the difference. The Workbench is meant for the whole Workshop.
+- 2026-10-31: in the character form, Submit sits at the top beside the X and the bar at the
+  bottom of the form is gone; "Discard this draft" is a small link at the end of the form
+  (the X closes and keeps what's written for next time). The preview sheet casts a clearer
+  shadow onto the Workbench.
 - 2026-10-31: the portrait sits on the left and the web is a little smaller, on the right,
   level with the name and age, so the name isn't pushed down. The preview sheet's drag moves
   the sheet directly, frame by frame, so it keeps up with the finger.

@@ -198,7 +198,7 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
 
           {/* The preview: John Doe, filled in for every field that's on, on the Page's own tint
               like in the app. On a phone it's a sheet over the Workbench, dragged to resize. */}
-          <div data-sheet className="flex shrink-0 flex-col rounded-t-[1.5rem] shadow-[0_-1px_0_var(--line),0_-10px_24px_-14px_rgba(21,23,28,0.35)] md:sticky md:top-0 md:grid md:h-auto md:content-start md:gap-3 md:rounded-none md:shadow-none"
+          <div data-sheet className="relative z-10 flex shrink-0 flex-col rounded-t-[1.5rem] shadow-[0_-1px_0_var(--line),0_-14px_28px_-8px_rgba(21,23,28,0.38)] md:sticky md:top-0 md:grid md:h-auto md:content-start md:gap-3 md:rounded-none md:shadow-none"
             style={wide ? undefined : { height: `${sheet}%`, background: `var(--${block.page.tint}-soft)` }}>
             <SheetHandle pct={sheet} onChange={setSheet}>
               <div className="flex items-center gap-2">

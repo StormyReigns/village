@@ -279,15 +279,27 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
           : 'rise max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-t-[2rem] bg-card p-5 shadow-soft outline-none sm:rounded-[2rem] sm:p-6'}>
         <div className={'flex items-center gap-3' + (people ? ' shrink-0 px-4 py-2.5 md:p-0' : '')}>
           <h2 className={'font-display ' + (people ? 'truncate text-xl md:text-2xl' : 'text-2xl')}>{fixing ? `Fix: ${fixing.name}` : `New in ${block.title}`}</h2>
-          <button onClick={onClose} className="ml-auto grid size-9 place-items-center rounded-full bg-card-2 ring-1 ring-line" aria-label="Close"><X size={18} aria-hidden="true" /></button>
+          {people && (
+            <div id="entry-actions" className="ml-auto shrink-0">
+              {me === null ? (
+                <SignInPrompt back="?resume=1" forWhat={fixing ? `send your fix to ${fixing.name}` : 'send your Draft'}>Sign in</SignInPrompt>
+              ) : (
+                <button type="submit" form="entry-form" disabled={busy || me === undefined || unchanged} className="btn-primary rounded-full px-4 py-2 text-sm font-bold disabled:opacity-60">
+                  {busy ? 'Submitting…' : fixing ? 'Submit fix' : 'Submit'}
+                </button>
+              )}
+            </div>
+          )}
+          <button onClick={onClose} className={(people ? '' : 'ml-auto ') + 'grid size-9 shrink-0 place-items-center rounded-full bg-card-2 ring-1 ring-line'} aria-label="Close"><X size={18} aria-hidden="true" /></button>
         </div>
 
+        {people && note && <p role="status" className="shrink-0 px-4 pb-1 text-sm text-berry md:px-0 md:pt-2">{note}</p>}
         {!people && intro}
 
         <div data-split className={people ? 'flex min-h-0 flex-1 flex-col md:mt-5 md:grid md:grid-cols-2 md:gap-6' : 'mt-5 grid gap-6 md:grid-cols-2'}>
           <div className={people ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 md:overflow-visible md:p-0' : 'contents'}>
           {people && intro}
-          <form onSubmit={submit} className={'grid content-start gap-3' + (people ? ' mt-3' : '')}>
+          <form id="entry-form" onSubmit={submit} className={'grid content-start gap-3' + (people ? ' mt-3' : '')}>
             {show('name') && (
               <label className="grid gap-1">
                 <span className="text-sm font-bold">Name<span className="text-berry"> *</span></span>
@@ -420,8 +432,11 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
             {/* On phones this bar stays at the bottom of the form, so Submit is always in reach. */}
             {people && changeBox}
 
-            <div id="entry-actions" className={'sticky bottom-0 z-10 mt-2 flex flex-wrap items-center gap-3 border-t border-line bg-card py-3 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 '
-              + (people ? '-mx-4 px-4' : '-mx-5 px-5 sm:-mx-6 sm:px-6')}>
+            {people ? (
+              // Closing keeps what's written for next time; this throws it away (undoable from the Workshop).
+              <button type="button" onClick={onDiscard} className="justify-self-start rounded-full px-1 py-1 text-sm font-bold text-muted hover:text-berry">Discard this draft</button>
+            ) : (
+            <div id="entry-actions" className="sticky bottom-0 z-10 -mx-5 mt-2 flex flex-wrap items-center gap-3 border-t border-line bg-card px-5 py-3 sm:-mx-6 sm:px-6 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0">
               {me === null ? (
                 <SignInPrompt back="?resume=1" forWhat={fixing ? `send your fix to ${fixing.name}` : 'send your Draft'}>Sign in to submit</SignInPrompt>
               ) : (
@@ -432,13 +447,14 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
               {/* Far from Submit, and undoable from the Workshop. */}
               <button type="button" onClick={onDiscard} className="ml-auto rounded-full px-3 py-2 text-sm font-bold text-muted hover:text-berry">Discard</button>
             </div>
-            {note && <p role="status" className="text-sm text-berry">{note}</p>}
+            )}
+            {!people && note && <p role="status" className="text-sm text-berry">{note}</p>}
           </form>
           </div>
 
           {/* The preview. For characters it's exactly the app: the Page's tint behind the card, on a
               sheet over the Workbench that's dragged to resize on a phone. */}
-          <div data-sheet className={people ? 'flex shrink-0 flex-col rounded-t-[1.5rem] shadow-[0_-1px_0_var(--line),0_-10px_24px_-14px_rgba(21,23,28,0.35)] md:sticky md:top-0 md:grid md:h-auto md:content-start md:self-start md:rounded-[1.5rem] md:p-3 md:shadow-none' : 'grid content-start gap-3'}
+          <div data-sheet className={people ? 'relative z-10 flex shrink-0 flex-col rounded-t-[1.5rem] shadow-[0_-1px_0_var(--line),0_-14px_28px_-8px_rgba(21,23,28,0.38)] md:sticky md:top-0 md:grid md:h-auto md:content-start md:self-start md:rounded-[1.5rem] md:p-3 md:shadow-none' : 'grid content-start gap-3'}
             style={people ? { ...(wide ? {} : { height: `${sheet}%` }), background: `var(--${page.tint}-soft)` } : undefined}>
             {people && (
               <SheetHandle pct={sheet} onChange={setSheet}>
