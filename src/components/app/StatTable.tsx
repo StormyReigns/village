@@ -61,7 +61,7 @@ export function StatTable({ block, entries, among, sort, onSort, onOpen, filter,
   const rest = entries.filter((e) => !isPinned(e));
   const groupRow = (text: string, line: boolean) => (
     <tr aria-hidden="true">
-      <td colSpan={defs.length + 1} className={'bg-card ' + (line ? 'pt-2' : 'pt-0.5')}>
+      <td colSpan={defs.length + 1} className={'bg-card ' + (line ? 'pt-2 pb-1' : 'pt-0.5')}>
         <div className={line ? 'border-t-2 border-line pt-1.5' : ''}>
           <span className="sticky left-2 px-1 text-[11px] font-bold uppercase tracking-wide text-muted">{text}</span>
         </div>
@@ -75,10 +75,11 @@ export function StatTable({ block, entries, among, sort, onSort, onOpen, filter,
     const ring = inRow && inCol ? 'var(--ink)' : inRow || inCol ? 'color-mix(in srgb, var(--ink) 35%, transparent)' : '';
     return (
       <td key={d.key} title={f ? `${d.label} ${f.value}: ${placeText(f)}` : `No ${d.label.toLowerCase()} yet`}
-        onClick={compare ? () => tap(e.name, d.key) : undefined}
-        style={{ ...(f ? { background: heatFill(f.goodness, color) } : {}), ...(ring ? { boxShadow: `inset 0 0 0 2px ${ring}` } : {}) }}
-        className={'min-w-11 rounded-md px-1 py-1.5 text-center tabular-nums sm:min-w-12 sm:px-2 ' + (f ? (f.place === 1 ? 'font-extrabold' : '') : 'bg-card-2 text-muted')}>
-        {f ? f.value : '–'}
+        onClick={compare ? () => tap(e.name, d.key) : undefined} className="bg-card p-px">
+        <div style={{ ...(f ? { background: heatFill(f.goodness, color) } : {}), ...(ring ? { boxShadow: `inset 0 0 0 2px ${ring}` } : {}) }}
+          className={'min-w-11 rounded-md px-1 py-1.5 text-center tabular-nums sm:min-w-12 sm:px-2 ' + (f ? (f.place === 1 ? 'font-extrabold' : '') : 'bg-card-2 text-muted')}>
+          {f ? f.value : '–'}
+        </div>
       </td>
     );
   };
@@ -86,12 +87,10 @@ export function StatTable({ block, entries, among, sort, onSort, onOpen, filter,
   const row = (e: Entry) => {
     const focused = focus?.row === e.name;
     return (
-      <tr key={e.id || e.name} onClick={compare ? undefined : () => onOpen(e)} className={compare ? '' : 'cursor-pointer [&:hover>th]:bg-card-2'}
+      <tr key={e.id || e.name} onClick={compare ? undefined : () => onOpen(e)} className={compare ? '' : 'cursor-pointer [&:hover>th>div]:bg-card-2'}
         aria-current={mark === e.name ? 'true' : undefined}>
-        <th scope="row" onClick={compare ? () => tap(e.name) : undefined}
-          // The pseudo-element covers the gap left of the sticky names, so cells scrolling under don't peek out.
-          className={'sticky left-0 z-10 min-w-24 max-w-44 rounded-md px-1.5 py-1.5 sm:min-w-32 sm:px-2 text-left font-normal before:absolute before:inset-y-0 before:-left-[3px] before:w-[3px] before:bg-card '
-            + (mark === e.name ? 'bg-signal' : 'bg-card') + (focused ? ' shadow-[inset_0_0_0_2px_var(--ink)]' : '')}>
+        <th scope="row" onClick={compare ? () => tap(e.name) : undefined} className="sticky left-0 z-10 bg-card p-px text-left font-normal">
+          <div className={'min-w-24 max-w-44 rounded-md px-1.5 py-1.5 sm:min-w-32 sm:px-2 ' + (mark === e.name ? 'bg-signal' : '') + (focused ? ' shadow-[inset_0_0_0_2px_var(--ink)]' : '')}>
           <span className="flex items-center gap-1">
             {onPin && (
               // A roomy target around a small box, so a thumb finds it.
@@ -113,6 +112,7 @@ export function StatTable({ block, entries, among, sort, onSort, onOpen, filter,
             )}
           </span>
           {filter && e.categories[filter] && <span className="block text-xs text-muted">{e.categories[filter]}</span>}
+          </div>
         </th>
         {defs.map((d) => cell(d, e))}
       </tr>
@@ -122,11 +122,11 @@ export function StatTable({ block, entries, among, sort, onSort, onOpen, filter,
   return (
     <>
       <div ref={box} className={'rounded-2xl bg-card ring-1 ring-line ' + (compare ? 'min-h-0 flex-1 overflow-auto overscroll-contain' : 'overflow-x-auto')}>
-        <table className="w-full border-separate text-sm [border-spacing:2px]">
+        <table className="w-full border-separate text-sm [border-spacing:0]">
           {/* Comparing: the stat names and the ticked rows stay in view while the rest scrolls. */}
           <thead className={compare ? 'sticky top-0 z-20 bg-card' : ''}>
             <tr>
-              <th scope="col" className="sticky left-0 z-10 bg-card px-1 py-1.5 text-left sm:px-2 before:absolute before:inset-y-0 before:-left-[3px] before:w-[3px] before:bg-card">
+              <th scope="col" className="sticky left-0 z-10 bg-card px-1 py-1.5 text-left sm:px-2">
                 <button type="button" onClick={() => onSort('az')}
                   className={'rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wide ' + (sort === 'az' ? 'bg-ink text-white' : 'text-muted hover:text-ink')}>Name</button>
               </th>
@@ -147,9 +147,9 @@ export function StatTable({ block, entries, among, sort, onSort, onOpen, filter,
             </tr>
             {top.length > 0 && groupRow(pinLabel, false)}
             {top.map(row)}
+            {top.length > 0 && rest.length > 0 && groupRow(sorted ? `Everyone else, by ${sorted.label}` : 'Everyone else', true)}
           </thead>
           <tbody>
-            {top.length > 0 && rest.length > 0 && groupRow(sorted ? `Everyone else, by ${sorted.label}` : 'Everyone else', true)}
             {rest.map((e) => <Fragment key={e.id || e.name}>{row(e)}</Fragment>)}
           </tbody>
         </table>

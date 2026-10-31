@@ -148,7 +148,8 @@ own, with a thin line between them; on a phone the sheet opens at the size it wa
   (a sideways drag scrolls the table instead of swiping the card), the stat names and ticked
   rows stay in view while the rest scrolls both ways, it opens with the tapped stat in view,
   and a tap only highlights that row and column; an arrow by the name opens someone. Tick
-  boxes have a thumb-sized target.
+  boxes have a thumb-sized target. The locked part (stat names, Selected characters, and the
+  "Everyone else" line) is solid white, so nothing shows through as the rest scrolls under it.
 - 2026-10-31: "Playable or NPC" joined the common fields, off until a builder switches it on
   in Set up; then the character form asks Playable / NPC / Not sure, and the profile shows a
   light green "Playable" or red "NPC" pill. Common fields added later are offered in Set up
