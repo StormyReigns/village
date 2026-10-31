@@ -1,17 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Check, Clock, EyeOff, Maximize2, MapPin, Minimize2, Pencil, TriangleAlert } from 'lucide-react';
-import type { Block, Entry, EntryContent, FieldDef, Route } from '@/data/pages';
+import { Check, Clock, EyeOff, MapPin, Pencil, TriangleAlert, X } from 'lucide-react';
+import type { Block, Entry, EntryContent, FieldDef, Route, StatDef } from '@/data/pages';
 import { Piece } from '@/components/Piece';
 import { BlockIcon } from '@/components/Icon';
 import { RichText } from './TextLinks';
 import { initials } from './entries';
 import type { RouteOption } from './EntryPanel';
 import { symbolFor } from './symbols';
-import { besideText, listItems, shownFields, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
-import { rangeOf } from '@/lib/stats';
+import { STATS, besideText, chartDefs, listItems, shownFields, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
+import { byStat, heatFill, placeText, rangeOf, statFacts } from '@/lib/stats';
+import { StatTable, statSort } from './StatTable';
 
 type CardBlock = Pick<Block, 'title' | 'icon'> & Partial<Pick<Block, 'fields' | 'stats' | 'symbols' | 'filters' | 'entries'>>;
 
@@ -42,14 +43,26 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
   const short = (v: FieldValue) => (route !== 'all' ? v.byRoute.find(([r]) => r === route)?.[1] : undefined) ?? v.text ?? v.byRoute[0]?.[1] ?? '';
   const symbol = symbolFor(entry, block);
   const portrait = sample ? '#b8bcc8' : color;
+  // Charts: the first with a web shows it beside the portrait; the numbers sit lower down.
+  const withNumbers = (c: FieldDef) => chartDefs(block, c).filter((d) => typeof entry.stats?.[d.key] === 'number');
+  const web = at('chart').find((c) => !c.noWeb && withNumbers(c).length >= 3);
+  const [heat, setHeat] = useState<{ chart: FieldDef; sort: string } | null>(null);
+  const among = [...(block.entries ?? []).filter((e) => e.name !== entry.name), { ...entry, id: '' } as Entry];
+  const chartColor = sample ? '#9aa0ad' : color;
 
   return (
     <article className="relative min-w-0">
       {sample && <span className="absolute right-0 top-0 rounded-full bg-card-2 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">Sample</span>}
-      <div className="flex justify-center">
+      <div className="flex items-center justify-center">
         <Piece size={size} color={portrait} image={entry.icon}>
           {entry.icon ? null : symbol ? <BlockIcon name={symbol} size={Math.round(size * 0.2)} strokeWidth={2.4} /> : initials(entry.name) || <BlockIcon name={block.icon} size={Math.round(size * 0.2)} />}
         </Piece>
+        {/* The web sits just right of the portrait, tucked in a little. */}
+        {web && (
+          <Spoiler f={web} on={spoilers}>
+            <Web defs={withNumbers(web)} entry={entry} among={among} color={chartColor} size={Math.round(Math.max(size * 1.15, 112))} style={{ marginLeft: -Math.round(size * 0.05) }} />
+          </Spoiler>
+        )}
       </div>
 
       <div className="mt-3 grid gap-1.5">
@@ -102,11 +115,28 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
         </p>
       )}
 
-      {at('chart').map((f) => (
-        <Spoiler key={f.key} f={f} on={spoilers}>
-          <StatChart entry={entry} block={block} label={f.label} color={sample ? '#c3c7d0' : color} fix={fixHref?.('stats')} />
-        </Spoiler>
-      ))}
+      {at('chart').map((f) => {
+        const defs = withNumbers(f);
+        // A chart with its numbers switched off still shows its web here, if it isn't the one up top.
+        const ownWeb = !f.noWeb && f !== web && defs.length >= 3;
+        if (f.noNumbers && !ownWeb) return null;
+        return (
+          <section key={f.key} className="mt-4">
+            <div className="flex items-center">
+              <h3 className="flex-1 text-xs font-bold uppercase tracking-wide" style={{ color }}>{f.label}</h3>
+              {fixHref && <Fix href={fixHref(f.key === STATS ? 'stats' : `chart:${f.key}`)} what={f.label} />}
+            </div>
+            <Spoiler f={f} on={spoilers}>
+              {ownWeb && <div className="flex justify-center"><Web defs={defs} entry={entry} among={among} color={chartColor} size={150} /></div>}
+              {!f.noNumbers && <StatBoxes defs={defs} entry={entry} among={among} color={chartColor} onOpen={(d) => setHeat({ chart: f, sort: statSort(d.key) })} />}
+            </Spoiler>
+          </section>
+        );
+      })}
+      {heat && (
+        <HeatMap label={heat.chart.label} defs={chartDefs(block, heat.chart)} entry={entry} among={among} block={block} color={color} sort={heat.sort}
+          onSort={(sort) => setHeat({ ...heat, sort })} onClose={() => setHeat(null)} onGo={onGo} />
+      )}
 
       {fields.filter((f) => ['body', 'section'].includes(spotOf(f))).map((f) => (
         <section key={f.key} className="mt-4">
@@ -199,45 +229,97 @@ function FieldBody({ f, v, route, routeName, name, block, onGo, color }: {
   );
 }
 
+/** How each stat compares, as 0 to 1 against the highest in the Block (or this
+ *  character's own highest until a few characters have numbers). */
+function scale(defs: StatDef[], entry: EntryContent, among: Entry[]) {
+  const few = among.filter((e) => defs.some((d) => typeof e.stats?.[d.key] === 'number')).length < 3;
+  const own = Math.max(1, ...defs.map((d) => entry.stats?.[d.key] ?? 0));
+  return (d: StatDef) => {
+    const v = entry.stats?.[d.key] ?? 0;
+    const max = few ? own : Math.max(1, rangeOf(among, d.key)?.max ?? v);
+    return Math.max(0, Math.min(1, v / max));
+  };
+}
+
 /**
- * The stats as a bar chart, left to right in the Block's order. Each bar is measured
- * against the highest in the Block, so a glance says who's strong where. Until a few
- * characters have numbers, bars are measured against this one's highest instead. Too many to fit
- * scroll sideways; "Bigger" shows taller bars with room for every number.
+ * A web (radar) chart of one chart's stats: one spoke per stat, clockwise from the top in
+ * the Block's order, the shape filled in the Page's color, a short label at each spoke.
  */
-function StatChart({ entry, block, label, color, fix }: { entry: EntryContent; block: CardBlock; label: string; color: string; fix?: string }) {
-  const [big, setBig] = useState(false);
-  const defs = (block.stats ?? []).filter((d) => typeof entry.stats?.[d.key] === 'number');
-  if (!defs.length) return null;
-  const among = [...(block.entries ?? []).filter((e) => e.name !== entry.name), { ...entry, id: '' } as Entry];
-  const few = among.filter((e) => e.stats && Object.keys(e.stats).length).length < 3;
-  const own = Math.max(1, ...defs.map((d) => entry.stats![d.key]));
-  const h = big ? 120 : 64;
+function Web({ defs, entry, among, color, size, style }: { defs: StatDef[]; entry: EntryContent; among: Entry[]; color: string; size: number; style?: React.CSSProperties }) {
+  const at = scale(defs, entry, among);
+  const n = defs.length, c = 50, r = 37;
+  const point = (i: number, k: number) => {
+    const a = -Math.PI / 2 + (i * 2 * Math.PI) / n;
+    return [c + Math.cos(a) * r * k, c + Math.sin(a) * r * k] as const;
+  };
+  const ring = (k: number) => defs.map((_, i) => point(i, k).join(',')).join(' ');
   return (
-    <section className="mt-4 rounded-2xl bg-card-2 p-3">
-      <div className="flex items-center gap-2">
-        <h3 className="flex-1 text-xs font-bold uppercase tracking-wide" style={{ color }}>{label}</h3>
-        <button type="button" onClick={() => setBig(!big)} aria-pressed={big} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold text-muted hover:bg-card hover:text-ink">
-          {big ? <Minimize2 size={12} aria-hidden="true" /> : <Maximize2 size={12} aria-hidden="true" />} {big ? 'Smaller' : 'Bigger'}
-        </button>
-        {fix && <Fix href={fix} what="the stats" />}
+    <svg viewBox="0 0 100 100" width={size} height={size} role="img" aria-label={defs.map((d) => `${d.label} ${entry.stats?.[d.key]}`).join(', ')}
+      className="shrink-0 overflow-visible" style={style}>
+      {[1, 0.66, 0.33].map((k) => <polygon key={k} points={ring(k)} fill={k === 1 ? 'var(--card-2)' : 'none'} stroke="var(--line)" strokeWidth={0.6} />)}
+      {defs.map((d, i) => { const [x, y] = point(i, 1); return <line key={d.key} x1={c} y1={c} x2={x} y2={y} stroke="var(--line)" strokeWidth={0.6} />; })}
+      <polygon points={defs.map((d, i) => point(i, Math.max(0.04, at(d))).join(',')).join(' ')} fill={color} fillOpacity={0.35} stroke={color} strokeWidth={1.4} strokeLinejoin="round" />
+      {defs.map((d, i) => {
+        const [x, y] = point(i, 1.2);
+        return <text key={d.key} x={x} y={y} textAnchor="middle" dominantBaseline="middle" fontSize={7} fontWeight={700} fill="var(--muted)">{d.label.slice(0, 4).toUpperCase()}</text>;
+      })}
+    </svg>
+  );
+}
+
+/**
+ * The numbers as small boxes, "STR" over each, colored from gray to the Page's color by how
+ * they compare with every other character. Tapping one opens the full heatmap, sorted by it.
+ */
+function StatBoxes({ defs, entry, among, color, onOpen }: { defs: StatDef[]; entry: EntryContent; among: Entry[]; color: string; onOpen: (d: StatDef) => void }) {
+  if (!defs.length) return null;
+  const few = among.filter((e) => defs.some((d) => typeof e.stats?.[d.key] === 'number')).length < 3;
+  const me = { ...entry, id: '' } as Entry;
+  return (
+    <div className="mt-1.5 grid gap-1 [grid-template-columns:repeat(auto-fill,minmax(2.2rem,1fr))]">
+      {defs.map((d) => {
+        const f = statFacts(d, me, among);
+        return (
+          <button key={d.key} type="button" onClick={() => onOpen(d)} title={f && !few ? `${d.label} ${f.value}: ${placeText(f)}. Tap to compare` : `${d.label}. Tap to compare`}
+            className="grid gap-0.5 text-center hover:opacity-80">
+            <span className="text-[10px] font-bold uppercase text-muted">{d.label.slice(0, 4)}</span>
+            <span className="rounded-lg py-1 text-sm font-bold tabular-nums ring-1 ring-line"
+              style={{ background: f && !few ? heatFill(f.goodness, color) : 'var(--card-2)' }}>{entry.stats?.[d.key]}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Every character's numbers for one chart, as a heatmap over the page. Tap a row to open them. */
+function HeatMap({ label, defs, entry, among, block, color, sort, onSort, onClose, onGo }: {
+  label: string; defs: StatDef[]; entry: EntryContent; among: Entry[]; block: CardBlock; color: string; sort: string;
+  onSort: (s: string) => void; onClose: () => void; onGo?: (e: Entry) => void;
+}) {
+  useEffect(() => {
+    // Escape closes just the heatmap, not a panel or form underneath.
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } };
+    window.addEventListener('keydown', esc, true);
+    return () => window.removeEventListener('keydown', esc, true);
+  }, [onClose]);
+  const def = defs.find((d) => sort.startsWith(statSort(d.key)));
+  const rows = among.filter((e) => defs.some((d) => typeof e.stats?.[d.key] === 'number'));
+  if (def) rows.sort(byStat(def, sort.endsWith(':worst')));
+  else rows.sort((a, b) => a.name.localeCompare(b.name));
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/30 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label={`${label}: everyone`} onClick={(e) => e.stopPropagation()}
+        className="rise flex max-h-[85vh] w-full max-w-3xl flex-col gap-3 rounded-t-[2rem] bg-card p-4 shadow-soft sm:rounded-[2rem] sm:p-5">
+        <div className="flex items-center gap-3">
+          <h2 className="min-w-0 flex-1 truncate font-display text-xl">{label}: everyone</h2>
+          <button type="button" onClick={onClose} aria-label="Close" className="grid size-9 shrink-0 place-items-center rounded-full bg-card-2 ring-1 ring-line"><X size={18} aria-hidden="true" /></button>
+        </div>
+        <div className="min-h-0 overflow-y-auto">
+          <StatTable block={{ ...(block as Block), stats: defs }} entries={rows} among={among} sort={sort} onSort={onSort} color={color} mark={entry.name}
+            onOpen={(e) => { onClose(); if (e.name !== entry.name) onGo?.(e); }} />
+        </div>
       </div>
-      <div className={'mt-2 flex pb-1 ' + (big ? 'flex-wrap justify-start gap-1 gap-y-3' : 'chip-strip gap-0.5 overflow-x-auto')}>
-        {defs.map((d) => {
-          const v = entry.stats![d.key];
-          const max = few ? own : Math.max(1, rangeOf(among, d.key)?.max ?? v);
-          const fill = Math.max(4, Math.round((h * Math.max(0, v)) / max));
-          return (
-            <div key={d.key} className={'flex shrink-0 flex-col items-center gap-1 ' + (big ? 'w-14' : 'min-w-[26px] flex-1')}>
-              <span className={(big ? 'text-base' : 'text-[13px]') + ' font-bold tabular-nums'}>{v}</span>
-              <span className="flex w-3.5 items-end rounded-md bg-card ring-1 ring-line" style={{ height: h }}>
-                <span className="w-full rounded-md" style={{ height: fill, background: color }} />
-              </span>
-              <span className={(big ? 'text-xs' : 'text-[10px]') + ' font-bold uppercase text-muted'}>{d.label}</span>
-            </div>
-          );
-        })}
-      </div>
-    </section>
+    </div>
   );
 }

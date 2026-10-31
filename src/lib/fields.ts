@@ -2,7 +2,7 @@
 // builder can add, where each value lives on an entry, and the "John Doe" sample the
 // builder's preview fills in. See FieldDef in src/data/pages/types.ts.
 
-import type { Block, EntryContent, FieldDef, FieldKind, Route, Section } from '@/data/pages/types';
+import type { Block, EntryContent, FieldDef, FieldKind, Route, Section, StatDef } from '@/data/pages/types';
 
 /** Fields whose values are the entry's own description and stats, not a section. */
 export const DESCRIPTION = '@description';
@@ -19,9 +19,19 @@ export const FIELD_KINDS: { kind: FieldKind; label: string; hint: string }[] = [
   { kind: 'links', label: 'Other characters', hint: 'Other characters, one per line: "Name: how they know them"' },
   { kind: 'longtext', label: 'Long text', hint: 'A few sentences' },
   { kind: 'yesno', label: 'Yes or no', hint: 'Shows as a pill when it is yes' },
+  { kind: 'chart', label: 'Chart', hint: 'Numbers like stats or growths: a web by the portrait and boxes colored against the rest' },
 ];
 
-export const kindLabel = (k: FieldKind) => (k === 'chart' ? 'Chart' : FIELD_KINDS.find((x) => x.kind === k)?.label ?? k);
+export const kindLabel = (k: FieldKind) => FIELD_KINDS.find((x) => x.kind === k)?.label ?? k;
+
+/** A chart's stats: the Block's own for its first chart, else the field's. */
+export const chartDefs = (block: Pick<Block, 'stats'>, f: FieldDef): StatDef[] => (f.key === STATS ? block.stats ?? [] : f.stats ?? []);
+
+/** Every stat of every chart that's switched on, in field order (for sorting and change lists). */
+export const allStatDefs = (block: Pick<Block, 'fields' | 'stats'>) => shownFields(block).filter((f) => f.kind === 'chart').flatMap((f) => chartDefs(block, f));
+
+/** The key a new stat gets in a chart: plain for the first chart, else after the field's key. */
+export const statKeyFor = (f: FieldDef, slug: string) => (f.key === STATS ? slug : `${f.key}.${slug}`);
 
 /** The common fields every new Characters Block starts with. Builders switch, rename and reorder them. */
 export const COMMON_FIELDS: FieldDef[] = [
@@ -70,7 +80,11 @@ export function valueOf(entry: EntryContent, f: FieldDef): FieldValue {
 
 /** Whether an entry has anything for this field (the chart counts its numbers). */
 export function hasValue(entry: EntryContent, f: FieldDef) {
-  if (f.kind === 'chart') return Boolean(entry.stats && Object.keys(entry.stats).length);
+  if (f.kind === 'chart') {
+    // The first chart's stats have plain keys; another chart's start with its key and a dot.
+    const mine = (k: string) => (f.key === STATS ? !k.includes('.') : k.startsWith(`${f.key}.`));
+    return Object.keys(entry.stats ?? {}).some(mine);
+  }
   const v = valueOf(entry, f);
   return Boolean(v.text || v.byRoute.length);
 }
@@ -104,6 +118,7 @@ export function johnDoe(block: Pick<Block, 'fields' | 'stats'>): EntryContent {
     if (f.kind === 'tag') categories[f.key] = v;
     else sections.push({ label: f.key, text: v });
   }
-  const stats = block.stats?.length ? Object.fromEntries(block.stats.map((d, i) => [d.key, 8 + ((i * 7) % 13)])) : undefined;
+  const defs = shownFields(block).filter((f) => f.kind === 'chart').flatMap((f) => chartDefs(block, f));
+  const stats = defs.length ? Object.fromEntries(defs.map((d, i) => [d.key, 8 + ((i * 7) % 13)])) : undefined;
   return { name: 'John Doe', description, sections, categories, stats };
 }

@@ -33,7 +33,11 @@ Laid out by the Block's fields (Matt's layout, 2026-10-29):
 - **Name** in bold, with a short field beside it (Age).
 - **Tags** under the name as pills (Role or class, Group, yes/no fields).
 - **Location**, with **Time of arrival** beside it (a chapter, a date, a time).
-- **Stats** as a left-to-right chart that can scroll or open bigger.
+- **Charts** (Stats, Growths...): a web chart just right of the portrait (the first chart
+  with one), and a row of number boxes, "STR" over each, colored from gray to the Page's
+  color against every other character. Tapping a box opens the full heatmap of everyone,
+  sorted by that stat, with this character picked out. Builders can switch the web or the
+  boxes off for each chart.
 - **Description** as the main body, then the other fields in the builders' order.
 - Empty fields don't show. Spoiler fields stay hidden until tapped. Route-specific values
   show for the player's chosen route.
@@ -56,11 +60,15 @@ Every Characters Block starts from these common fields (`COMMON_FIELDS`); all ar
 | Likes and gifts | list | no |
 
 Builders can add their own fields of any kind: short text, number, tag, place, when,
-list, other characters (links to characters in the same Block), long text, or yes or no
-(a pill with a tick when yes).
+list, other characters (links to characters in the same Block), long text, yes or no
+(a pill with a tick when yes), or chart. A Block can have several charts (Base stats and
+Growths, say), each with its own stat names.
 
 Values live on entries as they always have: tags as categories, the description as the
-description, stats as stats, everything else as sections named by the field's key. A
+description, stats as stats, everything else as sections named by the field's key. The
+first chart (`@stats`) uses the Block's `stats`; any other chart keeps its own stat list
+on its field, with keys that start with the field's key and a dot ("Growths.hp"), so every
+chart's numbers sit side by side in an entry's `stats` and the heatmap helpers work as is. A
 field's key never changes, so renaming a field keeps every entry's value, and Drafts work
 unchanged.
 
@@ -97,7 +105,7 @@ Code: `src/app/g/[game]/workshop/CharacterInputs.tsx` and the shared `split.tsx`
   Why: one character at a time suits "who is this?", and a list suits comparing.
 - 2026-10-29: a strip of small pieces above the profile card to jump between characters.
 - 2026-10-29: stats as a chart that can scroll or open bigger. Why: convenience, it saves
-  space, and it suits future integrations.
+  space, and it suits future integrations. (Replaced 2026-10-31, below.)
 - 2026-10-29: every field is optional; builders pick from common fields and add their own.
 - 2026-10-29: voting on field setups, and a "Community take" section, are left out for now.
   Moderators save setups until voting exists.
@@ -122,6 +130,11 @@ Code: `src/app/g/[game]/workshop/CharacterInputs.tsx` and the shared `split.tsx`
   a choice for yes or no, chips of values already used), fields in the setup's order, and
   the phone split with the live preview. Why: the lessons from the setup apply to the
   people filling characters in, who do it far more often.
+- 2026-10-31: charts are a web beside the portrait plus heat-colored number boxes that open
+  the full heatmap, each switchable per chart; bars are gone. A Block can have any number of
+  charts. Why: webs are what players expect, the heat colors answer "how does this one
+  compare", and games like Fire Emblem need both base stats and growths. Matt: Characters
+  is the foundation; if other Blocks need adjusting because of it, that comes later.
 
 ## Open questions
 

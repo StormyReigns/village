@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, Info, Plus, Trash2, X } from 'lucide-react';
 import type { Block, FieldDef, FieldKind, Page, StatDef } from '@/data/pages';
@@ -11,7 +11,7 @@ import { Tip } from '@/components/Tip';
 import { SplitToggle, splitHeight, useWide, type Split } from './split';
 import { browserClient } from '@/lib/supabase/browser';
 import { appChanged } from '@/app/actions';
-import { DESCRIPTION, FIELD_KINDS, besideText, STATS, fieldsOf, hasValue, johnDoe, kindLabel, shownFields, spotOf, valueOf } from '@/lib/fields';
+import { DESCRIPTION, FIELD_KINDS, besideText, STATS, chartDefs, fieldsOf, hasValue, johnDoe, kindLabel, shownFields, spotOf, statKeyFor, valueOf } from '@/lib/fields';
 
 const input = 'w-full rounded-xl bg-card px-2.5 py-1.5 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-sky';
 const slug = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_]+/g, '-');
@@ -27,7 +27,9 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
 }) {
   const router = useRouter();
   const [fields, setFields] = useState<FieldDef[]>(() => fieldsOf(block).map((f) => ({ ...f })));
-  const [statNames, setStatNames] = useState(() => (block.stats ?? []).map((d) => d.label).join(', '));
+  // Each chart's stat names as typed, by the chart's key.
+  const [names, setNames] = useState<Record<string, string>>(() => Object.fromEntries(fieldsOf(block).filter((f) => f.kind === 'chart')
+    .map((f) => [f.key, chartDefs(block, f).map((d) => d.label).join(', ')])));
   const [adding, setAdding] = useState<{ label: string; kind: FieldKind }>({ label: '', kind: 'text' });
   const [view, setView] = useState<'profile' | 'row'>('profile');
   // Phones: how much of the screen the preview takes (half, most, or just its bar).
@@ -45,13 +47,17 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  // Stat names become the chart's columns. Names already in use keep their key, so
+  // Stat names become each chart's columns. Names already in use keep their key, so
   // entries keep their numbers.
-  const stats: StatDef[] = useMemo(() => statNames.split(',').map((s) => s.trim()).filter(Boolean).map((label) => {
-    const had = block.stats?.find((d) => d.label.toLowerCase() === label.toLowerCase());
-    return had ? { ...had, label } : { key: slug(label), label, better: 'high' as const };
-  }), [statNames, block.stats]);
-  const draft = { ...block, fields, stats };
+  const defsFor = (f: FieldDef): StatDef[] => (names[f.key] ?? '').split(',').map((x) => x.trim()).filter(Boolean).map((label) => {
+    const had = chartDefs(block, fieldsOf(block).find((o) => o.key === f.key) ?? f).find((d) => d.label.toLowerCase() === label.toLowerCase());
+    return had ? { ...had, label } : { key: statKeyFor(f, slug(label)), label, better: 'high' as const };
+  });
+  // The Block's first chart keeps its stats on the Block; any other chart keeps its own.
+  const first = fields.find((f) => f.key === STATS);
+  const stats = first ? defsFor(first) : block.stats ?? [];
+  const drafted = fields.map((f) => (f.kind === 'chart' && f.key !== STATS ? { ...f, stats: defsFor(f) } : f));
+  const draft = { ...block, fields: drafted, stats };
   const sample = johnDoe(draft);
 
   const patch = (i: number, p: Partial<FieldDef>) => { setFields(fields.map((f, j) => (j === i ? { ...f, ...p } : f))); setNote(''); };
@@ -69,6 +75,7 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
     if (!label) { setNote('Give the new field a name.'); return; }
     if (fields.some((f) => f.label.toLowerCase() === label.toLowerCase() || f.key.toLowerCase() === label.toLowerCase())) { setNote(`There's already a field called ${label}.`); return; }
     setFields([...fields, { key: label, label, kind: adding.kind }]);
+    if (adding.kind === 'chart') setNames({ ...names, [label]: '' });
     setAdding({ label: '', kind: 'text' });
     setNote('');
   };
@@ -78,7 +85,7 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
     const db = browserClient();
     if (!db) { setNote('Sign in first.'); return; }
     setBusy(true);
-    const { error } = await db.from('game_blocks').update({ fields: fields.map((f) => ({ ...f, label: f.label.trim() })), stats: stats.length ? stats : null })
+    const { error } = await db.from('game_blocks').update({ fields: drafted.map((f) => ({ ...f, label: f.label.trim() })), stats: stats.length ? stats : null })
       .eq('game_id', gameId).eq('block_key', block.id);
     if (!error) { await appChanged(gameId); router.refresh(); }
     setBusy(false);
@@ -133,10 +140,22 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
                   {f.kind === 'chart' && !f.off && (
                     <div className="grid gap-1 pl-11 text-xs">
                       <div className="flex items-center gap-2">
-                        <label htmlFor={`stats-${block.id}`} className="flex-1 font-bold text-muted">Stat names, left to right, separated by commas</label>
-                        <StatSuggestions current={statNames} onPick={setStatNames} />
+                        <label htmlFor={`stats-${block.id}-${slug(f.key)}`} className="flex-1 font-bold text-muted">Stat names, in order, separated by commas</label>
+                        <StatSuggestions current={names[f.key] ?? ''} onPick={(v) => setNames({ ...names, [f.key]: v })} />
                       </div>
-                      <input id={`stats-${block.id}`} value={statNames} onChange={(e) => setStatNames(e.target.value)} placeholder="HP, Str, Mag, Dex, Spd, Lck, Def, Res" className={input} />
+                      <input id={`stats-${block.id}-${slug(f.key)}`} value={names[f.key] ?? ''} onChange={(e) => setNames({ ...names, [f.key]: e.target.value })}
+                        placeholder="HP, Str, Mag, Dex, Spd, Lck, Def, Res" className={input} />
+                      {/* Both are on unless switched off; with both off the chart only shows in the form. */}
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted">
+                        <label className="flex items-center gap-1.5">
+                          <input type="checkbox" checked={!f.noWeb} onChange={(e) => patch(i, { noWeb: !e.target.checked || undefined })} className="size-3.5 accent-[var(--color-ink)]" />
+                          Web chart by the portrait
+                        </label>
+                        <label className="flex items-center gap-1.5">
+                          <input type="checkbox" checked={!f.noNumbers} onChange={(e) => patch(i, { noNumbers: !e.target.checked || undefined })} className="size-3.5 accent-[var(--color-ink)]" />
+                          Number boxes, colored against everyone
+                        </label>
+                      </div>
                     </div>
                   )}
                   {(f.kind === 'text' || f.kind === 'number') && !f.off && (
@@ -267,7 +286,7 @@ function StatSuggestions({ current, onPick }: { current: string; onPick: (stats:
 
 /** A likely name for each kind, until the builder types one. */
 const EXAMPLE_NAMES: Record<FieldKind, string> = {
-  text: 'Voice actor', number: 'Level', tag: 'Weapon', place: 'Hometown', when: 'Joins', chart: 'Stats',
+  text: 'Voice actor', number: 'Level', tag: 'Weapon', place: 'Hometown', when: 'Joins', chart: 'Growths',
   list: 'Skills', links: 'Family', longtext: 'Backstory', yesno: 'Recruitable',
 };
 
@@ -284,7 +303,7 @@ const EXAMPLE_NOTES: Record<FieldKind, string> = {
   tag: 'A pill under the name. Players can also filter the list by it.',
   place: 'Under the name, with a pin.',
   when: 'Under the name, with a clock: a chapter, a date or a time.',
-  chart: '',
+  chart: "A web beside the portrait and number boxes colored against everyone else. Tap a box to see everyone's numbers.",
   list: 'Each line is its own item. "Name: what it does" puts the name in bold.',
   links: "Other characters from this Block. Players tap one to open that character's profile.",
   longtext: 'A few sentences under its own heading.',
@@ -297,7 +316,8 @@ const EXAMPLE_NOTES: Record<FieldKind, string> = {
  */
 function KindExample({ label, kind, block, routes, color, className = '' }: { label: string; kind: FieldKind; block: Block; routes: RouteOption[]; color: string; className?: string }) {
   const name = label.trim() || EXAMPLE_NAMES[kind];
-  const draft = { title: block.title, icon: block.icon, fields: [{ key: name, label: name, kind }], stats: [] };
+  const sampleStats = kind === 'chart' ? ['HP', 'Str', 'Mag', 'Spd', 'Def'].map((l) => ({ key: `${name}.${l.toLowerCase()}`, label: l, better: 'high' as const })) : undefined;
+  const draft = { title: block.title, icon: block.icon, fields: [{ key: name, label: name, kind, stats: sampleStats }], stats: [] };
   const entry = johnDoe(draft);
   const more = EXAMPLE_VALUES[kind];
   if (more) entry.sections = entry.sections.map((s) => ({ ...s, text: more }));

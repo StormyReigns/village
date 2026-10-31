@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import type { Block, EntryContent, FieldDef } from '@/data/pages';
-import { DESCRIPTION, listItems, shownFields } from '@/lib/fields';
+import { DESCRIPTION, STATS, chartDefs, listItems, shownFields } from '@/lib/fields';
 
 // The same boxes as the rest of the entry form.
 const input = 'w-full rounded-2xl bg-card-2 px-3 py-2 ring-1 ring-line outline-none placeholder:text-muted focus:ring-2 focus:ring-sky';
@@ -41,12 +41,15 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
     <>
       {shownFields(block).map((f) => {
         if (f.kind === 'chart') {
-          if (!block.stats?.length || !show('stats')) return null;
+          // Every chart (Base stats, Growths...) gets its own grid of numbers.
+          const defs = chartDefs(block, f);
+          const part = f.key === STATS ? 'stats' : `chart:${f.key}`;
+          if (!defs.length || !show(part)) return null;
           return (
-            <div key={f.key} role="group" aria-labelledby="stats-label" id={fid('stats')} className={'grid gap-1.5' + hl('stats')}>
-              <span id="stats-label" className="text-sm font-bold">{f.label} <span className="font-normal text-muted">(as the game shows them)</span></span>
+            <div key={f.key} role="group" aria-label={f.label} id={fid(part)} className={'grid gap-1.5' + hl(part)}>
+              <span className="text-sm font-bold">{f.label} <span className="font-normal text-muted">(as the game shows them)</span></span>
               <div className="grid grid-cols-4 gap-2">
-                {block.stats.map((d) => (
+                {defs.map((d) => (
                   <label key={d.key} className="grid gap-0.5">
                     <span className="text-[11px] font-bold uppercase text-muted">{d.label}</span>
                     <input type="number" inputMode="decimal" value={content.stats?.[d.key] ?? ''} onChange={(e) => setStat(d.key, e.target.value)} className={input + ' px-2 py-1.5'} />

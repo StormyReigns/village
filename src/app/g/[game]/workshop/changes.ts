@@ -1,11 +1,12 @@
 import type { Block, EntryContent, Route } from '@/data/pages';
 import type { RouteOption } from '@/components/app/EntryPanel';
+import { allStatDefs } from '@/lib/fields';
 
 // What a Draft changes compared with the entry on Stable, field by field, in words.
 
 export interface Change { label: string; before?: string; after?: string }
 
-export function changesBetween(before: EntryContent | undefined, after: EntryContent, block: Pick<Block, 'statName' | 'stats'> & Partial<Pick<Block, 'fields'>>, routes: RouteOption[]): Change[] {
+export function changesBetween(before: EntryContent | undefined, after: EntryContent, block: Pick<Block, 'statName' | 'stats'> & Partial<Pick<Block, 'fields' | 'type'>>, routes: RouteOption[]): Change[] {
   const out: Change[] = [];
   const add = (label: string, a?: string, b?: string) => {
     const x = (a ?? '').trim(), y = (b ?? '').trim();
@@ -15,7 +16,8 @@ export function changesBetween(before: EntryContent | undefined, after: EntryCon
 
   add('Name', before?.name, after.name);
   add(block.statName ?? 'Key fact', before?.stat, after.stat);
-  for (const d of block.stats ?? []) add(d.label, before?.stats?.[d.key]?.toString(), after.stats?.[d.key]?.toString());
+  // Characters can have several charts (Base stats, Growths), each with its own stats.
+  for (const d of block.type === 'characters' ? allStatDefs(block) : block.stats ?? []) add(d.label, before?.stats?.[d.key]?.toString(), after.stats?.[d.key]?.toString());
   add('Order', before?.order?.toString(), after.order?.toString());
   add('Description', before?.description, after.description);
   for (const k of new Set([...Object.keys(before?.categories ?? {}), ...Object.keys(after.categories)])) {

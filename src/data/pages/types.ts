@@ -50,6 +50,13 @@ export interface FieldDef {
   spoiler?: boolean;
   /** Small, beside the name (like Age) instead of in its usual place. */
   beside?: boolean;
+  /** A chart's own stats (Base stats, Growths...). The Block's first chart (key "@stats")
+   *  uses the Block's `stats` instead. Each stat's key starts with the field's key and a
+   *  dot, so every chart's numbers sit side by side in an entry's `stats`. */
+  stats?: StatDef[];
+  /** Charts: leave out the web by the portrait, or the row of number boxes. */
+  noWeb?: boolean;
+  noNumbers?: boolean;
 }
 
 /** A "+" section on an entry: a label the Builder chose, and its text. Lines become a list. */

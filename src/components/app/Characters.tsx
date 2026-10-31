@@ -13,7 +13,7 @@ import { Tip } from '@/components/Tip';
 import { useStored } from '@/components/useStored';
 import { closest, rank } from '@/lib/search';
 import { byStat } from '@/lib/stats';
-import { besideText, shownFields, spotOf, valueOf } from '@/lib/fields';
+import { allStatDefs, besideText, shownFields, spotOf, valueOf } from '@/lib/fields';
 import { CharacterCard } from './CharacterCard';
 import { symbolFor } from './symbols';
 import { entryText, initials, useOpenEntry, useTicks } from './entries';
@@ -55,10 +55,10 @@ export function Characters({ block, ctx }: { block: Block; ctx: BlockContext }) 
     const byName = (a: Entry, b: Entry) => a.name.localeCompare(b.name);
     if (sort === 'za') return found.sort((a, b) => byName(b, a));
     if (sort === 'group' && filter) return found.sort((a, b) => (a.categories[filter] ?? '').localeCompare(b.categories[filter] ?? '') || byName(a, b));
-    const def = block.stats?.find((d) => sort === statSort(d.key));
+    const def = allStatDefs(block).find((d) => sort === statSort(d.key));
     if (def) return found.sort((a, b) => byStat(def)(a, b) || byName(a, b));
     return found.sort(byName);
-  }, [shown, pick, filter, query, sort, block.stats]);
+  }, [shown, pick, filter, query, sort, block]);
 
   // The character on the card: the one in the address (?e=), else the first.
   const [blockId, entryId] = open?.split('.') ?? [];
@@ -97,7 +97,7 @@ export function Characters({ block, ctx }: { block: Block; ctx: BlockContext }) 
               <option value="az">A to Z</option>
               <option value="za">Z to A</option>
               {filter && <option value="group">By {filter.toLowerCase()}</option>}
-              {block.stats?.map((d) => <option key={d.key} value={statSort(d.key)}>Best {d.label.toLowerCase()}</option>)}
+              {allStatDefs(block).map((d) => <option key={d.key} value={statSort(d.key)}>Best {d.label.toLowerCase()}</option>)}
             </select>
           </label>
         )}
