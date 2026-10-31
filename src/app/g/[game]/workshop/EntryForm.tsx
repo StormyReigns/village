@@ -8,9 +8,12 @@ import { SignInPrompt } from '@/components/SignInPrompt';
 import { ScrollRow } from '@/components/ScrollRow';
 import type { Villager } from '@/components/useVillager';
 import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
+import { CharacterCard } from '@/components/app/CharacterCard';
 import { entryText } from '@/components/app/entries';
 import { rank } from '@/lib/search';
-import { DESCRIPTION, FIELD_KINDS, STATS, fieldsOf, shownFields } from '@/lib/fields';
+import { fieldsOf } from '@/lib/fields';
+import { CharacterInputs } from './CharacterInputs';
+import { SplitToggle, splitHeight, useWide, type Split } from './split';
 import { changesBetween } from './changes';
 import { clearUnsent, hasWriting, saveUnsent, type Unsent } from './unsent';
 import type { NewDraft } from './useWorkshop';
@@ -124,6 +127,9 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
     if (worth) saveUnsent(gameId, { blockId, entryId: fixing?.id, content, source });
   }, [gameId, blockId, fixing, content, source]);
   const [find, setFind] = useState('');
+  // Characters on a phone: the form on top, the preview underneath (see split.tsx).
+  const [split, setSplit] = useState<Split>('half');
+  const wide = useWide();
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const dialog = useRef<HTMLDivElement>(null);
@@ -161,8 +167,6 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
   // Characters: each field is asked for by name; its value is the section (or tag) under the field's key.
   const people = block.type === 'characters';
   const fieldKeys = new Set(people ? fieldsOf(block).map((f) => f.key) : []);
-  const personFields = people ? shownFields(block).filter((f) => f.kind !== 'chart' && f.key !== DESCRIPTION && !(f.kind === 'tag' && block.filters?.includes(f.key))) : [];
-  const fieldOn = (key: string) => !people || shownFields(block).some((f) => f.key === key);
   const setField = (key: string, text: string) => set({ sections: content.sections.some((s) => s.label === key)
     ? content.sections.map((s) => (s.label === key ? { ...s, text } : s)) : [...content.sections, { label: key, text }] });
   const setSection = (i: number, patch: Partial<Section>) => set({ sections: content.sections.map((s, j) => (j === i ? { ...s, ...patch } : s)) });
@@ -200,69 +204,82 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
 
   const found = find.trim() ? rank(block.entries, find, entryText).slice(0, 6) : [];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-0 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
-      <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-label={fixing ? `Fix ${fixing.name}` : 'New entry'} onClick={(e) => e.stopPropagation()}
-        className="rise max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-t-[2rem] bg-card p-5 shadow-soft outline-none sm:rounded-[2rem] sm:p-6">
-        <div className="flex items-center gap-3">
-          <h2 className="font-display text-2xl">{fixing ? `Fix: ${fixing.name}` : `New in ${block.title}`}</h2>
-          <button onClick={onClose} className="ml-auto grid size-9 place-items-center rounded-full bg-card-2 ring-1 ring-line" aria-label="Close"><X size={18} aria-hidden="true" /></button>
-        </div>
-
+  // Notes and the Page and Block choice. For characters they scroll with the form, so on a
+  // phone the preview below keeps its room.
+  const intro = (
+    <>
         {me === null && !restore && (
-          <p className="mt-2 rounded-2xl bg-sky-soft px-3 py-2 text-sm">
-            Write as much as you like. You&apos;ll sign in when you submit, and nothing you write here is lost.
-          </p>
-        )}
-        {restore && (
-          <p role="status" className="mt-2 rounded-2xl bg-leaf-soft px-3 py-2 text-sm text-leaf">Picked up where you left off. Everything you wrote is still here.</p>
-        )}
-
-        {!fixing && (
-          <div className="mt-3 grid gap-2">
-            <ScrollRow className="-mx-1 flex gap-2 px-1 pb-1" role="group" label="Page">
-              {pages.map((p) => (
-                <button key={p.id} type="button" onClick={() => p.blocks[0] && choose(p.blocks[0].id)} aria-pressed={p.id === page.id} disabled={!p.blocks.length}
-                  className={'inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (p.id === page.id ? 'bg-leaf text-paper ring-leaf' : 'bg-card ring-line hover:ring-leaf')}>
-                  <BlockIcon name={p.icon} size={14} /> {p.title}
-                </button>
-              ))}
-            </ScrollRow>
-            {page.blocks.length > 1 && (
-              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Block">
-                {page.blocks.map((b) => (
-                  <button key={b.id} type="button" onClick={() => choose(b.id)} aria-pressed={b.id === block.id}
-                    className={'rounded-full px-3 py-1 text-sm font-bold ring-1 ' + (b.id === block.id ? 'bg-ink text-paper ring-ink' : 'bg-card-2 ring-line hover:ring-ink')}>
-                    {b.title}
-                  </button>
-                ))}
-              </div>
+              <p className="mt-2 rounded-2xl bg-sky-soft px-3 py-2 text-sm">
+                Write as much as you like. You&apos;ll sign in when you submit, and nothing you write here is lost.
+              </p>
             )}
-            {block.entries.length > 0 && (
-              <div className="relative">
-                <label className="flex items-center gap-2 rounded-full bg-card-2 px-3 py-2 text-sm ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
-                  <Search size={15} className="text-muted" aria-hidden="true" />
-                  <input value={find} onChange={(e) => setFind(e.target.value)} placeholder={`Fixing something already in ${block.title}? Find it here`}
-                    className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted" />
-                </label>
-                {found.length > 0 && (
-                  <ul className="surface pop absolute inset-x-0 z-10 mt-1 grid gap-0.5 rounded-2xl p-1.5">
-                    {found.map((x) => (
-                      <li key={x.id}>
-                        <button type="button" onClick={() => fix(x)} className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left hover:bg-card-2">
-                          <EntryIcon entry={x} block={block} size="sm" /> <span className="font-bold">{x.name}</span>
-                        </button>
-                      </li>
+            {restore && (
+              <p role="status" className="mt-2 rounded-2xl bg-leaf-soft px-3 py-2 text-sm text-leaf">Picked up where you left off. Everything you wrote is still here.</p>
+            )}
+    
+            {!fixing && (
+              <div className="mt-3 grid gap-2">
+                <ScrollRow className="-mx-1 flex gap-2 px-1 pb-1" role="group" label="Page">
+                  {pages.map((p) => (
+                    <button key={p.id} type="button" onClick={() => p.blocks[0] && choose(p.blocks[0].id)} aria-pressed={p.id === page.id} disabled={!p.blocks.length}
+                      className={'inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (p.id === page.id ? 'bg-leaf text-paper ring-leaf' : 'bg-card ring-line hover:ring-leaf')}>
+                      <BlockIcon name={p.icon} size={14} /> {p.title}
+                    </button>
+                  ))}
+                </ScrollRow>
+                {page.blocks.length > 1 && (
+                  <div className="flex flex-wrap gap-1.5" role="group" aria-label="Block">
+                    {page.blocks.map((b) => (
+                      <button key={b.id} type="button" onClick={() => choose(b.id)} aria-pressed={b.id === block.id}
+                        className={'rounded-full px-3 py-1 text-sm font-bold ring-1 ' + (b.id === block.id ? 'bg-ink text-paper ring-ink' : 'bg-card-2 ring-line hover:ring-ink')}>
+                        {b.title}
+                      </button>
                     ))}
-                  </ul>
+                  </div>
+                )}
+                {block.entries.length > 0 && (
+                  <div className="relative">
+                    <label className="flex items-center gap-2 rounded-full bg-card-2 px-3 py-2 text-sm ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
+                      <Search size={15} className="text-muted" aria-hidden="true" />
+                      <input value={find} onChange={(e) => setFind(e.target.value)} placeholder={`Fixing something already in ${block.title}? Find it here`}
+                        className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted" />
+                    </label>
+                    {found.length > 0 && (
+                      <ul className="surface pop absolute inset-x-0 z-10 mt-1 grid gap-0.5 rounded-2xl p-1.5">
+                        {found.map((x) => (
+                          <li key={x.id}>
+                            <button type="button" onClick={() => fix(x)} className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left hover:bg-card-2">
+                              <EntryIcon entry={x} block={block} size="sm" /> <span className="font-bold">{x.name}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 )}
               </div>
             )}
-          </div>
-        )}
+    </>
+  );
 
-        <div className="mt-5 grid gap-6 md:grid-cols-2">
-          <form onSubmit={submit} className="grid content-start gap-3">
+  return (
+    <div className={'fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-0 backdrop-blur-sm ' + (people ? 'md:items-center md:p-6' : 'sm:items-center sm:p-6')} onClick={onClose}>
+      <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-label={fixing ? `Fix ${fixing.name}` : 'New entry'} onClick={(e) => e.stopPropagation()}
+        className={people
+          // Characters on a phone: full screen, the form and the preview each scrolling on their own.
+          ? 'rise flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden bg-card shadow-soft outline-none md:block md:h-auto md:max-h-[92vh] md:overflow-y-auto md:rounded-[2rem] md:p-6'
+          : 'rise max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-t-[2rem] bg-card p-5 shadow-soft outline-none sm:rounded-[2rem] sm:p-6'}>
+        <div className={'flex items-center gap-3' + (people ? ' shrink-0 px-4 py-2.5 md:p-0' : '')}>
+          <h2 className={'font-display ' + (people ? 'truncate text-xl md:text-2xl' : 'text-2xl')}>{fixing ? `Fix: ${fixing.name}` : `New in ${block.title}`}</h2>
+          <button onClick={onClose} className="ml-auto grid size-9 place-items-center rounded-full bg-card-2 ring-1 ring-line" aria-label="Close"><X size={18} aria-hidden="true" /></button>
+        </div>
+
+        {!people && intro}
+
+        <div className={people ? 'flex min-h-0 flex-1 flex-col md:mt-5 md:grid md:grid-cols-2 md:gap-6' : 'mt-5 grid gap-6 md:grid-cols-2'}>
+          <div className={people ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 md:overflow-visible md:p-0' : 'contents'}>
+          {people && intro}
+          <form onSubmit={submit} className={'grid content-start gap-3' + (people ? ' mt-3' : '')}>
             {show('name') && (
               <label className="grid gap-1">
                 <span className="text-sm font-bold">Name<span className="text-berry"> *</span></span>
@@ -281,7 +298,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
                 <input value={content.stat ?? ''} onChange={(e) => set({ stat: e.target.value })} maxLength={40} placeholder={block.statName === 'Level' ? 'Lv 12' : ''} className={input} />
               </label>
             )}
-            {block.stats?.length && show('stats') && fieldOn(STATS) ? (
+            {!people && block.stats?.length && show('stats') ? (
               <div role="group" aria-labelledby="stats-label" id={fid('stats')} className={'grid gap-1.5' + hl('stats')}>
                 <span id="stats-label" className="text-sm font-bold">Stats <span className="font-normal text-muted">(numbers, as the game shows them)</span></span>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -294,13 +311,13 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
                 </div>
               </div>
             ) : null}
-            {show('description') && fieldOn(DESCRIPTION) && (
+            {!people && show('description') && (
               <label id={fid('description')} className={'grid gap-1' + hl('description')}>
-                <span className="text-sm font-bold">{people ? fieldsOf(block).find((x) => x.key === DESCRIPTION)?.label ?? 'Description' : DESCRIPTION_LABEL[block.type]}</span>
+                <span className="text-sm font-bold">{DESCRIPTION_LABEL[block.type]}</span>
                 <textarea value={content.description ?? ''} onChange={(e) => set({ description: e.target.value })} rows={3} className={input} />
               </label>
             )}
-            {block.filters?.filter((k) => show(`cat:${k}`)).map((k) => (
+            {!people && block.filters?.filter((k) => show(`cat:${k}`)).map((k) => (
               <label key={k} className="grid gap-1">
                 <span className="text-sm font-bold">{k}</span>
                 <input value={content.categories[k] ?? ''} onChange={(e) => set({ categories: { ...content.categories, [k]: e.target.value } })}
@@ -309,27 +326,10 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
               </label>
             ))}
 
-            {personFields.map((fd) => {
-              const part = fd.kind === 'tag' ? `cat:${fd.key}` : `section:${fd.key}`;
-              if (!show(part)) return null;
-              const v = fd.kind === 'tag' ? content.categories[fd.key] ?? '' : content.sections.find((x) => x.label === fd.key)?.text ?? '';
-              const put = (t: string) => (fd.kind === 'tag' ? set({ categories: { ...content.categories, [fd.key]: t } }) : setField(fd.key, t));
-              const long = fd.kind === 'list' || fd.kind === 'links' || fd.kind === 'longtext';
-              const hint = FIELD_KINDS.find((k) => k.kind === fd.kind)?.hint;
-              return (
-                <label key={fd.key} id={fid(part)} className={'grid gap-1' + hl(part)}>
-                  <span className="text-sm font-bold">{fd.label}{(fd.kind === 'list' || fd.kind === 'links') && <span className="font-normal text-muted"> ({hint})</span>}</span>
-                  {fd.kind === 'yesno' ? (
-                    <select value={v} onChange={(e) => put(e.target.value)} className={input}><option value="">Not set</option><option>Yes</option><option>No</option></select>
-                  ) : long ? (
-                    <textarea value={v} onChange={(e) => put(e.target.value)} rows={fd.kind === 'longtext' ? 3 : 2} className={input} />
-                  ) : (
-                    <input value={v} onChange={(e) => put(e.target.value)} inputMode={fd.kind === 'number' ? 'decimal' : undefined} list={fd.kind === 'tag' ? `values-${fd.key}` : undefined} className={input} />
-                  )}
-                  {fd.kind === 'tag' && <datalist id={`values-${fd.key}`}>{values(fd.key).map((x) => <option key={x} value={x} />)}</datalist>}
-                </label>
-              );
-            })}
+            {people && (
+              <CharacterInputs key={`${block.id}.${fixing?.id ?? 'new'}`} block={block} content={content} set={set} setField={setField} setStat={setStat}
+                show={show} hl={hl} fid={fid} others={block.entries.filter((e) => e.id !== fixing?.id).map((e) => e.name)} />
+            )}
 
             {byRoute && show('routes') && (
               <fieldset id={fid('routes')} className={'grid gap-2 rounded-2xl bg-card-2 p-3 ring-1 ' + (fid('routes') ? 'ring-2 ring-sun' : 'ring-line')}>
@@ -410,7 +410,8 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
             </div>
 
             {/* On phones this bar stays at the bottom of the form, so Submit is always in reach. */}
-            <div id="entry-actions" className="sticky bottom-0 z-10 -mx-5 mt-2 flex flex-wrap items-center gap-3 border-t border-line bg-card px-5 py-3 sm:-mx-6 sm:px-6 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0">
+            <div id="entry-actions" className={'sticky bottom-0 z-10 mt-2 flex flex-wrap items-center gap-3 border-t border-line bg-card py-3 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 '
+              + (people ? '-mx-4 px-4' : '-mx-5 px-5 sm:-mx-6 sm:px-6')}>
               {me === null ? (
                 <SignInPrompt back="?resume=1" forWhat={fixing ? `send your fix to ${fixing.name}` : 'send your Draft'}>Sign in to submit</SignInPrompt>
               ) : (
@@ -423,19 +424,30 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
             </div>
             {note && <p role="status" className="text-sm text-berry">{note}</p>}
           </form>
+          </div>
 
-          <div className="grid content-start gap-3">
+          <div className={people ? 'flex shrink-0 flex-col border-t-2 border-line md:sticky md:top-0 md:grid md:h-auto md:content-start md:gap-3 md:self-start md:border-0 ' + splitHeight(split) : 'grid content-start gap-3'}>
+            {people && (
+              <div className="flex shrink-0 items-center gap-2 px-4 py-2 md:hidden">
+                <p className="flex-1 text-xs font-bold uppercase tracking-wide text-muted">Preview</p>
+                <SplitToggle split={split} onChange={setSplit} />
+              </div>
+            )}
+            <div className={people ? 'min-h-0 flex-1 content-start gap-3 overflow-y-auto overscroll-contain px-4 pb-4 md:grid md:overflow-visible md:p-0 ' + (split === 'small' ? 'hidden' : 'grid') : 'contents'}>
             {fixing && (
               <div className="rounded-2xl bg-card-2 p-3 ring-1 ring-line">
                 <p className="text-xs font-bold uppercase tracking-wide text-muted">What changes</p>
-                {changes.length === 0 ? <p className="mt-1 text-sm text-muted">Nothing yet. Edit a field on the left.</p> : <ChangeList changes={changes} />}
+                {changes.length === 0 ? <p className="mt-1 text-sm text-muted">Nothing yet. Edit a field and the change shows here.</p> : <ChangeList changes={changes} />}
               </div>
             )}
-            <p className="text-xs font-bold uppercase tracking-wide text-muted">Live preview: how it will look in the app</p>
-            <div className="rounded-2xl p-4 ring-1 ring-line">
-              {cleaned.name
-                ? <EntryDetails entry={cleaned} block={block} route="all" routes={routes} />
-                : <p className="text-sm text-muted">Start with a name, and the entry appears here.</p>}
+            <p className={'text-xs font-bold uppercase tracking-wide text-muted' + (people ? ' hidden md:block' : '')}>Live preview: how it will look in the app</p>
+            <div className={'rounded-2xl ring-1 ring-line ' + (people ? 'p-3 md:p-4' : 'p-4')}>
+              {!cleaned.name
+                ? <p className="text-sm text-muted">Start with a name, and the entry appears here.</p>
+                : people
+                  ? <CharacterCard entry={cleaned} block={block} route="all" routes={routes} color={`var(--${page.tint})`} size={wide ? 120 : 76} />
+                  : <EntryDetails entry={cleaned} block={block} route="all" routes={routes} />}
+            </div>
             </div>
           </div>
         </div>

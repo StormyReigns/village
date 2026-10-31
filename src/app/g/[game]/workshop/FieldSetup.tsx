@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Eye, EyeOff, Info, Plus, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, Info, Plus, Trash2, X } from 'lucide-react';
 import type { Block, FieldDef, FieldKind, Page, StatDef } from '@/data/pages';
 import type { RouteOption } from '@/components/app/EntryPanel';
 import { CharacterCard } from '@/components/app/CharacterCard';
 import { Piece } from '@/components/Piece';
 import { Tip } from '@/components/Tip';
+import { SplitToggle, splitHeight, useWide, type Split } from './split';
 import { browserClient } from '@/lib/supabase/browser';
 import { appChanged } from '@/app/actions';
 import { DESCRIPTION, FIELD_KINDS, besideText, STATS, fieldsOf, hasValue, johnDoe, kindLabel, shownFields, spotOf, valueOf } from '@/lib/fields';
@@ -30,15 +31,8 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
   const [adding, setAdding] = useState<{ label: string; kind: FieldKind }>({ label: '', kind: 'text' });
   const [view, setView] = useState<'profile' | 'row'>('profile');
   // Phones: how much of the screen the preview takes (half, most, or just its bar).
-  const [split, setSplit] = useState<'half' | 'big' | 'small'>('half');
-  const [wide, setWide] = useState(true);
-  useEffect(() => {
-    const md = window.matchMedia('(min-width: 768px)');
-    const update = () => setWide(md.matches);
-    update();
-    md.addEventListener('change', update);
-    return () => md.removeEventListener('change', update);
-  }, []);
+  const [split, setSplit] = useState<Split>('half');
+  const wide = useWide();
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const dialog = useRef<HTMLDivElement>(null);
@@ -185,7 +179,7 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
 
           {/* The preview: John Doe, filled in for every field that's on. */}
           <div className={'flex shrink-0 flex-col border-t-2 border-line md:sticky md:top-0 md:grid md:h-auto md:content-start md:gap-3 md:border-0 '
-            + (split === 'big' ? 'h-[68%]' : split === 'small' ? 'h-auto' : 'h-[46%]')}>
+            + splitHeight(split)}>
             <div className="flex shrink-0 items-center gap-2 px-4 py-2 md:p-0">
               <p className="flex-1 text-xs font-bold uppercase tracking-wide text-muted">Preview</p>
               <div role="group" aria-label="Preview as" className="flex rounded-full bg-card-2 p-0.5 text-xs font-bold ring-1 ring-line">
@@ -194,12 +188,7 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
                     className={'rounded-full px-3 py-1 ' + (view === v ? 'bg-signal text-ink' : 'text-muted hover:text-ink')}>{label}</button>
                 ))}
               </div>
-              {/* Phones only: give the preview more room, or tuck it down to this bar. */}
-              <button type="button" onClick={() => setSplit(split === 'half' ? 'big' : split === 'big' ? 'small' : 'half')}
-                aria-label={split === 'half' ? 'Make the preview bigger' : split === 'big' ? 'Tuck the preview away' : 'Show the preview'}
-                className="grid size-7 place-items-center rounded-full bg-card-2 ring-1 ring-line md:hidden">
-                {split === 'half' ? <ChevronUp size={15} aria-hidden="true" /> : split === 'big' ? <ChevronDown size={15} aria-hidden="true" /> : <ChevronUp size={15} aria-hidden="true" />}
-              </button>
+              <SplitToggle split={split} onChange={setSplit} />
             </div>
             <div className={'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 md:overflow-visible md:p-0 ' + (split === 'small' ? 'hidden md:block' : '')}>
               <div className="rounded-2xl p-2 md:p-3" style={{ background: `color-mix(in srgb, ${color} 10%, white)` }}>

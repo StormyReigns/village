@@ -80,6 +80,15 @@ phone the setup fills the screen as a split: the fields on top and the preview u
 each scrolling on its own; a button on the preview's bar makes it bigger or tucks it away.
 Anyone can try a setup; for now only the game's moderators can save it.
 
+**Adding or fixing a character** (the Workshop's entry form) follows the same lessons:
+the fields come in the order the setup puts them on the card, each with an input that
+suits its kind. Lists and other characters are one row per item with "Add another" (the
+character's name is offered from the Block), yes or no is a Yes / No / Not sure choice,
+stats are a compact grid, and tags and short values offer what other characters already
+use as one-tap chips. On a phone it's the same split as the setup: the form on top, the
+live preview (with what changes) underneath. On desktop the preview stays in view.
+Code: `src/app/g/[game]/workshop/CharacterInputs.tsx` and the shared `split.tsx`.
+
 ## Decisions
 
 - 2026-10-29: Characters is Block 1, and fantasy/adventure comes first. Why: building every
@@ -109,6 +118,10 @@ Anyone can try a setup; for now only the game's moderators can save it.
   carry a tick. Each kind's example uses a likely name (Recruitable, Family, Skills), shows
   several items where a kind holds several, and has a line on how it behaves. Why: "Links"
   read as web links, and a yes looked like a tag.
+- 2026-10-31: the character form got the same treatment: inputs by kind (rows for lists,
+  a choice for yes or no, chips of values already used), fields in the setup's order, and
+  the phone split with the live preview. Why: the lessons from the setup apply to the
+  people filling characters in, who do it far more often.
 
 ## Open questions
 
