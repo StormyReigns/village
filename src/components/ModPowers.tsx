@@ -68,8 +68,10 @@ export function ModPowers({ view }: { view: ViewAs }) {
 export function ViewAsReminder({ view }: { view: ViewAs }) {
   if (view === 'self') return null;
   return (
-    <div role="status" className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4">
-      <div className="surface flex items-center gap-3 rounded-full py-1.5 pl-4 pr-1.5 text-sm">
+    // The strip spans the screen to center the pill, so only the pill takes clicks: what sits
+    // under the rest of the strip (the Workshop chat box, say) stays usable.
+    <div role="status" className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4">
+      <div className="surface pointer-events-auto flex items-center gap-3 rounded-full py-1.5 pl-4 pr-1.5 text-sm">
         <Eye size={16} className="text-sun" aria-hidden="true" />
         <span>Seeing the site as <b>{view === 'villager' ? 'a villager' : 'a visitor'}</b></span>
         <button onClick={() => setViewAs('self')} className="btn-primary rounded-full px-3 py-1.5 font-bold">Back to me</button>
