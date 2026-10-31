@@ -309,10 +309,15 @@ function HeatMap({ label, defs, entry, among, block, color, sort, onSort, onClos
     window.addEventListener('keydown', esc, true);
     return () => window.removeEventListener('keydown', esc, true);
   }, [onClose]);
+  // Ticked characters stay at the top, in the sort's order, to compare them side by side.
+  // The one the heatmap was opened from starts ticked.
+  const [pinned, setPinned] = useState(() => new Set([entry.name]));
+  const pin = (name: string) => { const next = new Set(pinned); if (next.has(name)) next.delete(name); else next.add(name); setPinned(next); };
   const def = defs.find((d) => sort.startsWith(statSort(d.key)));
   const rows = among.filter((e) => defs.some((d) => typeof e.stats?.[d.key] === 'number'));
   if (def) rows.sort(byStat(def, sort.endsWith(':worst')));
   else rows.sort((a, b) => a.name.localeCompare(b.name));
+  rows.sort((a, b) => Number(pinned.has(b.name)) - Number(pinned.has(a.name)));
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/30 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-label={`${label}: everyone`} onClick={(e) => e.stopPropagation()}
@@ -322,7 +327,7 @@ function HeatMap({ label, defs, entry, among, block, color, sort, onSort, onClos
           <button type="button" onClick={onClose} aria-label="Close" className="grid size-9 shrink-0 place-items-center rounded-full bg-card-2 ring-1 ring-line"><X size={18} aria-hidden="true" /></button>
         </div>
         <div className="min-h-0 overflow-y-auto">
-          <StatTable block={{ ...(block as Block), stats: defs }} entries={rows} among={among} sort={sort} onSort={onSort} color={color} mark={entry.name}
+          <StatTable block={{ ...(block as Block), stats: defs }} entries={rows} among={among} sort={sort} onSort={onSort} color={color} mark={entry.name} pinned={pinned} onPin={pin}
             onOpen={(e) => { onClose(); if (e.name !== entry.name) onGo?.(e); }} />
         </div>
       </div>

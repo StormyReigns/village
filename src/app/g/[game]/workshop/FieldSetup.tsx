@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, Info, Plus, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, Info, Plus, Trash2 } from 'lucide-react';
 import type { Block, FieldDef, FieldKind, Page, StatDef } from '@/data/pages';
 import type { RouteOption } from '@/components/app/EntryPanel';
 import { CharacterCard } from '@/components/app/CharacterCard';
 import { Piece } from '@/components/Piece';
 import { Tip } from '@/components/Tip';
-import { SHEET, SheetHandle, useWide } from './split';
+import { useWide } from './split';
+import { EditorShell } from './EditorShell';
 import { browserClient } from '@/lib/supabase/browser';
 import { appChanged } from '@/app/actions';
 import { DESCRIPTION, FIELD_KINDS, besideText, STATS, chartDefs, fieldsOf, hasValue, johnDoe, kindLabel, shownFields, spotOf, statKeyFor, valueOf } from '@/lib/fields';
@@ -26,26 +27,19 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
   gameId: string; block: Block & { page: Page }; routes: RouteOption[]; canSave: boolean; onClose: () => void;
 }) {
   const router = useRouter();
-  const [fields, setFields] = useState<FieldDef[]>(() => fieldsOf(block).map((f) => ({ ...f })));
+  // A setup saved as a draft on this device (closing with changes offers it) picks up here.
+  const draftKey = `village:setup:${gameId}:${block.id}`;
+  const [saved] = useState(() => readDraft(draftKey));
+  const [fields, setFields] = useState<FieldDef[]>(() => saved?.fields ?? fieldsOf(block).map((f) => ({ ...f })));
   // Each chart's stat names as typed, by the chart's key.
-  const [names, setNames] = useState<Record<string, string>>(() => Object.fromEntries(fieldsOf(block).filter((f) => f.kind === 'chart')
+  const [names, setNames] = useState<Record<string, string>>(() => saved?.names ?? Object.fromEntries(fieldsOf(block).filter((f) => f.kind === 'chart')
     .map((f) => [f.key, chartDefs(block, f).map((d) => d.label).join(', ')])));
   const [adding, setAdding] = useState<{ label: string; kind: FieldKind }>({ label: '', kind: 'text' });
   const [view, setView] = useState<'profile' | 'row'>('profile');
-  // Phones: how much of the screen the preview sheet takes, in percent.
-  const [sheet, setSheet] = useState<number>(SHEET.start);
   const wide = useWide();
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState(saved ? 'Picked up the setup you saved as a draft.' : '');
   const [busy, setBusy] = useState(false);
-  const dialog = useRef<HTMLDivElement>(null);
   const color = `var(--${block.page.tint})`;
-
-  useEffect(() => {
-    dialog.current?.focus();
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   // Stat names become each chart's columns. Names already in use keep their key, so
   // entries keep their numbers.
@@ -59,6 +53,9 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
   const drafted = fields.map((f) => (f.kind === 'chart' && f.key !== STATS ? { ...f, stats: defsFor(f) } : f));
   const draft = { ...block, fields: drafted, stats };
   const sample = johnDoe(draft);
+  // What the Block has now, to tell whether anything would be lost by closing.
+  const [baseline, setBaseline] = useState(() => JSON.stringify({ fields: fieldsOf(block), stats: block.stats ?? [] }));
+  const dirty = JSON.stringify({ fields: drafted, stats }) !== baseline;
 
   const patch = (i: number, p: Partial<FieldDef>) => { setFields(fields.map((f, j) => (j === i ? { ...f, ...p } : f))); setNote(''); };
   const move = (i: number, by: -1 | 1) => {
@@ -87,147 +84,154 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
     setBusy(true);
     const { error } = await db.from('game_blocks').update({ fields: drafted.map((f) => ({ ...f, label: f.label.trim() })), stats: stats.length ? stats : null })
       .eq('game_id', gameId).eq('block_key', block.id);
-    if (!error) { await appChanged(gameId); router.refresh(); }
+    if (!error) {
+      setBaseline(JSON.stringify({ fields: drafted, stats }));
+      forgetDraft(draftKey);
+      await appChanged(gameId);
+      router.refresh();
+    }
     setBusy(false);
     setNote(error ? `Couldn't save: ${error.message}` : 'Saved. The app shows the new setup now.');
   };
 
   return (
-    // The setup is on the Workbench (globals.css); the preview looks exactly like the app. On a
-    // phone it fills the screen: what you're building on top, the preview on a sheet underneath
-    // that you drag to resize. From md up they sit side by side.
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 backdrop-blur-sm md:items-center md:p-6" onClick={onClose}>
-      <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`Set up ${block.title}`} onClick={(e) => e.stopPropagation()}
-        className="workbench rise flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden shadow-soft outline-none md:block md:h-auto md:max-h-[92vh] md:overflow-y-auto md:rounded-[2rem] md:p-6">
-        <div className="flex shrink-0 items-center gap-3 px-4 py-2.5 md:items-start md:p-0">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <h2 className="truncate font-display text-xl md:text-2xl">Set up {block.title}</h2>
-            <Tip text="Every field is optional. Switch them on or off, rename them, put them in order, or add your own. Empty ones don't show on a card.">
-              <button type="button" aria-label="How setting up works" className="grid size-7 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink">
-                <Info size={17} aria-hidden="true" />
-              </button>
-            </Tip>
-          </div>
-          <button onClick={onClose} className="grid size-9 shrink-0 place-items-center rounded-full bg-card-2 ring-1 ring-line" aria-label="Close"><X size={18} aria-hidden="true" /></button>
+    <EditorShell
+      label={`Set up ${block.title}`}
+      title={`Set up ${block.title}`}
+      titleExtra={
+        <Tip text="Every field is optional. Switch them on or off, rename them, put them in order, or add your own. Empty ones don't show on a card.">
+          <button type="button" aria-label="How setting up works" className="grid size-7 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
+            <Info size={17} aria-hidden="true" />
+          </button>
+        </Tip>
+      }
+      actions={canSave && (
+        <button type="button" onClick={save} disabled={busy} className="btn-primary rounded-full px-4 py-2 text-sm font-bold disabled:opacity-60">{busy ? 'Saving…' : 'Save setup'}</button>
+      )}
+      note={note && <p role="status" className={/^(Saved|Picked)/.test(note) ? 'text-leaf' : 'text-berry'}>{note}</p>}
+      onClose={onClose}
+      dirty={dirty}
+      onSaveDraft={() => { writeDraft(draftKey, { fields, names }); onClose(); }}
+      onDiscard={() => { forgetDraft(draftKey); onClose(); }}
+      draftHint="Save draft keeps this setup on this device, ready the next time you open Set up. Discard throws the changes away."
+      tint={block.page.tint}
+      sheetExtra={
+        <div role="group" aria-label="Preview as" className="flex rounded-full bg-card p-0.5 text-xs font-bold ring-1 ring-line">
+          {([['profile', 'Profile'], ['row', 'List row']] as const).map(([v, label]) => (
+            <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v}
+              className={'rounded-full px-3 py-1 ' + (view === v ? 'bg-signal text-ink' : 'text-muted hover:text-ink')}>{label}</button>
+          ))}
         </div>
-
-        <div data-split className="flex min-h-0 flex-1 flex-col md:mt-5 md:grid md:grid-cols-[minmax(0,1fr)_22rem] md:gap-6">
-          <div className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto overscroll-contain px-4 pb-4 md:overflow-visible md:p-0">
-            <ul className="grid rounded-2xl bg-card ring-1 ring-line">
-              <li className="flex items-center gap-2 rounded-t-2xl bg-card-2 px-3 py-2 text-sm">
-                <span className="w-8" /><span className="font-bold">Name</span><span className="ml-auto text-xs text-muted">Always on, bold at the top</span>
-              </li>
-              {fields.map((f, i) => (
-                <li key={f.key} className={'grid gap-2 border-t border-line px-3 py-2 last:rounded-b-2xl ' + (f.off ? 'bg-card-2/60' : '')}>
-                  <div className="flex items-center gap-2">
-                    <button type="button" role="switch" aria-checked={!f.off} aria-label={`Show ${f.label}`} onClick={() => patch(i, { off: !f.off || undefined })}
-                      className={'relative h-5 w-9 shrink-0 rounded-full transition ' + (f.off ? 'bg-line' : 'bg-ink')}>
-                      <span className={'absolute top-0.5 size-4 rounded-full bg-card transition-all ' + (f.off ? 'left-0.5' : 'left-[1.15rem]')} />
-                    </button>
-                    <input value={f.label} onChange={(e) => patch(i, { label: e.target.value })} aria-label="Field name" className={input + ' min-w-0 flex-1 font-bold' + (f.off ? ' text-muted' : '')} />
-                    <span className="hidden w-28 shrink-0 truncate rounded-md bg-card-2 px-1 py-0.5 text-center text-[11px] font-bold sm:inline">{kindLabel(f.kind)}</span>
-                    <button type="button" onClick={() => patch(i, { spoiler: !f.spoiler || undefined })} aria-pressed={Boolean(f.spoiler)} aria-label={`${f.label} is a spoiler`}
-                      title={f.spoiler ? 'Spoiler: hidden until tapped' : 'Not a spoiler'}
-                      className={'grid size-8 shrink-0 place-items-center rounded-full ' + (f.spoiler ? 'text-berry' : 'text-muted/60 hover:text-ink')}>
-                      {f.spoiler ? <EyeOff size={15} aria-hidden="true" /> : <Eye size={15} aria-hidden="true" />}
-                    </button>
-                    <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move ${f.label} up`} className="grid size-8 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink disabled:opacity-30"><ArrowUp size={15} aria-hidden="true" /></button>
-                    <button type="button" onClick={() => move(i, 1)} disabled={i === fields.length - 1} aria-label={`Move ${f.label} down`} className="grid size-8 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink disabled:opacity-30"><ArrowDown size={15} aria-hidden="true" /></button>
-                    {f.key !== DESCRIPTION && f.key !== STATS && !used(f) && (
-                      <button type="button" onClick={() => setFields(fields.filter((_, j) => j !== i))} aria-label={`Remove ${f.label}`} className="grid size-8 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-berry"><Trash2 size={15} aria-hidden="true" /></button>
-                    )}
-                  </div>
-                  {f.kind === 'chart' && !f.off && (
-                    <div className="grid gap-1 pl-11 text-xs">
-                      <div className="flex items-center gap-2">
-                        <label htmlFor={`stats-${block.id}-${slug(f.key)}`} className="flex-1 font-bold text-muted">Stat names, in order, separated by commas</label>
-                        <StatSuggestions current={names[f.key] ?? ''} onPick={(v) => setNames({ ...names, [f.key]: v })} />
-                      </div>
-                      <input id={`stats-${block.id}-${slug(f.key)}`} value={names[f.key] ?? ''} onChange={(e) => setNames({ ...names, [f.key]: e.target.value })}
-                        placeholder="HP, Str, Mag, Dex, Spd, Lck, Def, Res" className={input} />
-                      {/* Both are on unless switched off; with both off the chart only shows in the form. */}
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted">
-                        <label className="flex items-center gap-1.5">
-                          <input type="checkbox" checked={!f.noWeb} onChange={(e) => patch(i, { noWeb: !e.target.checked || undefined })} className="size-3.5 accent-[var(--color-ink)]" />
-                          Web chart by the portrait
-                        </label>
-                        <label className="flex items-center gap-1.5">
-                          <input type="checkbox" checked={!f.noNumbers} onChange={(e) => patch(i, { noNumbers: !e.target.checked || undefined })} className="size-3.5 accent-[var(--color-ink)]" />
-                          Number boxes, colored against everyone
-                        </label>
-                      </div>
-                    </div>
-                  )}
-                  {(f.kind === 'text' || f.kind === 'number') && !f.off && (
-                    <label className="flex items-center gap-2 pl-11 text-xs text-muted">
-                      <input type="checkbox" checked={Boolean(f.beside)} onChange={(e) => patch(i, { beside: e.target.checked || undefined })} className="size-3.5 accent-[var(--color-ink)]" />
-                      Small, beside the name (like Age)
-                    </label>
-                  )}
-                </li>
-              ))}
-            </ul>
-
-            <div className="grid gap-2 rounded-2xl bg-card p-3 ring-1 ring-line">
-              <p className="flex items-center gap-1.5 text-sm font-bold"><Plus size={15} aria-hidden="true" /> Add your own field</p>
-              <div className="flex flex-wrap gap-2">
-                <input value={adding.label} onChange={(e) => setAdding({ ...adding, label: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') add(); }}
-                  placeholder="Its name, e.g. Voice actor" aria-label="New field name" className={input + ' min-w-40 flex-1'} />
-                <button type="button" onClick={add} className="rounded-full bg-ink px-4 py-1.5 text-sm font-bold text-paper">Add</button>
-              </div>
-              <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="What kind of field">
-                {FIELD_KINDS.map((k) => (
-                  <button key={k.kind} type="button" role="radio" aria-checked={adding.kind === k.kind} onClick={() => setAdding({ ...adding, kind: k.kind })} title={k.hint}
-                    className={'rounded-full px-3 py-1 text-xs font-bold ring-1 ' + (adding.kind === k.kind ? 'bg-ink text-paper ring-ink' : 'bg-card ring-line hover:ring-ink')}>{k.label}</button>
-                ))}
-              </div>
-              <p className="text-xs text-muted">{FIELD_KINDS.find((k) => k.kind === adding.kind)?.hint}.</p>
-              {/* On a phone the example sits right here; on wider screens it's under the preview. */}
-              <KindExample {...adding} block={block} routes={routes} color={color} className="md:hidden" />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              {canSave ? (
-                <button type="button" onClick={save} disabled={busy} className="btn-primary rounded-full px-5 py-2.5 font-bold disabled:opacity-60">{busy ? 'Saving…' : 'Save setup'}</button>
-              ) : (
-                <p className="text-sm text-muted">A Block&apos;s setup changes it for everyone, so a moderator saves it. Try things here and see the preview; suggesting a setup for votes comes later.</p>
-              )}
-              {note && <p role="status" className={'text-sm ' + (note.startsWith('Saved') ? 'text-leaf' : 'text-berry')}>{note}</p>}
-            </div>
-          </div>
-
-          {/* The preview: John Doe, filled in for every field that's on, on the Page's own tint
-              like in the app. On a phone it's a sheet over the Workbench, dragged to resize. */}
-          <div data-sheet className="relative z-10 flex shrink-0 flex-col rounded-t-[1.5rem] shadow-[0_-1px_0_var(--line),0_-14px_28px_-8px_rgba(21,23,28,0.38)] md:sticky md:top-0 md:grid md:h-auto md:content-start md:gap-3 md:rounded-none md:shadow-none"
-            style={wide ? undefined : { height: `${sheet}%`, background: `var(--${block.page.tint}-soft)` }}>
-            <SheetHandle pct={sheet} onChange={setSheet}>
+      }
+      editor={
+        <>
+        <ul className="grid rounded-2xl bg-card ring-1 ring-line">
+          <li className="flex items-center gap-2 rounded-t-2xl bg-card-2 px-3 py-2 text-sm">
+            <span className="w-8" /><span className="font-bold">Name</span><span className="ml-auto text-xs text-muted">Always on, bold at the top</span>
+          </li>
+          {fields.map((f, i) => (
+            <li key={f.key} className={'grid gap-2 border-t border-line px-3 py-2 last:rounded-b-2xl ' + (f.off ? 'bg-card-2/60' : '')}>
               <div className="flex items-center gap-2">
-                <p className="flex-1 text-xs font-bold uppercase tracking-wide text-muted">Players see</p>
-                <div role="group" aria-label="Preview as" className="flex rounded-full bg-card p-0.5 text-xs font-bold ring-1 ring-line">
-                  {([['profile', 'Profile'], ['row', 'List row']] as const).map(([v, label]) => (
-                    <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v}
-                      className={'rounded-full px-3 py-1 ' + (view === v ? 'bg-signal text-ink' : 'text-muted hover:text-ink')}>{label}</button>
-                  ))}
-                </div>
-              </div>
-            </SheetHandle>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 md:overflow-visible md:rounded-[1.5rem] md:p-3"
-              style={wide ? { background: `var(--${block.page.tint}-soft)` } : undefined}>
-              <div className="rounded-2xl bg-card p-3 ring-1 ring-line md:p-4">
-                {view === 'profile' ? (
-                  <CharacterCard entry={sample} block={draft} route="all" routes={routes} color={color} sample size={wide ? 120 : 76} />
-                ) : (
-                  <SampleRow draft={draft} />
+                <button type="button" role="switch" aria-checked={!f.off} aria-label={`Show ${f.label}`} onClick={() => patch(i, { off: !f.off || undefined })}
+                  className={'relative h-5 w-9 shrink-0 rounded-full transition ' + (f.off ? 'bg-line' : 'bg-ink')}>
+                  <span className={'absolute top-0.5 size-4 rounded-full bg-card transition-all ' + (f.off ? 'left-0.5' : 'left-[1.15rem]')} />
+                </button>
+                <input value={f.label} onChange={(e) => patch(i, { label: e.target.value })} aria-label="Field name" className={input + ' min-w-0 flex-1 font-bold' + (f.off ? ' text-muted' : '')} />
+                <span className="hidden w-28 shrink-0 truncate rounded-md bg-card-2 px-1 py-0.5 text-center text-[11px] font-bold sm:inline">{kindLabel(f.kind)}</span>
+                <button type="button" onClick={() => patch(i, { spoiler: !f.spoiler || undefined })} aria-pressed={Boolean(f.spoiler)} aria-label={`${f.label} is a spoiler`}
+                  title={f.spoiler ? 'Spoiler: hidden until tapped' : 'Not a spoiler'}
+                  className={'grid size-8 shrink-0 place-items-center rounded-full ' + (f.spoiler ? 'text-berry' : 'text-muted/60 hover:text-ink')}>
+                  {f.spoiler ? <EyeOff size={15} aria-hidden="true" /> : <Eye size={15} aria-hidden="true" />}
+                </button>
+                <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move ${f.label} up`} className="grid size-8 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink disabled:opacity-30"><ArrowUp size={15} aria-hidden="true" /></button>
+                <button type="button" onClick={() => move(i, 1)} disabled={i === fields.length - 1} aria-label={`Move ${f.label} down`} className="grid size-8 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink disabled:opacity-30"><ArrowDown size={15} aria-hidden="true" /></button>
+                {f.key !== DESCRIPTION && f.key !== STATS && !used(f) && (
+                  <button type="button" onClick={() => setFields(fields.filter((_, j) => j !== i))} aria-label={`Remove ${f.label}`} className="grid size-8 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-berry"><Trash2 size={15} aria-hidden="true" /></button>
                 )}
               </div>
-            </div>
-            <p className="hidden text-xs text-muted md:block">Made-up values, so you can see each field&apos;s place. Spoiler fields show covered, the way players first see them.</p>
-            <KindExample {...adding} block={block} routes={routes} color={color} className="hidden md:block" />
+              {f.kind === 'chart' && !f.off && (
+                <div className="grid gap-1 pl-11 text-xs">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor={`stats-${block.id}-${slug(f.key)}`} className="flex-1 font-bold text-muted">Stat names, in order, separated by commas</label>
+                    <StatSuggestions current={names[f.key] ?? ''} onPick={(v) => setNames({ ...names, [f.key]: v })} />
+                  </div>
+                  <input id={`stats-${block.id}-${slug(f.key)}`} value={names[f.key] ?? ''} onChange={(e) => setNames({ ...names, [f.key]: e.target.value })}
+                    placeholder="HP, Str, Mag, Dex, Spd, Lck, Def, Res" className={input} />
+                  {/* Both are on unless switched off; with both off the chart only shows in the form. */}
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted">
+                    <label className="flex items-center gap-1.5">
+                      <input type="checkbox" checked={!f.noWeb} onChange={(e) => patch(i, { noWeb: !e.target.checked || undefined })} className="size-3.5 accent-[var(--color-ink)]" />
+                      Web chart by the portrait
+                    </label>
+                    <label className="flex items-center gap-1.5">
+                      <input type="checkbox" checked={!f.noNumbers} onChange={(e) => patch(i, { noNumbers: !e.target.checked || undefined })} className="size-3.5 accent-[var(--color-ink)]" />
+                      Number boxes, colored against everyone
+                    </label>
+                  </div>
+                </div>
+              )}
+              {(f.kind === 'text' || f.kind === 'number') && !f.off && (
+                <label className="flex items-center gap-2 pl-11 text-xs text-muted">
+                  <input type="checkbox" checked={Boolean(f.beside)} onChange={(e) => patch(i, { beside: e.target.checked || undefined })} className="size-3.5 accent-[var(--color-ink)]" />
+                  Small, beside the name (like Age)
+                </label>
+              )}
+            </li>
+          ))}
+        </ul>
+
+        <div className="grid gap-2 rounded-2xl bg-card p-3 ring-1 ring-line">
+          <p className="flex items-center gap-1.5 text-sm font-bold"><Plus size={15} aria-hidden="true" /> Add your own field</p>
+          <div className="flex flex-wrap gap-2">
+            <input value={adding.label} onChange={(e) => setAdding({ ...adding, label: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') add(); }}
+              placeholder="Its name, e.g. Voice actor" aria-label="New field name" className={input + ' min-w-40 flex-1'} />
+            <button type="button" onClick={add} className="rounded-full bg-ink px-4 py-1.5 text-sm font-bold text-paper">Add</button>
           </div>
+          <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="What kind of field">
+            {FIELD_KINDS.map((k) => (
+              <button key={k.kind} type="button" role="radio" aria-checked={adding.kind === k.kind} onClick={() => setAdding({ ...adding, kind: k.kind })} title={k.hint}
+                className={'rounded-full px-3 py-1 text-xs font-bold ring-1 ' + (adding.kind === k.kind ? 'bg-ink text-paper ring-ink' : 'bg-card ring-line hover:ring-ink')}>{k.label}</button>
+            ))}
+          </div>
+          <p className="text-xs text-muted">{FIELD_KINDS.find((k) => k.kind === adding.kind)?.hint}.</p>
+          {/* On a phone the example sits right here; on wider screens it's under the preview. */}
+          <KindExample {...adding} block={block} routes={routes} color={color} className="md:hidden" />
         </div>
-      </div>
-    </div>
+
+          {!canSave && (
+            <p className="text-sm text-muted">A Block&apos;s setup changes it for everyone, so a moderator saves it. Try things here and see the preview; suggesting a setup for votes comes later.</p>
+          )}
+        </>
+      }
+      preview={
+        <div className="rounded-2xl bg-card p-3 ring-1 ring-line md:p-4">
+          {view === 'profile' ? (
+            <CharacterCard entry={sample} block={draft} route="all" routes={routes} color={color} sample size={wide ? 120 : 76} />
+          ) : (
+            <SampleRow draft={draft} />
+          )}
+        </div>
+      }
+      aside={
+        <>
+          <p className="text-xs text-muted">Made-up values, so you can see each field&apos;s place. Spoiler fields show covered, the way players first see them.</p>
+          <KindExample {...adding} block={block} routes={routes} color={color} />
+        </>
+      }
+    />
   );
+}
+
+/** A setup kept on this device until it's saved or thrown away. */
+type SetupDraft = { fields: FieldDef[]; names: Record<string, string> };
+function readDraft(key: string): SetupDraft | null {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) as SetupDraft : null; } catch { return null; }
+}
+function writeDraft(key: string, d: SetupDraft) {
+  try { localStorage.setItem(key, JSON.stringify(d)); } catch { /* private mode: nothing to keep it in */ }
+}
+function forgetDraft(key: string) {
+  try { localStorage.removeItem(key); } catch { /* nothing kept */ }
 }
 
 /** Stat sets common in fantasy and adventure games, to start from instead of typing. */

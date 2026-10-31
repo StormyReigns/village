@@ -101,8 +101,10 @@ Community-built companion apps for games, with a village theme. Two layers:
   white boxes edged in ink and a yellow ring on the box being typed in (`workbench` in
   `globals.css`). Previews never get special styling: they look exactly like the app (a Page
   tint behind white cards). Dots mean "you're building"; a Page tint means "this is the app".
-  On a phone the preview is a sheet under the editor with a drag handle (`split.tsx`). Built
-  into Set up and the character form first; the rest of the Workshop follows.
+  On a phone the preview is a sheet under the editor with a drag handle (`split.tsx`). The
+  frame is `EditorShell.tsx` (main action and X pinned at the top; closing with unsaved
+  changes asks Save draft or Discard). Built into Set up and the character form first; the
+  rest of the Workshop follows.
 - **Type**: Rubik only, heavy for names, regular for reading.
 - **In code**: `Piece` (any width or `size="fill"`, `outline`, `image`), `NavSymbol` and
   `EntryIcon` for Page symbols and entries, `LogoMark`, `Wordmark` and `TopBar` in `Logo.tsx`, colors

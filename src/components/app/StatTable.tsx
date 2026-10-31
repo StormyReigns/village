@@ -9,7 +9,7 @@ import { heatFill, placeText, statFacts } from '@/lib/stats';
 
 export const statSort = (key: string, worst = false) => `stat:${key}${worst ? ':worst' : ''}`;
 
-export function StatTable({ block, entries, among, sort, onSort, onOpen, filter, color, mark }: {
+export function StatTable({ block, entries, among, sort, onSort, onOpen, filter, color, mark, pinned, onPin }: {
   block: Block;
   /** The Page's color, for the better end of the heatmap. */
   color: string;
@@ -22,6 +22,9 @@ export function StatTable({ block, entries, among, sort, onSort, onOpen, filter,
   filter?: string;
   /** The entry this table was opened from (by name), picked out so it's easy to find. */
   mark?: string;
+  /** Rows ticked to stay at the top, by name, with the tick box shown when onPin is given. */
+  pinned?: Set<string>;
+  onPin?: (name: string) => void;
 }) {
   const defs = block.stats ?? [];
   const lower = defs.filter((d) => d.better === 'low').map((d) => d.label);
@@ -57,9 +60,15 @@ export function StatTable({ block, entries, among, sort, onSort, onOpen, filter,
             {entries.map((e) => (
               <tr key={e.id || e.name} onClick={() => onOpen(e)} className="cursor-pointer [&:hover>th]:bg-card-2" aria-current={mark === e.name ? 'true' : undefined}>
                 <th scope="row" className={'sticky left-0 z-10 min-w-24 max-w-44 rounded-md px-1.5 py-1.5 sm:min-w-32 sm:px-2 text-left font-normal ' + (mark === e.name ? 'bg-signal' : 'bg-card')}>
-                  <button type="button" onClick={(ev) => { ev.stopPropagation(); onOpen(e); }} className="block text-left font-bold leading-tight hover:underline">
-                    {e.name}
-                  </button>
+                  <span className="flex items-center gap-1.5">
+                    {onPin && (
+                      <input type="checkbox" checked={pinned?.has(e.name) ?? false} onChange={() => onPin(e.name)} onClick={(ev) => ev.stopPropagation()}
+                        aria-label={`Keep ${e.name} at the top`} className="size-4 shrink-0 accent-[var(--color-ink)]" />
+                    )}
+                    <button type="button" onClick={(ev) => { ev.stopPropagation(); onOpen(e); }} className="block text-left font-bold leading-tight hover:underline">
+                      {e.name}
+                    </button>
+                  </span>
                   {filter && e.categories[filter] && <span className="block text-xs text-muted">{e.categories[filter]}</span>}
                 </th>
                 {defs.map((d) => {

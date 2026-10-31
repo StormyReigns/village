@@ -13,7 +13,8 @@ import { entryText } from '@/components/app/entries';
 import { rank } from '@/lib/search';
 import { fieldsOf } from '@/lib/fields';
 import { CharacterInputs } from './CharacterInputs';
-import { SHEET, SheetHandle, useWide } from './split';
+import { useWide } from './split';
+import { EditorShell } from './EditorShell';
 import { changesBetween } from './changes';
 import { clearUnsent, hasWriting, saveUnsent, type Unsent } from './unsent';
 import type { NewDraft } from './useWorkshop';
@@ -127,8 +128,6 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
     if (worth) saveUnsent(gameId, { blockId, entryId: fixing?.id, content, source });
   }, [gameId, blockId, fixing, content, source]);
   const [find, setFind] = useState('');
-  // Characters on a phone: the form on top, the preview on a sheet underneath (see split.tsx).
-  const [sheet, setSheet] = useState<number>(SHEET.start);
   const wide = useWide();
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -270,208 +269,217 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
     </>
   );
 
-  return (
-    <div className={'fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-0 backdrop-blur-sm ' + (people ? 'md:items-center md:p-6' : 'sm:items-center sm:p-6')} onClick={onClose}>
-      <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-label={fixing ? `Fix ${fixing.name}` : 'New entry'} onClick={(e) => e.stopPropagation()}
-        className={people
-          // Characters on a phone: full screen, the form and the preview each scrolling on their own.
-          ? 'workbench rise flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden shadow-soft outline-none md:block md:h-auto md:max-h-[92vh] md:overflow-y-auto md:rounded-[2rem] md:p-6'
-          : 'rise max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-t-[2rem] bg-card p-5 shadow-soft outline-none sm:rounded-[2rem] sm:p-6'}>
-        <div className={'flex items-center gap-3' + (people ? ' shrink-0 px-4 py-2.5 md:p-0' : '')}>
-          <h2 className={'font-display ' + (people ? 'truncate text-xl md:text-2xl' : 'text-2xl')}>{fixing ? `Fix: ${fixing.name}` : `New in ${block.title}`}</h2>
-          {people && (
-            <div id="entry-actions" className="ml-auto shrink-0">
-              {me === null ? (
-                <SignInPrompt back="?resume=1" forWhat={fixing ? `send your fix to ${fixing.name}` : 'send your Draft'}>Sign in</SignInPrompt>
-              ) : (
-                <button type="submit" form="entry-form" disabled={busy || me === undefined || unchanged} className="btn-primary rounded-full px-4 py-2 text-sm font-bold disabled:opacity-60">
-                  {busy ? 'Submitting…' : fixing ? 'Submit fix' : 'Submit'}
-                </button>
-              )}
-            </div>
-          )}
-          <button onClick={onClose} className={(people ? '' : 'ml-auto ') + 'grid size-9 shrink-0 place-items-center rounded-full bg-card-2 ring-1 ring-line'} aria-label="Close"><X size={18} aria-hidden="true" /></button>
-        </div>
-
-        {people && note && <p role="status" className="shrink-0 px-4 pb-1 text-sm text-berry md:px-0 md:pt-2">{note}</p>}
-        {!people && intro}
-
-        <div data-split className={people ? 'flex min-h-0 flex-1 flex-col md:mt-5 md:grid md:grid-cols-2 md:gap-6' : 'mt-5 grid gap-6 md:grid-cols-2'}>
-          <div className={people ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 md:overflow-visible md:p-0' : 'contents'}>
-          {people && intro}
-          <form id="entry-form" onSubmit={submit} className={'grid content-start gap-3' + (people ? ' mt-3' : '')}>
-            {show('name') && (
-              <label className="grid gap-1">
-                <span className="text-sm font-bold">Name<span className="text-berry"> *</span></span>
-                <input id="entry-name" value={content.name} onChange={(e) => set({ name: e.target.value })} maxLength={120} className={input} />
-              </label>
-            )}
-            {block.type === 'timeline' && show('order') && (
-              <label className="grid gap-1">
-                <span className="text-sm font-bold">Order <span className="font-normal text-muted">(where it falls in the story)</span></span>
-                <input type="number" value={content.order ?? ''} onChange={(e) => set({ order: e.target.value === '' ? undefined : Number(e.target.value) })} className={input} />
-              </label>
-            )}
-            {showStat && show('stat') && (
-              <label className="grid gap-1">
-                <span className="text-sm font-bold">{block.statName ?? 'Key fact'} <span className="font-normal text-muted">(shown on the list, short)</span></span>
-                <input value={content.stat ?? ''} onChange={(e) => set({ stat: e.target.value })} maxLength={40} placeholder={block.statName === 'Level' ? 'Lv 12' : ''} className={input} />
-              </label>
-            )}
-            {!people && block.stats?.length && show('stats') ? (
-              <div role="group" aria-labelledby="stats-label" id={fid('stats')} className={'grid gap-1.5' + hl('stats')}>
-                <span id="stats-label" className="text-sm font-bold">Stats <span className="font-normal text-muted">(numbers, as the game shows them)</span></span>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {block.stats.map((d) => (
-                    <label key={d.key} className="grid gap-1">
-                      <span className="text-xs font-bold text-muted">{d.label}</span>
-                      <input type="number" inputMode="decimal" value={content.stats?.[d.key] ?? ''} onChange={(e) => setStat(d.key, e.target.value)} className={input} />
-                    </label>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            {!people && show('description') && (
-              <label id={fid('description')} className={'grid gap-1' + hl('description')}>
-                <span className="text-sm font-bold">{DESCRIPTION_LABEL[block.type]}</span>
-                <textarea value={content.description ?? ''} onChange={(e) => set({ description: e.target.value })} rows={3} className={input} />
-              </label>
-            )}
-            {!people && block.filters?.filter((k) => show(`cat:${k}`)).map((k) => (
-              <label key={k} className="grid gap-1">
-                <span className="text-sm font-bold">{k}</span>
-                <input value={content.categories[k] ?? ''} onChange={(e) => set({ categories: { ...content.categories, [k]: e.target.value } })}
-                  list={`values-${k}`} placeholder={values(k).slice(0, 3).join(', ')} className={input} />
-                <datalist id={`values-${k}`}>{values(k).map((v) => <option key={v} value={v} />)}</datalist>
+  const formEl = (
+    <form id="entry-form" onSubmit={submit} className="grid content-start gap-3">
+      {show('name') && (
+        <label className="grid gap-1">
+          <span className="text-sm font-bold">Name<span className="text-berry"> *</span></span>
+          <input id="entry-name" value={content.name} onChange={(e) => set({ name: e.target.value })} maxLength={120} className={input} />
+        </label>
+      )}
+      {block.type === 'timeline' && show('order') && (
+        <label className="grid gap-1">
+          <span className="text-sm font-bold">Order <span className="font-normal text-muted">(where it falls in the story)</span></span>
+          <input type="number" value={content.order ?? ''} onChange={(e) => set({ order: e.target.value === '' ? undefined : Number(e.target.value) })} className={input} />
+        </label>
+      )}
+      {showStat && show('stat') && (
+        <label className="grid gap-1">
+          <span className="text-sm font-bold">{block.statName ?? 'Key fact'} <span className="font-normal text-muted">(shown on the list, short)</span></span>
+          <input value={content.stat ?? ''} onChange={(e) => set({ stat: e.target.value })} maxLength={40} placeholder={block.statName === 'Level' ? 'Lv 12' : ''} className={input} />
+        </label>
+      )}
+      {!people && block.stats?.length && show('stats') ? (
+        <div role="group" aria-labelledby="stats-label" id={fid('stats')} className={'grid gap-1.5' + hl('stats')}>
+          <span id="stats-label" className="text-sm font-bold">Stats <span className="font-normal text-muted">(numbers, as the game shows them)</span></span>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {block.stats.map((d) => (
+              <label key={d.key} className="grid gap-1">
+                <span className="text-xs font-bold text-muted">{d.label}</span>
+                <input type="number" inputMode="decimal" value={content.stats?.[d.key] ?? ''} onChange={(e) => setStat(d.key, e.target.value)} className={input} />
               </label>
             ))}
-
-            {people && (
-              <CharacterInputs key={`${block.id}.${fixing?.id ?? 'new'}`} block={block} content={content} set={set} setField={setField} setStat={setStat}
-                show={show} hl={hl} fid={fid} others={block.entries.filter((e) => e.id !== fixing?.id).map((e) => e.name)} />
-            )}
-
-            {byRoute && show('routes') && (
-              <fieldset id={fid('routes')} className={'grid gap-2 rounded-2xl bg-card-2 p-3 ring-1 ' + (fid('routes') ? 'ring-2 ring-sun' : 'ring-line')}>
-                <legend className="px-1 text-sm font-bold">Routes</legend>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-sm text-muted">Shows on these routes. Tap one to take it off:</span>
-                  {routes.map((r) => {
-                    const on = !content.routes?.length || content.routes.includes(r.key);
-                    return (
-                      <button key={r.key} type="button" onClick={() => toggleRoute(r.key)} aria-pressed={on}
-                        className={'rounded-full px-3 py-1 text-sm font-bold ring-1 ' + (on ? 'bg-berry text-white ring-berry' : 'bg-card ring-line')}>{r.label}</button>
-                    );
-                  })}
-                </div>
-                {/* What differs (like "Recruit") is shared by every entry, so it stays locked unless renamed on purpose. */}
-                {currentRouteLabel && !renamingRoutes ? (
-                  <p className="flex flex-wrap items-center gap-2 text-sm">
-                    <span>Differs by route: <span className="font-bold">{currentRouteLabel}</span></span>
-                    <button type="button" onClick={() => setRenamingRoutes(true)} className="text-xs font-bold text-muted underline hover:text-ink">Rename</button>
-                  </p>
-                ) : (
-                  <label className="grid gap-1 text-sm">
-                    <span className="font-bold">Something that differs by route <span className="font-normal text-muted">(optional)</span></span>
-                    <input value={currentRouteLabel ?? ''} onChange={(e) => setPerRouteLabel(e.target.value)}
-                      placeholder="What it is, e.g. Recruit" className={input} />
-                  </label>
-                )}
-                {routes.map((r) => (
-                  <label key={r.key} className="flex items-center gap-2 text-sm">
-                    <span className="w-20 shrink-0 font-bold">{r.label}</span>
-                    <input value={perRouteText(r.key)} onChange={(e) => setPerRoute(r.key, e.target.value)} className={input} />
-                  </label>
-                ))}
-              </fieldset>
-            )}
-
-            <div className="grid gap-2">
-              {content.sections.map((s, i) => (fieldKeys.has(s.label) || (!showAll && i !== focusSection) ? null : (
-                <div key={i} id={!showAll && i === focusSection ? 'fix-focus' : undefined}
-                  className={'grid gap-1.5 rounded-2xl bg-card-2 p-2.5 ring-1 ' + (!showAll && i === focusSection ? 'ring-2 ring-sun' : 'ring-line')}>
-                  <div className="flex gap-2">
-                    <input value={s.label} onChange={(e) => setSection(i, { label: e.target.value })} list="section-labels" placeholder="Label, e.g. Tips"
-                      aria-label="Section label" className="min-w-0 flex-1 rounded-xl bg-card px-3 py-1.5 text-sm font-bold ring-1 ring-line outline-none focus:ring-2 focus:ring-sky" />
-                    <button type="button" onClick={() => set({ sections: content.sections.filter((_, j) => j !== i) })} aria-label={`Remove ${s.label || 'section'}`}
-                      className="grid size-8 place-items-center rounded-full text-muted hover:bg-card hover:text-berry"><Trash2 size={15} aria-hidden="true" /></button>
-                  </div>
-                  <textarea value={s.text} onChange={(e) => setSection(i, { text: e.target.value })} rows={2} placeholder="One point per line becomes a list"
-                    aria-label={`${s.label || 'Section'} text`} className="rounded-xl bg-card px-3 py-1.5 ring-1 ring-line outline-none focus:ring-2 focus:ring-sky" />
-                </div>
-              )))}
-              <datalist id="section-labels">{labels.map((l) => <option key={l} value={l} />)}</datalist>
-              {showAll ? (people ? null :
-                <button type="button" onClick={() => set({ sections: [...content.sections, { label: labels.find((l) => !content.sections.some((s) => s.label === l)) ?? '', text: '' }] })}
-                  className="inline-flex items-center gap-1.5 justify-self-start rounded-full px-3 py-1.5 text-sm font-bold text-leaf ring-1 ring-line hover:ring-leaf">
-                  <Plus size={15} aria-hidden="true" /> Add a section
-                </button>
-              ) : (
-                <button type="button" onClick={() => setShowAll(true)}
-                  className="inline-flex items-center gap-1.5 justify-self-start rounded-full px-3 py-1.5 text-sm font-bold text-muted ring-1 ring-line hover:text-ink hover:ring-ink">
-                  Edit other parts
-                </button>
-              )}
-            </div>
-
-            <label className="grid gap-1">
-              <span className="text-sm font-bold">Where can others check this?</span>
-              <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="I saw it myself in chapter 6, or a link" className={input} />
-            </label>
-            <div className={(showAll ? 'flex' : 'hidden') + ' flex-wrap gap-x-5 gap-y-2 text-sm'}>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={Boolean(content.spoiler)} onChange={(e) => set({ spoiler: e.target.checked })} className="size-4 accent-[var(--color-leaf)]" />
-                <span><span className="font-bold">Spoiler.</span> Hidden until a player asks.</span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={content.flag === 'unconfirmed'} onChange={(e) => set({ flag: e.target.checked ? 'unconfirmed' : undefined })} className="size-4 accent-[var(--color-leaf)]" />
-                <span><span className="font-bold">A theory.</span> Not confirmed yet.</span>
-              </label>
-            </div>
-
-            {/* On phones this bar stays at the bottom of the form, so Submit is always in reach. */}
-            {people && changeBox}
-
-            {people ? (
-              // Closing keeps what's written for next time; this throws it away (undoable from the Workshop).
-              <button type="button" onClick={onDiscard} className="justify-self-start rounded-full px-1 py-1 text-sm font-bold text-muted hover:text-berry">Discard this draft</button>
-            ) : (
-            <div id="entry-actions" className="sticky bottom-0 z-10 -mx-5 mt-2 flex flex-wrap items-center gap-3 border-t border-line bg-card px-5 py-3 sm:-mx-6 sm:px-6 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0">
-              {me === null ? (
-                <SignInPrompt back="?resume=1" forWhat={fixing ? `send your fix to ${fixing.name}` : 'send your Draft'}>Sign in to submit</SignInPrompt>
-              ) : (
-                <button disabled={busy || me === undefined || unchanged} className="btn-primary rounded-full px-5 py-2.5 font-bold disabled:opacity-60">
-                  {busy ? 'Submitting…' : fixing ? 'Submit fix' : 'Submit Draft'}
-                </button>
-              )}
-              {/* Far from Submit, and undoable from the Workshop. */}
-              <button type="button" onClick={onDiscard} className="ml-auto rounded-full px-3 py-2 text-sm font-bold text-muted hover:text-berry">Discard</button>
-            </div>
-            )}
-            {!people && note && <p role="status" className="text-sm text-berry">{note}</p>}
-          </form>
           </div>
+        </div>
+      ) : null}
+      {!people && show('description') && (
+        <label id={fid('description')} className={'grid gap-1' + hl('description')}>
+          <span className="text-sm font-bold">{DESCRIPTION_LABEL[block.type]}</span>
+          <textarea value={content.description ?? ''} onChange={(e) => set({ description: e.target.value })} rows={3} className={input} />
+        </label>
+      )}
+      {!people && block.filters?.filter((k) => show(`cat:${k}`)).map((k) => (
+        <label key={k} className="grid gap-1">
+          <span className="text-sm font-bold">{k}</span>
+          <input value={content.categories[k] ?? ''} onChange={(e) => set({ categories: { ...content.categories, [k]: e.target.value } })}
+            list={`values-${k}`} placeholder={values(k).slice(0, 3).join(', ')} className={input} />
+          <datalist id={`values-${k}`}>{values(k).map((v) => <option key={v} value={v} />)}</datalist>
+        </label>
+      ))}
 
-          {/* The preview. For characters it's exactly the app: the Page's tint behind the card, on a
-              sheet over the Workbench that's dragged to resize on a phone. */}
-          <div data-sheet className={people ? 'relative z-10 flex shrink-0 flex-col rounded-t-[1.5rem] shadow-[0_-1px_0_var(--line),0_-14px_28px_-8px_rgba(21,23,28,0.38)] md:sticky md:top-0 md:grid md:h-auto md:content-start md:self-start md:rounded-[1.5rem] md:p-3 md:shadow-none' : 'grid content-start gap-3'}
-            style={people ? { ...(wide ? {} : { height: `${sheet}%` }), background: `var(--${page.tint}-soft)` } : undefined}>
-            {people && (
-              <SheetHandle pct={sheet} onChange={setSheet}>
-                <p className="text-xs font-bold uppercase tracking-wide text-muted md:hidden">Players see</p>
-              </SheetHandle>
-            )}
-            <div className={people ? 'min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 md:overflow-visible md:p-0' : 'contents'}>
-            {!people && changeBox}
-            {!people && <p className="text-xs font-bold uppercase tracking-wide text-muted">Live preview: how it will look in the app</p>}
-            <div className={people ? 'rounded-2xl bg-card p-3 ring-1 ring-line md:p-4' : 'rounded-2xl p-4 ring-1 ring-line'}>
-              {!cleaned.name
-                ? <p className="text-sm text-muted">Start with a name, and the entry appears here.</p>
-                : people
-                  ? <CharacterCard entry={cleaned} block={block} route="all" routes={routes} color={`var(--${page.tint})`} size={wide ? 120 : 76} />
-                  : <EntryDetails entry={cleaned} block={block} route="all" routes={routes} />}
+      {people && (
+        <CharacterInputs key={`${block.id}.${fixing?.id ?? 'new'}`} block={block} content={content} set={set} setField={setField} setStat={setStat}
+          show={show} hl={hl} fid={fid} others={block.entries.filter((e) => e.id !== fixing?.id).map((e) => e.name)} />
+      )}
+
+      {byRoute && show('routes') && (
+        <fieldset id={fid('routes')} className={'grid gap-2 rounded-2xl bg-card-2 p-3 ring-1 ' + (fid('routes') ? 'ring-2 ring-sun' : 'ring-line')}>
+          <legend className="px-1 text-sm font-bold">Routes</legend>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-sm text-muted">Shows on these routes. Tap one to take it off:</span>
+            {routes.map((r) => {
+              const on = !content.routes?.length || content.routes.includes(r.key);
+              return (
+                <button key={r.key} type="button" onClick={() => toggleRoute(r.key)} aria-pressed={on}
+                  className={'rounded-full px-3 py-1 text-sm font-bold ring-1 ' + (on ? 'bg-berry text-white ring-berry' : 'bg-card ring-line')}>{r.label}</button>
+              );
+            })}
+          </div>
+          {/* What differs (like "Recruit") is shared by every entry, so it stays locked unless renamed on purpose. */}
+          {currentRouteLabel && !renamingRoutes ? (
+            <p className="flex flex-wrap items-center gap-2 text-sm">
+              <span>Differs by route: <span className="font-bold">{currentRouteLabel}</span></span>
+              <button type="button" onClick={() => setRenamingRoutes(true)} className="text-xs font-bold text-muted underline hover:text-ink">Rename</button>
+            </p>
+          ) : (
+            <label className="grid gap-1 text-sm">
+              <span className="font-bold">Something that differs by route <span className="font-normal text-muted">(optional)</span></span>
+              <input value={currentRouteLabel ?? ''} onChange={(e) => setPerRouteLabel(e.target.value)}
+                placeholder="What it is, e.g. Recruit" className={input} />
+            </label>
+          )}
+          {routes.map((r) => (
+            <label key={r.key} className="flex items-center gap-2 text-sm">
+              <span className="w-20 shrink-0 font-bold">{r.label}</span>
+              <input value={perRouteText(r.key)} onChange={(e) => setPerRoute(r.key, e.target.value)} className={input} />
+            </label>
+          ))}
+        </fieldset>
+      )}
+
+      <div className="grid gap-2">
+        {content.sections.map((s, i) => (fieldKeys.has(s.label) || (!showAll && i !== focusSection) ? null : (
+          <div key={i} id={!showAll && i === focusSection ? 'fix-focus' : undefined}
+            className={'grid gap-1.5 rounded-2xl bg-card-2 p-2.5 ring-1 ' + (!showAll && i === focusSection ? 'ring-2 ring-sun' : 'ring-line')}>
+            <div className="flex gap-2">
+              <input value={s.label} onChange={(e) => setSection(i, { label: e.target.value })} list="section-labels" placeholder="Label, e.g. Tips"
+                aria-label="Section label" className="min-w-0 flex-1 rounded-xl bg-card px-3 py-1.5 text-sm font-bold ring-1 ring-line outline-none focus:ring-2 focus:ring-sky" />
+              <button type="button" onClick={() => set({ sections: content.sections.filter((_, j) => j !== i) })} aria-label={`Remove ${s.label || 'section'}`}
+                className="grid size-8 place-items-center rounded-full text-muted hover:bg-card hover:text-berry"><Trash2 size={15} aria-hidden="true" /></button>
             </div>
-            </div>
+            <textarea value={s.text} onChange={(e) => setSection(i, { text: e.target.value })} rows={2} placeholder="One point per line becomes a list"
+              aria-label={`${s.label || 'Section'} text`} className="rounded-xl bg-card px-3 py-1.5 ring-1 ring-line outline-none focus:ring-2 focus:ring-sky" />
+          </div>
+        )))}
+        <datalist id="section-labels">{labels.map((l) => <option key={l} value={l} />)}</datalist>
+        {showAll ? (people ? null :
+          <button type="button" onClick={() => set({ sections: [...content.sections, { label: labels.find((l) => !content.sections.some((s) => s.label === l)) ?? '', text: '' }] })}
+            className="inline-flex items-center gap-1.5 justify-self-start rounded-full px-3 py-1.5 text-sm font-bold text-leaf ring-1 ring-line hover:ring-leaf">
+            <Plus size={15} aria-hidden="true" /> Add a section
+          </button>
+        ) : (
+          <button type="button" onClick={() => setShowAll(true)}
+            className="inline-flex items-center gap-1.5 justify-self-start rounded-full px-3 py-1.5 text-sm font-bold text-muted ring-1 ring-line hover:text-ink hover:ring-ink">
+            Edit other parts
+          </button>
+        )}
+      </div>
+
+      <label className="grid gap-1">
+        <span className="text-sm font-bold">Where can others check this?</span>
+        <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="I saw it myself in chapter 6, or a link" className={input} />
+      </label>
+      <div className={(showAll ? 'flex' : 'hidden') + ' flex-wrap gap-x-5 gap-y-2 text-sm'}>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={Boolean(content.spoiler)} onChange={(e) => set({ spoiler: e.target.checked })} className="size-4 accent-[var(--color-leaf)]" />
+          <span><span className="font-bold">Spoiler.</span> Hidden until a player asks.</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="checkbox" checked={content.flag === 'unconfirmed'} onChange={(e) => set({ flag: e.target.checked ? 'unconfirmed' : undefined })} className="size-4 accent-[var(--color-leaf)]" />
+          <span><span className="font-bold">A theory.</span> Not confirmed yet.</span>
+        </label>
+      </div>
+
+      {/* On phones this bar stays at the bottom of the form, so Submit is always in reach. */}
+      {people && changeBox}
+
+      {people ? (
+        // Closing keeps what's written for next time; this throws it away (undoable from the Workshop).
+        <button type="button" onClick={onDiscard} className="justify-self-start rounded-full px-1 py-1 text-sm font-bold text-muted hover:text-berry">Discard this draft</button>
+      ) : (
+      <div id="entry-actions" className="sticky bottom-0 z-10 -mx-5 mt-2 flex flex-wrap items-center gap-3 border-t border-line bg-card px-5 py-3 sm:-mx-6 sm:px-6 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0">
+        {me === null ? (
+          <SignInPrompt back="?resume=1" forWhat={fixing ? `send your fix to ${fixing.name}` : 'send your Draft'}>Sign in to submit</SignInPrompt>
+        ) : (
+          <button disabled={busy || me === undefined || unchanged} className="btn-primary rounded-full px-5 py-2.5 font-bold disabled:opacity-60">
+            {busy ? 'Submitting…' : fixing ? 'Submit fix' : 'Submit Draft'}
+          </button>
+        )}
+        {/* Far from Submit, and undoable from the Workshop. */}
+        <button type="button" onClick={onDiscard} className="ml-auto rounded-full px-3 py-2 text-sm font-bold text-muted hover:text-berry">Discard</button>
+      </div>
+      )}
+      {!people && note && <p role="status" className="text-sm text-berry">{note}</p>}
+    </form>
+  );
+
+  const previewCard = (
+    <div className={people ? 'rounded-2xl bg-card p-3 ring-1 ring-line md:p-4' : 'rounded-2xl p-4 ring-1 ring-line'}>
+      {!cleaned.name
+        ? <p className="text-sm text-muted">Start with a name, and the entry appears here.</p>
+        : people
+          ? <CharacterCard entry={cleaned} block={block} route="all" routes={routes} color={`var(--${page.tint})`} size={wide ? 120 : 76} />
+          : <EntryDetails entry={cleaned} block={block} route="all" routes={routes} />}
+    </div>
+  );
+
+  // Anything written that closing would leave behind. It's kept on this device either way,
+  // which is what "Save draft" relies on; Discard throws it away.
+  const dirty = fixing ? Boolean(source.trim()) || !unchanged : hasWriting(content, source);
+  const title = fixing ? `Fix: ${fixing.name}` : `New in ${block.title}`;
+
+  // Characters use the Workshop's shared editor (EditorShell): Submit pinned beside the X,
+  // the form on the Workbench, the preview exactly as players see it.
+  if (people) {
+    return (
+      <EditorShell
+        label={fixing ? `Fix ${fixing.name}` : 'New entry'}
+        title={title}
+        actions={me === null ? (
+          <SignInPrompt back="?resume=1" forWhat={fixing ? `send your fix to ${fixing.name}` : 'send your Draft'}>Sign in</SignInPrompt>
+        ) : (
+          <button type="submit" form="entry-form" disabled={busy || me === undefined || unchanged} className="btn-primary rounded-full px-4 py-2 text-sm font-bold disabled:opacity-60">
+            {busy ? 'Submitting…' : fixing ? 'Submit fix' : 'Submit'}
+          </button>
+        )}
+        note={note && <p role="status" className="text-berry">{note}</p>}
+        onClose={onClose}
+        dirty={dirty}
+        onSaveDraft={onClose}
+        onDiscard={onDiscard}
+        draftHint="Save draft keeps what you've written on this device, ready the next time you open this. Discard throws it away (you can still undo that from the Workshop)."
+        tint={page.tint}
+        editor={<>{intro}{formEl}</>}
+        preview={previewCard}
+      />
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-0 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
+      <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-label={fixing ? `Fix ${fixing.name}` : 'New entry'} onClick={(e) => e.stopPropagation()}
+        className="rise max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-t-[2rem] bg-card p-5 shadow-soft outline-none sm:rounded-[2rem] sm:p-6">
+        <div className="flex items-center gap-3">
+          <h2 className="font-display text-2xl">{title}</h2>
+          <button onClick={onClose} className="ml-auto grid size-9 place-items-center rounded-full bg-card-2 ring-1 ring-line" aria-label="Close"><X size={18} aria-hidden="true" /></button>
+        </div>
+        {intro}
+        <div className="mt-5 grid gap-6 md:grid-cols-2">
+          {formEl}
+          <div className="grid content-start gap-3">
+            {changeBox}
+            <p className="text-xs font-bold uppercase tracking-wide text-muted">Live preview: how it will look in the app</p>
+            {previewCard}
           </div>
         </div>
       </div>

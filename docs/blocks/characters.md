@@ -36,7 +36,8 @@ Laid out by the Block's fields (Matt's layout, 2026-10-29):
 - **Charts** (Stats, Growths...): a web chart on the right, its foot level with the name and
   reaching up beside the portrait (the first chart with one; the name never moves for it), and a row of number boxes, "STR" over each, colored from gray to the Page's
   color against every other character. Tapping a box opens the full heatmap of everyone,
-  sorted by that stat, with this character picked out. Builders can switch the web or the
+  sorted by that stat, with this character picked out. A tick box by each name keeps that
+  character at the top (the one it was opened from starts ticked), to compare a few. Builders can switch the web or the
   boxes off for each chart.
 - **Description** as the main body, then the other fields in the builders' order.
 - Empty fields don't show. Spoiler fields stay hidden until tapped. Route-specific values
@@ -95,7 +96,11 @@ character's name is offered from the Block), yes or no is a Yes / No / Not sure 
 stats are a compact grid, and tags and short values offer what other characters already
 use as one-tap chips. On a phone it's the same split as the setup: the form on top, the
 live preview underneath. On desktop the preview stays in view.
-Code: `src/app/g/[game]/workshop/CharacterInputs.tsx` and the shared `split.tsx`.
+Code: `src/app/g/[game]/workshop/CharacterInputs.tsx`, and the shared `EditorShell.tsx` and
+`split.tsx`. Set up and the character form share one frame: the title with its main action
+(Submit, Save setup) and the X pinned at the top, the editor on the Workbench, the preview
+beside it or in the sheet. Closing with unsaved changes asks: Save draft (kept on this
+device for next time) or Discard.
 
 ## Decisions
 
@@ -135,6 +140,10 @@ Code: `src/app/g/[game]/workshop/CharacterInputs.tsx` and the shared `split.tsx`
   handle on phones. "What changes" moved to the editor, above Submit. Why: the preview was
   hard to tell from the editor, and the preview should stay true to the app, so the editor
   carries the difference. The Workbench is meant for the whole Workshop.
+- 2026-10-31: Set up and the character form now share one editor frame (EditorShell): the
+  header stays pinned on desktop too, Save setup sits beside the X like Submit, and closing
+  with unsaved changes offers Save draft or Discard. A setup's draft is kept on the device and
+  picked up next time. The heatmap gained tick boxes to keep chosen characters at the top.
 - 2026-10-31: in the character form, Submit sits at the top beside the X and the bar at the
   bottom of the form is gone; "Discard this draft" is a small link at the end of the form
   (the X closes and keeps what's written for next time). The preview sheet casts a clearer
