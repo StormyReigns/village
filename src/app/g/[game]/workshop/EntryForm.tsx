@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Search, Trash2, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Plus, Search, Trash2 } from 'lucide-react';
 import type { Block, Entry, EntryContent, Page, Route, Section } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
 import { SignInPrompt } from '@/components/SignInPrompt';
@@ -131,15 +131,6 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
   const wide = useWide();
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
-  const dialog = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    dialog.current?.focus();
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
   if (!block) return null;
   const page = block.page;
   const set = (patch: Partial<EntryContent>) => { setContent((c) => ({ ...c, ...patch })); setNote(''); };
@@ -400,36 +391,20 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
         </label>
       </div>
 
-      {/* On phones this bar stays at the bottom of the form, so Submit is always in reach. */}
-      {people && changeBox}
+      {changeBox}
 
-      {people ? (
-        // Closing keeps what's written for next time; this throws it away (undoable from the Workshop).
-        <button type="button" onClick={onDiscard} className="justify-self-start rounded-full px-1 py-1 text-sm font-bold text-muted hover:text-berry">Discard this draft</button>
-      ) : (
-      <div id="entry-actions" className="sticky bottom-0 z-10 -mx-5 mt-2 flex flex-wrap items-center gap-3 border-t border-line bg-card px-5 py-3 sm:-mx-6 sm:px-6 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0">
-        {me === null ? (
-          <SignInPrompt back="?resume=1" forWhat={fixing ? `send your fix to ${fixing.name}` : 'send your Draft'}>Sign in to submit</SignInPrompt>
-        ) : (
-          <button disabled={busy || me === undefined || unchanged} className="btn-primary rounded-full px-5 py-2.5 font-bold disabled:opacity-60">
-            {busy ? 'Submitting…' : fixing ? 'Submit fix' : 'Submit Draft'}
-          </button>
-        )}
-        {/* Far from Submit, and undoable from the Workshop. */}
-        <button type="button" onClick={onDiscard} className="ml-auto rounded-full px-3 py-2 text-sm font-bold text-muted hover:text-berry">Discard</button>
-      </div>
-      )}
-      {!people && note && <p role="status" className="text-sm text-berry">{note}</p>}
+      {/* Closing keeps what's written for next time; this throws it away (undoable from the Workshop). */}
+      <button type="button" onClick={onDiscard} className="justify-self-start rounded-full px-1 py-1 text-sm font-bold text-muted hover:text-berry">Discard this draft</button>
     </form>
   );
 
   const previewCard = (
-    <div className={people ? 'rounded-2xl bg-card p-3 ring-1 ring-line md:p-4' : 'rounded-2xl p-4 ring-1 ring-line'}>
+    <div className="rounded-2xl bg-card p-3 ring-1 ring-line md:p-4">
       {!cleaned.name
         ? <p className="text-sm text-muted">Start with a name, and the entry appears here.</p>
         : people
           ? <CharacterCard entry={cleaned} block={block} route="all" routes={routes} color={`var(--${page.tint})`} size={wide ? 120 : 76} />
-          : <EntryDetails entry={cleaned} block={block} route="all" routes={routes} />}
+          : <EntryDetails entry={cleaned} block={block} route="all" routes={routes} color={`var(--${page.tint})`} />}
     </div>
   );
 
@@ -438,53 +413,31 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
   const dirty = fixing ? Boolean(source.trim()) || !unchanged : hasWriting(content, source);
   const title = fixing ? `Fix: ${fixing.name}` : `New in ${block.title}`;
 
-  // Characters use the Workshop's shared editor (EditorShell): Submit pinned beside the X,
+  // Every entry uses the Workshop's shared editor (EditorShell): Submit pinned beside the X,
   // the form on the Workbench, the preview exactly as players see it.
-  if (people) {
-    return (
-      <EditorShell
-        label={fixing ? `Fix ${fixing.name}` : 'New entry'}
-        title={title}
-        actions={me === null ? (
-          <SignInPrompt back="?resume=1" forWhat={fixing ? `send your fix to ${fixing.name}` : 'send your Draft'}>Sign in</SignInPrompt>
-        ) : (
-          <button type="submit" form="entry-form" disabled={busy || me === undefined || unchanged} className="btn-primary rounded-full px-4 py-2 text-sm font-bold disabled:opacity-60">
-            {busy ? 'Submitting…' : fixing ? 'Submit fix' : 'Submit'}
-          </button>
-        )}
-        note={note && <p role="status" className="text-berry">{note}</p>}
-        onClose={onClose}
-        dirty={dirty}
-        onSaveDraft={onClose}
-        onDiscard={onDiscard}
-        draftHint="Save draft keeps what you've written on this device, ready the next time you open this. Discard throws it away (you can still undo that from the Workshop)."
-        tint={page.tint}
-        editor={<>{intro}{formEl}</>}
-        preview={previewCard}
-      />
-    );
-  }
-
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-0 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
-      <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-label={fixing ? `Fix ${fixing.name}` : 'New entry'} onClick={(e) => e.stopPropagation()}
-        className="rise max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-t-[2rem] bg-card p-5 shadow-soft outline-none sm:rounded-[2rem] sm:p-6">
-        <div className="flex items-center gap-3">
-          <h2 className="font-display text-2xl">{title}</h2>
-          <button onClick={onClose} className="ml-auto grid size-9 place-items-center rounded-full bg-card-2 ring-1 ring-line" aria-label="Close"><X size={18} aria-hidden="true" /></button>
-        </div>
-        {intro}
-        <div className="mt-5 grid gap-6 md:grid-cols-2">
-          {formEl}
-          <div className="grid content-start gap-3">
-            {changeBox}
-            <p className="text-xs font-bold uppercase tracking-wide text-muted">Live preview: how it will look in the app</p>
-            {previewCard}
-          </div>
-        </div>
-      </div>
-    </div>
+    <EditorShell
+      label={fixing ? `Fix ${fixing.name}` : 'New entry'}
+      title={title}
+      actions={me === null ? (
+        <SignInPrompt back="?resume=1" forWhat={fixing ? `send your fix to ${fixing.name}` : 'send your Draft'}>Sign in</SignInPrompt>
+      ) : (
+        <button type="submit" form="entry-form" disabled={busy || me === undefined || unchanged} className="btn-primary rounded-full px-4 py-2 text-sm font-bold disabled:opacity-60">
+          {busy ? 'Submitting…' : fixing ? 'Submit fix' : 'Submit'}
+        </button>
+      )}
+      note={note && <p role="status" className="text-berry">{note}</p>}
+      onClose={onClose}
+      dirty={dirty}
+      onSaveDraft={onClose}
+      onDiscard={onDiscard}
+      draftHint="Save draft keeps what you've written on this device, ready the next time you open this. Discard throws it away (you can still undo that from the Workshop)."
+      tint={page.tint}
+      editor={<>{intro}{formEl}</>}
+      preview={previewCard}
+    />
   );
+
 }
 
 /** Old and new, side by side, for each field that changes. */

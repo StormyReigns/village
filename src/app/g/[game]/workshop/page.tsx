@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: PageProps<'/g/[game]/workshop
 // The URL is read inside <Suspense> so navigation can show the shell instantly.
 export default function WorkshopPage({ params }: PageProps<'/g/[game]/workshop'>) {
   return (
-    <Suspense fallback={<><TopBar /><main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-5 sm:px-6"><div className="h-12 w-64 animate-pulse rounded-full bg-card" /></main></>}>
+    <Suspense fallback={<><TopBar /><main className="mx-auto w-full max-w-screen-2xl flex-1 px-4 pt-5 sm:px-6"><div className="h-12 w-64 animate-pulse rounded-full bg-card" /></main></>}>
       <LoadedWorkshop params={params} />
     </Suspense>
   );
@@ -37,9 +37,10 @@ async function LoadedWorkshop({ params }: { params: PageProps<'/g/[game]/worksho
   const pages = await getApp(game.id);
   const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
   return (
-    // Everything in the Workshop takes the game's genre shade.
-    <GameShade className="flex flex-1 flex-col">
-      <TopBar compact actions={
+    // Everything in the Workshop takes the game's genre shade. On wide screens it fills the
+    // screen exactly, and its columns scroll on their own.
+    <GameShade className="flex flex-1 flex-col lg:h-dvh lg:flex-none lg:overflow-hidden">
+      <TopBar compact wide actions={
         <>
           <Link href={`/g/${game.id}`} aria-label="Open the app"
             className="inline-flex items-center gap-2 rounded-full p-2.5 text-sm font-bold ring-1 ring-white/30 hover:ring-white sm:px-4 sm:py-2">

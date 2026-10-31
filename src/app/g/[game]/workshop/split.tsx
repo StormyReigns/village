@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 // On a phone, builder screens split in two: what you're filling in on top (on the Workbench,
 // see globals.css), and the preview underneath on a sheet that looks exactly like the app.
-// Drag the sheet's handle to give either side more room. From md up they sit side by side.
+// Drag the sheet's handle to give either side more room. In a wide enough box they sit side by side.
 
 /** The sheet's height on a phone, in percent of the screen: the default, and its limits. */
 export const SHEET = { start: 46, min: 9, max: 85 } as const;
@@ -39,6 +39,36 @@ export function useWide() {
     return () => md.removeEventListener('change', update);
   }, []);
   return wide;
+}
+
+/**
+ * Whether a box (an editor) is wide enough for its form and preview to sit side by side. It
+ * goes by the box, not the screen: beside the Workshop chat an editor can be narrow on a
+ * wide screen.
+ */
+export function useWideBox(ref: React.RefObject<HTMLElement | null>, min = 768) {
+  const [wide, setWide] = useState(true);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const look = new ResizeObserver(([e]) => setWide(e.contentRect.width >= min));
+    look.observe(el);
+    return () => look.disconnect();
+  }, [ref, min]);
+  return wide;
+}
+
+/** Whether the screen is wide enough (lg) for the Workshop chat to sit beside an editor. */
+export function useBeside() {
+  const [beside, setBeside] = useState(false);
+  useEffect(() => {
+    const lg = window.matchMedia('(min-width: 1024px)');
+    const update = () => setBeside(lg.matches);
+    update();
+    lg.addEventListener('change', update);
+    return () => lg.removeEventListener('change', update);
+  }, []);
+  return beside;
 }
 
 /**
@@ -78,14 +108,14 @@ export function SheetHandle({ pct, onChange, children }: { pct: number; onChange
   };
   return (
     <div onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { drag.current = null; }}
-      className="flex shrink-0 touch-none select-none flex-col gap-1.5 px-4 pb-2 pt-1.5 md:contents">
+      className="flex shrink-0 touch-none select-none flex-col gap-1.5 px-4 pb-2 pt-1.5 @3xl:contents">
       <button type="button" data-handle role="separator" aria-orientation="horizontal" aria-label="Preview size: drag, or use the arrow keys"
         aria-valuenow={Math.round(pct)} aria-valuemin={SHEET.min} aria-valuemax={SHEET.max}
         onKeyDown={(e) => {
           if (e.key === 'ArrowUp') { e.preventDefault(); onChange(clamp(pct + 8)); }
           if (e.key === 'ArrowDown') { e.preventDefault(); onChange(clamp(pct - 8)); }
         }}
-        className="mx-auto h-4 w-16 cursor-row-resize rounded-full md:hidden">
+        className="mx-auto h-4 w-16 cursor-row-resize rounded-full @3xl:hidden">
         <span className="mx-auto block h-1.5 w-10 rounded-full bg-ink/25" />
       </button>
       {children}

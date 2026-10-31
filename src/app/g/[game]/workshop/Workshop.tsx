@@ -3,8 +3,8 @@
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, ChevronUp, EyeOff, Flag, MessageCircle, MoreHorizontal, Plus, RotateCcw, Search, Send,
-  ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, X,
+  ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, ChevronDown, EyeOff, Flag, MessageCircle, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus,
+  RotateCcw, Search, Send, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import type { Block, Page } from '@/data/pages';
 import { BlockIcon, NavSymbol } from '@/components/Icon';
@@ -27,6 +27,7 @@ import {
 } from './useWorkshop';
 import { EntryForm, ChangeList, type FormStart, type Posted } from './EntryForm';
 import { FieldSetup } from './FieldSetup';
+import { EditorChat } from './EditorShell';
 import { sharePath } from '@/data/pages/links';
 import { changesBetween } from './changes';
 import { clearUnsent, readUnsent, saveUnsent, type Unsent } from './unsent';
@@ -77,14 +78,17 @@ export function Workshop({ game, pages, routes }: {
   const [form, setForm] = useState<FormStart | null>(linked);
   // A Characters Block whose fields are being set up.
   const [setup, setSetup] = useState<string | null>(null);
-  const [allDrafts, setAllDrafts] = useState(false);
+  // The work column shows Drafts or what's in the app. Until you pick, it opens on Drafts
+  // when something waits on you.
+  const [tab, setTab] = useState<'drafts' | 'app' | null>(linked ? 'app' : null);
   // ?draft=… (from the app's "A fix is waiting" note) opens that Draft.
   const [detail, setDetail] = useState<string | null>(params.get('draft'));
   const [posted, setPosted] = useState<Posted | null>(null);
   const [discarded, setDiscarded] = useState<Unsent | null>(null);
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
-  const [itemsHidden, setItemsHidden] = useStored('village:workshop:hide-open-items', false);
+  // Wide screens: the chat can fold to a thin strip, to give an editor more room.
+  const [chatFolded, setChatFolded] = useStored('village:workshop:chat-folded', false);
   const [introDone, setIntroDone] = useStored('village:workshop:intro-seen', false);
   const [phoneTab, setPhoneTab] = useState<'work' | 'chat'>('work');
   const introRef = useRef<HTMLDivElement>(null);
@@ -118,7 +122,6 @@ export function Workshop({ game, pages, routes }: {
     setRestore(u);
     setForm({ blockId: u.blockId, entryId: u.entryId });
     setChip(blocks.find((b) => b.id === u.blockId)!.page.id);
-    setAllDrafts(false);
   };
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reading device storage after hydration
@@ -134,7 +137,7 @@ export function Workshop({ game, pages, routes }: {
   if (linkKey !== followed) {
     setFollowed(linkKey);
     if (startPage && pages.some((p) => p.id === startPage)) setChip(startPage);
-    if (linked) { setForm(linked); setAllDrafts(false); }
+    if (linked) { setForm(linked); setTab('app'); }
     if (params.get('resume')) resumeUnsent();
     if (params.get('draft')) setDetail(params.get('draft'));
   }
@@ -181,7 +184,8 @@ export function Workshop({ game, pages, routes }: {
     return sortStandouts(list.filter(isOpen));
   }, [drafts, chip, sort, pageOf]);
 
-  // Open items: what's waiting on people, most urgent first.
+  // Every Draft here, most urgent for you first: ready to publish (moderators), your own,
+  // then ones needing your vote.
   const items = useMemo(() => {
     const mine = (d: LiveDraft) => Boolean(me && !me.practice && d.author.id === me.id);
     const open = drafts.filter((d) => isOpen(d) && onPage(d));
@@ -216,21 +220,37 @@ export function Workshop({ game, pages, routes }: {
     },
     {
       key: 'fix', title: 'Fix or add something you know',
-      hint: 'Tap Fix next to anything below, or start something new.',
-      done: Boolean(myId && drafts.some((d) => d.author.id === myId)), go: startNew,
+      hint: 'Pick anything in the app to fix, or start something new.',
+      done: Boolean(myId && drafts.some((d) => d.author.id === myId)), go: () => setTab('app'),
     },
     {
       key: 'chat', title: 'Say hi, or ask the village',
       hint: "Stuck on something, or found something? Chat's the place.",
       done: Boolean(myId && live.messages.some((m) => m.author.id === myId)),
-      go: () => { setPhoneTab('chat'); setTimeout(() => document.getElementById('chat-input')?.focus(), 60); },
+      go: () => { setPhoneTab('chat'); setChatFolded(false); setTimeout(() => document.getElementById('chat-input')?.focus(), 60); },
     },
   ];
   const basicsDone = steps.every((x) => x.done);
   const shown = detail ? drafts.find((d) => d.id === detail) : undefined;
 
+  // What waits on you: ready to publish, your own open Drafts, and ones needing your vote.
+  const waiting = items.filter((x) => x.kind === 'ready' || x.kind === 'vote' || (x.kind === 'yours' && isOpen(x.d)));
+  const waitingIds = new Set(waiting.map((x) => x.d.id));
+  const matches = (d: LiveDraft) => !query || d.title.toLowerCase().includes(query.toLowerCase());
+  const rest = visible.filter((d) => !waitingIds.has(d.id) && matches(d));
+  const view = tab ?? (live.state === 'loading' || waiting.length > 0 ? 'drafts' : 'app');
+  const tint = current ? `var(--${current.tint}-soft)` : 'var(--card)';
+
+  // An editor opens in the work column, so on wide screens the chat stays beside it.
+  const editBlock = form ? blocks.find((b) => b.id === form.blockId) : undefined;
+  const setupBlock = setup ? blocks.find((b) => b.id === setup) : undefined;
+  const editing = form && blocks.length > 0 ? 'form' : setupBlock ? 'setup' : null;
+  const editLabel = editing === 'form'
+    ? (form?.entryId ? `Fix: ${editBlock?.entries.find((e) => e.id === form.entryId)?.name ?? 'an entry'}` : `New in ${editBlock?.title ?? 'the app'}`)
+    : setupBlock ? `Set up ${setupBlock.title}` : '';
+
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-6 pt-5 sm:px-6">
+    <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col px-4 pb-6 pt-5 sm:px-6 lg:min-h-0 lg:pb-4 lg:pt-4">
       {/* The Workshop's name and guides. The ink bar above (page.tsx) has the way out and your account. */}
       <header className="flex flex-wrap items-center gap-3">
         <div>
@@ -245,7 +265,7 @@ export function Workshop({ game, pages, routes }: {
       </header>
 
       {/* The Pages: a symbol each, the chosen one in a piece */}
-      <ScrollRow as="nav" label="Pages" className="-mx-4 mt-3 flex gap-2 px-4 pb-2 pt-1">
+      <ScrollRow as="nav" label="Pages" className="-mx-4 mt-3 flex shrink-0 gap-2 px-4 pb-2 pt-1">
         <BlockChip on={chip === 'all'} tint="ink" icon="LayoutGrid" label="Everything" count={drafts.filter(isOpen).length} onClick={() => setChip('all')} />
         {pages.map((p) => (
           <BlockChip key={p.id} on={chip === p.id} tint={p.tint} icon={p.icon} label={p.title} count={counts[p.id]} onClick={() => setChip(p.id)} />
@@ -258,234 +278,252 @@ export function Workshop({ game, pages, routes }: {
       )}
 
       <div role="tablist" aria-label="Show" className="mt-2 flex rounded-full bg-card p-1 ring-1 ring-line lg:hidden">
-        {([['work', 'Build'], ['chat', `Chat · ${chat.length}`]] as const).map(([k, label]) => (
+        {([['work', editing ? 'Editing' : 'Build'], ['chat', `Chat · ${chat.length}`]] as const).map(([k, label]) => (
           <button key={k} role="tab" aria-selected={phoneTab === k} onClick={() => setPhoneTab(k)}
             className={'flex-1 rounded-full px-3 py-2 text-sm font-bold ' + (phoneTab === k ? 'bg-ink text-paper' : 'text-muted')}>{label}</button>
         ))}
       </div>
 
-      <div className="mt-3 grid flex-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <div className={(phoneTab === 'chat' ? 'flex' : 'hidden') + ' min-w-0 flex-col lg:flex'}>
-        <Chat
-          topic={current ? { key: current.id, label: current.title } : null}
-          notice={chip === 'notice'}
-          onAll={() => setChip('all')}
-          messages={chat}
-          me={me}
-          live={live}
-        />
+      {/* Two columns that fill the screen on wide ones, each scrolling on its own: the chat, and
+          the work (Drafts, what's in the app, or an open editor). On phones, one at a time. */}
+      <div className="mt-3 flex flex-1 flex-col gap-4 lg:min-h-0 lg:flex-row">
+        {chatFolded && (
+          <div className="hidden shrink-0 lg:flex">
+          <Tip text="Open the chat" tint="sky">
+            <button onClick={() => setChatFolded(false)} aria-label={`Open the chat, ${chat.length} messages`}
+              className="flex h-full w-12 flex-col items-center gap-3 rounded-2xl bg-card py-3 ring-1 ring-line hover:ring-ink">
+              <PanelLeftOpen size={18} aria-hidden="true" />
+              <MessageCircle size={18} className="text-sky" aria-hidden="true" />
+              <span className="text-xs font-bold">{chat.length}</span>
+            </button>
+          </Tip>
+          </div>
+        )}
+        <div className={(phoneTab === 'chat' ? 'flex' : 'hidden') + ' min-w-0 flex-col gap-2 lg:min-h-0 lg:w-80 lg:shrink-0 2xl:w-96 ' + (chatFolded ? 'lg:hidden' : 'lg:flex')}>
+          {editing && (
+            <button onClick={() => setPhoneTab('work')}
+              className="flex items-center gap-2 rounded-2xl bg-signal px-4 py-2.5 text-left text-sm font-bold text-ink lg:hidden">
+              <ArrowLeft size={16} aria-hidden="true" /> <span className="min-w-0 flex-1 truncate">Back to {editLabel}</span>
+            </button>
+          )}
+          <Chat
+            topic={current ? { key: current.id, label: current.title } : null}
+            notice={chip === 'notice'}
+            onAll={() => setChip('all')}
+            onFold={() => setChatFolded(true)}
+            messages={chat}
+            me={me}
+            live={live}
+          />
         </div>
 
-        {/* Ongoing work: open items, then the Page's Blocks. With a Page chosen, this column is
-            that Page's color field, and its Drafts and Blocks sit on it as white panels. */}
-        <section aria-label="Work" style={current ? { background: `var(--${current.tint}-soft)` } : undefined}
-          className={(phoneTab === 'work' ? 'flex' : 'hidden') + ' min-h-[28rem] min-w-0 flex-col rounded-2xl p-4 lg:flex ' + (current ? '' : 'bg-card ring-1 ring-line')}>
-          {chip === 'notice' ? (
-            <>
-              <h2 className="font-display text-xl">Notice Board</h2>
-              {live.mod ? <ReportQueue live={live} blocks={blocks} /> : (
-                <Empty title="No reports waiting" body="When players tap “not quite” in the app without signing in, their report waits here until a villager confirms it." />
+        <div className={(phoneTab === 'work' ? 'flex' : 'hidden') + ' min-w-0 flex-1 flex-col lg:flex lg:min-h-0'}>
+          {editing ? (
+            <EditorChat.Provider value={{ count: chat.length, open: () => setPhoneTab('chat') }}>
+              {editing === 'form' ? (
+                <EntryForm gameId={game.id} pages={pages} routes={routes} start={form!} restore={restore} me={me} postDraft={live.postDraft}
+                  onClose={closeForm}
+                  onPosted={(p) => {
+                    closeForm();
+                    setChip(p.pageId);
+                    setPosted(p);
+                  }}
+                  onDiscard={() => {
+                    // Keep a copy for Undo; it's gone for good once the note is closed.
+                    const copy = readUnsent(game.id);
+                    clearUnsent(game.id);
+                    closeForm();
+                    if (copy) setDiscarded(copy);
+                  }} />
+              ) : (
+                <FieldSetup gameId={game.id} block={setupBlock!} routes={routes} canSave={live.mod} onClose={() => setSetup(null)} />
               )}
-            </>
+            </EditorChat.Provider>
           ) : (
-            <>
-              <div className="flex items-center gap-2">
-                {searching ? (
-                  <label className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-card-2 px-3 py-1.5 text-sm ring-2 ring-sky">
-                    <Search size={15} className="text-muted" aria-hidden="true" />
-                    <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); setSearching(false); } }}
-                      placeholder={current ? `Find something in ${current.title}` : 'Find anything in the app'} aria-label="Search"
-                      className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted" />
-                    <button type="button" onClick={() => { setQuery(''); setSearching(false); }} aria-label="Close search" className="grid size-6 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
-                      <X size={14} aria-hidden="true" />
-                    </button>
-                  </label>
-                ) : (
-                  <>
-                    {current && <Piece size={48} color={`var(--${current.tint})`}><BlockIcon name={current.icon} size={15} strokeWidth={2.4} /></Piece>}
-                    <h2 className="min-w-0 flex-1 truncate font-display text-xl" title={current?.title}>{current ? current.title : 'Everything'}</h2>
-                    <Tip text="Search this Page's entries" tint="sky" className="shrink-0">
-                      <button onClick={() => setSearching(true)} aria-label="Search"
-                        className="grid size-9 place-items-center rounded-full bg-card ring-1 ring-line hover:ring-ink">
-                        <Search size={16} aria-hidden="true" />
+          // With a Page chosen, this column is that Page's color field, and its Drafts and
+          // Blocks sit on it as white panels.
+          <section aria-label="Work" style={current ? { background: tint } : undefined}
+            className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl px-4 pb-4 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain ' + (current ? '' : 'bg-card ring-1 ring-line')}>
+            {chip === 'notice' ? (
+              <>
+                <h2 className="pt-4 font-display text-xl">Notice Board</h2>
+                {live.mod ? <ReportQueue live={live} blocks={blocks} /> : (
+                  <Empty title="No reports waiting" body="When players tap “not quite” in the app without signing in, their report waits here until a villager confirms it." />
+                )}
+              </>
+            ) : (
+              <>
+                {/* Stays in reach while the column scrolls. */}
+                <div className="z-10 -mx-4 px-4 pb-2 pt-4 lg:sticky lg:top-0" style={{ background: tint }}>
+                  <div className="flex items-center gap-2">
+                    {searching ? (
+                      <label className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-card-2 px-3 py-1.5 text-sm ring-2 ring-sky">
+                        <Search size={15} className="text-muted" aria-hidden="true" />
+                        <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); setSearching(false); } }}
+                          placeholder={view === 'drafts' ? 'Find a Draft' : current ? `Find something in ${current.title}` : 'Find anything in the app'} aria-label="Search"
+                          className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted" />
+                        <button type="button" onClick={() => { setQuery(''); setSearching(false); }} aria-label="Close search" className="grid size-6 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
+                          <X size={14} aria-hidden="true" />
+                        </button>
+                      </label>
+                    ) : (
+                      <>
+                        {current && <Piece size={48} color={`var(--${current.tint})`}><BlockIcon name={current.icon} size={15} strokeWidth={2.4} /></Piece>}
+                        <h2 className="min-w-0 flex-1 truncate font-display text-xl" title={current?.title}>{current ? current.title : 'Everything'}</h2>
+                        <Tip text={view === 'drafts' ? 'Search these Drafts' : "Search this Page's entries"} tint="sky" className="shrink-0">
+                          <button onClick={() => setSearching(true)} aria-label="Search"
+                            className="grid size-9 place-items-center rounded-full bg-card ring-1 ring-line hover:ring-ink">
+                            <Search size={16} aria-hidden="true" />
+                          </button>
+                        </Tip>
+                      </>
+                    )}
+                    <Tip text="Add something new to the app" tint="leaf" className="shrink-0">
+                      <button onClick={startNew} className="btn-primary inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold">
+                        <Plus size={16} aria-hidden="true" /> New
                       </button>
                     </Tip>
-                  </>
-                )}
-                <Tip text={allDrafts ? "Back to this Page's Blocks" : 'Every Draft in one list, with sorting'} className="shrink-0">
-                  <button onClick={() => setAllDrafts(!allDrafts)} aria-pressed={allDrafts}
-                    className={'shrink-0 rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (allDrafts ? 'bg-ink text-paper ring-ink' : 'bg-card ring-line hover:ring-ink')}>
-                    {allDrafts ? 'Blocks' : 'Drafts'}
-                  </button>
-                </Tip>
-                <Tip text="Add something new to the app" tint="leaf" className="shrink-0">
-                  <button onClick={startNew} className="btn-primary inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold">
-                    <Plus size={16} aria-hidden="true" /> New
-                  </button>
-                </Tip>
-              </div>
+                  </div>
 
-              {!introDone && (
-                <div ref={introRef} className="mt-3 rounded-2xl bg-sky-soft px-3 py-2.5 text-sm">
-                  <div className="flex items-start gap-2">
-                    <p className="min-w-0 flex-1">
-                      <span className="font-bold text-sky">{basicsDone ? 'You’ve got the basics.' : 'Start here.'}</span>{' '}
-                      {basicsDone ? 'Welcome to the village! Close this whenever you like.' : 'Anyone can help. Villagers check each change, and on Market Day it goes into the app.'}
-                    </p>
-                    <button onClick={dismissIntro} aria-label="Dismiss" className="grid size-7 shrink-0 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
-                      <X size={15} aria-hidden="true" />
+                  {/* Two views of one Page: the changes people have suggested, and what's in the app now. */}
+                  <div role="tablist" aria-label="Show" className="mt-3 flex rounded-full bg-card p-1 ring-1 ring-line">
+                    <button role="tab" aria-selected={view === 'drafts'} onClick={() => setTab('drafts')}
+                      className={'inline-flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold ' + (view === 'drafts' ? 'bg-ink text-paper' : 'text-muted hover:text-ink')}>
+                      Drafts
+                      {waiting.length > 0 && (
+                        <span aria-label={`${waiting.length} waiting on you`}
+                          className={'grid min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold ' + (view === 'drafts' ? 'bg-signal text-ink' : 'bg-ink text-paper')}>{waiting.length}</span>
+                      )}
+                    </button>
+                    <button role="tab" aria-selected={view === 'app'} onClick={() => setTab('app')}
+                      className={'flex-1 rounded-full px-3 py-1.5 text-sm font-bold ' + (view === 'app' ? 'bg-ink text-paper' : 'text-muted hover:text-ink')}>
+                      In the app
                     </button>
                   </div>
-                  <ol className="mt-2 grid gap-1.5">
-                    {steps.map((x, i) => (
-                      <li key={x.key}>
-                        <button onClick={x.go} className="flex w-full items-center gap-2.5 rounded-xl bg-card px-2.5 py-2 text-left ring-1 ring-line hover:ring-sky">
-                          <span className={'grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold ' + (x.done ? 'bg-leaf text-white' : 'bg-sky-soft text-sky')}>
-                            {x.done ? <Check size={13} aria-hidden="true" /> : i + 1}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className={'block font-bold leading-tight ' + (x.done ? 'text-muted line-through' : '')}>{x.title}</span>
-                            <span className="block text-xs text-muted">{x.hint}</span>
-                          </span>
-                          {!x.done && <ArrowRight size={15} className="shrink-0 text-muted" aria-hidden="true" />}
-                        </button>
-                      </li>
-                    ))}
-                  </ol>
-                  <HowItWorksButton className="mt-2 inline-flex !py-0.5 text-xs" />
                 </div>
-              )}
 
-              {/* Stays until you close it, with a way back to the entry and to your Draft. */}
-              {posted && (
-                <div role="status" className="rise mt-3 grid gap-2 rounded-2xl bg-leaf-soft px-3 py-2.5 text-sm text-leaf">
-                  <p className="flex items-start gap-2">
-                    <Check size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-                    <span className="flex-1">Your Draft for <span className="font-bold">{posted.name}</span> is in. It waits for votes from other Builders, then a moderator publishes it to the app on Market Day.</span>
-                    <button onClick={() => setPosted(null)} aria-label="Dismiss" className="grid size-6 shrink-0 place-items-center rounded-full hover:bg-card"><X size={14} aria-hidden="true" /></button>
-                  </p>
-                  <div className="flex flex-wrap gap-2 pl-6">
-                    {posted.draftId && (
-                      <button onClick={() => setDetail(posted.draftId!)} className="btn-primary rounded-full px-3 py-1 text-xs font-bold">See my Draft</button>
-                    )}
-                    {backTo(posted) && (
-                      <a href={backTo(posted)!} className="rounded-full bg-card px-3 py-1 text-xs font-bold text-leaf ring-1 ring-leaf/40">Back to {posted.name}</a>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {discarded && (
-                <p role="status" className="rise mt-3 flex items-center gap-2 rounded-2xl bg-card-2 px-3 py-2 text-sm ring-1 ring-line">
-                  <span className="flex-1">Discarded{discarded.content.name.trim() ? ` “${discarded.content.name.trim()}”` : ''}.</span>
-                  <button onClick={undoDiscard} className="rounded-full bg-ink px-3 py-1 text-xs font-bold text-paper">Undo</button>
-                  <button onClick={() => setDiscarded(null)} aria-label="Dismiss" className="grid size-6 place-items-center rounded-full text-muted hover:bg-card"><X size={14} aria-hidden="true" /></button>
-                </p>
-              )}
-
-              {unsent && !form && (
-                <div role="status" className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl bg-sun-soft px-3 py-2 text-sm">
-                  <span className="min-w-0 flex-1">
-                    <span className="font-bold">Unsent Draft:</span> {unsent.content.name.trim() || 'Untitled'}
-                    <span className="text-muted"> · {placeOf(unsent.blockId)?.title ?? 'a Block'}</span>
-                  </span>
-                  <button onClick={resumeUnsent} className="btn-primary rounded-full px-3 py-1 text-xs font-bold">Continue</button>
-                  <button onClick={() => { clearUnsent(game.id); setUnsent(null); }} className="rounded-full px-2 py-1 text-xs font-bold text-muted hover:text-ink">Discard</button>
-                </div>
-              )}
-
-              {/* Open items: a swipeable row of blocks */}
-              <div className="mt-3">
-                <div className="flex items-center gap-2">
-                  {itemsHidden && items.length > 0 ? (
-                    <button onClick={() => setItemsHidden(false)} aria-label={`Show ${items.length} open items`}
-                      className="glow-pulse inline-flex items-center gap-1.5 rounded-full bg-signal px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-ink">
-                      <span className="size-1.5 rounded-full bg-ink" aria-hidden="true" /> Open items · {items.length}
-                    </button>
-                  ) : (
-                    <Tip text="Drafts waiting on someone: your vote, your own, or ready to publish">
-                      <p className="text-xs font-bold uppercase tracking-wide text-muted">Open items · {items.length}</p>
-                    </Tip>
-                  )}
-                  {items.length > 0 && (
-                    <button onClick={() => setItemsHidden(!itemsHidden)} aria-expanded={!itemsHidden}
-                      title={itemsHidden ? undefined : 'The label glows while anything is waiting'}
-                      className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold text-muted hover:bg-card-2 hover:text-ink">
-                      {itemsHidden ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronUp size={14} aria-hidden="true" />}
-                      {itemsHidden ? 'Show' : 'Hide'}
-                    </button>
-                  )}
-                </div>
-                {live.state === 'loading' ? (
-                  <div className="mt-4 flex gap-3 overflow-hidden" aria-hidden="true">{[0, 1].map((n) => <div key={n} className="h-28 w-52 shrink-0 animate-pulse rounded-[1.1rem] bg-card-2" />)}</div>
-                ) : items.length === 0 ? (
-                  <p className="mt-2 rounded-2xl bg-card px-3 py-3 text-sm text-muted ring-1 ring-line">Nothing waiting{current ? ` on ${current.title}` : ''}. Pick something below to improve, or add something new.</p>
-                ) : itemsHidden ? null : (
-                  <ScrollRow as="ul" className="swipe -mx-4 flex gap-3 px-4 pb-3 pt-4">
-                    {items.map(({ d, kind }) => (
-                      <li key={d.id} className="shrink-0">
-                        <OpenItem d={d} kind={kind} visitor={me === null} practice={Boolean(me?.practice && d.author.id === me.id)} place={placeOf(d.blockKey)} onOpen={() => setDetail(d.id)}
-                          onVote={kind === 'vote' && me ? (v) => { live.vote(d.id, v); } : undefined} />
-                      </li>
-                    ))}
-                  </ScrollRow>
-                )}
-              </div>
-
-              {allDrafts ? (
-                <>
-                  <div className="mt-2 flex items-center gap-2">
-                    <p className="text-xs font-bold uppercase tracking-wide text-muted">All Drafts</p>
-                    <label className="ml-auto">
-                      <span className="sr-only">Sort Drafts</span>
-                      <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="rounded-full bg-card-2 px-3 py-1.5 text-sm font-bold ring-1 ring-line">
-                        {SORTS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-                      </select>
-                    </label>
-                  </div>
-                  {visible.filter((d) => !query || d.title.toLowerCase().includes(query.toLowerCase())).length === 0 ? (
-                    <Empty title={sort === 'shipped' ? 'Nothing published yet' : 'No Drafts here yet'}
-                      body={sort === 'shipped' ? 'Drafts land here once a moderator publishes them to the app.' : 'Spotted something missing or wrong? Start one, or tap "Suggest a fix" on anything in the app.'} />
-                  ) : (
-                    <ul className="mt-3 grid gap-3">
-                      {visible.filter((d) => !query || d.title.toLowerCase().includes(query.toLowerCase())).map((d) => (
-                        <DraftCard key={d.id} draft={d} place={placeOf(d.blockKey)} routes={routes} me={me}
-                          messages={live.messages.filter((m) => m.draftId === d.id)} live={live} />
+                {!introDone && (
+                  <div ref={introRef} className="mt-3 rounded-2xl bg-sky-soft px-3 py-2.5 text-sm">
+                    <div className="flex items-start gap-2">
+                      <p className="min-w-0 flex-1">
+                        <span className="font-bold text-sky">{basicsDone ? 'You’ve got the basics.' : 'Start here.'}</span>{' '}
+                        {basicsDone ? 'Welcome to the village! Close this whenever you like.' : 'Anyone can help. Villagers check each change, and on Market Day it goes into the app.'}
+                      </p>
+                      <button onClick={dismissIntro} aria-label="Dismiss" className="grid size-7 shrink-0 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
+                        <X size={15} aria-hidden="true" />
+                      </button>
+                    </div>
+                    <ol className="mt-2 grid gap-1.5">
+                      {steps.map((x, i) => (
+                        <li key={x.key}>
+                          <button onClick={x.go} className="flex w-full items-center gap-2.5 rounded-xl bg-card px-2.5 py-2 text-left ring-1 ring-line hover:ring-sky">
+                            <span className={'grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold ' + (x.done ? 'bg-leaf text-white' : 'bg-sky-soft text-sky')}>
+                              {x.done ? <Check size={13} aria-hidden="true" /> : i + 1}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className={'block font-bold leading-tight ' + (x.done ? 'text-muted line-through' : '')}>{x.title}</span>
+                              <span className="block text-xs text-muted">{x.hint}</span>
+                            </span>
+                            {!x.done && <ArrowRight size={15} className="shrink-0 text-muted" aria-hidden="true" />}
+                          </button>
+                        </li>
                       ))}
-                    </ul>
-                  )}
-                </>
-              ) : (
-                <AppContents pages={current ? [current] : pages} drafts={drafts} query={query} focus={form?.entryId ? `${form.blockId}.${form.entryId}` : undefined}
-                  onFix={(blockId, entryId) => setForm({ blockId, entryId })} onAdd={(blockId) => setForm({ blockId })} onSetup={setSetup}
-                  onDrafts={(cardId) => { const d = drafts.find((x) => x.cardId === cardId && isOpen(x)); if (d) setDetail(d.id); }} />
-              )}
-            </>
+                    </ol>
+                    <HowItWorksButton className="mt-2 inline-flex !py-0.5 text-xs" />
+                  </div>
+                )}
+
+                {/* Stays until you close it, with a way back to the entry and to your Draft. */}
+                {posted && (
+                  <div role="status" className="rise mt-3 grid gap-2 rounded-2xl bg-leaf-soft px-3 py-2.5 text-sm text-leaf">
+                    <p className="flex items-start gap-2">
+                      <Check size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+                      <span className="flex-1">Your Draft for <span className="font-bold">{posted.name}</span> is in. It waits for votes from other Builders, then a moderator publishes it to the app on Market Day.</span>
+                      <button onClick={() => setPosted(null)} aria-label="Dismiss" className="grid size-6 shrink-0 place-items-center rounded-full hover:bg-card"><X size={14} aria-hidden="true" /></button>
+                    </p>
+                    <div className="flex flex-wrap gap-2 pl-6">
+                      {posted.draftId && (
+                        <button onClick={() => setDetail(posted.draftId!)} className="btn-primary rounded-full px-3 py-1 text-xs font-bold">See my Draft</button>
+                      )}
+                      {backTo(posted) && (
+                        <a href={backTo(posted)!} className="rounded-full bg-card px-3 py-1 text-xs font-bold text-leaf ring-1 ring-leaf/40">Back to {posted.name}</a>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {discarded && (
+                  <p role="status" className="rise mt-3 flex items-center gap-2 rounded-2xl bg-card-2 px-3 py-2 text-sm ring-1 ring-line">
+                    <span className="flex-1">Discarded{discarded.content.name.trim() ? ` “${discarded.content.name.trim()}”` : ''}.</span>
+                    <button onClick={undoDiscard} className="rounded-full bg-ink px-3 py-1 text-xs font-bold text-paper">Undo</button>
+                    <button onClick={() => setDiscarded(null)} aria-label="Dismiss" className="grid size-6 place-items-center rounded-full text-muted hover:bg-card"><X size={14} aria-hidden="true" /></button>
+                  </p>
+                )}
+
+                {unsent && !form && (
+                  <div role="status" className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl bg-sun-soft px-3 py-2 text-sm">
+                    <span className="min-w-0 flex-1">
+                      <span className="font-bold">Unsent Draft:</span> {unsent.content.name.trim() || 'Untitled'}
+                      <span className="text-muted"> · {placeOf(unsent.blockId)?.title ?? 'a Block'}</span>
+                    </span>
+                    <button onClick={resumeUnsent} className="btn-primary rounded-full px-3 py-1 text-xs font-bold">Continue</button>
+                    <button onClick={() => { clearUnsent(game.id); setUnsent(null); }} className="rounded-full px-2 py-1 text-xs font-bold text-muted hover:text-ink">Discard</button>
+                  </div>
+                )}
+                {view === 'drafts' ? (
+                  live.state === 'loading' ? (
+                    <div className="mt-3 grid gap-3" aria-hidden="true">{[0, 1].map((n) => <div key={n} className="h-24 animate-pulse rounded-3xl bg-card" />)}</div>
+                  ) : (
+                    <>
+                      {waiting.some((x) => matches(x.d)) && (
+                        <>
+                          <Tip text={me ? 'Your vote, your own Drafts, or ready to publish' : 'Sign in to vote on these'} className="mt-3 self-start">
+                            <p className="text-xs font-bold uppercase tracking-wide text-muted">{me ? 'Waiting on you' : 'Open for votes'} · {waiting.length}</p>
+                          </Tip>
+                          <ul className="mt-2 grid gap-3">
+                            {waiting.filter((x) => matches(x.d)).map(({ d }) => (
+                              <DraftCard key={d.id} draft={d} place={placeOf(d.blockKey)} routes={routes} me={me}
+                                messages={live.messages.filter((m) => m.draftId === d.id)} live={live} />
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                      <div className="mt-5 flex items-center gap-2">
+                        <p className="text-xs font-bold uppercase tracking-wide text-muted">{waiting.length ? 'Everything else' : 'All Drafts'}</p>
+                        <label className="ml-auto">
+                          <span className="sr-only">Sort Drafts</span>
+                          <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="rounded-full bg-card px-3 py-1.5 text-sm font-bold ring-1 ring-line">
+                            {SORTS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
+                          </select>
+                        </label>
+                      </div>
+                      {rest.length > 0 ? (
+                        <ul className="mt-3 grid gap-3">
+                          {rest.map((d) => (
+                            <DraftCard key={d.id} draft={d} place={placeOf(d.blockKey)} routes={routes} me={me}
+                              messages={live.messages.filter((m) => m.draftId === d.id)} live={live} />
+                          ))}
+                        </ul>
+                      ) : waiting.length > 0 ? (
+                        <p className="mt-2 text-sm text-muted">Nothing else here{sort === 'shipped' ? ' published yet' : ''}.</p>
+                      ) : (
+                        <Empty title={sort === 'shipped' ? 'Nothing published yet' : 'No Drafts here yet'}
+                          body={sort === 'shipped' ? 'Drafts land here once a moderator publishes them to the app.' : 'Spotted something missing or wrong? Find it under In the app, or start something new.'}
+                          action={sort === 'shipped' ? undefined : <button onClick={() => setTab('app')} className="rounded-full bg-card px-4 py-2 text-sm font-bold ring-1 ring-line hover:ring-ink">See what&apos;s in the app</button>} />
+                      )}
+                    </>
+                  )
+                ) : (
+                  <AppContents pages={current ? [current] : pages} drafts={drafts} query={query} focus={form?.entryId ? `${form.blockId}.${form.entryId}` : undefined}
+                    onFix={(blockId, entryId) => setForm({ blockId, entryId })} onAdd={(blockId) => setForm({ blockId })} onSetup={setSetup}
+                    onDrafts={(cardId) => { const d = drafts.find((x) => x.cardId === cardId && isOpen(x)); if (d) setDetail(d.id); }} />
+                )}
+              </>
+            )}
+          </section>
           )}
-        </section>
+        </div>
       </div>
-
-      {setup && blocks.some((b) => b.id === setup) && (
-        <FieldSetup gameId={game.id} block={blocks.find((b) => b.id === setup)!} routes={routes} canSave={live.mod} onClose={() => setSetup(null)} />
-      )}
-
-      {form && blocks.length > 0 && (
-        <EntryForm gameId={game.id} pages={pages} routes={routes} start={form} restore={restore} me={me} postDraft={live.postDraft}
-          onClose={closeForm}
-          onPosted={(p) => {
-            closeForm();
-            setChip(p.pageId);
-            setAllDrafts(false);
-            setPosted(p);
-          }}
-          onDiscard={() => {
-            // Keep a copy for Undo; it's gone for good once the note is closed.
-            const copy = readUnsent(game.id);
-            clearUnsent(game.id);
-            closeForm();
-            if (copy) setDiscarded(copy);
-          }} />
-      )}
 
       {shown && (
         <Sheet label={shown.title} onClose={() => setDetail(null)}>
@@ -516,72 +554,7 @@ function BlockChip({ on, tint, icon, label, count, onClick }: {
   );
 }
 
-// Labels stay quiet: what needs your vote gets an ink outline. Yellow is kept for the one
-// main action in each area (+ New, signing in).
-const ITEM: Record<'ready' | 'yours' | 'vote' | 'voted', { label: string; pill: string }> = {
-  ready: { label: 'Ready to publish', pill: 'bg-leaf-soft text-leaf' },
-  yours: { label: 'Your Draft', pill: 'bg-sky-soft text-sky' },
-  vote: { label: 'Needs your vote', pill: 'text-ink ring-1 ring-ink' },
-  voted: { label: 'You voted', pill: 'bg-card-2 text-muted' },
-};
-
-const ITEM_TIP: Record<keyof typeof ITEM, string> = {
-  ready: 'Has 5 or more votes, mostly yes. A moderator can publish it',
-  yours: 'Your Draft. Other villagers vote on it, then a moderator decides',
-  vote: 'Other villagers are checking this. Does it match your game? Vote right here, or open it for the details',
-  voted: "You've voted. It's waiting on others",
-};
-
-/** One open item: a Draft as a white card led by its entry's piece, to tap and vote on. */
-function OpenItem({ d, kind, visitor, practice, place, onOpen, onVote }: {
-  d: LiveDraft; kind: keyof typeof ITEM; visitor?: boolean; practice?: boolean; place?: Placed; onOpen: () => void;
-  /** Vote straight from the card, without opening it. */
-  onVote?: (v: 1 | -1) => void;
-}) {
-  const votes = d.ups + d.downs;
-  const status = (d.status === 'stable' ? 'Published' : d.status === 'declined' ? 'Declined' : votes >= 5 ? `${votes} votes` : `${votes} of 5 votes`)
-    + (d.practiceVote ? ' (1 practice)' : '');
-  return (
-    <Tip text={visitor && kind === 'vote' ? 'Sign in to vote on this' : ITEM_TIP[kind]} tint={place?.page.tint ?? 'ink'}>
-    <div className={'flex w-56 flex-col gap-2 rounded-2xl bg-card p-3 ' + (kind === 'vote' ? 'ring-1 ring-ink/40' : 'ring-1 ring-line')}>
-    <button onClick={onOpen} className="flex flex-col gap-2 text-left">
-      <span className="flex items-center gap-1.5">
-        <span className={'rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ' + ITEM[kind].pill}>
-          {practice ? 'Your Draft · practice' : visitor && kind === 'vote' ? 'Open for votes' : ITEM[kind].label}
-        </span>
-        {place && <span className="truncate text-[11px] font-bold text-muted">{place.page.title}</span>}
-      </span>
-      <span className="flex items-center gap-2.5 text-ink">
-        {place ? <EntryIcon entry={d.content} block={place} size="md" color={`var(--${place.page.tint})`} /> : null}
-        <span className="min-w-0">
-          <span className="block truncate font-bold leading-tight">{d.title}</span>
-          <span className="block truncate text-xs text-muted">{d.cardId ? 'Fix' : 'New'} · {place?.title ?? 'Removed Block'}</span>
-        </span>
-      </span>
-      <span className="flex items-center gap-1.5 text-xs font-bold">
-        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-card-2">
-          <span className="block h-full rounded-full bg-ink" style={{ width: `${Math.min(100, (votes / 5) * 100)}%` }} />
-        </span>
-        {status}
-      </span>
-      {(practice || d.practiceVote) && <span className="text-[11px] leading-tight text-muted">Practice votes are saved on this device. Only you see them.</span>}
-    </button>
-    {onVote && (
-      <span className="flex gap-1.5">
-        <button type="button" onClick={() => onVote(1)} className="inline-flex flex-1 items-center justify-center gap-1 rounded-full bg-card-2 px-2 py-1 text-xs font-bold text-leaf ring-1 ring-line hover:ring-leaf">
-          {d.kind === 'fact' ? <><Check size={13} aria-hidden="true" /> Matches</> : <><ArrowUp size={13} aria-hidden="true" /> Yes</>}
-        </button>
-        <button type="button" onClick={() => onVote(-1)} className="inline-flex flex-1 items-center justify-center gap-1 rounded-full bg-card-2 px-2 py-1 text-xs font-bold text-berry ring-1 ring-line hover:ring-berry">
-          {d.kind === 'fact' ? <><TriangleAlert size={13} aria-hidden="true" /> Seems wrong</> : <><ArrowDown size={13} aria-hidden="true" /> No</>}
-        </button>
-      </span>
-    )}
-    </div>
-    </Tip>
-  );
-}
-
-/** A Draft opened from an open item: a sheet on phones, a centered panel on computers. */
+/** A Draft opened on its own: a sheet on phones, a centered panel on computers. */
 function Sheet({ label, onClose, children }: { label: string; onClose: () => void; children: React.ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -920,8 +893,11 @@ function Composer({ me, placeholder, onSend }: { me: Villager | null | undefined
   );
 }
 
-function Chat({ topic: block, notice, onAll, messages, me, live }: {
-  topic: { key: string; label: string } | null; notice: boolean; onAll: () => void; messages: ChatMessage[];
+function Chat({ topic: block, notice, onAll, onFold, messages, me, live }: {
+  topic: { key: string; label: string } | null; notice: boolean; onAll: () => void;
+  /** Wide screens: fold the chat to a thin strip. */
+  onFold: () => void;
+  messages: ChatMessage[];
   me: Villager | null | undefined; live: WorkshopData;
 }) {
   const list = useRef<HTMLUListElement>(null);
@@ -937,14 +913,21 @@ function Chat({ topic: block, notice, onAll, messages, me, live }: {
   const tagFor = (m: ChatMessage) => (m.draftId && titles.has(m.draftId) ? `on “${titles.get(m.draftId)}”` : null);
 
   return (
-    <section aria-label="Chat" className="flex min-h-[28rem] min-w-0 flex-col rounded-2xl bg-card p-4 ring-1 ring-line lg:max-h-[calc(100vh-11rem)]">
-      <div className="flex items-center gap-2">
+    <section aria-label="Chat" className="relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl bg-card p-4 ring-1 ring-line lg:min-h-0">
+      <div className="flex flex-wrap items-center gap-x-2">
         <h2 className="font-display text-xl">Chat</h2>
         {(block || notice) && (
-          <span className="text-sm text-muted">
+          <span className="order-last basis-full text-sm text-muted">
             about {block?.label ?? 'the Notice Board'} · <button onClick={onAll} className="font-bold text-leaf underline underline-offset-2">show all</button>
           </span>
         )}
+        <span className="ml-auto hidden shrink-0 lg:block">
+          <Tip text="Fold the chat away, for more room">
+            <button onClick={onFold} aria-label="Fold the chat away" className="grid size-8 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink">
+              <PanelLeftClose size={17} aria-hidden="true" />
+            </button>
+          </Tip>
+        </span>
       </div>
       {live.state === 'loading' ? (
         <div className="m-auto py-10 text-sm text-muted">Opening the workshop doors…</div>
@@ -955,7 +938,7 @@ function Chat({ topic: block, notice, onAll, messages, me, live }: {
           <p className="text-sm text-muted">Say what you&apos;ve found or what you&apos;re stuck on. Messages show up for everyone here right away.</p>
         </div>
       ) : (
-        <ul ref={list} aria-live="polite" className="my-3 grid flex-1 content-start gap-4 overflow-y-auto pr-1">
+        <ul ref={list} aria-live="polite" className="my-3 grid min-h-0 flex-1 content-start gap-4 overflow-y-auto overscroll-contain pr-1">
           {messages.map((m) => <Message key={m.id} m={m} tag={tagFor(m)} me={me} live={live} />)}
           {messages.length < 4 && (
             <li className="mt-2 rounded-2xl bg-card-2 px-3 py-2.5 text-sm text-muted">

@@ -36,10 +36,10 @@ export function Wordmark({ className = '', glitch = false }: { className?: strin
  * the wordmark on phones, where the screen's own name needs the room. The logo is bigger
  * than the bar and hangs over its lower edge; the wordmark tucks over it in an ink glow.
  */
-export function TopBar({ children, actions, compact = false }: { children?: ReactNode; actions?: ReactNode; compact?: boolean }) {
+export function TopBar({ children, actions, compact = false, wide = false }: { children?: ReactNode; actions?: ReactNode; compact?: boolean; /** As wide as a full-screen workspace (the Workshop). */ wide?: boolean }) {
   return (
     <header className="sticky top-0 z-30 bg-ink text-white">
-      <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-2.5 sm:px-6">
+      <div className={`mx-auto flex w-full ${wide ? "max-w-screen-2xl" : "max-w-6xl"} items-center gap-3 px-4 py-2.5 sm:px-6`}>
         <Link href="/" aria-label="Village square" className="flex shrink-0 items-center rounded-lg">
           {/* Takes 38px of the bar's height, so the bar stays the same size. */}
           <LogoMark height={68} className="-mb-[26px] -mt-1 drop-shadow-[0_3px_4px_rgb(0_0_0/0.3)]" />

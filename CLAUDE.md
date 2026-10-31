@@ -8,8 +8,11 @@ Matt is building this. He relies on Claude for the tech; explain choices in plai
 
 Community-built companion apps for games, with a village theme. Two layers:
 - **Workshop** (community layer): one chat per game, Page chips across the top (a symbol
-  each, "Everything" first, with counts, plus the Notice Board), and a Drafts panel whose cards are live
-  previews of the app card, showing what changes against Stable.
+  each, "Everything" first, with counts, plus the Notice Board). Below, two columns that fill
+  the screen and scroll on their own: the chat (it folds to a strip) and the work column, with
+  two tabs, "Drafts" (what waits on you first, then the rest, sortable) and "In the app"
+  (entries to fix or add to). Editors open in the work column, so the chat stays beside them;
+  on phones the editor fills the screen and its Chat button hops over and back (2026-10-31).
 - **Game app** (top layer): Pages (topics, like "Units and classes") made of Blocks.
   Blocks are preset types, nothing freeform: Collection (icon grid, tap for a detail
   panel, built-in search, A-Z sort and filters), Guide, Checklist, Timeline. New Block
