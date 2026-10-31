@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { Check, Clock, EyeOff, MapPin, Pencil, TriangleAlert, X } from 'lucide-react';
 import type { Block, Entry, EntryContent, FieldDef, Route, StatDef } from '@/data/pages';
@@ -329,19 +330,24 @@ function HeatMap({ label, defs, entry, among, block, color, sort, onSort, onClos
   if (def) rows.sort(byStat(def, sort.endsWith(':worst')));
   else rows.sort((a, b) => a.name.localeCompare(b.name));
   rows.sort((a, b) => Number(pinned.has(b.name)) - Number(pinned.has(a.name)));
-  return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/30 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
+  // Drawn over the whole page, and its touches stop here: the card underneath swipes between
+  // characters, and a sideways drag across the table must only scroll the table.
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+  return createPortal(
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/30 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}
+      onPointerDown={stop} onPointerMove={stop} onPointerUp={stop} onPointerCancel={stop}>
       <div role="dialog" aria-modal="true" aria-label={`${label}: everyone`} onClick={(e) => e.stopPropagation()}
         className="rise flex max-h-[85vh] w-full max-w-3xl flex-col gap-3 rounded-t-[2rem] bg-card p-4 shadow-soft sm:rounded-[2rem] sm:p-5">
         <div className="flex items-center gap-3">
           <h2 className="min-w-0 flex-1 truncate font-display text-xl">{label}: everyone</h2>
           <button type="button" onClick={onClose} aria-label="Close" className="grid size-9 shrink-0 place-items-center rounded-full bg-card-2 ring-1 ring-line"><X size={18} aria-hidden="true" /></button>
         </div>
-        <div className="min-h-0 overflow-y-auto">
+        <div className="flex min-h-0 flex-1 flex-col">
           <StatTable block={{ ...(block as Block), stats: defs }} entries={rows} among={among} sort={sort} onSort={onSort} color={color} mark={entry.name} pinned={pinned} onPin={pin} pinLabel="Selected characters"
             onOpen={(e) => { onClose(); if (e.name !== entry.name) onGo?.(e); }} />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
