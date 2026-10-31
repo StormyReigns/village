@@ -1,5 +1,6 @@
 'use client';
 
+import { Fragment } from 'react';
 import type { Block, Entry } from '@/data/pages';
 import { heatFill, placeText, statFacts } from '@/lib/stats';
 
@@ -9,7 +10,7 @@ import { heatFill, placeText, statFacts } from '@/lib/stats';
 
 export const statSort = (key: string, worst = false) => `stat:${key}${worst ? ':worst' : ''}`;
 
-export function StatTable({ block, entries, among, sort, onSort, onOpen, filter, color, mark, pinned, onPin }: {
+export function StatTable({ block, entries, among, sort, onSort, onOpen, filter, color, mark, pinned, onPin, pinLabel = 'Selected' }: {
   block: Block;
   /** The Page's color, for the better end of the heatmap. */
   color: string;
@@ -25,11 +26,26 @@ export function StatTable({ block, entries, among, sort, onSort, onOpen, filter,
   /** Rows ticked to stay at the top, by name, with the tick box shown when onPin is given. */
   pinned?: Set<string>;
   onPin?: (name: string) => void;
+  /** What the ticked group is called, over its rows. */
+  pinLabel?: string;
 }) {
   const defs = block.stats ?? [];
   const lower = defs.filter((d) => d.better === 'low').map((d) => d.label);
   const sorted = defs.find((d) => sort.startsWith(statSort(d.key)));
   const worst = sort.endsWith(':worst');
+  // Ticked rows come first (the caller orders them); a label over them and a line under them
+  // keep a ticked row from passing for the best of the sort.
+  const isPinned = (e: Entry) => Boolean(onPin && pinned?.has(e.name));
+  const firstRest = entries.findIndex((e) => !isPinned(e));
+  const groupRow = (text: string, line: boolean) => (
+    <tr aria-hidden="true">
+      <td colSpan={defs.length + 1} className={line ? 'pt-2' : 'pt-0.5'}>
+        <div className={line ? 'border-t-2 border-line pt-1.5' : ''}>
+          <span className="sticky left-2 px-1 text-[11px] font-bold uppercase tracking-wide text-muted">{text}</span>
+        </div>
+      </td>
+    </tr>
+  );
 
   return (
     <>
@@ -57,13 +73,16 @@ export function StatTable({ block, entries, among, sort, onSort, onOpen, filter,
             </tr>
           </thead>
           <tbody>
-            {entries.map((e) => (
-              <tr key={e.id || e.name} onClick={() => onOpen(e)} className="cursor-pointer [&:hover>th]:bg-card-2" aria-current={mark === e.name ? 'true' : undefined}>
+            {entries.map((e, i) => (
+              <Fragment key={e.id || e.name}>
+              {i === 0 && isPinned(e) && groupRow(pinLabel, false)}
+              {i === firstRest && i > 0 && groupRow(sorted ? `Everyone else, by ${sorted.label}` : 'Everyone else', true)}
+              <tr onClick={() => onOpen(e)} className="cursor-pointer [&:hover>th]:bg-card-2" aria-current={mark === e.name ? 'true' : undefined}>
                 <th scope="row" className={'sticky left-0 z-10 min-w-24 max-w-44 rounded-md px-1.5 py-1.5 sm:min-w-32 sm:px-2 text-left font-normal ' + (mark === e.name ? 'bg-signal' : 'bg-card')}>
                   <span className="flex items-center gap-1.5">
                     {onPin && (
                       <input type="checkbox" checked={pinned?.has(e.name) ?? false} onChange={() => onPin(e.name)} onClick={(ev) => ev.stopPropagation()}
-                        aria-label={`Keep ${e.name} at the top`} className="size-4 shrink-0 accent-[var(--color-ink)]" />
+                        aria-label={`Keep ${e.name} at the top`} className="size-3.5 shrink-0 cursor-pointer opacity-50 accent-[var(--color-muted)] hover:opacity-100 checked:opacity-100" />
                     )}
                     <button type="button" onClick={(ev) => { ev.stopPropagation(); onOpen(e); }} className="block text-left font-bold leading-tight hover:underline">
                       {e.name}
@@ -82,6 +101,7 @@ export function StatTable({ block, entries, among, sort, onSort, onOpen, filter,
                   );
                 })}
               </tr>
+              </Fragment>
             ))}
           </tbody>
         </table>

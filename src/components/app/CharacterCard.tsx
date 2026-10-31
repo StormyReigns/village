@@ -327,7 +327,7 @@ function HeatMap({ label, defs, entry, among, block, color, sort, onSort, onClos
           <button type="button" onClick={onClose} aria-label="Close" className="grid size-9 shrink-0 place-items-center rounded-full bg-card-2 ring-1 ring-line"><X size={18} aria-hidden="true" /></button>
         </div>
         <div className="min-h-0 overflow-y-auto">
-          <StatTable block={{ ...(block as Block), stats: defs }} entries={rows} among={among} sort={sort} onSort={onSort} color={color} mark={entry.name} pinned={pinned} onPin={pin}
+          <StatTable block={{ ...(block as Block), stats: defs }} entries={rows} among={among} sort={sort} onSort={onSort} color={color} mark={entry.name} pinned={pinned} onPin={pin} pinLabel="Selected characters"
             onOpen={(e) => { onClose(); if (e.name !== entry.name) onGo?.(e); }} />
         </div>
       </div>

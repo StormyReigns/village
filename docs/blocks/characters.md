@@ -36,8 +36,9 @@ Laid out by the Block's fields (Matt's layout, 2026-10-29):
 - **Charts** (Stats, Growths...): a web chart on the right, its foot level with the name and
   reaching up beside the portrait (the first chart with one; the name never moves for it), and a row of number boxes, "STR" over each, colored from gray to the Page's
   color against every other character. Tapping a box opens the full heatmap of everyone,
-  sorted by that stat, with this character picked out. A tick box by each name keeps that
-  character at the top (the one it was opened from starts ticked), to compare a few. Builders can switch the web or the
+  sorted by that stat, with this character picked out. A light tick box by each name keeps that
+  character at the top (the one it was opened from starts ticked), to compare a few; they sit
+  under "Selected characters", and a line and "Everyone else, by <stat>" start the sorted rest. Builders can switch the web or the
   boxes off for each chart.
 - **Description** as the main body, then the other fields in the builders' order.
 - Empty fields don't show. Spoiler fields stay hidden until tapped. Route-specific values
