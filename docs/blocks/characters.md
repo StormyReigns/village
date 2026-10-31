@@ -1,7 +1,7 @@
 # Block 1: Characters
 
-**Status:** Refined, still being polished · **Chat:** `Village · Block: Characters` (built
-so far in `Village · Brand & Blocks`) · **Mockup:** board 18 of the
+**Status:** Refined, still being polished · **Chat:** `Village · Block: Characters` (the
+chat that built it, renamed from `Village · Brand & Blocks`) · **Mockup:** board 18 of the
 [Block Silhouettes canvas](https://claude.ai/artifact/5Zz5xxgX5BFR1Y8PkMyjJ3) ·
 **Code:** `src/components/app/Characters.tsx`, `CharacterCard.tsx`, `src/lib/fields.ts`,
 `src/app/g/[game]/workshop/FieldSetup.tsx` · **Live on:** Fortune's Weave · Units
@@ -70,8 +70,12 @@ kept as `Recruit` and "Likes and gifts" switched on as `Likes`. Each faction has
 
 In the Workshop, **Set up** on a Characters Block opens the field setup: switch fields on
 or off, rename, reorder, mark spoilers, and add new ones. A **John Doe** preview beside it
-shows the card those choices make, before anyone adds a real character. Anyone can try a
-setup; for now only the game's moderators can save it.
+shows the card those choices make, before anyone adds a real character. While adding a
+field, a small example card shows that kind of field with the name typed so far (under the
+preview on wider screens, inside the add box on a phone). Stat names come with a
+**Suggestions** menu: whole sets (Tactics RPG, Classic RPG, Tabletop, Action RPG, Monster
+battler) or one stat at a time. The how-to text sits behind an "i" beside the title.
+Anyone can try a setup; for now only the game's moderators can save it.
 
 ## Decisions
 
@@ -90,6 +94,11 @@ setup; for now only the game's moderators can save it.
   through the cast is the natural move.
 - 2026-10-31: a piece is never blank: initials, art or a symbol, and where nothing sits on
   it, "village" is cut out.
+- 2026-10-31: "Add your own field" shows an example of the chosen kind on a small John Doe
+  card. Why: the kind names alone (Links, Yes or no) don't say how a field will look.
+- 2026-10-31: the setup's how-to text moved behind an "i" (hover, focus or tap), and stat
+  names got a Suggestions menu that floats over the setup. Why: less to read up front, and
+  quicker stats without taking more room.
 
 ## Open questions
 

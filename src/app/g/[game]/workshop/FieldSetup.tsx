@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowDown, ArrowUp, Eye, EyeOff, Plus, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, Info, Plus, Trash2, X } from 'lucide-react';
 import type { Block, FieldDef, FieldKind, Page, StatDef } from '@/data/pages';
 import type { RouteOption } from '@/components/app/EntryPanel';
 import { CharacterCard } from '@/components/app/CharacterCard';
 import { Piece } from '@/components/Piece';
+import { Tip } from '@/components/Tip';
 import { browserClient } from '@/lib/supabase/browser';
 import { appChanged } from '@/app/actions';
 import { DESCRIPTION, FIELD_KINDS, besideText, STATS, fieldsOf, hasValue, johnDoe, kindLabel, shownFields, spotOf, valueOf } from '@/lib/fields';
@@ -85,21 +86,25 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
       <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`Set up ${block.title}`} onClick={(e) => e.stopPropagation()}
         className="rise max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-t-[2rem] bg-card p-5 shadow-soft outline-none sm:rounded-[2rem] sm:p-6">
         <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <h2 className="font-display text-2xl">Set up {block.title}</h2>
-            <p className="text-sm text-muted">Every field is optional. Switch them on or off, rename them, put them in order, or add your own. Empty ones don&apos;t show on a card.</p>
+            <Tip text="Every field is optional. Switch them on or off, rename them, put them in order, or add your own. Empty ones don't show on a card.">
+              <button type="button" aria-label="How setting up works" className="grid size-7 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink">
+                <Info size={17} aria-hidden="true" />
+              </button>
+            </Tip>
           </div>
           <button onClick={onClose} className="grid size-9 shrink-0 place-items-center rounded-full bg-card-2 ring-1 ring-line" aria-label="Close"><X size={18} aria-hidden="true" /></button>
         </div>
 
         <div className="mt-5 grid gap-6 md:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="grid content-start gap-3">
-            <ul className="grid overflow-hidden rounded-2xl ring-1 ring-line">
-              <li className="flex items-center gap-2 bg-card-2 px-3 py-2 text-sm">
+            <ul className="grid rounded-2xl ring-1 ring-line">
+              <li className="flex items-center gap-2 rounded-t-2xl bg-card-2 px-3 py-2 text-sm">
                 <span className="w-8" /><span className="font-bold">Name</span><span className="ml-auto text-xs text-muted">Always on, bold at the top</span>
               </li>
               {fields.map((f, i) => (
-                <li key={f.key} className={'grid gap-2 border-t border-line px-3 py-2 ' + (f.off ? 'bg-card-2/60' : '')}>
+                <li key={f.key} className={'grid gap-2 border-t border-line px-3 py-2 last:rounded-b-2xl ' + (f.off ? 'bg-card-2/60' : '')}>
                   <div className="flex items-center gap-2">
                     <button type="button" role="switch" aria-checked={!f.off} aria-label={`Show ${f.label}`} onClick={() => patch(i, { off: !f.off || undefined })}
                       className={'relative h-5 w-9 shrink-0 rounded-full transition ' + (f.off ? 'bg-line' : 'bg-ink')}>
@@ -119,10 +124,13 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
                     )}
                   </div>
                   {f.kind === 'chart' && !f.off && (
-                    <label className="grid gap-1 pl-11 text-xs">
-                      <span className="font-bold text-muted">Stat names, left to right, separated by commas</span>
-                      <input value={statNames} onChange={(e) => setStatNames(e.target.value)} placeholder="HP, Str, Mag, Dex, Spd, Lck, Def, Res" className={input} />
-                    </label>
+                    <div className="grid gap-1 pl-11 text-xs">
+                      <div className="flex items-center gap-2">
+                        <label htmlFor={`stats-${block.id}`} className="flex-1 font-bold text-muted">Stat names, left to right, separated by commas</label>
+                        <StatSuggestions current={statNames} onPick={setStatNames} />
+                      </div>
+                      <input id={`stats-${block.id}`} value={statNames} onChange={(e) => setStatNames(e.target.value)} placeholder="HP, Str, Mag, Dex, Spd, Lck, Def, Res" className={input} />
+                    </div>
                   )}
                   {(f.kind === 'text' || f.kind === 'number') && !f.off && (
                     <label className="flex items-center gap-2 pl-11 text-xs text-muted">
@@ -148,6 +156,8 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
                 ))}
               </div>
               <p className="text-xs text-muted">{FIELD_KINDS.find((k) => k.kind === adding.kind)?.hint}.</p>
+              {/* On a phone the example sits right here; on wider screens it's under the preview. */}
+              <KindExample {...adding} block={block} routes={routes} color={color} className="md:hidden" />
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -181,7 +191,82 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
               </div>
             </div>
             <p className="text-xs text-muted">Made-up values, so you can see each field&apos;s place. Spoiler fields show covered, the way players first see them.</p>
+            <KindExample {...adding} block={block} routes={routes} color={color} className="hidden md:block" />
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Stat sets common in fantasy and adventure games, to start from instead of typing. */
+const STAT_SETS: { name: string; stats: string }[] = [
+  { name: 'Tactics RPG', stats: 'HP, Str, Mag, Dex, Spd, Lck, Def, Res' },
+  { name: 'Classic RPG', stats: 'HP, MP, Atk, Def, Mag, Spd' },
+  { name: 'Tabletop', stats: 'Str, Dex, Con, Int, Wis, Cha' },
+  { name: 'Action RPG', stats: 'Vigor, Mind, Endurance, Strength, Dexterity, Intelligence, Faith' },
+  { name: 'Monster battler', stats: 'HP, Atk, Def, Sp. Atk, Sp. Def, Speed' },
+];
+const ONE_STATS = ['HP', 'MP', 'Atk', 'Def', 'Mag', 'Res', 'Spd', 'Lck', 'Move'];
+
+/**
+ * A small menu beside the stat names: pick a whole set, or add one stat at a time. It
+ * floats over the setup, so it takes no room until it's opened.
+ */
+function StatSuggestions({ current, onPick }: { current: string; onPick: (stats: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
+    // Escape closes just this menu, not the whole setup (caught before the setup's own listener).
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } };
+    document.addEventListener('pointerdown', away);
+    window.addEventListener('keydown', esc, true);
+    return () => { document.removeEventListener('pointerdown', away); window.removeEventListener('keydown', esc, true); };
+  }, [open]);
+  const have = current.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+  const pick = (stats: string) => { onPick(stats); setOpen(false); };
+  return (
+    <div ref={box} className="relative shrink-0">
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
+        className="flex items-center gap-0.5 rounded-full px-2 py-0.5 font-bold text-ink ring-1 ring-line hover:ring-ink">
+        Suggestions <ChevronDown size={13} aria-hidden="true" className={open ? 'rotate-180' : ''} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-10 mt-1 grid w-72 gap-1 rounded-2xl bg-card p-2 shadow-soft ring-1 ring-line">
+          {STAT_SETS.map((set) => (
+            <button key={set.name} type="button" onClick={() => pick(set.stats)} className="grid rounded-xl px-2 py-1.5 text-left hover:bg-card-2">
+              <span className="font-bold">{set.name}</span>
+              <span className="truncate text-muted">{set.stats}</span>
+            </button>
+          ))}
+          <p className="mt-1 border-t border-line px-2 pt-2 font-bold text-muted">Or add one</p>
+          <div className="flex flex-wrap gap-1 px-1 pb-1">
+            {ONE_STATS.filter((s) => !have.includes(s.toLowerCase())).map((s) => (
+              <button key={s} type="button" onClick={() => onPick(have.length ? `${current.trim().replace(/,\s*$/, '')}, ${s}` : s)}
+                className="rounded-full bg-card-2 px-2.5 py-1 font-bold ring-1 ring-line hover:ring-ink">+ {s}</button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The field being added, on its own on a small John Doe card: how that kind of field looks
+ * and where it sits, using the name typed so far.
+ */
+function KindExample({ label, kind, block, routes, color, className = '' }: { label: string; kind: FieldKind; block: Block; routes: RouteOption[]; color: string; className?: string }) {
+  const name = label.trim() || kindLabel(kind);
+  const draft = { title: block.title, icon: block.icon, fields: [{ key: name, label: name, kind }], stats: [] };
+  return (
+    <div className={className}>
+      <div className="grid gap-2 rounded-2xl border border-dashed border-line p-3">
+        <p className="text-xs font-bold uppercase tracking-wide text-muted">Example: {kindLabel(kind)}</p>
+        <div className="rounded-xl bg-card p-3 ring-1 ring-line">
+          <CharacterCard entry={johnDoe(draft)} block={draft} route="all" routes={routes} color={color} sample size={56} />
         </div>
       </div>
     </div>
