@@ -11,7 +11,7 @@ import { RichText } from './TextLinks';
 import { initials } from './entries';
 import type { RouteOption } from './EntryPanel';
 import { symbolFor } from './symbols';
-import { PLAYABLE, STATS, besideText, chartDefs, listItems, shownFields, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
+import { STATS, besideText, toggleOptions, chartDefs, listItems, shownFields, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
 import { byStat, heatFill, placeText, rangeOf, statFacts } from '@/lib/stats';
 import { StatTable, statSort } from './StatTable';
 
@@ -97,11 +97,11 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
               if (f.kind === 'yesno' && !/^(y|yes|true)$/i.test(v)) return null;
               // Playable or not: a light green or red pill, whatever the Page's color.
               if (f.kind === 'playable') {
-                const yes = v === PLAYABLE.yes;
+                const yes = v === toggleOptions(f)[0];
                 return (
                   <Spoiler key={f.key} f={f} on={spoilers} small>
-                    <Pill onPick={pickTag && v ? () => pickTag(f.key, v) : undefined} what={yes ? PLAYABLE.yes : PLAYABLE.no}
-                      className={'rounded-full px-2.5 py-0.5 text-xs font-bold ' + (yes ? 'bg-leaf-soft text-leaf' : 'bg-berry-soft text-berry')}>{yes ? PLAYABLE.yes : PLAYABLE.no}</Pill>
+                    <Pill onPick={pickTag && v ? () => pickTag(f.key, v) : undefined} what={v}
+                      className={'rounded-full px-2.5 py-0.5 text-xs font-bold ' + (yes ? 'bg-leaf-soft text-leaf' : 'bg-berry-soft text-berry')}>{v}</Pill>
                   </Spoiler>
                 );
               }

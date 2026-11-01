@@ -310,6 +310,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
 
       {people && (
         <CharacterInputs key={`${block.id}.${fixing?.id ?? 'new'}`} block={block} content={content} set={set} setField={setField} setStat={setStat}
+                classes={pages.flatMap((p) => p.blocks).filter((b) => b.id !== block.id && /class/i.test(b.title)).flatMap((b) => b.entries.map((e) => e.name)).filter((n) => !/\bclasses\b/i.test(n))}
           show={show} hl={hl} fid={fid} others={block.entries.filter((e) => e.id !== fixing?.id).map((e) => e.name)} />
       )}
 

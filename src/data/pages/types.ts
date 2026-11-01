@@ -57,6 +57,8 @@ export interface FieldDef {
   /** Charts: leave out the web by the portrait, or the row of number boxes. */
   noWeb?: boolean;
   noNumbers?: boolean;
+  /** Toggles: the two choices, the first shown green and the second red (Playable or NPC). */
+  options?: [string, string];
 }
 
 /** A "+" section on an entry: a label the Builder chose, and its text. Lines become a list. */

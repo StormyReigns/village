@@ -19,13 +19,23 @@ export const FIELD_KINDS: { kind: FieldKind; label: string; hint: string }[] = [
   { kind: 'links', label: 'Other characters', hint: 'Other characters, one per line: "Name: how they know them"' },
   { kind: 'longtext', label: 'Long text', hint: 'A few sentences' },
   { kind: 'yesno', label: 'Yes or no', hint: 'Shows as a pill when it is yes' },
+  { kind: 'playable', label: 'Toggle', hint: 'One of two, like Playable or NPC: a green or red pill under the name, and a filter' },
   { kind: 'chart', label: 'Chart', hint: 'Numbers like stats or growths: a web by the portrait and boxes colored against the rest' },
 ];
 
-export const kindLabel = (k: FieldKind) => FIELD_KINDS.find((x) => x.kind === k)?.label ?? (k === 'playable' ? 'Playable or NPC' : k);
+export const kindLabel = (k: FieldKind) => FIELD_KINDS.find((x) => x.kind === k)?.label ?? k;
 
 /** "Playable or NPC": one of the common fields (not one builders add), a green or red pill. */
 export const PLAYABLE = { yes: 'Playable', no: 'NPC' } as const;
+
+/** A toggle's two choices: its own, else read from a name like "Day or night", else Yes / No.
+ *  The common "Playable or NPC" field gives Playable and NPC. */
+export function toggleOptions(f: Pick<FieldDef, 'options' | 'label'>): [string, string] {
+  if (f.options?.[0] && f.options[1]) return f.options;
+  const m = f.label.match(/^(.+?)\s+or\s+(.+)$/i);
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  return m ? [cap(m[1].trim()), cap(m[2].trim())] : ['Yes', 'No'];
+}
 
 /** Fields kept as an entry's category (so they can be filtered on), not as a section. */
 export const isCategory = (f: FieldDef) => f.kind === 'tag' || f.kind === 'playable';
@@ -59,7 +69,7 @@ export const COMMON_FIELDS: FieldDef[] = [
 export const withCommon = (fields: FieldDef[]) => [...fields, ...COMMON_FIELDS.filter((c) => !fields.some((f) => sameField(f, c))).map((c) => ({ ...c, off: true }))];
 
 /** The same common field, even if a Block keeps it under another key ('Recruit' for How to recruit). */
-const sameField = (f: FieldDef, c: FieldDef) => f.key === c.key || f.label.toLowerCase() === c.label.toLowerCase() || (c.kind === 'playable' && f.kind === 'playable');
+const sameField = (f: FieldDef, c: FieldDef) => f.key === c.key || f.label.toLowerCase() === c.label.toLowerCase();
 
 /** A Block's fields, or the common ones if it hasn't set any. */
 export const fieldsOf = (block: Pick<Block, 'fields'>) => block.fields?.length ? block.fields : COMMON_FIELDS;
@@ -70,7 +80,8 @@ export const shownFields = (block: Pick<Block, 'fields'>) => fieldsOf(block).fil
 /** Where on the card a field goes. */
 export type Spot = 'beside' | 'tags' | 'meta' | 'chart' | 'body' | 'section';
 export function spotOf(f: FieldDef): Spot {
-  if (f.beside) return 'beside';
+  // Short text and numbers sit small beside the name, like Age.
+  if (f.beside || f.kind === 'text' || f.kind === 'number') return 'beside';
   if (f.key === DESCRIPTION) return 'body';
   return ({ tag: 'tags', yesno: 'tags', playable: 'tags', place: 'meta', when: 'meta', chart: 'chart' } as Partial<Record<FieldKind, Spot>>)[f.kind] ?? 'section';
 }
@@ -128,7 +139,7 @@ export function johnDoe(block: Pick<Block, 'fields' | 'stats'>): EntryContent {
   for (const f of shownFields(block)) {
     if (f.kind === 'chart') continue;
     if (f.key === DESCRIPTION) { description = 'A few lines about who they are and why you would bring them along go here.'; continue; }
-    const v = /\bage\b/i.test(f.label) ? '30' : f.kind === 'tag' ? f.label : SAMPLE[f.kind];
+    const v = /\bage\b/i.test(f.label) ? '30' : f.kind === 'tag' ? f.label : f.kind === 'playable' ? toggleOptions(f)[0] : SAMPLE[f.kind];
     if (isCategory(f)) categories[f.key] = v;
     else sections.push({ label: f.key, text: v });
   }

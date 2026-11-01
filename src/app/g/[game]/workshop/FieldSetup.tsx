@@ -12,7 +12,7 @@ import { useWide } from './split';
 import { EditorShell } from './EditorShell';
 import { browserClient } from '@/lib/supabase/browser';
 import { appChanged } from '@/app/actions';
-import { DESCRIPTION, FIELD_KINDS, besideText, STATS, chartDefs, fieldsOf, hasValue, withCommon, johnDoe, kindLabel, shownFields, spotOf, statKeyFor, valueOf } from '@/lib/fields';
+import { DESCRIPTION, FIELD_KINDS, besideText, toggleOptions, STATS, chartDefs, fieldsOf, hasValue, withCommon, johnDoe, kindLabel, shownFields, spotOf, statKeyFor, valueOf } from '@/lib/fields';
 
 const input = 'w-full rounded-xl bg-card px-2.5 py-1.5 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-sky';
 const slug = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_]+/g, '-');
@@ -72,7 +72,7 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
     const label = adding.label.trim();
     if (!label) { setNote('Give the new field a name.'); return; }
     if (fields.some((f) => f.label.toLowerCase() === label.toLowerCase() || f.key.toLowerCase() === label.toLowerCase())) { setNote(`There's already a field called ${label}.`); return; }
-    setFields([...fields, { key: label, label, kind: adding.kind }]);
+    setFields([...fields, { key: label, label, kind: adding.kind, ...(adding.kind === 'playable' ? { options: toggleOptions({ label }) } : {}) }]);
     if (adding.kind === 'chart') setNames({ ...names, [label]: '' });
     setAdding({ label: '', kind: 'text' });
     setNote('');
@@ -162,7 +162,8 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted">
                     <label className="flex items-center gap-1.5">
                       <input type="checkbox" checked={!f.noWeb} onChange={(e) => patch(i, { noWeb: !e.target.checked || undefined })} className="size-3.5 accent-[var(--color-ink)]" />
-                      Web chart by the portrait
+                      {/* Only the first chart with a web gets the spot by the name; the rest sit in their own section. */}
+                      {f === fields.find((c) => c.kind === 'chart' && !c.off && (c === f || !c.noWeb)) ? 'Web chart, beside the name' : 'Web chart, in its own section'}
                     </label>
                     <label className="flex items-center gap-1.5">
                       <input type="checkbox" checked={!f.noNumbers} onChange={(e) => patch(i, { noNumbers: !e.target.checked || undefined })} className="size-3.5 accent-[var(--color-ink)]" />
@@ -171,11 +172,17 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
                   </div>
                 </div>
               )}
-              {(f.kind === 'text' || f.kind === 'number') && !f.off && (
-                <label className="flex items-center gap-2 pl-11 text-xs text-muted">
-                  <input type="checkbox" checked={Boolean(f.beside)} onChange={(e) => patch(i, { beside: e.target.checked || undefined })} className="size-3.5 accent-[var(--color-ink)]" />
-                  Small, beside the name (like Age)
-                </label>
+              {f.kind === 'playable' && !f.off && (
+                <div className="grid gap-1 pl-11 text-xs">
+                  <span className="font-bold text-muted">The two choices</span>
+                  <div className="flex gap-2">
+                    {toggleOptions(f).map((o, k) => (
+                      <input key={k} value={o} aria-label={k === 0 ? 'First choice (green)' : 'Second choice (red)'}
+                        onChange={(e) => { const next = [...toggleOptions(f)] as [string, string]; next[k] = e.target.value; patch(i, { options: next }); }}
+                        className={input + ' min-w-0 flex-1 ' + (k === 0 ? 'text-leaf' : 'text-berry')} />
+                    ))}
+                  </div>
+                </div>
               )}
             </li>
           ))}
@@ -304,17 +311,17 @@ const EXAMPLE_VALUES: Partial<Record<FieldKind, string>> = {
 
 /** One line under the example on how that kind behaves. */
 const EXAMPLE_NOTES: Record<FieldKind, string> = {
-  text: 'A few words. Tick "beside the name" to show it small next to the name, like Age.',
-  number: 'A number. Tick "beside the name" to show it small next to the name.',
+  text: 'A few words, small beside the name, like Age.',
+  number: 'A number, small beside the name, like a level.',
   tag: 'A pill under the name. Players can also filter the list by it.',
   place: 'Under the name, with a pin.',
   when: 'Under the name, with a clock: a chapter, a date or a time.',
-  chart: "A web beside the portrait and number boxes colored against everyone else. Tap a box to see everyone's numbers.",
+  chart: "A web chart and number boxes colored against everyone else. Tap a box to see everyone's numbers.",
   list: 'Each line is its own item. "Name: what it does" puts the name in bold.',
   links: "Other characters from this Block. Players tap one to open that character's profile.",
   longtext: 'A few sentences under its own heading.',
   yesno: "A pill with a tick when the answer is yes. When it's no, nothing shows.",
-  playable: 'A green Playable or red NPC pill under the name.',
+  playable: 'One of two choices, a green or red pill under the name. Name it "X or Y" and those become the choices.',
 };
 
 /**

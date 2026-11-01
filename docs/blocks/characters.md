@@ -53,7 +53,7 @@ Every Characters Block starts from these common fields (`COMMON_FIELDS`); all ar
 
 | Field | Kind | On by default |
 |-------|------|---------------|
-| Playable or NPC | a green "Playable" or red "NPC" pill (kept as a category, so it can be filtered on) | no |
+| Playable or NPC | a toggle: a green "Playable" or red "NPC" pill (kept as a category, so it can be filtered on) | no |
 | Age | short text, beside the name | yes |
 | Role or class | tag | yes |
 | Location | place | yes |
@@ -67,7 +67,9 @@ Every Characters Block starts from these common fields (`COMMON_FIELDS`); all ar
 
 Builders can add their own fields of any kind: short text, number, tag, place, when,
 list, other characters (links to characters in the same Block), long text, yes or no
-(a pill with a tick when yes), or chart. A Block can have several charts (Base stats and
+(a pill with a tick when yes), toggle (one of two choices, a green or red pill; named
+"X or Y", those become the choices, and they can be renamed in Set up), or chart. Short
+text and numbers always sit small beside the name, like Age. A Block can have several charts (Base stats and
 Growths, say), each with its own stat names.
 
 Values live on entries as they always have: tags as categories, the description as the
@@ -147,6 +149,12 @@ own, with a thin line between them; on a phone the sheet opens at the size it wa
   handle on phones. "What changes" moved to the editor, above Submit. Why: the preview was
   hard to tell from the editor, and the preview should stay true to the app, so the editor
   carries the difference. The Workbench is meant for the whole Workshop.
+- 2026-11-01: "Playable or NPC" is one example of a new field kind, Toggle, which builders can
+  add themselves with their own two choices. Short text and numbers always sit beside the
+  name (the "beside the name" option is gone). A second chart's switch says its web sits in
+  its own section, since only the first sits by the name. Role or class (and any role, class
+  or job field) suggests the game's own classes and common ones, and every suggestion row
+  narrows as you type.
 - 2026-11-01: tag pills on a card (group, class, Playable or NPC) are tappable and show
   everyone with that tag. In Set up the Name row reads "Every character has one: the big title
   on their card" instead of "Always on, bold at the top".

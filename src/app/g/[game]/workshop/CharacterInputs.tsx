@@ -3,9 +3,12 @@
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import type { Block, EntryContent, FieldDef } from '@/data/pages';
-import { DESCRIPTION, PLAYABLE, STATS, chartDefs, isCategory, listItems, shownFields } from '@/lib/fields';
+import { DESCRIPTION, STATS, chartDefs, isCategory, listItems, shownFields, toggleOptions } from '@/lib/fields';
 
 // The same boxes as the rest of the entry form.
+/** Common fantasy roles and classes, to start from when a game has none listed yet. */
+const COMMON_CLASSES = ['Lord', 'Fighter', 'Knight', 'Cavalier', 'Archer', 'Mage', 'Cleric', 'Healer', 'Thief', 'Mercenary', 'Myrmidon', 'Pegasus Knight', 'Wyvern Rider', 'Monk', 'Dancer', 'Bard'];
+
 const input = 'w-full rounded-2xl bg-card-2 px-3 py-2 ring-1 ring-line outline-none placeholder:text-muted focus:ring-2 focus:ring-sky';
 
 /** What to type, shown faintly in each empty box. */
@@ -19,7 +22,7 @@ const PLACEHOLDER: Partial<Record<FieldDef['kind'], string>> = {
  * characters already use, lists and other characters are one row per item, and yes or no
  * is a choice rather than typing.
  */
-export function CharacterInputs({ block, content, set, setField, setStat, show, hl, fid, others }: {
+export function CharacterInputs({ block, content, set, setField, setStat, show, hl, fid, others, classes = [] }: {
   block: Block;
   content: EntryContent;
   set: (patch: Partial<EntryContent>) => void;
@@ -32,6 +35,8 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
   fid: (part: string) => string | undefined;
   /** The other characters in this Block, offered when linking one. */
   others: string[];
+  /** Names from the game's own class Blocks, offered for a role or class. */
+  classes?: string[];
 }) {
   // Values other characters already have, so the same thing is written the same way.
   const used = (f: FieldDef) => [...new Set(block.entries.map((e) => (isCategory(f) ? e.categories[f.key] : e.sections.find((s) => s.label === f.key)?.text)?.trim())
@@ -82,13 +87,14 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
           );
         }
         if (f.kind === 'playable') {
+          const [yes, no] = toggleOptions(f);
           return (
             <div key={f.key} role="group" aria-label={f.label} id={fid(part)} className={'flex items-center gap-3' + hl(part)}>
               <span className="flex-1 text-sm font-bold">{f.label}</span>
               <div className="flex rounded-full bg-card p-0.5 text-sm font-bold ring-1 ring-line">
-                {([PLAYABLE.yes, PLAYABLE.no, ''] as const).map((o) => (
+                {[yes, no, ''].map((o) => (
                   <button key={o || 'unset'} type="button" onClick={() => put(o)} aria-pressed={v === o}
-                    className={'rounded-full px-3 py-1 ' + (v === o ? (o === PLAYABLE.yes ? 'bg-leaf text-paper' : o === PLAYABLE.no ? 'bg-berry text-paper' : 'bg-ink text-paper') : 'text-muted hover:text-ink')}>{o || 'Not sure'}</button>
+                    className={'rounded-full px-3 py-1 ' + (v === o ? (o === yes ? 'bg-leaf text-paper' : o === no ? 'bg-berry text-paper' : 'bg-ink text-paper') : 'text-muted hover:text-ink')}>{o || 'Not sure'}</button>
                 ))}
               </div>
             </div>
@@ -108,7 +114,12 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
             </div>
           );
         }
-        const suggestions = f.kind === 'longtext' ? [] : used(f).filter((s) => s !== v);
+        // Suggestions: what other characters use, and for a role or class the game's own classes
+        // and common ones too. Typing narrows them to the ones that match.
+        const roleish = /\b(role|class|job)\b/i.test(f.label);
+        const pool = f.kind === 'longtext' ? [] : [...new Set([...used(f), ...(roleish ? [...classes, ...COMMON_CLASSES] : [])])];
+        const typed = v.trim().toLowerCase();
+        const suggestions = pool.filter((s) => s !== v && (!typed || s.toLowerCase().includes(typed)));
         return (
           <label key={f.key} id={fid(part)} className={'grid gap-1' + hl(part)}>
             <span className="text-sm font-bold">{f.label}</span>
