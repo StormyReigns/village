@@ -352,7 +352,7 @@ function ThreadCard({ info, messages, me, live, onOpen, as: Box = 'li' }: {
         </Tip>
       </button>
       {messages.length > 0 && (
-        <ul className="mt-2 grid gap-2 border-t border-line pt-2">
+        <ul className="mt-2 grid grid-cols-[minmax(0,1fr)] gap-2 border-t border-line pt-2">
           {messages.slice(-2).map((m) => <Message key={m.id} m={m} me={me} live={live} compact />)}
         </ul>
       )}
@@ -435,7 +435,7 @@ export function Stream({ topic, onAll, onFold, bar, className = '', messages, me
           <p className="text-sm text-muted">Say what you&apos;ve found or what you&apos;re stuck on. Messages show up for everyone here right away.</p>
         </div>
       ) : (
-        <ul ref={list} onScroll={onScroll} aria-live="polite" className="my-3 grid min-h-0 flex-1 content-start gap-4 overflow-y-auto overscroll-contain pr-1">
+        <ul ref={list} onScroll={onScroll} aria-live="polite" className="my-3 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-4 overflow-y-auto overflow-x-hidden overscroll-contain pr-1">
           {items.map((x) => x.kind === 'message'
             ? <Message key={x.m.id} m={x.m} me={me} live={live} />
             : <ThreadCard key={x.key} info={threads.info(x.key)} messages={x.messages} me={me} live={live} onOpen={() => onOpen(x.key)} />)}
@@ -517,7 +517,7 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, onClose,
           {href && <a href={href} className="inline-flex items-center gap-1 rounded-full bg-card px-2.5 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">See it in the app</a>}
         </div>
       )}
-      <ul ref={list} onScroll={onScroll} aria-live="polite" className="my-3 grid min-h-0 flex-1 content-start gap-4 overflow-y-auto overscroll-contain pr-1">
+      <ul ref={list} onScroll={onScroll} aria-live="polite" className="my-3 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-4 overflow-y-auto overflow-x-hidden overscroll-contain pr-1">
         {timeline.length === 0 && (
           <li className="m-auto grid max-w-xs justify-items-center gap-2 py-8 text-center">
             <h3 className="font-display text-lg">Start the thread</h3>
