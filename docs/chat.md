@@ -1,6 +1,6 @@
 # The Workshop chat
 
-**Status:** Building: step 1 (threads) built 2026-11-01; `#` references and Town Hall next ·
+**Status:** Building: threads and `#` references built 2026-11-01; Town Hall next ·
 **Chat:** `Village · Chat` (owns the chat's design and this file) · **Code:**
 `src/app/g/[game]/workshop/chat/Chat.tsx` (`Stream`, `ThreadCard`, `ThreadPanel`, `Message`,
 `Composer`, `useThreads`), `chat/bits.tsx` (report form and small shared pieces),
@@ -191,8 +191,22 @@ What reads as unclear or inconsistent today, from walking the moments above.
 - **Safe before the SQL**: until `20261101000000_chat_threads.sql` is run, the chat reads
   without threads, and posting in a thread says the database needs an update.
 
-Not yet: `#` references, Town Hall, presence ("Ben is editing"), unread marks, a thread
-count on entries in the app.
+Not yet: Town Hall, presence ("Ben is editing"), unread marks, a thread count on entries
+in the app.
+
+## Step 2: `#` references (built 2026-11-01)
+
+- Typing `#` in any chat box (the main chat, a thread, a card's reply box) opens a list
+  above it; `#esh` finds Eshmel with the app's forgiving search. Arrow keys or a tap choose,
+  Enter or Tab picks, Escape closes. The list covers every entry, each Characters Block's
+  setup, and new entries still waiting as Drafts.
+- Picking writes `#Eshmel` in the box; sending stores a code for his thread instead of his
+  name (`<#fortunes-weave:card:…>`, `src/lib/refs.ts`), so renames don't break it.
+- The message shows `#Eshmel` as a tag in his Page's color that opens his thread, and the
+  first one gets his card underneath, with a reply box that posts into his thread. The
+  Notice Board shows tags as names too.
+- No database change. Not yet: browsing with a `#` button, pasted links becoming cards,
+  "linked from the chat" in the thread, other games (with Town Hall).
 
 ## Proposal: one stream, threads that surface (2026-11-01, step 1 built)
 

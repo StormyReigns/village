@@ -25,7 +25,7 @@ import {
   REASONS, targetKey, useWorkshop,
   type LiveDraft, type ReportGroup, type WorkshopData,
 } from './useWorkshop';
-import { Stream, ThreadPanel, useThreads, type Placed } from './chat/Chat';
+import { ChatLinks, MessageText, Stream, ThreadPanel, useThreads, type Placed } from './chat/Chat';
 import { ago, ReportForm, SmallButton, useAction } from './chat/bits';
 import { blockThread, draftThread, entryThread, type ThreadKey } from '@/lib/threads';
 import { EntryForm, ChangeList, type FormStart, type Posted } from './EntryForm';
@@ -281,6 +281,7 @@ export function Workshop({ game, pages, routes }: {
   const chatCount = threadInfo ? threadMessages.filter((m) => !m.removed).length : chat.length;
 
   return (
+    <ChatLinks.Provider value={{ gameId: game.id, threads, open: openThread }}>
     <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col px-4 pb-6 pt-5 sm:px-6 lg:min-h-0 lg:pb-4 lg:pt-4">
       {/* The Workshop's name and guides. The ink bar above (page.tsx) has the way out and your account. */}
       <header className="flex flex-wrap items-center gap-3">
@@ -603,6 +604,7 @@ export function Workshop({ game, pages, routes }: {
         </Sheet>
       )}
     </main>
+    </ChatLinks.Provider>
   );
 }
 
@@ -833,7 +835,7 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
           <Avatar name={r.message.author.name} url={r.message.author.avatarUrl} size={28} />
           <div className="min-w-0">
             <p className="text-sm font-bold">{r.message.author.name}{r.message.spoiler && <span className="ml-2 text-xs text-muted">marked spoiler</span>}</p>
-            <p className="whitespace-pre-wrap break-words text-sm">{r.message.body}</p>
+            <p className="whitespace-pre-wrap break-words text-sm"><MessageText body={r.message.body} /></p>
           </div>
         </div>
       ) : r.draft ? (

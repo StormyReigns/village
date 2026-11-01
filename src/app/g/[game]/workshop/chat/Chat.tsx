@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, EyeOff, FileText, Flag, MessageCircle, MoreHorizontal, PanelLeftClose, PanelRight, PenLine, RotateCcw, Send, Trash2, X } from 'lucide-react';
 import type { Block, Entry, Page } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
@@ -10,7 +10,9 @@ import { Avatar } from '@/components/Avatar';
 import { Tip } from '@/components/Tip';
 import type { Villager } from '@/components/useVillager';
 import { sharePath } from '@/data/pages/links';
-import { buildStream, draftThread, resolveThread, threadOf, type ThreadKey } from '@/lib/threads';
+import { blockThread, buildStream, draftThread, entryThread, resolveThread, threadOf, type ThreadKey } from '@/lib/threads';
+import { encodeRefs, insertPick, refsIn, splitRefs, typedHash, type Ref } from '@/lib/refs';
+import { rank, type Searchable } from '@/lib/search';
 import { targetKey, type ChatMessage, type LiveDraft, type WorkshopData } from '../useWorkshop';
 import { ago, ReportForm, SmallButton, useAction } from './bits';
 
@@ -75,8 +77,50 @@ export function useThreads(blocks: Placed[], drafts: LiveDraft[], messages: Chat
       if (k && !m.removed) counts.set(k, (counts.get(k) ?? 0) + 1);
     }
     const inThread = (key: ThreadKey) => messages.filter((m) => threadOf(m, byId) === key);
-    return { info, counts, inThread, byId, resolve: (k: ThreadKey) => resolveThread(k, byId) };
+
+    // What "#" can point at: every entry, each Characters Block's setup, and new entries
+    // still waiting as Drafts.
+    const options: RefOption[] = [
+      ...blocks.flatMap((b) => b.entries.map((e) => ({ key: entryThread(b.id, e), label: e.name, where: whereOf(b), search: { name: e.name, text: `${b.title} ${b.page.title}` } }))),
+      ...blocks.filter((b) => b.type === 'characters').map((b) => ({ key: blockThread(b.id), label: `Setting up ${b.title}`, where: b.page.title, search: { name: `${b.title} setup`, text: b.page.title } })),
+      ...drafts.filter((d) => !d.cardId && (d.status === 'open' || d.status === 'checking')).map((d) => {
+        const b = placeOf(d.blockKey);
+        return { key: draftThread(d), label: d.title, where: `New Draft${b ? ` · ${whereOf(b)}` : ''}`, search: { name: d.title, text: b?.title ?? '' } };
+      }),
+    ];
+    return { info, counts, inThread, options, byId, resolve: (k: ThreadKey) => resolveThread(k, byId) };
   }, [blocks, drafts, messages]);
+}
+
+/** Something "#" can point at, for the picker. */
+export interface RefOption { key: ThreadKey; label: string; where: string; search: Searchable }
+
+/**
+ * What the chat needs to turn "#Eshmel" into a link: the game, its threads, and how to open
+ * one. Provided once by the Workshop, so every message box and message can use it.
+ */
+export const ChatLinks = createContext<{ gameId: string; threads: Threads; open: (key: ThreadKey) => void } | null>(null);
+
+/** A message's words, with each "#" reference as a tag in its Page's color that opens the thread. */
+export function MessageText({ body }: { body: string }) {
+  const links = useContext(ChatLinks);
+  return (
+    <>
+      {splitRefs(body).map((p, i) => {
+        if ('text' in p) return <span key={i}>{p.text}</span>;
+        const here = links && p.ref.game === links.gameId ? links.threads.info(links.threads.resolve(p.ref.key)) : null;
+        if (!here || !links) return <span key={i} className="font-bold">#a thread in another game</span>;
+        const tint = here.block?.page.tint;
+        return (
+          <button key={i} type="button" onClick={() => links.open(here.key)}
+            className="rounded-md px-1 font-bold hover:underline"
+            style={tint ? { background: `var(--${tint}-soft)`, color: `var(--${tint})` } : undefined}>
+            #{here.title}
+          </button>
+        );
+      })}
+    </>
+  );
 }
 export type Threads = ReturnType<typeof useThreads>;
 
@@ -123,7 +167,10 @@ export function Message({ m, me, live, compact = false }: { m: ChatMessage; me: 
             <EyeOff size={14} aria-hidden="true" /> Spoiler · tap to show
           </button>
         ) : (
-          <p className={'whitespace-pre-wrap break-words ' + (compact ? 'line-clamp-2 text-sm' : '')}>{m.body}</p>
+          <>
+            <p className={'whitespace-pre-wrap break-words ' + (compact ? 'line-clamp-2 text-sm' : '')}><MessageText body={m.body} /></p>
+            {!compact && <LinkedCard refs={refsIn(m.body)} me={me} live={live} />}
+          </>
         )}
         {tools && (
           <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -150,7 +197,24 @@ export function Message({ m, me, live, compact = false }: { m: ChatMessage; me: 
   );
 }
 
-/** The message box: a text field, a spoiler switch and Send. Visitors get a sign-in button. */
+/** The first thread a message points at, as a card under it: its latest words and a reply box. */
+function LinkedCard({ refs, me, live }: { refs: Ref[]; me: Villager | null | undefined; live: WorkshopData }) {
+  const links = useContext(ChatLinks);
+  const first = links && refs.find((r) => r.game === links.gameId);
+  if (!links || !first) return null;
+  const key = links.threads.resolve(first.key);
+  return (
+    <div className="mt-2">
+      <ThreadCard as="div" info={links.threads.info(key)} messages={links.threads.inThread(key)} me={me} live={live} onOpen={() => links.open(key)} />
+    </div>
+  );
+}
+
+/**
+ * The message box: a text field, a spoiler switch and Send. Visitors get a sign-in button.
+ * Typing "#" opens a list of things to point at (#esh finds Eshmel); picking one writes
+ * #Eshmel, and sending turns it into a link to his thread.
+ */
 export function Composer({ me, placeholder, onSend, id, compact = false }: {
   me: Villager | null | undefined; placeholder: string; onSend: (body: string, spoiler: boolean) => Promise<string | null>;
   /** The stream's box has an id, so "Say hi" can put the cursor in it. */
@@ -163,27 +227,73 @@ export function Composer({ me, placeholder, onSend, id, compact = false }: {
   const [spoiler, setSpoiler] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const links = useContext(ChatLinks);
+  const [caret, setCaret] = useState(0);
+  const [picked, setPicked] = useState<{ label: string; ref: Ref }[]>([]);
+  const [sel, setSel] = useState(0);
+  const [hidden, setHidden] = useState(false);
+
+  const listId = useId();
+  const hash = links ? typedHash(text, caret) : null;
+  const query = hash ? hash.query : null;
+  const choices = query === null || !links ? [] : rank(links.threads.options, query, (o) => o.search).slice(0, query ? 8 : 40);
+  const picking = Boolean(hash && !hidden && choices.length);
 
   if (me === null) return compact ? null : <div className="mt-auto pt-2"><SignInPrompt>Sign in to chat</SignInPrompt></div>;
 
+  const pick = (o: RefOption) => {
+    if (!hash || !links) return;
+    const next = insertPick(text, hash.start, caret, o.label);
+    setText(next.text);
+    setCaret(next.caret);
+    setPicked((p) => [...p.filter((x) => x.label !== o.label), { label: o.label, ref: { game: links.gameId, key: o.key } }]);
+    setSel(0);
+    requestAnimationFrame(() => { field.current?.focus(); field.current?.setSelectionRange(next.caret, next.caret); });
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const body = text.trim();
+    const body = encodeRefs(text.trim(), picked);
     if (!body || busy) return;
     setBusy(true);
     const err = await onSend(body, spoiler);
     setBusy(false);
     setError(err ?? '');
-    if (!err) { setText(''); setSpoiler(false); }
+    if (!err) { setText(''); setSpoiler(false); setPicked([]); setCaret(0); }
   };
   const size = compact ? 'size-7' : 'size-9';
+  const track = (el: HTMLInputElement) => setCaret(el.selectionStart ?? el.value.length);
 
   return (
-    <div className={compact ? '' : 'mt-auto'}>
+    <div className={'relative ' + (compact ? '' : 'mt-auto')}>
+      {picking && (
+        <ul id={listId} role="listbox" aria-label="Point at something" className="absolute inset-x-0 bottom-full z-30 mb-2 max-h-64 overflow-y-auto overscroll-contain rounded-2xl bg-card p-1 shadow-soft ring-1 ring-line">
+          {choices.map((o, i) => (
+            <li key={o.key} role="option" aria-selected={i === sel}>
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => pick(o)} onMouseEnter={() => setSel(i)}
+                className={'flex w-full items-baseline gap-2 rounded-xl px-2.5 py-1.5 text-left text-sm ' + (i === sel ? 'bg-card-2 ring-1 ring-ink' : '')}>
+                <span className="shrink-0 font-bold">#{o.label}</span>
+                <span className="min-w-0 truncate text-xs text-muted">{o.where}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       {/* The whole box takes a click: the text field fills its height, and a click on its edge lands in the field. */}
       <form onSubmit={submit} onMouseDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); field.current?.focus(); } }}
         className={'flex cursor-text items-center gap-1.5 rounded-full ring-1 ring-line focus-within:ring-2 focus-within:ring-sky ' + (compact ? 'bg-card p-1' : 'bg-card-2 p-1.5')}>
-        <input ref={field} id={id} value={text} onChange={(e) => { setText(e.target.value); if (error) setError(''); }} maxLength={4000} disabled={me === undefined}
+        <input ref={field} id={id} value={text} maxLength={4000} disabled={me === undefined}
+          onChange={(e) => { setText(e.target.value); track(e.target); setHidden(false); setSel(0); if (error) setError(''); }}
+          onSelect={(e) => track(e.currentTarget)}
+          onBlur={() => setHidden(true)} onFocus={() => setHidden(false)}
+          onKeyDown={(e) => {
+            if (!picking) return;
+            if (e.key === 'ArrowDown') { e.preventDefault(); setSel((sel + 1) % choices.length); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); setSel((sel - 1 + choices.length) % choices.length); }
+            else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pick(choices[Math.min(sel, choices.length - 1)]); }
+            else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setHidden(true); }
+          }}
+          role="combobox" aria-expanded={picking} aria-controls={listId} aria-autocomplete="list"
           className={'min-w-0 flex-1 self-stretch bg-transparent outline-none placeholder:text-muted ' + (compact ? 'px-2.5 text-sm' : 'px-3')} placeholder={placeholder} aria-label={placeholder} />
         <Tip text="Spoiler: hide this message behind a tap" className="shrink-0">
           <button type="button" onClick={() => setSpoiler(!spoiler)} aria-pressed={spoiler}
@@ -210,12 +320,14 @@ export function sendToThread(live: WorkshopData, info: ThreadInfo) {
 }
 
 /** A thread in the stream: what it's about, its latest words, and a box to reply right there. */
-function ThreadCard({ info, messages, me, live, onOpen }: {
+function ThreadCard({ info, messages, me, live, onOpen, as: Box = 'li' }: {
   info: ThreadInfo; messages: ChatMessage[]; me: Villager | null | undefined; live: WorkshopData; onOpen: () => void;
+  /** A list item in the stream; a plain box under a message that points at it. */
+  as?: 'li' | 'div';
 }) {
   const count = messages.filter((m) => !m.removed).length;
   return (
-    <li className="rounded-2xl bg-card p-2.5 ring-1 ring-line">
+    <Box className="rounded-2xl bg-card p-2.5 ring-1 ring-line">
       <button onClick={onOpen} className="flex w-full items-center gap-2.5 text-left">
         <ThreadIcon info={info} small />
         <span className="min-w-0 flex-1">
@@ -228,13 +340,15 @@ function ThreadCard({ info, messages, me, live, onOpen }: {
           <span className="grid size-8 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink"><PanelRight size={16} aria-hidden="true" /><span className="sr-only">Open</span></span>
         </Tip>
       </button>
-      <ul className="mt-2 grid gap-2 border-t border-line pt-2">
-        {messages.slice(-2).map((m) => <Message key={m.id} m={m} me={me} live={live} compact />)}
-      </ul>
+      {messages.length > 0 && (
+        <ul className="mt-2 grid gap-2 border-t border-line pt-2">
+          {messages.slice(-2).map((m) => <Message key={m.id} m={m} me={me} live={live} compact />)}
+        </ul>
+      )}
       <div className="mt-2">
         <Composer compact me={me} placeholder={`Reply about ${info.title}`} onSend={sendToThread(live, info)} />
       </div>
-    </li>
+    </Box>
   );
 }
 
