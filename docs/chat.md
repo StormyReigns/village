@@ -1,12 +1,16 @@
 # The Workshop chat
 
-**Status:** Live, first version (works, not yet designed properly) · **Chat:** `Village · Chat`
-(owns the chat's design and this file) · **Code:** `src/app/g/[game]/workshop/Workshop.tsx`
-(`Chat`, `Composer`, `Message`, the Discuss thread in `DraftCard`, `ReportQueue`),
+**Status:** Building: step 1 (threads) built 2026-11-01; `#` references and Town Hall next ·
+**Chat:** `Village · Chat` (owns the chat's design and this file) · **Code:**
+`src/app/g/[game]/workshop/chat/Chat.tsx` (`Stream`, `ThreadCard`, `ThreadPanel`, `Message`,
+`Composer`, `useThreads`), `chat/bits.tsx` (report form and small shared pieces),
+`src/lib/threads.ts` (thread keys and the stream's order, tested in `threads.test.ts`),
+`Workshop.tsx` (where the stream and thread sit, Draft cards' Chat button, `ReportQueue`),
 `EditorShell.tsx` (`EditorChat`, `EditSwap`), `useWorkshop.ts` (loading, sending, live
 updates, reports, moderator actions) · **Database:** `chat_messages` and `flags` in
 `supabase/migrations/` (`20261020000000_init.sql`, `20261021000000_workshop_live.sql`,
-`20261021120000_moderation.sql`) · **Live on:** every game's Workshop
+`20261021120000_moderation.sql`, `20261101000000_chat_threads.sql`) · **Live on:** every
+game's Workshop
 
 The chat's code sits in Workshop files that other chats also edit. Before changing any file in
 `src/app/g/[game]/workshop/` or the `chat_messages` schema, tell `Village · Main` what will be
@@ -46,7 +50,9 @@ setting up a Block, and hits something they don't know or aren't sure of.
 - **Moderating.** A message is reported, or a spoiler slipped through. Done: handled in a tap,
   with the reporter thanked.
 
-## How it's structured today
+## How it worked before threads (until 2026-11-01)
+
+Kept for the record; "Step 1: threads" below says what changed.
 
 ### One chat per game, sliced by Page
 
@@ -155,7 +161,40 @@ What reads as unclear or inconsistent today, from walking the moments above.
    removed messages while the Discuss count doesn't; the villager Notice Board text describes
    something it doesn't show.
 
-## Proposal: one stream, threads that surface (2026-11-01, not agreed yet)
+## Step 1: threads (built 2026-11-01)
+
+- **Thread keys** (`src/lib/threads.ts`): `card:<uuid>` for an entry in the app, `draft:<uuid>`
+  for a new entry's Draft (it moves to the card once published, because publishing sets the
+  Draft's card), `block:<id>` for a Block's setup, `entry:<block>.<id>` for an entry not yet in
+  the database. Stored in `chat_messages.thread_key`. Old Discuss messages have no key and
+  join their Draft's thread, so nothing needed copying.
+- **The stream** reads top to bottom as before, but each thread is one card at its newest
+  message: the entry's piece (or the Block's symbol for a setup), its name, where it lives,
+  how many messages and Drafts, the last two messages, and a reply box. A reply typed there
+  lands in the thread. Tapping the card opens the thread.
+- **The thread panel**: the piece, name and where, how many people are talking, "Fix" (or
+  "Set up") to open its editor and "See it in the app". Messages and the thread's Drafts in
+  one timeline; each Draft says who posted it and its status, with "Vote" or "See Draft" to
+  open it. Opening a thread loads its whole history, past the newest 300 messages.
+- **Where it sits**: on the widest screens (2xl) the thread opens beside the stream; on other
+  wide screens, and whenever an editor is open, it takes the stream's place, with a back
+  arrow. (An editor shows its preview beside the form only when it has 768px; a third column
+  would squeeze it into the phone-style sheet.) On phones it's in the Chat tab,
+  or over the editor with the pencil/bubble switch.
+- **Editors open their thread**: fixing Eshmel opens Eshmel's thread beside the edit, setting
+  up Characters opens its setup thread; closing the editor puts that thread away.
+- **Draft cards** have "Chat · n" (their thread's count) in place of "Discuss", and open the
+  thread.
+- **Smaller fixes**: the stream no longer jumps to the bottom while you're reading further up;
+  the Notice Board chip no longer claims to be a chat topic; a Page chip shows "Units and
+  classes only · show all"; the main box says "Message everyone".
+- **Safe before the SQL**: until `20261101000000_chat_threads.sql` is run, the chat reads
+  without threads, and posting in a thread says the database needs an update.
+
+Not yet: `#` references, Town Hall, presence ("Ben is editing"), unread marks, a thread
+count on entries in the app.
+
+## Proposal: one stream, threads that surface (2026-11-01, step 1 built)
 
 The answer to "each thing gets its own chat" vs "split chats go quiet":
 - **One living stream per game**, the Workshop chat, that everyone sees. General talk and
@@ -239,6 +278,11 @@ Dated, newest last, each with why.
 - 2026-11-01 (Matt): a reply typed into a thread's card in another chat (say `#Eshmel` in
   Town Hall) lands in that thread. Why: you can talk in both places without leaving the
   one you're in.
+- 2026-11-01 (Matt: "Lets start building"): step 1 is threads in the Workshop. One card per
+  thread in the stream that moves down to its newest message (rather than every reply
+  showing). Why: it keeps the stream readable while showing what's moving. Thread beside
+  the stream only on the widest screens, in its place elsewhere. Why: the editor needs the
+  room. A thread belongs to the thing, so all of Eshmel's Drafts share his thread.
 
 ## Open questions
 
@@ -247,8 +291,8 @@ For Matt to decide.
   about Drafts, or general hanging out?
 - Does the proposal above fit: one stream, a thread per thing, threads surfacing as cards?
 - Which things get threads: entries and Block setups only, or Pages too?
-- Should every thread reply show in the stream, or only the latest per thread (one card
-  that moves down)?
+- A thread with many published Drafts (Eshmel has six) gets a long list of "posted a fix ·
+  published" rows. Fold published ones into one line?
 - Where outside the Workshop should a thread open: the game app, anywhere on the site, a
   link from Discord?
 - Can visitors in the app read an entry's thread, or only villagers in the Workshop?

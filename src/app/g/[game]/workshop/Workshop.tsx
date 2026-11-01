@@ -3,10 +3,10 @@
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, EyeOff, FileText, Flag, Hammer, MessageCircle, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Plus,
-  RotateCcw, Search, Send, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, X,
+  ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, EyeOff, FileText, Flag, Hammer, MessageCircle, PanelLeftOpen, Plus,
+  RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, X,
 } from 'lucide-react';
-import type { Block, Page } from '@/data/pages';
+import type { Page } from '@/data/pages';
 import { BlockIcon, NavSymbol } from '@/components/Icon';
 import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
 import { entryText } from '@/components/app/entries';
@@ -23,8 +23,11 @@ import { useVillager, type Villager } from '@/components/useVillager';
 import { sortStandouts } from '@/lib/standouts';
 import {
   REASONS, targetKey, useWorkshop,
-  type ChatMessage, type LiveDraft, type ReportGroup, type ReportReason, type Target, type WorkshopData,
+  type LiveDraft, type ReportGroup, type WorkshopData,
 } from './useWorkshop';
+import { Stream, ThreadPanel, useThreads, type Placed } from './chat/Chat';
+import { ago, ReportForm, SmallButton, useAction } from './chat/bits';
+import { blockThread, draftThread, entryThread, type ThreadKey } from '@/lib/threads';
 import { EntryForm, ChangeList, type FormStart, type Posted } from './EntryForm';
 import { FieldSetup } from './FieldSetup';
 import { EditorChat, EditSwap } from './EditorShell';
@@ -32,9 +35,6 @@ import { useBeside } from './split';
 import { sharePath } from '@/data/pages/links';
 import { changesBetween } from './changes';
 import { clearUnsent, readUnsent, saveUnsent, type Unsent } from './unsent';
-
-/** A Block together with the Page it sits on. */
-type Placed = Block & { page: Page };
 
 type Sort = 'standouts' | 'new' | 'needs' | 'shipped';
 const SORTS: { key: Sort; label: string }[] = [
@@ -48,15 +48,6 @@ const STATUS: Record<string, string> = {
   checking: 'Being checked', open: 'Open for votes', approved: 'Approved', preview: 'In Preview', stable: 'Published', declined: 'Declined', removed: 'Removed',
 };
 
-
-/** "just now", "5m", "3h", or a date. Only ever runs in the browser. */
-function ago(iso: string) {
-  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m`;
-  if (mins < 60 * 24) return `${Math.round(mins / 60)}h`;
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
 
 export function Workshop({ game, pages, routes }: {
   game: { id: string; shortTitle: string; title: string }; pages: Page[]; routes: RouteOption[];
@@ -95,6 +86,10 @@ export function Workshop({ game, pages, routes }: {
   // Smaller screens: the chat opened over an editor, as a side trip from it. It belongs to
   // that one edit, so closing the editor puts it away too.
   const [chatOver, setChatOver] = useState<string | null>(null);
+  // The thread open beside the chat (src/lib/threads.ts). An editor opens its own thing's
+  // thread, and closing the editor puts that one away again.
+  const [thread, setThread] = useState<ThreadKey | null>(null);
+  const [threadFromEdit, setThreadFromEdit] = useState(false);
   const beside = useBeside();
   const introRef = useRef<HTMLDivElement>(null);
 
@@ -255,6 +250,36 @@ export function Workshop({ game, pages, routes }: {
     : setupBlock ? `Set up ${setupBlock.title}` : '';
   const editKey = editing ? `${editing}:${form?.blockId}.${form?.entryId}:${setup}` : null;
 
+  // Threads: what each is about, and the one open beside the chat.
+  const threads = useThreads(blocks, drafts, live.messages);
+  const editEntry = editing === 'form' && form?.entryId ? editBlock?.entries.find((e) => e.id === form.entryId) : undefined;
+  const editThread = editEntry && editBlock ? entryThread(editBlock.id, editEntry) : editing === 'setup' && setupBlock ? blockThread(setupBlock.id) : null;
+  const [followedEdit, setFollowedEdit] = useState<ThreadKey | null>(null);
+  if (editThread !== followedEdit) {
+    setFollowedEdit(editThread);
+    if (editThread) { setThread(editThread); setThreadFromEdit(true); }
+    else if (threadFromEdit) { setThread(null); setThreadFromEdit(false); }
+  }
+  /** Opens a thread. Over an editor on a phone, it stays in the chat that's over the edit. */
+  const openThread = (key: ThreadKey, overEdit = false) => {
+    setThread(threads.resolve(key));
+    setThreadFromEdit(false);
+    setDetail(null);
+    setChatFolded(false);
+    if (!overEdit) setPhoneTab('chat');
+  };
+  const threadInfo = thread ? threads.info(thread) : null;
+  const threadMessages = thread ? threads.inThread(thread) : [];
+  const threadPanel = (extra: { onBack?: () => void; onClose?: () => void; besideStream?: boolean; bar?: React.ReactNode; className?: string }) => threadInfo && (
+    <ThreadPanel info={threadInfo} messages={threadMessages} me={me} live={live} gameId={game.id} onDraft={setDetail}
+      onEdit={threadInfo.key === editThread || !threadInfo.block ? undefined
+        : threadInfo.kind === 'setup' ? () => setSetup(threadInfo.block!.id)
+        : threadInfo.kind === 'entry' && threadInfo.entry ? () => setForm({ blockId: threadInfo.block!.id, entryId: threadInfo.entry!.id })
+        : undefined}
+      {...extra} />
+  );
+  const chatCount = threadInfo ? threadMessages.filter((m) => !m.removed).length : chat.length;
+
   return (
     <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col px-4 pb-6 pt-5 sm:px-6 lg:min-h-0 lg:pb-4 lg:pt-4">
       {/* The Workshop's name and guides. The ink bar above (page.tsx) has the way out and your account. */}
@@ -305,21 +330,31 @@ export function Workshop({ game, pages, routes }: {
           </Tip>
           </div>
         )}
-        <div className={(phoneTab === 'chat' ? 'flex' : 'hidden') + ' min-w-0 flex-col gap-2 lg:min-h-0 lg:w-80 lg:shrink-0 2xl:w-96 ' + (chatFolded ? 'lg:hidden' : 'lg:flex')}>
-          <Chat
+        {/* The stream, and beside it the open thread. Where both don't fit (below the widest
+            screens, on phones, and whenever an editor needs the room for its preview) the
+            thread takes the stream's place, with a way back. */}
+        <div className={(phoneTab === 'chat' && !threadInfo ? 'flex' : 'hidden') + ' min-w-0 flex-col gap-2 lg:min-h-0 lg:w-80 lg:shrink-0 2xl:w-96 '
+          + (chatFolded ? 'lg:hidden' : threadInfo ? (editing ? 'lg:hidden' : 'lg:hidden 2xl:flex') : 'lg:flex')}>
+          <Stream
             topic={current ? { key: current.id, label: current.title } : null}
-            notice={chip === 'notice'}
             onAll={() => setChip('all')}
             onFold={() => setChatFolded(true)}
             messages={chat}
             me={me}
             live={live}
+            threads={threads}
+            onOpen={openThread}
           />
         </div>
+        {threadInfo && (
+          <div className={(phoneTab === 'chat' ? 'flex' : 'hidden') + ' min-w-0 flex-col gap-2 lg:min-h-0 lg:w-80 lg:shrink-0 2xl:w-96 ' + (chatFolded ? 'lg:hidden' : 'lg:flex')}>
+            {threadPanel({ onBack: () => setThread(null), onClose: () => setThread(null), besideStream: !editing })}
+          </div>
+        )}
 
         <div className={(phoneTab === 'work' ? 'flex' : 'hidden') + ' min-w-0 flex-1 flex-col lg:flex lg:min-h-0'}>
           {editing ? (
-            <EditorChat.Provider value={{ count: chat.length, open: () => setChatOver(editKey) }}>
+            <EditorChat.Provider value={{ count: chatCount, open: () => setChatOver(editKey) }}>
               {editing === 'form' ? (
                 <EntryForm gameId={game.id} pages={pages} routes={routes} start={form!} restore={restore} me={me} postDraft={live.postDraft}
                   onClose={closeForm}
@@ -492,7 +527,7 @@ export function Workshop({ game, pages, routes }: {
                           <ul className="mt-2 grid gap-3">
                             {waiting.filter((x) => matches(x.d)).map(({ d }) => (
                               <DraftCard key={d.id} draft={d} place={placeOf(d.blockKey)} routes={routes} me={me}
-                                messages={live.messages.filter((m) => m.draftId === d.id)} live={live} />
+                                chatCount={threads.counts.get(draftThread(d)) ?? 0} onChat={() => openThread(draftThread(d))} live={live} />
                             ))}
                           </ul>
                         </>
@@ -510,7 +545,7 @@ export function Workshop({ game, pages, routes }: {
                         <ul className="mt-3 grid gap-3">
                           {rest.map((d) => (
                             <DraftCard key={d.id} draft={d} place={placeOf(d.blockKey)} routes={routes} me={me}
-                              messages={live.messages.filter((m) => m.draftId === d.id)} live={live} />
+                              chatCount={threads.counts.get(draftThread(d)) ?? 0} onChat={() => openThread(draftThread(d))} live={live} />
                           ))}
                         </ul>
                       ) : waiting.length > 0 ? (
@@ -539,16 +574,23 @@ export function Workshop({ game, pages, routes }: {
       {editing && !beside && chatOver === editKey && (
         <div role="dialog" aria-modal="true" aria-label="Chat" className="rise fixed inset-0 z-[60] flex h-[100dvh] flex-col bg-card"
           onKeyDown={(e) => { if (e.key === 'Escape') setChatOver(null); }}>
-          <Chat
-            topic={current ? { key: current.id, label: current.title } : null}
-            notice={chip === 'notice'}
-            onAll={() => setChip('all')}
-            bar={<EditSwap on="chat" count={chat.length} editLabel={`Back to ${editLabel}`} onEdit={() => setChatOver(null)} />}
-            className="rounded-none px-4 pb-4 pt-2.5 ring-0"
-            messages={chat}
-            me={me}
-            live={live}
-          />
+          {threadInfo ? threadPanel({
+            onBack: () => setThread(null),
+            bar: <EditSwap on="chat" count={chatCount} editLabel={`Back to ${editLabel}`} onEdit={() => setChatOver(null)} />,
+            className: 'rounded-none px-4 pb-4 pt-2.5 ring-0',
+          }) : (
+            <Stream
+              topic={current ? { key: current.id, label: current.title } : null}
+              onAll={() => setChip('all')}
+              bar={<EditSwap on="chat" count={chatCount} editLabel={`Back to ${editLabel}`} onEdit={() => setChatOver(null)} />}
+              className="rounded-none px-4 pb-4 pt-2.5 ring-0"
+              messages={chat}
+              me={me}
+              live={live}
+              threads={threads}
+              onOpen={(k) => openThread(k, true)}
+            />
+          )}
         </div>
       )}
 
@@ -556,7 +598,7 @@ export function Workshop({ game, pages, routes }: {
         <Sheet label={shown.title} onClose={() => setDetail(null)}>
           <ul>
             <DraftCard draft={shown} place={placeOf(shown.blockKey)} routes={routes} me={me} startOpen
-              messages={live.messages.filter((m) => m.draftId === shown.id)} live={live} />
+              chatCount={threads.counts.get(draftThread(shown)) ?? 0} onChat={() => openThread(draftThread(shown))} live={live} />
           </ul>
         </Sheet>
       )}
@@ -614,61 +656,6 @@ function Empty({ title, body, action }: { title: string; body: string; action?: 
   );
 }
 
-/** Runs an action that returns an error in plain words (or null), tracking busy and error. */
-function useAction() {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const run = async (fn: () => Promise<string | null>) => {
-    setBusy(true);
-    const err = await fn();
-    setBusy(false);
-    setError(err ?? '');
-    return !err;
-  };
-  return { run, busy, error };
-}
-
-function SmallButton({ onClick, icon, children, tone = 'plain', disabled }: {
-  onClick: () => void; icon?: React.ReactNode; children: React.ReactNode; tone?: 'plain' | 'good' | 'bad'; disabled?: boolean;
-}) {
-  const tones = { plain: 'bg-card ring-line hover:ring-ink', good: 'bg-leaf-soft text-leaf ring-leaf/40 hover:ring-leaf', bad: 'bg-berry-soft text-berry ring-berry/40 hover:ring-berry' };
-  return (
-    <button onClick={onClick} disabled={disabled} className={'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ring-1 disabled:opacity-50 ' + tones[tone]}>
-      {icon}{children}
-    </button>
-  );
-}
-
-/** "Report" for villagers: pick a reason, add a note if you like. Goes to the moderators. */
-function ReportForm({ target, live, onDone }: { target: Target; live: WorkshopData; onDone: () => void }) {
-  const [reason, setReason] = useState<ReportReason | null>(null);
-  const [note, setNote] = useState('');
-  const [sent, setSent] = useState(false);
-  const { run, busy, error } = useAction();
-  if (sent) return <p role="status" className="mt-2 rounded-2xl bg-leaf-soft px-3 py-2 text-sm text-leaf">Thanks. A moderator will take a look.</p>;
-  return (
-    <form className="mt-2 grid gap-2 rounded-2xl bg-card-2 p-3 ring-1 ring-line"
-      onSubmit={async (e) => { e.preventDefault(); if (reason && await run(() => live.report(target, reason, note))) { setSent(true); setTimeout(onDone, 2500); } }}>
-      <p className="text-sm font-bold">What&apos;s wrong with it?</p>
-      <div role="radiogroup" aria-label="Reason" className="flex flex-wrap gap-1.5">
-        {REASONS.map((r) => (
-          <button key={r.key} type="button" role="radio" aria-checked={reason === r.key} onClick={() => setReason(r.key)}
-            className={'rounded-full px-3 py-1 text-sm font-bold ring-1 ' + (reason === r.key ? 'bg-berry text-paper ring-berry' : 'bg-card ring-line hover:ring-berry')}>
-            {r.label}
-          </button>
-        ))}
-      </div>
-      <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="Anything moderators should know (optional)"
-        className="rounded-2xl bg-card px-3 py-2 text-sm ring-1 ring-line outline-none placeholder:text-muted focus:ring-2 focus:ring-sky" />
-      <div className="flex items-center gap-2">
-        <button disabled={!reason || busy} className="rounded-full bg-berry px-4 py-1.5 text-sm font-bold text-paper disabled:opacity-50">Send report</button>
-        <button type="button" onClick={onDone} className="rounded-full px-3 py-1.5 text-sm font-bold text-muted hover:text-ink">Cancel</button>
-      </div>
-      {error && <p role="status" className="text-sm text-berry">{error}</p>}
-    </form>
-  );
-}
-
 /** Moderator buttons for a Draft: approve, decline with a reason, remove, or reopen. */
 function DraftModTools({ draft, live }: { draft: LiveDraft; live: WorkshopData }) {
   const [declining, setDeclining] = useState(false);
@@ -708,11 +695,13 @@ function DraftModTools({ draft, live }: { draft: LiveDraft; live: WorkshopData }
   );
 }
 
-function DraftCard({ draft, place, routes, me, messages, live, startOpen = false }: {
-  draft: LiveDraft; place?: Placed; routes: RouteOption[]; me: Villager | null | undefined; messages: ChatMessage[]; live: WorkshopData; startOpen?: boolean;
+function DraftCard({ draft, place, routes, me, chatCount, onChat, live, startOpen = false }: {
+  draft: LiveDraft; place?: Placed; routes: RouteOption[]; me: Villager | null | undefined;
+  /** Messages in the thread this Draft belongs to (its entry's, or its own for a new entry). */
+  chatCount: number; onChat: () => void;
+  live: WorkshopData; startOpen?: boolean;
 }) {
   const [open, setOpen] = useState(startOpen);
-  const [discuss, setDiscuss] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [error, setError] = useState('');
   if (!place) return null;
@@ -790,9 +779,9 @@ function DraftCard({ draft, place, routes, me, messages, live, startOpen = false
                   <Flag size={15} aria-hidden="true" /><span className="sr-only">Report</span>
                 </button>
               </Tip>)}
-          <Tip text="Talk about this Draft with other villagers" tint="sky">
-            <button onClick={() => setDiscuss(!discuss)} aria-expanded={discuss} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-muted hover:bg-card hover:text-ink">
-              <MessageCircle size={15} aria-hidden="true" /> Discuss · {messages.filter((m) => !m.removed).length}
+          <Tip text={`Talk about ${draft.title} with other villagers, in its thread`} tint="sky">
+            <button onClick={onChat} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-muted hover:bg-card hover:text-ink">
+              <MessageCircle size={15} aria-hidden="true" /> Chat · {chatCount}
             </button>
           </Tip>
         </span>
@@ -801,14 +790,6 @@ function DraftCard({ draft, place, routes, me, messages, live, startOpen = false
       {error && <p role="status" className="mt-2 text-sm text-berry">{error}</p>}
       {reporting && !reported && <ReportForm target={{ draftId: draft.id }} live={live} onDone={() => setReporting(false)} />}
       {live.mod && <DraftModTools draft={draft} live={live} />}
-      {discuss && (
-        <div className="mt-3 grid gap-2 rounded-2xl bg-card-2 p-3 ring-1 ring-line">
-          {messages.length === 0
-            ? <p className="text-sm text-muted">No one has talked about this Draft yet.</p>
-            : <ul className="grid gap-3">{messages.map((m) => <Message key={m.id} m={m} me={me} live={live} />)}</ul>}
-          <Composer me={me} placeholder="Reply about this Draft" onSend={(body, spoiler) => live.send(body, { blockKey: block.page.id, draftId: draft.id, spoiler })} />
-        </div>
-      )}
     </li>
   );
 }
@@ -819,171 +800,6 @@ function VoteButton({ on, onClick, icon, label, children }: { on: boolean; onCli
       className={'inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (on ? 'bg-leaf text-paper ring-leaf' : 'bg-card ring-line hover:ring-leaf')}>
       {icon}{children}
     </button>
-  );
-}
-
-function Message({ m, tag, me, live }: { m: ChatMessage; tag?: string | null; me: Villager | null | undefined; live: WorkshopData }) {
-  const [shown, setShown] = useState(false);
-  const [tools, setTools] = useState(false);
-  const [reporting, setReporting] = useState(false);
-  const { run, busy, error } = useAction();
-  const own = me?.id === m.author.id && !me.practice;
-  const reported = live.myReports.has(targetKey({ messageId: m.id }));
-  const canReport = Boolean(me) && !own;
-  const hasTools = canReport || live.mod;
-  return (
-    <li className={'group flex gap-2.5 ' + (m.removed ? 'opacity-50' : '')}>
-      <Avatar name={m.author.name} url={m.author.avatarUrl} size={32} />
-      <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
-          <span className="font-bold">{m.author.name}</span>
-          <span className="text-xs text-muted">{ago(m.createdAt)}</span>
-          {tag && <span className="rounded-full bg-card-2 px-2 py-0.5 text-xs font-bold text-muted ring-1 ring-line">{tag}</span>}
-          {m.removed && <span className="rounded-full bg-berry-soft px-2 py-0.5 text-xs font-bold text-berry">Removed · only moderators see it</span>}
-          {hasTools && (
-            <button onClick={() => { setTools(!tools); setReporting(false); }} aria-expanded={tools} aria-label="Message options"
-              className={'ml-auto grid size-6 place-items-center self-center rounded-full text-muted hover:bg-card-2 hover:text-ink ' + (tools ? '' : 'sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100')}>
-              <MoreHorizontal size={15} aria-hidden="true" />
-            </button>
-          )}
-        </p>
-        {m.spoiler && !shown ? (
-          <button onClick={() => setShown(true)} className="mt-0.5 inline-flex items-center gap-1.5 rounded-xl bg-ink/80 px-3 py-1 text-sm font-bold text-paper">
-            <EyeOff size={14} aria-hidden="true" /> Spoiler · tap to show
-          </button>
-        ) : (
-          <p className="whitespace-pre-wrap break-words">{m.body}</p>
-        )}
-        {tools && (
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {canReport && (reported
-              ? <span className="px-1 text-xs font-bold text-muted">You reported this</span>
-              : <SmallButton onClick={() => setReporting(!reporting)} icon={<Flag size={13} aria-hidden="true" />}>Report</SmallButton>)}
-            {live.mod && (
-              <>
-                <SmallButton disabled={busy} onClick={() => run(() => live.moderate.markSpoiler(m.id, !m.spoiler))} icon={<EyeOff size={13} aria-hidden="true" />}>
-                  {m.spoiler ? 'Unmark spoiler' : 'Mark as spoiler'}
-                </SmallButton>
-                <SmallButton tone={m.removed ? 'plain' : 'bad'} disabled={busy} onClick={() => run(() => live.moderate.removeMessage(m.id, !m.removed))}
-                  icon={m.removed ? <RotateCcw size={13} aria-hidden="true" /> : <Trash2 size={13} aria-hidden="true" />}>
-                  {m.removed ? 'Restore' : 'Remove'}
-                </SmallButton>
-              </>
-            )}
-          </div>
-        )}
-        {error && <p role="status" className="mt-1 text-sm text-berry">{error}</p>}
-        {reporting && !reported && <ReportForm target={{ messageId: m.id }} live={live} onDone={() => { setReporting(false); setTools(false); }} />}
-      </div>
-    </li>
-  );
-}
-
-/** The message box: a text field, a spoiler switch and Send. Visitors get a sign-in button. */
-function Composer({ me, placeholder, onSend }: { me: Villager | null | undefined; placeholder: string; onSend: (body: string, spoiler: boolean) => Promise<string | null> }) {
-  const [text, setText] = useState('');
-  const field = useRef<HTMLInputElement>(null);
-  const [spoiler, setSpoiler] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  if (me === null) return <div className="mt-auto pt-2"><SignInPrompt>Sign in to chat</SignInPrompt></div>;
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const body = text.trim();
-    if (!body || busy) return;
-    setBusy(true);
-    const err = await onSend(body, spoiler);
-    setBusy(false);
-    setError(err ?? '');
-    if (!err) { setText(''); setSpoiler(false); }
-  };
-
-  return (
-    <div className="mt-auto">
-      {/* The whole box takes a click: the text field fills its height, and a click on its edge lands in the field. */}
-      <form onSubmit={submit} onMouseDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); field.current?.focus(); } }}
-        className="flex cursor-text items-center gap-1.5 rounded-full bg-card-2 p-1.5 ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
-        <input ref={field} id="chat-input" value={text} onChange={(e) => { setText(e.target.value); if (error) setError(''); }} maxLength={4000} disabled={me === undefined}
-          className="min-w-0 flex-1 self-stretch bg-transparent px-3 outline-none placeholder:text-muted" placeholder={placeholder} aria-label={placeholder} />
-        <Tip text="Spoiler: hide this message behind a tap" className="shrink-0">
-          <button type="button" onClick={() => setSpoiler(!spoiler)} aria-pressed={spoiler}
-            className={'grid size-9 place-items-center rounded-full ' + (spoiler ? 'bg-ink text-paper' : 'text-muted hover:text-ink')}>
-            <EyeOff size={16} aria-hidden="true" /><span className="sr-only">Spoiler</span>
-          </button>
-        </Tip>
-        <button disabled={busy || !text.trim()} className="btn-primary grid size-9 place-items-center rounded-full disabled:opacity-50" aria-label="Send">
-          <Send size={16} aria-hidden="true" />
-        </button>
-      </form>
-      {spoiler && <p className="mt-1 px-3 text-xs text-muted">Hidden behind a tap until someone chooses to read it.</p>}
-      {error && <p role="status" className="mt-1 px-3 text-sm text-berry">{error}</p>}
-    </div>
-  );
-}
-
-function Chat({ topic: block, notice, onAll, onFold, bar, className = '', messages, me, live }: {
-  topic: { key: string; label: string } | null; notice: boolean; onAll: () => void;
-  /** Wide screens: fold the chat to a thin strip. */
-  onFold?: () => void;
-  /** Before the heading, like the edit and chat switch over an editor. */
-  bar?: React.ReactNode;
-  className?: string;
-  messages: ChatMessage[];
-  me: Villager | null | undefined; live: WorkshopData;
-}) {
-  const list = useRef<HTMLUListElement>(null);
-  const titles = useMemo(() => new Map(live.drafts.map((d) => [d.id, d.title])), [live.drafts]);
-  const lastId = messages.at(-1)?.id;
-
-  // Keep the newest message in view.
-  useEffect(() => {
-    const el = list.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [lastId]);
-
-  const tagFor = (m: ChatMessage) => (m.draftId && titles.has(m.draftId) ? `on “${titles.get(m.draftId)}”` : null);
-
-  return (
-    <section aria-label="Chat" className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl bg-card p-4 ring-1 ring-line lg:min-h-0 ' + className}>
-      <div className="flex flex-wrap items-center gap-x-2">
-        {bar && <span className="mr-1 shrink-0">{bar}</span>}
-        <h2 className="font-display text-xl">Chat</h2>
-        {(block || notice) && (
-          <span className="order-last basis-full text-sm text-muted">
-            about {block?.label ?? 'the Notice Board'} · <button onClick={onAll} className="font-bold text-leaf underline underline-offset-2">show all</button>
-          </span>
-        )}
-        {onFold && <span className="ml-auto hidden shrink-0 lg:block">
-          <Tip text="Fold the chat away, for more room">
-            <button onClick={onFold} aria-label="Fold the chat away" className="grid size-8 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink">
-              <PanelLeftClose size={17} aria-hidden="true" />
-            </button>
-          </Tip>
-        </span>}
-      </div>
-      {live.state === 'loading' ? (
-        <div className="m-auto py-10 text-sm text-muted">Opening the workshop doors…</div>
-      ) : messages.length === 0 ? (
-        <div className="m-auto grid max-w-sm justify-items-center gap-2 py-10 text-center">
-          <span className="grid size-14 place-items-center rounded-full bg-sky-soft text-sky"><MessageCircle aria-hidden="true" /></span>
-          <h3 className="font-display text-xl">{block ? `Nothing about ${block.label} yet` : 'The village is quiet'}</h3>
-          <p className="text-sm text-muted">Say what you&apos;ve found or what you&apos;re stuck on. Messages show up for everyone here right away.</p>
-        </div>
-      ) : (
-        <ul ref={list} aria-live="polite" className="my-3 grid min-h-0 flex-1 content-start gap-4 overflow-y-auto overscroll-contain pr-1">
-          {messages.map((m) => <Message key={m.id} m={m} tag={tagFor(m)} me={me} live={live} />)}
-          {messages.length < 4 && (
-            <li className="mt-2 rounded-2xl bg-card-2 px-3 py-2.5 text-sm text-muted">
-              It&apos;s quiet in here. Ask where something is, share something you found, or just say hi. Everyone here sees it right away.
-            </li>
-          )}
-        </ul>
-      )}
-      <Composer me={me} placeholder={block ? `Message about ${block.label}` : 'Write a message'}
-        onSend={(body, spoiler) => live.send(body, { blockKey: block?.key ?? null, spoiler })} />
-    </section>
   );
 }
 

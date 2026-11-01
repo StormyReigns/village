@@ -113,6 +113,9 @@ gone.rows[0].n === 0 ? ok('removed Drafts leave Standouts') : bad('removed draft
 // Reports and moderation. B is a villager, A is a moderator.
 await db.exec(`update public.drafts set status = 'open'; insert into auth.users (id) values ('55555555-5555-5555-5555-555555555555');`);
 const C = '55555555-5555-5555-5555-555555555555';
+// Threads: a message can belong to one thing's thread, named by a key, never free text.
+await expectOk(C, `insert into public.chat_messages (game_id, author_id, body, thread_key) values ('fortunes-weave', '${C}', 'About Eshmel', 'card:44444444-4444-4444-4444-444444444444')`, "villager can post in an entry's thread");
+await expectFail(C, `insert into public.chat_messages (game_id, author_id, body, thread_key) values ('fortunes-weave', '${C}', 'Odd', 'Eshmel')`, 'a thread key must name what it is');
 const msg = (await db.query(`select id from public.chat_messages where body = 'Hello village'`)).rows[0].id;
 await expectOk(C, `insert into public.flags (message_id, reason, reporter_id) values (${msg}, 'rude', '${C}')`, 'villager can report a message');
 await expectFail(C, `insert into public.flags (message_id, reason, reporter_id) values (${msg}, 'spam', '${C}')`, 'one report per person per message');

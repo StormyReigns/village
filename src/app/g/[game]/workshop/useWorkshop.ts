@@ -20,6 +20,8 @@ export interface ChatMessage {
   body: string;
   blockKey: string | null;
   draftId: string | null;
+  /** The thread it's in (src/lib/threads.ts), or null for a message to everyone. */
+  threadKey: string | null;
   spoiler: boolean;
   /** Only moderators ever see removed messages. */
   removed: boolean;
@@ -83,7 +85,12 @@ export interface ReportGroup {
 
 type Row = Record<string, unknown>;
 const PROFILE = 'id, username, display_name, avatar_url';
-const MESSAGE = `id, body, block_key, linked_draft_id, spoiler, removed_at, created_at, author_id, author:profiles!chat_messages_author_id_fkey(${PROFILE})`;
+const MESSAGE_COLUMNS = 'id, body, block_key, linked_draft_id, thread_key, spoiler, removed_at, created_at, author_id';
+const MESSAGE = `${MESSAGE_COLUMNS}, author:profiles!chat_messages_author_id_fkey(${PROFILE})`;
+// Until the threads SQL (20261101000000_chat_threads.sql) is run, the database has no
+// thread_key, so the chat reads without it rather than going dark.
+const OLD_MESSAGE = MESSAGE.replace('thread_key, ', '');
+const noThreadColumn = (e: { message?: string } | null) => Boolean(e && /thread_key/.test(e.message ?? ''));
 
 function toAuthor(p: Row | null | undefined, id: string): Author {
   const username = (p?.username as string) ?? 'villager';
@@ -93,7 +100,8 @@ function toAuthor(p: Row | null | undefined, id: string): Author {
 function toMessage(r: Row, author: Author): ChatMessage {
   return {
     id: r.id as number, body: r.body as string, blockKey: (r.block_key as string) ?? null,
-    draftId: (r.linked_draft_id as string) ?? null, spoiler: Boolean(r.spoiler), removed: Boolean(r.removed_at),
+    draftId: (r.linked_draft_id as string) ?? null, threadKey: (r.thread_key as string) ?? null,
+    spoiler: Boolean(r.spoiler), removed: Boolean(r.removed_at),
     createdAt: r.created_at as string, author,
   };
 }
@@ -115,6 +123,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
   const [state, setState] = useState<'loading' | 'ready' | 'offline'>('loading');
   const authors = useRef(new Map<string, Author>());
   const channel = useRef<RealtimeChannel | null>(null);
+  const shownGame = useRef<string | null>(null);
   const router = useRouter();
   const meId = me?.id ?? null;
   const mod = canModerate(me, gameId);
@@ -142,15 +151,55 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
   const loadMessages = useCallback(async () => {
     const db = browserClient();
     if (!db) return;
-    let q = db.from('chat_messages').select(MESSAGE).eq('game_id', gameId).order('id', { ascending: false }).limit(300);
-    if (!mod) q = q.is('removed_at', null);
-    const { data, error } = await q;
+    const read = (columns: string) => {
+      let q = db.from('chat_messages').select(columns).eq('game_id', gameId).order('id', { ascending: false }).limit(300);
+      if (!mod) q = q.is('removed_at', null);
+      return q;
+    };
+    let { data, error } = await read(MESSAGE);
+    if (noThreadColumn(error)) ({ data, error } = await read(OLD_MESSAGE));
     if (error) throw error;
-    setMessages((data ?? []).reverse().map((r: Row) => {
+    const list = ((data ?? []) as unknown as Row[]).reverse().map((r) => {
       const a = toAuthor(r.author as Row, r.author_id as string);
       authors.current.set(a.id, a);
       return toMessage(r, a);
-    }));
+    });
+    // Keep older thread messages fetched when a thread was opened (same game only).
+    const sameGame = shownGame.current === gameId;
+    shownGame.current = gameId;
+    setMessages((old) => {
+      if (!sameGame) return list;
+      const ids = new Set(list.map((m) => m.id));
+      const first = list[0]?.id ?? Infinity;
+      return [...old.filter((m) => m.id < first && !ids.has(m.id)), ...list];
+    });
+  }, [gameId, mod]);
+
+  /**
+   * A thread's whole history, beyond the newest 300 messages of the game: messages with its
+   * key, and older ones about its Drafts.
+   */
+  const loadThread = useCallback(async (keys: string[], draftIds: string[]) => {
+    const db = browserClient();
+    if (!db) return;
+    const ors = [
+      ...keys.map((k) => `thread_key.eq.${k}`),
+      ...(draftIds.length ? [`linked_draft_id.in.(${draftIds.join(',')})`] : []),
+    ];
+    let q = db.from('chat_messages').select(MESSAGE).eq('game_id', gameId).or(ors.join(',')).order('id', { ascending: false }).limit(500);
+    if (!mod) q = q.is('removed_at', null);
+    const { data, error } = await q;
+    if (error) return;
+    const found = ((data ?? []) as unknown as Row[]).map((r) => {
+      const a = toAuthor(r.author as Row, r.author_id as string);
+      authors.current.set(a.id, a);
+      return toMessage(r, a);
+    });
+    setMessages((list) => {
+      const ids = new Set(list.map((m) => m.id));
+      const more = found.filter((m) => !ids.has(m.id));
+      return more.length ? [...list, ...more].sort((a, b) => a.id - b.id) : list;
+    });
   }, [gameId, mod]);
 
   const loadDrafts = useCallback(async () => {
@@ -273,14 +322,16 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
   }, []);
 
   /** Posts a chat message. Returns an error in plain words, or null. */
-  const send = useCallback(async (body: string, opts: { blockKey?: string | null; draftId?: string | null; spoiler?: boolean } = {}) => {
+  const send = useCallback(async (body: string, opts: { blockKey?: string | null; draftId?: string | null; threadKey?: string | null; spoiler?: boolean } = {}) => {
     const db = browserClient();
     if (!db || !meId) return 'Sign in to chat.';
-    const { data, error } = await db.from('chat_messages')
-      .insert({ game_id: gameId, author_id: meId, body, block_key: opts.blockKey ?? null, linked_draft_id: opts.draftId ?? null, spoiler: Boolean(opts.spoiler) })
-      .select('id, body, block_key, linked_draft_id, spoiler, removed_at, created_at, author_id').single();
+    const row: Row = { game_id: gameId, author_id: meId, body, block_key: opts.blockKey ?? null, linked_draft_id: opts.draftId ?? null, spoiler: Boolean(opts.spoiler) };
+    if (opts.threadKey) row.thread_key = opts.threadKey;
+    const { data, error } = await db.from('chat_messages').insert(row)
+      .select(opts.threadKey ? MESSAGE_COLUMNS : MESSAGE_COLUMNS.replace('thread_key, ', '')).single();
+    if (noThreadColumn(error)) return 'Threads are almost ready: the database needs one more update. Try the main chat for now.';
     if (error) return plainError(error.message);
-    addMessage(toMessage(data, await authorFor(meId)));
+    addMessage(toMessage(data as unknown as Row, await authorFor(meId)));
     return null;
   }, [gameId, meId, addMessage, authorFor]);
 
@@ -419,7 +470,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
 
   return {
     state, messages, drafts: shownDrafts, reports, myReports, mod,
-    send, postDraft, vote, view, report,
+    send, loadThread, postDraft, vote, view, report,
     moderate: { removeMessage, markSpoiler, publish, decide, dismissReports },
   };
 }
