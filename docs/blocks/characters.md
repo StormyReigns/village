@@ -33,7 +33,8 @@ Laid out by the Block's fields (Matt's layout, 2026-10-29):
 - **Portrait** as a piece, on the left: game art when there is some, else the group's symbol (e.g. a
   flame for Fiery Mane), else initials.
 - **Name** in bold, with a short field beside it (Age).
-- **Tags** under the name as pills (Role or class, Group, yes/no fields).
+- **Tags** under the name as pills (Role or class, Group, Playable or NPC, yes/no fields).
+  Tapping a tag pill shows everyone with it: the List, with that tag's chip on.
 - **Location**, with **Time of arrival** beside it (a chapter, a date, a time).
 - **Charts** (Stats, Growths...): a web chart on the right, its foot level with the name and
   reaching up beside the portrait (the first chart with one; the name never moves for it), and a row of number boxes, "STR" over each, colored from gray to the Page's
@@ -146,6 +147,9 @@ own, with a thin line between them; on a phone the sheet opens at the size it wa
   handle on phones. "What changes" moved to the editor, above Submit. Why: the preview was
   hard to tell from the editor, and the preview should stay true to the app, so the editor
   carries the difference. The Workbench is meant for the whole Workshop.
+- 2026-11-01: tag pills on a card (group, class, Playable or NPC) are tappable and show
+  everyone with that tag. In Set up the Name row reads "Every character has one: the big title
+  on their card" instead of "Always on, bold at the top".
 - 2026-11-01: sorting and filtering work on any tag, not only the first (Group). Why: not
   every game groups its cast the same way, and players may want role or playable instead.
 - 2026-10-31: the heatmap on phones: it opens over the whole page and keeps its own touches

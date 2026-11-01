@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { Check, Clock, EyeOff, MapPin, Pencil, TriangleAlert, X } from 'lucide-react';
@@ -14,6 +14,12 @@ import { symbolFor } from './symbols';
 import { PLAYABLE, STATS, besideText, chartDefs, listItems, shownFields, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
 import { byStat, heatFill, placeText, rangeOf, statFacts } from '@/lib/stats';
 import { StatTable, statSort } from './StatTable';
+
+/**
+ * Set by the Characters Block: tapping a tag on a card (a group, a class, Playable or NPC)
+ * shows everyone else with it. Left unset (previews, share cards), tags are plain pills.
+ */
+export const TagPick = createContext<((key: string, value: string) => void) | null>(null);
 
 type CardBlock = Pick<Block, 'title' | 'icon'> & Partial<Pick<Block, 'fields' | 'stats' | 'symbols' | 'filters' | 'entries'>>;
 
@@ -51,6 +57,7 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
   const among = [...(block.entries ?? []).filter((e) => e.name !== entry.name), { ...entry, id: '' } as Entry];
   // The first real tag (not Playable or a yes) carries the Page color.
   const firstTag = at('tags').find((t) => t.kind === 'tag');
+  const pickTag = useContext(TagPick);
   const chartColor = sample ? '#9aa0ad' : color;
   const webSize = Math.round(Math.max(size * 0.92, 96));
 
@@ -93,17 +100,19 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
                 const yes = v === PLAYABLE.yes;
                 return (
                   <Spoiler key={f.key} f={f} on={spoilers} small>
-                    <span className={'rounded-full px-2.5 py-0.5 text-xs font-bold ' + (yes ? 'bg-leaf-soft text-leaf' : 'bg-berry-soft text-berry')}>{yes ? PLAYABLE.yes : PLAYABLE.no}</span>
+                    <Pill onPick={pickTag && v ? () => pickTag(f.key, v) : undefined} what={yes ? PLAYABLE.yes : PLAYABLE.no}
+                      className={'rounded-full px-2.5 py-0.5 text-xs font-bold ' + (yes ? 'bg-leaf-soft text-leaf' : 'bg-berry-soft text-berry')}>{yes ? PLAYABLE.yes : PLAYABLE.no}</Pill>
                   </Spoiler>
                 );
               }
               return (
                 <Spoiler key={f.key} f={f} on={spoilers} small>
                   {/* A yes shows with a tick, so it reads as "yes, this one is" rather than a tag. */}
-                  <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold"
+                  <Pill onPick={pickTag && f.kind === 'tag' && v ? () => pickTag(f.key, v) : undefined} what={v}
+                    className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold"
                     style={f === firstTag ? { background: `color-mix(in srgb, ${color} 14%, white)`, color } : { background: 'var(--card-2)' }}>
                     {f.kind === 'yesno' ? <><Check size={12} strokeWidth={3} aria-hidden="true" />{f.label}</> : v}
-                  </span>
+                  </Pill>
                 </Spoiler>
               );
             })}
@@ -170,6 +179,15 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
         </section>
       ))}
     </article>
+  );
+}
+
+/** A pill under the name: a button that shows everyone with this tag, when that's possible. */
+function Pill({ onPick, what, className, style, children }: { onPick?: () => void; what: string; className: string; style?: React.CSSProperties; children: React.ReactNode }) {
+  if (!onPick) return <span className={className} style={style}>{children}</span>;
+  return (
+    <button type="button" onClick={onPick} aria-label={`Show everyone with ${what}`} title={`Show everyone with ${what}`}
+      className={className + ' hover:ring-1 hover:ring-current'} style={style}>{children}</button>
   );
 }
 

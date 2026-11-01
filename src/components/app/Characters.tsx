@@ -14,7 +14,7 @@ import { useStored } from '@/components/useStored';
 import { closest, rank } from '@/lib/search';
 import { byStat } from '@/lib/stats';
 import { allStatDefs, besideText, isCategory, shownFields, spotOf, valueOf } from '@/lib/fields';
-import { CharacterCard } from './CharacterCard';
+import { CharacterCard, TagPick } from './CharacterCard';
 import { symbolFor } from './symbols';
 import { entryText, initials, useOpenEntry, useTicks } from './entries';
 import { FilterChip, HiddenNote, OpenPanel, useVisible, type BlockContext } from './blockParts';
@@ -45,9 +45,25 @@ export function Characters({ block, ctx }: { block: Block; ctx: BlockContext }) 
     .filter((f) => new Set(shown.map((e) => e.categories[f.key]).filter(Boolean)).size > 1), [fields, shown]);
   const fallback = tags.find((t) => t.key === block.filters?.[0])?.key ?? tags[0]?.key ?? '';
   const [groupBy, setGroupBy] = useStored<string>(`village:${ctx.gameId}:${block.id}:groupBy`, fallback);
-  const filter = tags.some((t) => t.key === groupBy) ? groupBy : fallback || undefined;
+  // A tag tapped on a card counts even when everyone shares it.
+  const filter = groupBy && (tags.some((t) => t.key === groupBy) || shown.some((e) => e.categories[groupBy])) ? groupBy : fallback || undefined;
   const filterLabel = tags.find((t) => t.key === filter)?.label ?? filter;
   const chooseGroup = (key: string) => { setGroupBy(key); setPick(null); };
+  // A tag tapped on a card: everyone with it, in the List, with that tag's chip on.
+  const showTag = (key: string, value: string) => {
+    setGroupBy(key);
+    setPick(value);
+    setQuery('');
+    switchTo('list');
+    top.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  const top = useRef<HTMLDivElement>(null);
+  // The chip that's on stays in sight, even far along the row (after a tag was tapped, say).
+  const chips = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!pick) return;
+    chips.current?.querySelector('[aria-pressed="true"]')?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  }, [pick, filter]);
   // Games where people join you get a "Recruited" tick on each one.
   const recruits = fields.some((f) => /recruit/i.test(`${f.key} ${f.label}`));
 
@@ -84,8 +100,8 @@ export function Characters({ block, ctx }: { block: Block; ctx: BlockContext }) 
   };
 
   return (
-    <>
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+    <TagPick.Provider value={showTag}>
+      <div ref={top} className="mt-4 flex scroll-mt-20 flex-wrap items-center gap-2">
         <label className="flex min-w-48 flex-1 items-center gap-2 rounded-full bg-card-2 px-3 py-2 ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
           <Search size={16} className="text-muted" aria-hidden="true" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${block.title.toLowerCase()}`}
@@ -117,6 +133,7 @@ export function Characters({ block, ctx }: { block: Block; ctx: BlockContext }) 
         )}
       </div>
       {values.length > 1 && (
+        <div ref={chips}>
         <ScrollRow className="-mx-1 mt-3 flex items-center gap-1.5 px-1 pb-1" role="group" label={`Filter by ${filterLabel}`}>
           {/* Which tag the chips filter by, when there's more than one to choose from. */}
           {tags.length > 1 && (
@@ -131,6 +148,7 @@ export function Characters({ block, ctx }: { block: Block; ctx: BlockContext }) 
           <FilterChip on={!pick} tint={ctx.tint} onClick={() => setPick(null)}>All · {shown.length}</FilterChip>
           {values.map(([v, n]) => <FilterChip key={v} on={pick === v} tint={ctx.tint} onClick={() => setPick(pick === v ? null : v)}>{v} · {n}</FilterChip>)}
         </ScrollRow>
+        </div>
       )}
 
       {list.length === 0 ? (
@@ -149,7 +167,7 @@ export function Characters({ block, ctx }: { block: Block; ctx: BlockContext }) 
       )}
       <HiddenNote offRoute={offRoute} spoilers={spoilers} ctx={ctx} />
       {view === 'list' && <OpenPanel block={block} list={list} ctx={ctx} />}
-    </>
+    </TagPick.Provider>
   );
 }
 
