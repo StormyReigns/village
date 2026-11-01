@@ -110,6 +110,8 @@ export function MessageText({ body }: { body: string }) {
         if ('text' in p) return <span key={i}>{p.text}</span>;
         const here = links && p.ref.game === links.gameId ? links.threads.info(links.threads.resolve(p.ref.key)) : null;
         if (!here || !links) return <span key={i} className="font-bold">#a thread in another game</span>;
+        // Deleted or hidden since: plain words, never a link to nothing.
+        if (here.kind === 'unknown') return <span key={i} className="text-muted">#something no longer here</span>;
         const tint = here.block?.page.tint;
         return (
           <button key={i} type="button" onClick={() => links.open(here.key)}
@@ -203,9 +205,11 @@ function LinkedCard({ refs, me, live }: { refs: Ref[]; me: Villager | null | und
   const first = links && refs.find((r) => r.game === links.gameId);
   if (!links || !first) return null;
   const key = links.threads.resolve(first.key);
+  const info = links.threads.info(key);
+  if (info.kind === 'unknown') return null;
   return (
     <div className="mt-2">
-      <ThreadCard as="div" info={links.threads.info(key)} messages={links.threads.inThread(key)} me={me} live={live} onOpen={() => links.open(key)} />
+      <ThreadCard as="div" info={info} messages={links.threads.inThread(key)} me={me} live={live} onOpen={() => links.open(key)} />
     </div>
   );
 }
