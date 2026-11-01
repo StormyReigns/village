@@ -243,6 +243,7 @@ export function Workshop({ game, pages, routes }: {
   const matches = (d: LiveDraft) => !query || d.title.toLowerCase().includes(query.toLowerCase());
   const rest = visible.filter((d) => !waitingIds.has(d.id) && matches(d));
   const view = tab ?? (live.state === 'loading' || waiting.length > 0 ? 'drafts' : 'app');
+  const workSubtitle = view === 'drafts' ? (waiting.length ? `Drafts · ${waiting.length} waiting on you` : 'Drafts') : 'In the app';
   const tint = current ? `var(--${current.tint}-soft)` : 'var(--card)';
 
   // An editor opens in the work column, so on wide screens the chat stays beside it.
@@ -274,7 +275,17 @@ export function Workshop({ game, pages, routes }: {
   };
   const threadInfo = thread ? threads.info(thread) : null;
   const threadMessages = thread ? threads.inThread(thread) : [];
-  const threadPanel = (extra: { onBack?: () => void; onClose?: () => void; besideStream?: boolean; bar?: React.ReactNode; className?: string }) => threadInfo && (
+  // Phones show the chat or the work, one at a time. The switch between them sits at the top
+  // right of whichever is showing, in the same spot, so the chat gets the whole height.
+  const phoneSwitch = (
+    <div role="tablist" aria-label="Build or chat" className="inline-flex shrink-0 rounded-full bg-card-2 p-0.5 ring-1 ring-line lg:hidden">
+      {([['work', 'Build'], ['chat', `Chat · ${chat.length}`]] as const).map(([k, label]) => (
+        <button key={k} role="tab" aria-selected={phoneTab === k} onClick={() => setPhoneTab(k)}
+          className={'whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-bold ' + (phoneTab === k ? 'bg-ink text-paper' : 'text-muted')}>{label}</button>
+      ))}
+    </div>
+  );
+  const threadPanel = (extra: { onBack?: () => void; onClose?: () => void; besideStream?: boolean; switcher?: React.ReactNode; bar?: React.ReactNode; className?: string }) => threadInfo && (
     <ThreadPanel info={threadInfo} messages={threadMessages} me={me} live={live} gameId={game.id} onDraft={setDetail}
       onEdit={threadInfo.key === editThread || !threadInfo.block ? undefined
         : threadInfo.kind === 'setup' ? () => setSetup(threadInfo.block!.id)
@@ -319,13 +330,6 @@ export function Workshop({ game, pages, routes }: {
         <p role="status" className="mt-3 rounded-2xl bg-berry-soft px-4 py-3 text-sm text-berry">Couldn&apos;t reach the village just now. Refresh the page to try again.</p>
       )}
 
-      <div role="tablist" aria-label="Show" className="mt-2 flex rounded-full bg-card p-1 ring-1 ring-line lg:hidden">
-        {([['work', 'Build'], ['chat', `Chat · ${chat.length}`]] as const).map(([k, label]) => (
-          <button key={k} role="tab" aria-selected={phoneTab === k} onClick={() => setPhoneTab(k)}
-            className={'flex-1 rounded-full px-3 py-2 text-sm font-bold ' + (phoneTab === k ? 'bg-ink text-paper' : 'text-muted')}>{label}</button>
-        ))}
-      </div>
-
       {/* Two columns that fill the screen on wide ones, each scrolling on its own: the chat, and
           the work (Drafts, what's in the app, or an open editor). On phones, one at a time. */}
       <div className="mt-3 flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
@@ -350,6 +354,7 @@ export function Workshop({ game, pages, routes }: {
             topic={current ? { key: current.id, label: current.title } : null}
             onAll={() => setChip('all')}
             onFold={() => setChatFolded(true)}
+            switcher={phoneSwitch}
             messages={chat}
             me={me}
             live={live}
@@ -359,7 +364,7 @@ export function Workshop({ game, pages, routes }: {
         </div>
         {threadInfo && (
           <div className={(phoneTab === 'chat' ? 'flex' : 'hidden') + ' min-h-0 min-w-0 flex-1 flex-col gap-2 lg:w-80 lg:flex-none lg:shrink-0 2xl:w-96 ' + (chatFolded ? 'lg:hidden' : 'lg:flex')}>
-            {threadPanel({ onBack: () => setThread(null), onClose: () => setThread(null), besideStream: !editing })}
+            {threadPanel({ onBack: () => setThread(null), onClose: () => setThread(null), besideStream: !editing, switcher: phoneSwitch })}
           </div>
         )}
 
@@ -401,7 +406,9 @@ export function Workshop({ game, pages, routes }: {
               <>
                 {/* Stays in reach while the column scrolls. */}
                 <div className="z-10 -mx-4 px-4 pb-2 pt-4 lg:sticky lg:top-0" style={{ background: tint }}>
-                  <div className="flex items-center gap-2">
+                  {/* Phones: the Build / Chat switch at the top right, and the tools on the line below,
+                      beside what's showing. Wide screens keep it all on one row. */}
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
                     {searching ? (
                       <label className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-card-2 px-3 py-1.5 text-sm ring-2 ring-sky">
                         <Search size={15} className="text-muted" aria-hidden="true" />
@@ -417,10 +424,15 @@ export function Workshop({ game, pages, routes }: {
                         {current && <span className="hidden shrink-0 sm:block"><Piece size={48} color={`var(--${current.tint})`}><BlockIcon name={current.icon} size={15} strokeWidth={2.4} /></Piece></span>}
                         <div className="min-w-0 flex-1">
                           <h2 className="truncate font-display text-xl leading-tight" title={current?.title}>{current ? current.title : 'Everything'}</h2>
-                          <p className="truncate text-xs font-bold text-muted">
-                            {view === 'drafts' ? (waiting.length ? `Drafts · ${waiting.length} waiting on you` : 'Drafts') : 'In the app'}
-                          </p>
+                          <p className="hidden truncate text-xs font-bold text-muted lg:block">{workSubtitle}</p>
                         </div>
+                      </>
+                    )}
+                    {phoneSwitch}
+                    <div className="flex basis-full items-center justify-end gap-2 lg:contents">
+                    {!searching && (
+                      <>
+                        <p className="min-w-0 flex-1 truncate text-xs font-bold text-muted lg:hidden">{workSubtitle}</p>
                         <Tip text={view === 'drafts' ? 'Search these Drafts' : "Search this Page's entries"} tint="sky" className="shrink-0">
                           <button onClick={() => setSearching(true)} aria-label="Search"
                             className="grid size-9 place-items-center rounded-full bg-card ring-1 ring-line hover:ring-ink">
@@ -453,6 +465,7 @@ export function Workshop({ game, pages, routes }: {
                         <Plus size={16} aria-hidden="true" /> <span className="hidden sm:inline">New</span>
                       </button>
                     </Tip>
+                    </div>
                   </div>
 
                 </div>

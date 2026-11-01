@@ -392,11 +392,13 @@ function useStickToBottom(lastId: number | undefined, me: Villager | null | unde
 }
 
 /** The game's one chat: messages to everyone, and a card for each thread that's talking. */
-export function Stream({ topic, onAll, onFold, bar, className = '', messages, me, live, threads, onOpen }: {
+export function Stream({ topic, onAll, onFold, switcher, bar, className = '', messages, me, live, threads, onOpen }: {
   /** A Page chosen in the chips: the stream narrows to it. */
   topic: { key: string; label: string } | null; onAll: () => void;
   /** Wide screens: fold the chat to a thin strip. */
   onFold?: () => void;
+  /** Phones: the Build / Chat switch, at the top right. */
+  switcher?: React.ReactNode;
   /** Before the heading, like the edit and chat switch over an editor. */
   bar?: React.ReactNode;
   className?: string;
@@ -413,6 +415,7 @@ export function Stream({ topic, onAll, onFold, bar, className = '', messages, me
       <div className="flex flex-wrap items-center gap-x-2">
         {bar && <span className="mr-1 shrink-0">{bar}</span>}
         <h2 className="font-display text-xl">Chat</h2>
+        {switcher && <span className="ml-auto lg:hidden">{switcher}</span>}
         {topic && (
           <span className="order-last basis-full text-sm text-muted">
             {topic.label} only · <button onClick={onAll} className="font-bold text-leaf underline underline-offset-2">show all</button>
@@ -460,8 +463,10 @@ const DRAFT_STATUS: Record<string, string> = {
  * One thread on its own: everything said about the thing, with its Drafts in the timeline so
  * feedback and votes sit beside the talk that led to them.
  */
-export function ThreadPanel({ info, messages, me, live, gameId, onBack, onClose, besideStream = false, onDraft, onEdit, bar, className = '' }: {
+export function ThreadPanel({ info, messages, me, live, gameId, onBack, onClose, besideStream = false, switcher, onDraft, onEdit, bar, className = '' }: {
   info: ThreadInfo; messages: ChatMessage[]; me: Villager | null | undefined; live: WorkshopData; gameId: string;
+  /** Phones: the Build / Chat switch, at the top right. */
+  switcher?: React.ReactNode;
   /** Back to the stream, where the two don't fit side by side. */
   onBack?: () => void;
   /** On the widest screens the stream stays beside the thread: Back gives way to an X there. */
@@ -505,6 +510,7 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, onClose,
           <h2 className="truncate font-display text-lg leading-tight" title={info.title}>{info.title}</h2>
           <p className="truncate text-xs text-muted">{info.where}{people ? ` · ${people} ${people === 1 ? 'person' : 'people'} talking` : ''}</p>
         </div>
+        {switcher && <span className="shrink-0 lg:hidden">{switcher}</span>}
         {onClose && besideStream && (
           <button onClick={onClose} aria-label="Close this thread" className="hidden size-8 shrink-0 2xl:grid place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink">
             <X size={17} aria-hidden="true" />
