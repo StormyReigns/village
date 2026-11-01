@@ -108,9 +108,11 @@ export function MessageText({ body }: { body: string }) {
     <>
       {splitRefs(body).map((p, i) => {
         if ('text' in p) return <span key={i}>{p.text}</span>;
-        const here = links && p.ref.game === links.gameId ? links.threads.info(links.threads.resolve(p.ref.key)) : null;
-        if (!here || !links) return <span key={i} className="font-bold">#a thread in another game</span>;
-        // Deleted or hidden since: plain words, never a link to nothing.
+        if (!links) return <span key={i} className="font-bold">#a thread</span>;
+        if (p.ref.game !== links.gameId) return <span key={i} className="font-bold">#a thread in another game</span>;
+        // info() never fails: something deleted or hidden since comes back as 'unknown', and
+        // reads as plain words, never a link to nothing.
+        const here = links.threads.info(links.threads.resolve(p.ref.key));
         if (here.kind === 'unknown') return <span key={i} className="text-muted">#something no longer here</span>;
         const tint = here.block?.page.tint;
         return (
