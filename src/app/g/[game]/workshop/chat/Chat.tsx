@@ -38,6 +38,20 @@ export interface ThreadInfo {
   storedKeys: ThreadKey[];
 }
 
+// The chat's wallpaper (agreed 2026-11-01): faint houses and genre shapes behind the messages,
+// so the chat reads as a place rather than a blank list. The list reaches the box's edges, with
+// a thin scrollbar right at the edge, to give the messages all the width.
+const WALL_SVG = "<svg xmlns='http://www.w3.org/2000/svg' width='72' height='72'><g fill='none' stroke='#15171c' stroke-opacity='.07' stroke-width='1.5' stroke-linejoin='round'>"
+  + "<path d='M8 25l9-8 9 8v10H8z'/><circle cx='52' cy='17' r='5'/><path d='M51 45l7 7-7 7-7-7z'/><path d='M19 50l6 10H13z'/></g></svg>";
+const WALL: React.CSSProperties = {
+  backgroundColor: 'var(--paper)',
+  backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(WALL_SVG)}")`,
+  scrollbarWidth: 'thin',
+  scrollbarColor: 'color-mix(in srgb, var(--ink) 25%, transparent) transparent',
+};
+/** The message list: edge to edge in the chat box (which has 1rem of padding), on the wallpaper. */
+const WALL_LIST = '-mx-4 my-3 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-4 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-3';
+
 const whereOf = (b?: Placed) => (!b ? '' : b.page.title === b.title ? b.title : `${b.page.title} · ${b.title}`);
 
 /** Works out what each thread is about from the game's Blocks and Drafts. */
@@ -151,12 +165,14 @@ export function Message({ m, me, live, compact = false }: { m: ChatMessage; me: 
   const reported = live.myReports.has(targetKey({ messageId: m.id }));
   const canReport = Boolean(me) && !own;
   const hasTools = !compact && (canReport || live.mod);
+  // Your own messages sit on the right, everyone else's on the left (no bubbles).
+  const mine = own && !compact;
   return (
-    <li className={'group flex gap-2.5 ' + (m.removed ? 'opacity-50' : '')}>
-      <Avatar name={m.author.name} url={m.author.avatarUrl} size={compact ? 22 : 32} />
-      <div className="min-w-0 flex-1">
-        <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
-          <span className="font-bold">{m.author.name}</span>
+    <li className={'group flex gap-2.5 ' + (mine ? 'justify-end ' : '') + (m.removed ? 'opacity-50' : '')}>
+      {!mine && <Avatar name={m.author.name} url={m.author.avatarUrl} size={compact ? 22 : 32} />}
+      <div className={'min-w-0 ' + (mine ? 'max-w-[85%] text-right' : 'flex-1')}>
+        <p className={'flex flex-wrap items-baseline gap-x-2 text-sm ' + (mine ? 'flex-row-reverse' : '')}>
+          <span className="font-bold">{mine ? 'You' : m.author.name}</span>
           <span className="text-xs text-muted">{ago(m.createdAt)}</span>
           {m.removed && <span className="rounded-full bg-berry-soft px-2 py-0.5 text-xs font-bold text-berry">Removed · only moderators see it</span>}
           {hasTools && (
@@ -210,7 +226,7 @@ function LinkedCard({ refs, me, live }: { refs: Ref[]; me: Villager | null | und
   const info = links.threads.info(key);
   if (info.kind === 'unknown') return null;
   return (
-    <div className="mt-2">
+    <div className="mt-2 text-left">
       <ThreadCard as="div" info={info} messages={links.threads.inThread(key)} me={me} live={live} onOpen={() => links.open(key)} />
     </div>
   );
@@ -432,13 +448,13 @@ export function Stream({ topic, onAll, onFold, switcher, bar, className = '', me
       {live.state === 'loading' ? (
         <div className="m-auto py-10 text-sm text-muted">Opening the workshop doors…</div>
       ) : messages.length === 0 ? (
-        <div className="m-auto grid max-w-sm justify-items-center gap-2 py-10 text-center">
+        <div className="-mx-4 my-3 grid flex-1 place-items-center px-3" style={WALL}><div className="grid max-w-sm justify-items-center gap-2 py-10 text-center">
           <span className="grid size-14 place-items-center rounded-full bg-sky-soft text-sky"><MessageCircle aria-hidden="true" /></span>
           <h3 className="font-display text-xl">{topic ? `Nothing about ${topic.label} yet` : 'The village is quiet'}</h3>
           <p className="text-sm text-muted">Say what you&apos;ve found or what you&apos;re stuck on. Messages show up for everyone here right away.</p>
-        </div>
+        </div></div>
       ) : (
-        <ul ref={list} onScroll={onScroll} aria-live="polite" className="my-3 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-4 overflow-y-auto overflow-x-hidden overscroll-contain pr-1">
+        <ul ref={list} onScroll={onScroll} aria-live="polite" className={WALL_LIST} style={WALL}>
           {items.map((x) => x.kind === 'message'
             ? <Message key={x.m.id} m={x.m} me={me} live={live} />
             : <ThreadCard key={x.key} info={threads.info(x.key)} messages={x.messages} me={me} live={live} onOpen={() => onOpen(x.key)} />)}
@@ -523,7 +539,7 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, onClose,
           {href && <a href={href} className="inline-flex items-center gap-1 rounded-full bg-card px-2.5 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">See it in the app</a>}
         </div>
       )}
-      <ul ref={list} onScroll={onScroll} aria-live="polite" className="my-3 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-4 overflow-y-auto overflow-x-hidden overscroll-contain pr-1">
+      <ul ref={list} onScroll={onScroll} aria-live="polite" className={WALL_LIST} style={WALL}>
         {timeline.length === 0 && (
           <li className="m-auto grid max-w-xs justify-items-center gap-2 py-8 text-center">
             <h3 className="font-display text-lg">Start the thread</h3>

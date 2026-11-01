@@ -300,6 +300,10 @@ Dated, newest last, each with why.
 - 2026-11-01 (Matt): on phones the Chat tab fills the screen: messages scroll inside it and
   the message box stays at the bottom. Why: before, the page grew longer with every message and
   the box drifted out of sight. The Build tab still scrolls as a page.
+- 2026-11-01 (Matt): the chat gets a look of its own: a faint village wallpaper (house and
+  genre-shape outlines) behind the messages, which run edge to edge in the chat box with a thin
+  scrollbar at the very edge. No bubbles; your own messages sit on the right ("You"), everyone
+  else's on the left. Why: plain white was easy to overlook; this makes the chat a place.
 
 ## Open questions
 
