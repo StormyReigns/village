@@ -13,7 +13,7 @@ import { Tip } from '@/components/Tip';
 import { useStored } from '@/components/useStored';
 import { closest, rank } from '@/lib/search';
 import { byStat } from '@/lib/stats';
-import { allStatDefs, besideText, shownFields, spotOf, valueOf } from '@/lib/fields';
+import { allStatDefs, besideText, isCategory, shownFields, spotOf, valueOf } from '@/lib/fields';
 import { CharacterCard } from './CharacterCard';
 import { symbolFor } from './symbols';
 import { entryText, initials, useOpenEntry, useTicks } from './entries';
@@ -36,9 +36,18 @@ export function Characters({ block, ctx }: { block: Block; ctx: BlockContext }) 
   const [sort, setSort] = useState('az');
   const { open, set } = useOpenEntry();
   const [ticks, toggle] = useTicks(ctx.gameId);
-  const filter = block.filters?.[0];
   const color = `var(--${ctx.tint})`;
   const fields = shownFields(block);
+  // Any tag can sort and filter the cast (Group, Role or class, Playable or NPC...), not just
+  // the first: the ones with at least two different values here. The Block's own filter is
+  // the default; each device remembers the player's choice.
+  const tags = useMemo(() => fields.filter((f) => isCategory(f) && !f.spoiler)
+    .filter((f) => new Set(shown.map((e) => e.categories[f.key]).filter(Boolean)).size > 1), [fields, shown]);
+  const fallback = tags.find((t) => t.key === block.filters?.[0])?.key ?? tags[0]?.key ?? '';
+  const [groupBy, setGroupBy] = useStored<string>(`village:${ctx.gameId}:${block.id}:groupBy`, fallback);
+  const filter = tags.some((t) => t.key === groupBy) ? groupBy : fallback || undefined;
+  const filterLabel = tags.find((t) => t.key === filter)?.label ?? filter;
+  const chooseGroup = (key: string) => { setGroupBy(key); setPick(null); };
   // Games where people join you get a "Recruited" tick on each one.
   const recruits = fields.some((f) => /recruit/i.test(`${f.key} ${f.label}`));
 
@@ -54,7 +63,8 @@ export function Characters({ block, ctx }: { block: Block; ctx: BlockContext }) 
     if (query.trim()) return rank(found, query, entryText);
     const byName = (a: Entry, b: Entry) => a.name.localeCompare(b.name);
     if (sort === 'za') return found.sort((a, b) => byName(b, a));
-    if (sort === 'group' && filter) return found.sort((a, b) => (a.categories[filter] ?? '').localeCompare(b.categories[filter] ?? '') || byName(a, b));
+    const by = sort.startsWith('group:') ? sort.slice(6) : null;
+    if (by) return found.sort((a, b) => (a.categories[by] ?? '\uffff').localeCompare(b.categories[by] ?? '\uffff') || byName(a, b));
     const def = allStatDefs(block).find((d) => sort === statSort(d.key));
     if (def) return found.sort((a, b) => byStat(def)(a, b) || byName(a, b));
     return found.sort(byName);
@@ -93,17 +103,31 @@ export function Characters({ block, ctx }: { block: Block; ctx: BlockContext }) 
         {view === 'list' && (
           <label>
             <span className="sr-only">Sort</span>
-            <select value={sort} onChange={(e) => setSort(e.target.value)} className="rounded-full bg-card-2 px-3 py-2 text-sm font-bold ring-1 ring-line">
+            <select value={sort} onChange={(e) => {
+              setSort(e.target.value);
+              // Sorting by a tag also brings its chips up for filtering.
+              if (e.target.value.startsWith('group:')) chooseGroup(e.target.value.slice(6));
+            }} className="rounded-full bg-card-2 px-3 py-2 text-sm font-bold ring-1 ring-line">
               <option value="az">A to Z</option>
               <option value="za">Z to A</option>
-              {filter && <option value="group">By {filter.toLowerCase()}</option>}
+              {tags.map((t) => <option key={t.key} value={`group:${t.key}`}>By {t.label.toLowerCase()}</option>)}
               {allStatDefs(block).map((d) => <option key={d.key} value={statSort(d.key)}>Best {d.label.toLowerCase()}</option>)}
             </select>
           </label>
         )}
       </div>
       {values.length > 1 && (
-        <ScrollRow className="-mx-1 mt-3 flex gap-1.5 px-1 pb-1" role="group" label={`Filter by ${filter}`}>
+        <ScrollRow className="-mx-1 mt-3 flex items-center gap-1.5 px-1 pb-1" role="group" label={`Filter by ${filterLabel}`}>
+          {/* Which tag the chips filter by, when there's more than one to choose from. */}
+          {tags.length > 1 && (
+            <label className="shrink-0">
+              <span className="sr-only">Filter by</span>
+              <select value={filter} onChange={(e) => chooseGroup(e.target.value)}
+                className="rounded-full bg-card px-2.5 py-1.5 text-sm font-bold text-muted ring-1 ring-line hover:text-ink">
+                {tags.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+              </select>
+            </label>
+          )}
           <FilterChip on={!pick} tint={ctx.tint} onClick={() => setPick(null)}>All · {shown.length}</FilterChip>
           {values.map(([v, n]) => <FilterChip key={v} on={pick === v} tint={ctx.tint} onClick={() => setPick(pick === v ? null : v)}>{v} · {n}</FilterChip>)}
         </ScrollRow>

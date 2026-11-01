@@ -21,8 +21,10 @@ fantasy or adventure game has a cast, which is why it's Block 1.
   the next slides in. Up and down still scrolls the page.
 - **List**: rows to scan, sort and filter. Tapping a row opens the details panel.
 - Each device remembers Profiles or List for each Block.
-- Search, filter chips (from the Block's first tag, e.g. Group) and sorts (A to Z, Z to A,
-  by group, and by any stat).
+- Search, filter chips and sorts (A to Z, Z to A, by any tag, and by any stat). Any tag
+  with two or more values can sort and filter the cast (Group, Role or class, Playable or
+  NPC...): the chips start on the Block's own filter, a small chooser before them switches
+  tag, and sorting by a tag brings its chips up. Each device remembers the choice.
 - The address holds the character, so links and share cards open straight to them.
 
 ## The card
@@ -144,6 +146,8 @@ own, with a thin line between them; on a phone the sheet opens at the size it wa
   handle on phones. "What changes" moved to the editor, above Submit. Why: the preview was
   hard to tell from the editor, and the preview should stay true to the app, so the editor
   carries the difference. The Workbench is meant for the whole Workshop.
+- 2026-11-01: sorting and filtering work on any tag, not only the first (Group). Why: not
+  every game groups its cast the same way, and players may want role or playable instead.
 - 2026-10-31: the heatmap on phones: it opens over the whole page and keeps its own touches
   (a sideways drag scrolls the table instead of swiping the card), the stat names and ticked
   rows stay in view while the rest scrolls both ways, it opens with the tapped stat in view,
