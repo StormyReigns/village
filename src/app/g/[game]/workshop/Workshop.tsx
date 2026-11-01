@@ -282,7 +282,10 @@ export function Workshop({ game, pages, routes }: {
 
   return (
     <ChatLinks.Provider value={{ gameId: game.id, threads, open: openThread }}>
-    <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col px-4 pb-6 pt-5 sm:px-6 lg:min-h-0 lg:pb-4 lg:pt-4">
+    {/* On phones the Chat tab fills the screen like the wide layout: messages scroll inside it
+        and the message box stays at the bottom (page.tsx sizes the screen from data-phone-chat). */}
+    <main data-phone-chat={phoneTab === 'chat' || undefined}
+      className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col px-4 pb-6 pt-5 sm:px-6 lg:min-h-0 lg:pb-4 lg:pt-4 max-lg:data-[phone-chat]:min-h-0 max-lg:data-[phone-chat]:pb-3">
       {/* The Workshop's name and guides. The ink bar above (page.tsx) has the way out and your account. */}
       <header className="flex flex-wrap items-center gap-3">
         <div>
@@ -318,7 +321,7 @@ export function Workshop({ game, pages, routes }: {
 
       {/* Two columns that fill the screen on wide ones, each scrolling on its own: the chat, and
           the work (Drafts, what's in the app, or an open editor). On phones, one at a time. */}
-      <div className="mt-3 flex flex-1 flex-col gap-4 lg:min-h-0 lg:flex-row">
+      <div className="mt-3 flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
         {chatFolded && (
           <div className="hidden shrink-0 lg:flex">
           <Tip text="Open the chat" tint="sky">
@@ -334,7 +337,7 @@ export function Workshop({ game, pages, routes }: {
         {/* The stream, and beside it the open thread. Where both don't fit (below the widest
             screens, on phones, and whenever an editor needs the room for its preview) the
             thread takes the stream's place, with a way back. */}
-        <div className={(phoneTab === 'chat' && !threadInfo ? 'flex' : 'hidden') + ' min-w-0 flex-col gap-2 lg:min-h-0 lg:w-80 lg:shrink-0 2xl:w-96 '
+        <div className={(phoneTab === 'chat' && !threadInfo ? 'flex' : 'hidden') + ' min-h-0 min-w-0 flex-1 flex-col gap-2 lg:w-80 lg:flex-none lg:shrink-0 2xl:w-96 '
           + (chatFolded ? 'lg:hidden' : threadInfo ? (editing ? 'lg:hidden' : 'lg:hidden 2xl:flex') : 'lg:flex')}>
           <Stream
             topic={current ? { key: current.id, label: current.title } : null}
@@ -348,7 +351,7 @@ export function Workshop({ game, pages, routes }: {
           />
         </div>
         {threadInfo && (
-          <div className={(phoneTab === 'chat' ? 'flex' : 'hidden') + ' min-w-0 flex-col gap-2 lg:min-h-0 lg:w-80 lg:shrink-0 2xl:w-96 ' + (chatFolded ? 'lg:hidden' : 'lg:flex')}>
+          <div className={(phoneTab === 'chat' ? 'flex' : 'hidden') + ' min-h-0 min-w-0 flex-1 flex-col gap-2 lg:w-80 lg:flex-none lg:shrink-0 2xl:w-96 ' + (chatFolded ? 'lg:hidden' : 'lg:flex')}>
             {threadPanel({ onBack: () => setThread(null), onClose: () => setThread(null), besideStream: !editing })}
           </div>
         )}

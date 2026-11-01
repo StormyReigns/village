@@ -38,8 +38,8 @@ async function LoadedWorkshop({ params }: { params: PageProps<'/g/[game]/worksho
   const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
   return (
     // Everything in the Workshop takes the game's genre shade. On wide screens it fills the
-    // screen exactly, and its columns scroll on their own.
-    <GameShade className="flex flex-1 flex-col lg:h-dvh lg:flex-none lg:overflow-hidden">
+    // screen exactly, and its columns scroll on their own; so does the chat on phones.
+    <GameShade className="flex flex-1 flex-col lg:h-dvh lg:flex-none lg:overflow-hidden max-lg:has-[[data-phone-chat]]:h-dvh max-lg:has-[[data-phone-chat]]:flex-none max-lg:has-[[data-phone-chat]]:overflow-hidden">
       <TopBar compact wide actions={
         <>
           <Link href={`/g/${game.id}`} aria-label="Open the app"

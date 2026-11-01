@@ -391,7 +391,7 @@ export function Stream({ topic, onAll, onFold, bar, className = '', messages, me
   const { list, onScroll } = useStickToBottom(last?.id, me, last?.author.id);
 
   return (
-    <section aria-label="Chat" className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl bg-card p-4 ring-1 ring-line lg:min-h-0 ' + className}>
+    <section aria-label="Chat" className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl bg-card p-4 ring-1 ring-line in-data-[phone-chat]:min-h-0 lg:min-h-0 ' + className}>
       <div className="flex flex-wrap items-center gap-x-2">
         {bar && <span className="mr-1 shrink-0">{bar}</span>}
         <h2 className="font-display text-xl">Chat</h2>
@@ -472,7 +472,7 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, onClose,
   const href = info.block && info.entry ? sharePath(gameId, info.block.page, info.block, info.entry) : null;
 
   return (
-    <section aria-label={`Thread: ${info.title}`} className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl bg-card p-4 ring-1 ring-line lg:min-h-0 ' + className}>
+    <section aria-label={`Thread: ${info.title}`} className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl bg-card p-4 ring-1 ring-line in-data-[phone-chat]:min-h-0 lg:min-h-0 ' + className}>
       <div className="flex items-center gap-2">
         {bar && <span className="shrink-0">{bar}</span>}
         {onBack && (

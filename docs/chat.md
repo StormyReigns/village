@@ -297,6 +297,9 @@ Dated, newest last, each with why.
   showing). Why: it keeps the stream readable while showing what's moving. Thread beside
   the stream only on the widest screens, in its place elsewhere. Why: the editor needs the
   room. A thread belongs to the thing, so all of Eshmel's Drafts share his thread.
+- 2026-11-01 (Matt): on phones the Chat tab fills the screen: messages scroll inside it and
+  the message box stays at the bottom. Why: before, the page grew longer with every message and
+  the box drifted out of sight. The Build tab still scrolls as a page.
 
 ## Open questions
 
