@@ -20,6 +20,7 @@ import { Piece } from '@/components/Piece';
 import { HOW_IT_WORKS_PING, HowItWorksButton, MarketDayButton } from '@/components/HowItWorks';
 import { Avatar } from '@/components/Avatar';
 import { useVillager, type Villager } from '@/components/useVillager';
+import { useViewAsSetting } from '@/components/viewAs';
 import { sortStandouts } from '@/lib/standouts';
 import {
   REASONS, targetKey, useWorkshop,
@@ -142,6 +143,9 @@ export function Workshop({ game, pages, routes }: {
     if (params.get('draft')) setDetail(params.get('draft'));
   }
   const me = useVillager();
+  // A moderator seeing the site as someone else has a reminder pinned at the bottom; the
+  // phone chat leaves room for it, so it never covers the message box.
+  const viewingAs = useViewAsSetting() !== 'self';
   const live = useWorkshop(game.id, me);
 
   /** The app address of the entry a Draft fixed, for "Back to …". */
@@ -285,9 +289,12 @@ export function Workshop({ game, pages, routes }: {
     {/* On phones the Chat tab fills the screen like the wide layout: messages scroll inside it
         and the message box stays at the bottom (page.tsx sizes the screen from data-phone-chat). */}
     <main data-phone-chat={phoneTab === 'chat' || undefined}
-      className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col px-4 pb-6 pt-5 sm:px-6 lg:min-h-0 lg:pb-4 lg:pt-4 max-lg:data-[phone-chat]:min-h-0 max-lg:data-[phone-chat]:pb-3">
+      className={'mx-auto flex w-full max-w-screen-2xl flex-1 flex-col px-4 pb-6 pt-5 sm:px-6 lg:min-h-0 lg:pb-4 lg:pt-4 max-lg:data-[phone-chat]:min-h-0 '
+        + (viewingAs ? 'max-lg:data-[phone-chat]:pb-20' : 'max-lg:data-[phone-chat]:pb-3')}>
       {/* The Workshop's name and guides. The ink bar above (page.tsx) has the way out and your account. */}
-      <header className="flex flex-wrap items-center gap-3">
+      {/* On a short phone screen (the keyboard is up) the chat needs the room: the title and the
+          Page chips step aside while the Chat tab is open. */}
+      <header className="flex flex-wrap items-center gap-3 max-lg:in-data-[phone-chat]:[@media(max-height:560px)]:hidden">
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-muted">Workshop</p>
           <h1 className="font-display text-2xl leading-tight">{game.shortTitle}</h1>
@@ -300,7 +307,7 @@ export function Workshop({ game, pages, routes }: {
       </header>
 
       {/* The Pages: a symbol each, the chosen one in a piece */}
-      <ScrollRow as="nav" label="Pages" className="-mx-4 mt-3 flex shrink-0 gap-2 px-4 pb-2 pt-1">
+      <ScrollRow as="nav" label="Pages" className="-mx-4 mt-3 flex shrink-0 gap-2 px-4 pb-2 pt-1 max-lg:in-data-[phone-chat]:[@media(max-height:560px)]:hidden">
         <BlockChip on={chip === 'all'} tint="ink" icon="LayoutGrid" label="Everything" count={drafts.filter(isOpen).length} onClick={() => setChip('all')} />
         {pages.map((p) => (
           <BlockChip key={p.id} on={chip === p.id} tint={p.tint} icon={p.icon} label={p.title} count={counts[p.id]} onClick={() => setChip(p.id)} />

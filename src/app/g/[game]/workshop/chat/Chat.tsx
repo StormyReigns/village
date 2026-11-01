@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, EyeOff, FileText, Flag, MessageCircle, MoreHorizontal, PanelLeftClose, PanelRight, PenLine, RotateCcw, Send, Trash2, X } from 'lucide-react';
 import type { Block, Entry, Page } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
@@ -291,7 +291,12 @@ export function Composer({ me, placeholder, onSend, id, compact = false }: {
         <input ref={field} id={id} value={text} maxLength={4000} disabled={me === undefined}
           onChange={(e) => { setText(e.target.value); track(e.target); setHidden(false); setSel(0); if (error) setError(''); }}
           onSelect={(e) => track(e.currentTarget)}
-          onBlur={() => setHidden(true)} onFocus={() => setHidden(false)}
+          onBlur={() => setHidden(true)}
+          onFocus={() => {
+            setHidden(false);
+            // Phones: once the keyboard is up, make sure the box is above it.
+            setTimeout(() => field.current?.scrollIntoView({ block: 'nearest' }), 350);
+          }}
           onKeyDown={(e) => {
             if (!picking) return;
             if (e.key === 'ArrowDown') { e.preventDefault(); setSel((sel + 1) % choices.length); }
@@ -360,15 +365,28 @@ function ThreadCard({ info, messages, me, live, onOpen, as: Box = 'li' }: {
 
 /** Keeps the newest message in view, unless you've scrolled up to read. */
 function useStickToBottom(lastId: number | undefined, me: Villager | null | undefined, lastAuthor?: string) {
-  const list = useRef<HTMLUListElement>(null);
+  const el = useRef<HTMLUListElement | null>(null);
   const stick = useRef(true);
+  const watcher = useRef<ResizeObserver | null>(null);
   useEffect(() => {
-    const el = list.current;
-    if (el && (stick.current || (me && lastAuthor === me.id))) el.scrollTop = el.scrollHeight;
+    if (el.current && (stick.current || (me && lastAuthor === me.id))) el.current.scrollTop = el.current.scrollHeight;
   }, [lastId, me, lastAuthor]);
+  // The list only appears once the chat has loaded, so it's set up as it appears: it opens at
+  // the newest message, and when it gets shorter (a phone keyboard opening, the window
+  // resizing) the newest message stays in view if that's where you were.
+  const list = useCallback((node: HTMLUListElement | null) => {
+    el.current = node;
+    watcher.current?.disconnect();
+    watcher.current = null;
+    if (!node) return;
+    node.scrollTop = node.scrollHeight;
+    if (typeof ResizeObserver === 'undefined') return;
+    watcher.current = new ResizeObserver(() => { if (stick.current) node.scrollTop = node.scrollHeight; });
+    watcher.current.observe(node);
+  }, []);
   const onScroll = () => {
-    const el = list.current;
-    if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    const node = el.current;
+    if (node) stick.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80;
   };
   return { list, onScroll };
 }
