@@ -136,9 +136,18 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
 
   useEffect(() => {
     box.current?.focus();
-    const before = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = before; };
+    // Hold the page still behind the panel. Hiding the overflow alone doesn't stop a swipe
+    // from scrolling it on phones, so the page is pinned where it was and put back on close.
+    const y = window.scrollY;
+    const body = document.body.style, root = document.documentElement.style;
+    const before = { overflow: body.overflow, position: body.position, top: body.top, width: body.width, rootOverflow: root.overflow };
+    root.overflow = 'hidden';
+    Object.assign(body, { overflow: 'hidden', position: 'fixed', top: `-${y}px`, width: '100%' });
+    return () => {
+      root.overflow = before.rootOverflow;
+      Object.assign(body, { overflow: before.overflow, position: before.position, top: before.top, width: before.width });
+      window.scrollTo(0, y);
+    };
   }, []);
 
   useEffect(() => {
@@ -152,7 +161,7 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
   }, [prev, next, onGo, onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-ink/30 backdrop-blur-[2px] lg:items-stretch lg:justify-end" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end overscroll-none bg-ink/30 backdrop-blur-[2px] lg:items-stretch lg:justify-end" onClick={onClose}>
       <div ref={box} tabIndex={-1} role="dialog" aria-modal="true" aria-label={entry.name} onClick={(e) => e.stopPropagation()}
         className="rise flex max-h-[88vh] w-full flex-col rounded-t-[2rem] bg-card shadow-soft outline-none lg:max-h-none lg:w-[28rem] lg:rounded-none lg:rounded-l-[2rem]">
         <div className="mx-auto mt-2 h-1.5 w-10 rounded-full bg-line lg:hidden" aria-hidden="true" />
@@ -165,7 +174,7 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
           <button onClick={onClose} aria-label="Close" className="grid size-9 place-items-center rounded-full bg-card-2 ring-1 ring-line"><X size={18} aria-hidden="true" /></button>
         </div>
 
-        <div className="overflow-y-auto px-5 pb-6 pt-3">
+        <div className="overflow-y-auto overscroll-contain px-5 pb-6 pt-3">
           {fixes.length > 0 && !mystery && (
             <Link href={`/g/${gameId}/workshop?draft=${fixes[0].id}`} className="mb-4 flex items-center gap-2 rounded-2xl bg-sun-soft px-3 py-2 text-sm hover:ring-1 hover:ring-sun">
               <Hourglass size={15} className="shrink-0 text-sun" aria-hidden="true" />
