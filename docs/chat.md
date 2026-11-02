@@ -249,7 +249,10 @@ GIFs, polls and files left out for now):
   message, 5 MB each, made smaller before sending (1600 px, WebP; GIFs kept moving). A message
   can be pictures alone. One picture shows large, several in a grid; tap for full size. The
   spoiler switch hides them too. Stored in the public `chat-images` bucket under
-  game/person/; only you can upload into your folder; you and the game's moderators can delete.
+  game/person/, named by a random id; only you can upload into your folder; you and the game's
+  moderators can delete. Photos are always redrawn in the browser before upload, which drops
+  hidden location data; one that can't be redrawn isn't sent. Removing a message deletes its
+  pictures (the bucket is public); a quote of a removed message says "A removed message".
 - **Reply**: the arrow beside a message quotes it above the box; the reply shows the quote at
   its top, and tapping the quote scrolls to the original. (`chat_messages.reply_to`)
 - **@mentions** (lite): typing @ lists people who have talked or posted Drafts here; the message

@@ -167,20 +167,27 @@ export async function uploadChatImage(gameId: string, meId: string, file: File):
   const db = browserClient();
   if (!db) return "Couldn't reach the village.";
   if (!file.type.startsWith('image/')) return 'Only pictures can be shared here.';
-  let blob: Blob = file, type = file.type, ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+  // Photos are always drawn afresh before they leave the device: that also drops what a phone
+  // hides inside them (where it was taken). If that can't be done, the photo isn't sent.
+  const gif = file.type === 'image/gif';
+  let blob: Blob = file, type = file.type, ext = 'gif';
   let w = 0, h = 0;
   try {
     const bitmap = await createImageBitmap(file);
     w = bitmap.width; h = bitmap.height;
-    if (file.type !== 'image/gif') {
+    if (!gif) {
       const scale = Math.min(1, 1600 / Math.max(w, h));
       const canvas = document.createElement('canvas');
       canvas.width = Math.round(w * scale); canvas.height = Math.round(h * scale);
       canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      const small = await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/webp', 0.85));
-      if (small) { blob = small; type = 'image/webp'; ext = 'webp'; w = canvas.width; h = canvas.height; }
+      const small = await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/webp', 0.85))
+        ?? await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/jpeg', 0.85));
+      if (!small) throw new Error('no re-encode');
+      blob = small; type = small.type; ext = small.type === 'image/webp' ? 'webp' : 'jpg'; w = canvas.width; h = canvas.height;
     }
-  } catch { /* the browser couldn't read it: send it as it is */ }
+  } catch {
+    if (!gif) return "That picture couldn't be read. Try a screenshot or another picture.";
+  }
   if (blob.size > 5 * 1024 * 1024) return 'That picture is too big (5 MB at most).';
   const path = `${gameId}/${meId}/${crypto.randomUUID()}.${ext}`;
   const { error } = await db.storage.from('chat-images').upload(path, blob, { contentType: type, upsert: false });
@@ -544,9 +551,15 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     if (!db || !meId) return 'Sign in first.';
     const { error } = await db.from('chat_messages')
       .update(remove ? { removed_at: new Date().toISOString(), removed_by: meId } : { removed_at: null, removed_by: null }).eq('id', id);
-    if (!error && remove) await closeReports({ messageId: id }, 'resolved');
+    if (!error && remove) {
+      await closeReports({ messageId: id }, 'resolved');
+      // The pictures bucket is public, so a removed message's pictures are deleted too, or
+      // they'd stay reachable by their address. (Restoring the message can't bring them back.)
+      const paths = messages.find((m) => m.id === id)?.attachments.map((a) => a.path) ?? [];
+      if (paths.length) await db.storage.from('chat-images').remove(paths);
+    }
     return finish(error);
-  }, [meId, closeReports, finish]);
+  }, [meId, closeReports, finish, messages]);
 
   const markSpoiler = useCallback(async (id: number, spoiler: boolean) => {
     const db = browserClient();

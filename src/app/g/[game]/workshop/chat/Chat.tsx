@@ -317,16 +317,21 @@ function Reactions({ m, me, live, picking, onPicked, centered = false }: {
 
 /** Pictures on a message: one shown large, several in a grid. Tap one to see it full size. */
 function Pictures({ list, by }: { list: Attachment[]; by: string }) {
+  // A picture deleted with its removed message (and the message restored since) says so.
+  const [gone, setGone] = useState<string[]>([]);
   if (!list.length) return null;
   const one = list.length === 1;
   return (
     <div className={'mt-1.5 grid gap-1 ' + (one ? '' : 'grid-cols-2')}>
-      {list.map((a) => (
+      {list.map((a) => gone.includes(a.path) ? (
+        <p key={a.path} className="rounded-xl bg-card-2 px-3 py-2 text-xs text-muted ring-1 ring-line">Picture removed</p>
+      ) : (
         <a key={a.path} href={imageUrl(a.path)} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-xl bg-card-2 ring-1 ring-line">
           {/* eslint-disable-next-line @next/next/no-img-element -- a villager's picture from our own storage, any size */}
           <img src={imageUrl(a.path)} alt={`Picture shared by ${by}`} loading="lazy"
             className={one ? 'max-h-72 w-auto max-w-full object-contain' : 'aspect-square size-full object-cover'}
-            style={one && a.w && a.h ? { aspectRatio: `${a.w} / ${a.h}` } : undefined} />
+            style={one && a.w && a.h ? { aspectRatio: `${a.w} / ${a.h}` } : undefined}
+            onError={() => setGone((g) => [...g, a.path])} />
         </a>
       ))}
     </div>
@@ -347,7 +352,7 @@ function Quote({ id }: { id: number }) {
     <button type="button" onClick={show} disabled={!q}
       className="mb-1 flex w-full min-w-0 items-start gap-1.5 rounded-lg border-l-2 border-ink/40 bg-ink/5 px-2 py-1 text-left text-xs hover:bg-ink/10">
       <CornerUpLeft size={12} className="mt-0.5 shrink-0 text-muted" aria-hidden="true" />
-      <span className="min-w-0 truncate">{q ? <><b>{q.author.name}</b> {q.spoiler ? 'Spoiler' : gist(q, links)}</> : 'A message no longer here'}</span>
+      <span className="min-w-0 truncate">{!q ? 'A message no longer here' : q.removed ? 'A removed message' : <><b>{q.author.name}</b> {q.spoiler ? 'Spoiler' : gist(q, links)}</>}</span>
     </button>
   );
 }
