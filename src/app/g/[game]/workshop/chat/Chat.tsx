@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, CornerUpLeft, EyeOff, FileText, Flag, ImagePlus, MessageCircle, MoreHorizontal, PanelLeftClose, PanelRight, PenLine, Play, ExternalLink, RotateCcw, Send, SmilePlus, Sparkles, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Check, CornerUpLeft, Link2, EyeOff, FileText, Flag, ImagePlus, MessageCircle, MoreHorizontal, PanelLeftClose, PanelRight, PenLine, Play, ExternalLink, RotateCcw, Send, SmilePlus, Sparkles, Trash2, X } from 'lucide-react';
 import type { Block, Entry, EntryContent, Page } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
 import { EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
@@ -12,7 +12,7 @@ import type { Villager } from '@/components/useVillager';
 import { sharePath } from '@/data/pages/links';
 import { blockThread, buildStream, draftThread, entryThread, resolveThread, threadOf, type ThreadKey } from '@/lib/threads';
 import { encodeRefs, insertPick, mentionsIn, mentionToken, plainRefs, refsIn as refs, refToken, splitRefs, typedMark } from '@/lib/refs';
-import { findLinks, linksIn, VILLAGE_HOSTS, villagePath, youTube } from '@/lib/links';
+import { findLinks, linksIn, messageLink, messagePath, VILLAGE_HOSTS, villagePath, youTube } from '@/lib/links';
 import { resolveItem } from '@/data/pages/links';
 import { rank, type Searchable } from '@/lib/search';
 import { findReactions, QUICK } from '@/lib/reactions';
@@ -143,7 +143,7 @@ export interface RefOption { key: ThreadKey; label: string; where: string; searc
  * What the chat needs to turn "#Eshmel" into a link: the game, its threads, and how to open
  * one. Provided once by the Workshop, so every message box and message can use it.
  */
-export const ChatLinks = createContext<{ gameId: string; threads: Threads; open: (key: ThreadKey) => void; routes: RouteOption[]; me?: string | null } | null>(null);
+export const ChatLinks = createContext<{ gameId: string; threads: Threads; open: (key: ThreadKey) => void; routes: RouteOption[]; me?: string | null; jump?: (id: number) => void } | null>(null);
 
 /** A message's words, with each "#" reference as a tag in its Page's color that opens the thread. */
 export function MessageText({ body }: { body: string }) {
@@ -197,6 +197,18 @@ function LinkedText({ text }: { text: string }) {
     <>
       {findLinks(text).map((p, i) => {
         if ('text' in p) return <span key={i}>{p.text}</span>;
+        // A link to one message reads as a short quote of it, and jumps to it.
+        const msg = messageLink(p.url, ownHosts());
+        if (msg && links && msg.game === links.gameId) {
+          const q = links.threads.byMessage.get(msg.id);
+          return (
+            <button key={i} type="button" onClick={() => links.jump?.(msg.id)}
+              className="inline-flex max-w-full items-center gap-1 rounded-md bg-ink/5 px-1.5 align-bottom text-sm hover:bg-ink/10">
+              <CornerUpLeft size={12} className="shrink-0 text-muted" aria-hidden="true" />
+              <span className="min-w-0 truncate">{q && !q.removed ? <><b>{q.author.name}</b>: {q.spoiler ? 'Spoiler' : gist(q, links)}</> : 'a message'}</span>
+            </button>
+          );
+        }
         const key = villageThread(p.url, links);
         const here = key && links ? links.threads.info(key) : null;
         if (here && here.kind !== 'unknown' && links) {
@@ -381,7 +393,14 @@ export function Message({ m, me, live, compact = false, small = false, onReply }
   const own = me?.id === m.author.id && !me.practice;
   const reported = live.myReports.has(targetKey({ messageId: m.id }));
   const canReport = Boolean(me) && !own;
-  const hasTools = canReport || live.mod;
+  // Everyone can copy a link to a message; reporting and moderating add to the same menu.
+  const hasTools = true;
+  const [copied, setCopied] = useState(false);
+  const links = useContext(ChatLinks);
+  const copyLink = async () => {
+    if (!links) return;
+    try { await navigator.clipboard.writeText(location.origin + messagePath(links.gameId, m.id)); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* clipboard blocked */ }
+  };
   const system = m.kind === 'system';
 
   // A small preview inside a thread's card: a line or two, no bubble.
@@ -432,6 +451,7 @@ export function Message({ m, me, live, compact = false, small = false, onReply }
         <Reactions m={m} me={me} live={live} picking={picking} onPicked={() => setPicking(false)} />
         {tools && (
           <div className="mt-1.5 flex flex-wrap gap-1.5">
+            <SmallButton onClick={copyLink} icon={copied ? <Check size={13} aria-hidden="true" /> : <Link2 size={13} aria-hidden="true" />}>{copied ? 'Link copied' : 'Copy link'}</SmallButton>
             {canReport && (reported
               ? <span className="px-1 text-xs font-bold text-muted">You reported this</span>
               : <SmallButton onClick={() => setReporting(!reporting)} icon={<Flag size={13} aria-hidden="true" />}>Report</SmallButton>)}

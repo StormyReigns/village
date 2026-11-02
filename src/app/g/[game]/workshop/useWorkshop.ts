@@ -389,6 +389,24 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     setMessages((list) => (list.some((x) => x.id === m.id) ? list : [...list, m].sort((a, b) => a.id - b.id)));
   }, []);
 
+  /**
+   * One message by its number, for a link to it that's older than the newest 300. Returns it,
+   * or null if it's not in this game or not visible to you (removed).
+   */
+  const loadMessage = useCallback(async (id: number): Promise<ChatMessage | null> => {
+    const db = browserClient();
+    if (!db) return null;
+    const read = (columns: string) => db.from('chat_messages').select(columns).eq('game_id', gameId).eq('id', id).maybeSingle();
+    let { data, error } = await read(MESSAGE);
+    if (missingColumn(error)) ({ data, error } = await read(OLD_MESSAGE));
+    if (error || !data) return null;
+    const r = data as unknown as Row;
+    const m = toMessage(r, toAuthor(r.author as Row, r.author_id as string));
+    addMessage(m);
+    return m;
+  }, [gameId, addMessage]);
+
+
   // First load, then stay live.
   useEffect(() => {
     const db = browserClient();
@@ -608,7 +626,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
 
   return {
     state, messages, reactions, drafts: shownDrafts, reports, myReports, mod,
-    send, loadThread, react, postDraft, vote, view, report,
+    send, loadThread, loadMessage, react, postDraft, vote, view, report,
     moderate: { removeMessage, markSpoiler, publish, decide, dismissReports },
   };
 }

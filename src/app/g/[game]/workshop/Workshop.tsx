@@ -28,7 +28,7 @@ import {
 } from './useWorkshop';
 import { ChatLinks, MessageText, Stream, ThreadPanel, useThreads, type Placed } from './chat/Chat';
 import { ago, ReportForm, SmallButton, useAction } from './chat/bits';
-import { blockThread, draftThread, entryThread, type ThreadKey } from '@/lib/threads';
+import { blockThread, draftThread, entryThread, threadOf, type ThreadKey } from '@/lib/threads';
 import { mentionsIn } from '@/lib/refs';
 import { EntryForm, ChangeList, type FormStart, type Posted } from './EntryForm';
 import { FieldSetup } from './FieldSetup';
@@ -77,6 +77,9 @@ export function Workshop({ game, pages, routes }: {
   const [tab, setTab] = useState<'drafts' | 'app' | null>(linked ? 'app' : null);
   // ?draft=… (from the app's "A fix is waiting" note) opens that Draft.
   const [detail, setDetail] = useState<string | null>(params.get('draft'));
+  // ?msg=42 (a link to one chat message) jumps to it once the chat has loaded.
+  const [pendingMsg, setPendingMsg] = useState<number | null>(Number(params.get('msg')) || null);
+  const [jumpNote, setJumpNote] = useState('');
   const [posted, setPosted] = useState<Posted | null>(null);
   const [discarded, setDiscarded] = useState<Unsent | null>(null);
   const [query, setQuery] = useState('');
@@ -134,7 +137,7 @@ export function Workshop({ game, pages, routes }: {
 
   // Next keeps a visited Workshop alive in the background, so coming back through a new
   // "Suggest a fix" link doesn't start it fresh. Follow each new link as it arrives.
-  const linkKey = `${params.get('fix') ?? ''}|${params.get('field') ?? ''}|${params.get('add') ?? ''}|${params.get('page') ?? ''}|${params.get('resume') ?? ''}|${params.get('draft') ?? ''}|${params.get('theory') ?? ''}`;
+  const linkKey = `${params.get('fix') ?? ''}|${params.get('field') ?? ''}|${params.get('add') ?? ''}|${params.get('page') ?? ''}|${params.get('resume') ?? ''}|${params.get('draft') ?? ''}|${params.get('theory') ?? ''}|${params.get('msg') ?? ''}`;
   const [followed, setFollowed] = useState(linkKey);
   if (linkKey !== followed) {
     setFollowed(linkKey);
@@ -142,6 +145,7 @@ export function Workshop({ game, pages, routes }: {
     if (linked) { setForm(linked); setTab('app'); }
     if (params.get('resume')) resumeUnsent();
     if (params.get('draft')) setDetail(params.get('draft'));
+    if (Number(params.get('msg'))) setPendingMsg(Number(params.get('msg')));
   }
   const me = useVillager();
   // A moderator seeing the site as someone else has a reminder pinned at the bottom; the
@@ -276,6 +280,30 @@ export function Workshop({ game, pages, routes }: {
   };
   const threadInfo = thread ? threads.info(thread) : null;
   const threadMessages = thread ? threads.inThread(thread) : [];
+
+  /**
+   * Shows one message: opens the chat (and its thread, if it's in one), scrolls to it and
+   * flashes it. Fetches it first if it's older than the newest 300.
+   */
+  const jump = async (id: number) => {
+    const m = live.messages.find((x) => x.id === id) ?? await live.loadMessage(id);
+    if (!m) { setJumpNote('That message is no longer here.'); setTimeout(() => setJumpNote(''), 4000); return; }
+    const key = threadOf(m, threads.byId);
+    if (key) openThread(key);
+    else { setThread(null); setDetail(null); setChatFolded(false); setPhoneTab('chat'); }
+    setTimeout(() => {
+      const el = document.getElementById(`msg-${id}`);
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el?.animate?.([{ backgroundColor: 'color-mix(in srgb, var(--signal) 40%, transparent)' }, { backgroundColor: 'transparent' }], { duration: 1800 });
+    }, 400);
+  };
+  useEffect(() => {
+    if (!pendingMsg || live.state !== 'ready') return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- following a link once the chat has loaded
+    setPendingMsg(null);
+    jump(pendingMsg);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- jump reads the latest chat
+  }, [pendingMsg, live.state]);
   // Mentions of you since you last had the chat open (on this device): a small "@" badge on the
   // way into the chat, until you look.
   const [mentionsSeen, setMentionsSeen] = useStored(`village:${game.id}:mentions-seen`, '');
@@ -309,7 +337,7 @@ export function Workshop({ game, pages, routes }: {
   const chatCount = threadInfo ? threadMessages.filter((m) => !m.removed).length : chat.length;
 
   return (
-    <ChatLinks.Provider value={{ gameId: game.id, threads, open: openThread, routes, me: myId }}>
+    <ChatLinks.Provider value={{ gameId: game.id, threads, open: openThread, routes, me: myId, jump }}>
     {/* On phones the Chat tab fills the screen like the wide layout: messages scroll inside it
         and the message box stays at the bottom (page.tsx sizes the screen from data-phone-chat). */}
     <main data-phone-chat={phoneTab === 'chat' || undefined}
@@ -339,6 +367,7 @@ export function Workshop({ game, pages, routes }: {
         <BlockChip on={chip === 'notice'} tint="muted" icon="Megaphone" label="Notice Board" count={live.mod ? live.reports.length : 0} onClick={() => setChip('notice')} />
       </ScrollRow>
 
+      {jumpNote && <p role="status" className="mt-3 rounded-2xl bg-card-2 px-4 py-2 text-sm ring-1 ring-line">{jumpNote}</p>}
       {live.state === 'offline' && (
         <p role="status" className="mt-3 rounded-2xl bg-berry-soft px-4 py-3 text-sm text-berry">Couldn&apos;t reach the village just now. Refresh the page to try again.</p>
       )}

@@ -259,6 +259,10 @@ GIFs, polls and files left out for now):
   shows @Name, and a message that mentions you has a yellow ring. A yellow "@2" badge on the
   way into the chat counts mentions of you since you last had it open, on this device.
   Real notifications (on any device, by email) come with unread marks later.
+- **Message links** (2026-11-02): "Copy link" in a message's "…" menu gives
+  /g/<game>/workshop?msg=<id>. Opening it shows the chat (and the message's thread), scrolls to
+  the message and flashes it, fetching it first if it's older than the newest 300; a removed or
+  missing one says so. Pasted into the chat, a message link reads as a short quote that jumps.
 - Needs `20261101180000_chat_images_replies.sql` for pictures and replies; links, YouTube
   cards, several lines and mentions work without it.
 

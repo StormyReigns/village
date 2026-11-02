@@ -64,5 +64,18 @@ export function villagePath(url: string, hosts: string[]): { game: string; page:
   return m ? { game: m[1], page: m[2], item: m[3] } : null;
 }
 
+/** The address of one chat message: the game's Workshop, opened at that message. */
+export const messagePath = (game: string, id: number) => `/g/${game}/workshop?msg=${id}`;
+
+/** The message a Village address points at (/g/fortunes-weave/workshop?msg=42), or null. */
+export function messageLink(url: string, hosts: string[]): { game: string; id: number } | null {
+  let u: URL;
+  try { u = new URL(url); } catch { return null; }
+  if (!hosts.includes(u.host)) return null;
+  const m = /^\/g\/([a-z0-9-]+)\/workshop\/?$/.exec(u.pathname);
+  const id = Number(u.searchParams.get('msg'));
+  return m && Number.isInteger(id) && id > 0 ? { game: m[1], id } : null;
+}
+
 /** Where Village lives: the site itself, wherever this copy runs. */
 export const VILLAGE_HOSTS = ['village-tawny-beta.vercel.app'];
