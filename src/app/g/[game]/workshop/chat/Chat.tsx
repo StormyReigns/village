@@ -726,7 +726,14 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, switcher
   const href = info.block && info.entry ? sharePath(gameId, info.block.page, info.block, info.entry) : null;
 
   return (
-    <section aria-label={`Thread: ${info.title}`} className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl bg-card p-4 ring-1 ring-line in-data-[phone-chat]:min-h-0 lg:min-h-0 ' + className}>
+    // Escape goes back to the main chat, unless you're partway through writing a message.
+    <section aria-label={`Thread: ${info.title}`} className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl bg-card p-4 ring-1 ring-line in-data-[phone-chat]:min-h-0 lg:min-h-0 ' + className}
+      onKeyDown={(e) => {
+        if (e.key !== 'Escape' || !onBack || e.defaultPrevented) return;
+        if (e.target instanceof HTMLInputElement && e.target.value.trim()) return;
+        e.stopPropagation();
+        onBack();
+      }}>
       {/* Phones: "← Chat ›" and the switch on the first line, the thread's name on the next. */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {bar && <span className="shrink-0">{bar}</span>}
