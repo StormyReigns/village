@@ -440,10 +440,13 @@ export function Message({ m, me, live, compact = false, small = false, onReply }
                 <SmallButton disabled={busy} onClick={() => run(() => live.moderate.markSpoiler(m.id, !m.spoiler))} icon={<EyeOff size={13} aria-hidden="true" />}>
                   {m.spoiler ? 'Unmark spoiler' : 'Mark as spoiler'}
                 </SmallButton>
-                <SmallButton tone={m.removed ? 'plain' : 'bad'} disabled={busy} onClick={() => run(() => live.moderate.removeMessage(m.id, !m.removed))}
-                  icon={m.removed ? <RotateCcw size={13} aria-hidden="true" /> : <Trash2 size={13} aria-hidden="true" />}>
-                  {m.removed ? 'Restore' : 'Remove'}
-                </SmallButton>
+                <Tip text={m.removed ? 'Bring the words back (pictures were deleted for good)'
+                  : m.attachments.length ? 'Hide it from everyone. Its pictures are deleted for good' : 'Hide it from everyone'} tint="berry">
+                  <SmallButton tone={m.removed ? 'plain' : 'bad'} disabled={busy} onClick={() => run(() => live.moderate.removeMessage(m.id, !m.removed))}
+                    icon={m.removed ? <RotateCcw size={13} aria-hidden="true" /> : <Trash2 size={13} aria-hidden="true" />}>
+                    {m.removed ? 'Restore' : 'Remove'}
+                  </SmallButton>
+                </Tip>
               </>
             )}
           </div>

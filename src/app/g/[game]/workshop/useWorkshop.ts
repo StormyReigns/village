@@ -180,9 +180,12 @@ export async function uploadChatImage(gameId: string, meId: string, file: File):
       const canvas = document.createElement('canvas');
       canvas.width = Math.round(w * scale); canvas.height = Math.round(h * scale);
       canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      const small = await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/webp', 0.85))
-        ?? await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/jpeg', 0.85));
-      if (!small) throw new Error('no re-encode');
+      // WebP where the browser can make it; Safari (every iPhone) can't, and quietly hands back
+      // a much bigger PNG instead, so then it's JPEG, which every browser makes.
+      const encode = (as: string) => new Promise<Blob | null>((done) => canvas.toBlob(done, as, 0.85));
+      let small = await encode('image/webp');
+      if (small?.type !== 'image/webp') small = await encode('image/jpeg');
+      if (!small || small.type !== 'image/jpeg' && small.type !== 'image/webp') throw new Error('no re-encode');
       blob = small; type = small.type; ext = small.type === 'image/webp' ? 'webp' : 'jpg'; w = canvas.width; h = canvas.height;
     }
   } catch {
