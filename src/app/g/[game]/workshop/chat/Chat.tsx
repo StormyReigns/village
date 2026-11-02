@@ -13,6 +13,7 @@ import { sharePath } from '@/data/pages/links';
 import { blockThread, buildStream, draftThread, entryThread, resolveThread, threadOf, type ThreadKey } from '@/lib/threads';
 import { encodeRefs, insertPick, refsIn, splitRefs, typedHash, type Ref } from '@/lib/refs';
 import { rank, type Searchable } from '@/lib/search';
+import { findReactions, QUICK } from '@/lib/reactions';
 import { browserClient } from '@/lib/supabase/browser';
 import { targetKey, type ChatMessage, type LiveDraft, type Reaction, type WorkshopData } from '../useWorkshop';
 import { changesBetween } from '../changes';
@@ -159,8 +160,40 @@ function ThreadIcon({ info, small = false }: { info: ThreadInfo; small?: boolean
   );
 }
 
-/** The quick reactions: tap one to add it, tap a reaction under a message to add yours or take it back. */
-const QUICK = ['👍', '❤️', '😂', '🎉', '👀', '🙏', '✅', '🤔'];
+/**
+ * Picking a reaction: the quick row (src/lib/reactions.ts), and "More" for the rest, with a
+ * search ("heart", "yes").
+ */
+function ReactionPicker({ onPick }: { onPick: (emoji: string) => void }) {
+  const [more, setMore] = useState(false);
+  const [query, setQuery] = useState('');
+  const found = [...new Set(findReactions(query))];
+  return (
+    <div role="group" aria-label="React" className="grid gap-1 rounded-2xl bg-card p-1 shadow-soft ring-1 ring-line">
+      <div className="flex flex-wrap items-center gap-0.5">
+        {QUICK.map((e) => (
+          <button key={e} type="button" onClick={() => onPick(e)} aria-label={`React with ${e}`}
+            className="grid size-8 place-items-center rounded-full text-lg leading-none hover:bg-card-2">{e}</button>
+        ))}
+        <button type="button" onClick={() => setMore(!more)} aria-expanded={more}
+          className="h-8 rounded-full px-2.5 text-xs font-bold text-muted hover:bg-card-2 hover:text-ink">{more ? 'Less' : 'More'}</button>
+      </div>
+      {more && (
+        <div className="grid gap-1 border-t border-line pt-1">
+          <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search: heart, yes, fire" aria-label="Search reactions"
+            className="rounded-full bg-card-2 px-3 py-1.5 text-sm outline-none ring-1 ring-line placeholder:text-muted focus:ring-2 focus:ring-sky" />
+          <div className="grid max-h-44 grid-cols-[repeat(auto-fill,minmax(2rem,1fr))] gap-0.5 overflow-y-auto overscroll-contain">
+            {found.map((e) => (
+              <button key={e} type="button" onClick={() => onPick(e)} aria-label={`React with ${e}`}
+                className="grid size-8 place-items-center rounded-full text-lg leading-none hover:bg-card-2">{e}</button>
+            ))}
+            {found.length === 0 && <p className="col-span-full px-2 py-1 text-xs text-muted">No match. Try another word.</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** "Ana", "Ana and Ben", "Ana, Ben and 3 others", with you as "You". */
 function whoReacted(people: Reaction[], me: Villager | null | undefined) {
@@ -170,8 +203,10 @@ function whoReacted(people: Reaction[], me: Villager | null | undefined) {
 }
 
 /** Reactions under a message, Slack-style: one pill per emoji with how many, yours highlighted. */
-function Reactions({ m, me, live, picking, onPicked }: {
+function Reactions({ m, me, live, picking, onPicked, centered = false }: {
   m: ChatMessage; me: Villager | null | undefined; live: WorkshopData; picking: boolean; onPicked: () => void;
+  /** Under a system line in the main chat, which sits in the middle. */
+  centered?: boolean;
 }) {
   const [error, setError] = useState('');
   const groups: { emoji: string; people: Reaction[] }[] = [];
@@ -182,7 +217,7 @@ function Reactions({ m, me, live, picking, onPicked }: {
   if (!groups.length && !picking && !error) return null;
   const toggle = async (emoji: string) => setError((await live.react(m.id, emoji)) ?? '');
   return (
-    <div className="mt-1 grid justify-items-start gap-1">
+    <div className={'mt-1 grid gap-1 ' + (centered ? 'justify-items-center' : 'justify-items-start')}>
       {groups.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {groups.map((g) => {
@@ -199,14 +234,7 @@ function Reactions({ m, me, live, picking, onPicked }: {
           })}
         </div>
       )}
-      {picking && (
-        <div role="group" aria-label="React" className="flex flex-wrap gap-0.5 rounded-full bg-card p-1 shadow-soft ring-1 ring-line">
-          {QUICK.map((e) => (
-            <button key={e} type="button" onClick={() => { toggle(e); onPicked(); }} aria-label={`React with ${e}`}
-              className="grid size-8 place-items-center rounded-full text-lg leading-none hover:bg-card-2">{e}</button>
-          ))}
-        </div>
-      )}
+      {picking && <ReactionPicker onPick={(e) => { toggle(e); onPicked(); }} />}
       {error && <p role="status" className="text-xs text-berry">{error}</p>}
     </div>
   );
@@ -320,21 +348,33 @@ export function Message({ m, me, live, compact = false }: { m: ChatMessage; me: 
 }
 
 /** Something published, as one line in the game's chat: the detail is in its thread. */
-function SystemLine({ m }: { m: ChatMessage }) {
+function SystemLine({ m, me, live }: { m: ChatMessage; me: Villager | null | undefined; live: WorkshopData }) {
   const links = useContext(ChatLinks);
+  const [picking, setPicking] = useState(false);
   const key = links && m.threadKey ? links.threads.resolve(m.threadKey) : null;
   const info = key && links ? links.threads.info(key) : null;
   const title = info && info.kind !== 'unknown' ? info.title : null;
   return (
-    <li className="flex justify-center">
-      <button type="button" onClick={() => { if (key) links?.open(key); }} disabled={!title}
-        className="inline-flex max-w-full items-center gap-2 rounded-full bg-ink py-1 pl-1 pr-3 text-xs text-paper hover:ring-2 hover:ring-signal">
-        <SystemMark />
-        <span className="min-w-0 truncate">
-          {title ? <><b>{title}</b> {m.event?.isNew ? 'is new in the app' : 'was updated in the app'}</> : m.body}
-        </span>
-        <time dateTime={m.createdAt} title={fullTime(m.createdAt)} className="shrink-0 opacity-60">{clock(m.createdAt)}</time>
-      </button>
+    <li className="grid justify-items-center">
+      <div className="flex max-w-full items-center gap-1">
+        <button type="button" onClick={() => { if (key) links?.open(key); }} disabled={!title}
+          className="inline-flex min-w-0 items-center gap-2 rounded-full bg-ink py-1 pl-1 pr-3 text-xs text-paper hover:ring-2 hover:ring-signal">
+          <SystemMark />
+          <span className="min-w-0 truncate">
+            {title ? <><b>{title}</b> {m.event?.isNew ? 'is new in the app' : 'was updated in the app'}</> : m.body}
+          </span>
+          <time dateTime={m.createdAt} title={fullTime(m.createdAt)} className="shrink-0 opacity-60">{clock(m.createdAt)}</time>
+        </button>
+        {me && (
+          <Tip text="React" className="shrink-0">
+            <button type="button" onClick={() => setPicking(!picking)} aria-expanded={picking} aria-label="Add a reaction"
+              className="grid size-7 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
+              <SmilePlus size={16} aria-hidden="true" />
+            </button>
+          </Tip>
+        )}
+      </div>
+      <Reactions m={m} me={me} live={live} picking={picking} onPicked={() => setPicking(false)} centered />
     </li>
   );
 }
@@ -630,7 +670,7 @@ export function Stream({ topic, onAll, onFold, switcher, bar, className = '', me
       ) : (
         <ul ref={list} onScroll={onScroll} aria-live="polite" className={WALL_LIST} style={WALL}>
           {items.map((x) => x.kind === 'message' ? <Message key={x.m.id} m={x.m} me={me} live={live} />
-            : x.kind === 'system' ? <SystemLine key={x.m.id} m={x.m} />
+            : x.kind === 'system' ? <SystemLine key={x.m.id} m={x.m} me={me} live={live} />
             : <ThreadCard key={x.key} info={threads.info(x.key)} messages={x.messages} me={me} live={live} onOpen={() => onOpen(x.key)} />)}
           {messages.length < 4 && (
             <li className="mt-2 rounded-2xl bg-card-2 px-3 py-2.5 text-sm text-muted">

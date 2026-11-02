@@ -217,7 +217,11 @@ in the app.
 - **Reactions**, Slack-style: one pill per emoji under a message, with how many; yours is
   highlighted, and tapping a pill adds yours or takes it back. Hovering a pill says who reacted.
   The smiley beside a message (on hover with a mouse, after a tap on a phone) opens eight quick
-  reactions: 👍 ❤️ 😂 🎉 👀 🙏 ✅ 🤔. Stored in `chat_reactions`, live for everyone.
+  reactions: 👍 👎 ❤️ 😂 🎉 👀 🙏 🤔, and "More" opens about a hundred more with a search
+  ("heart", "yes"). The lists live in `src/lib/reactions.ts`; any emoji up to 16 characters
+  can be saved, so Village-made reactions (a code like "v:hammer" drawn as a picture) can come
+  later without a database change. Stored in `chat_reactions`, live for everyone. System notes
+  take reactions too, in the thread and on the one-line notice in the main chat.
 - **System notes**, written by the database (never a person) when a moderator publishes or
   declines a Draft (`20261101120000_chat_reactions_system.sql`):
   - in the entry's thread, a card with an ink band ("Updated in the app", "New in the app" or
@@ -229,7 +233,7 @@ in the app.
 - **Before the SQL is run** the chat reads as before: no reactions (trying one says the database
   needs an update) and no system notes.
 
-Later: a full emoji picker with search, unread marks, presence ("Ben is editing"), notes when
+Later: Village-made reactions, unread marks, presence ("Ben is editing"), notes when
 a new Draft is posted.
 
 ## Proposal: one stream, threads that surface (2026-11-01, step 1 built)
