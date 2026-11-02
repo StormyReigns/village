@@ -15,6 +15,7 @@ import { encodeRefs, insertPick, mentionsIn, mentionToken, plainRefs, refsIn as 
 import { findLinks, linksIn, messageLink, messagePath, VILLAGE_HOSTS, villagePath, youTube } from '@/lib/links';
 import { resolveItem } from '@/data/pages/links';
 import { rank, type Searchable } from '@/lib/search';
+import { byFields } from '@/lib/fields';
 import { findReactions, QUICK } from '@/lib/reactions';
 import { browserClient } from '@/lib/supabase/browser';
 import { imageUrl, targetKey, uploadChatImage, type Attachment, type ChatMessage, type LiveDraft, type Reaction, type WorkshopData } from '../useWorkshop';
@@ -112,11 +113,11 @@ export function useThreads(blocks: Placed[], drafts: LiveDraft[], messages: Chat
     }
     const inThread = (key: ThreadKey) => messages.filter((m) => threadOf(m, byId) === key);
 
-    // What "#" can point at: every entry, each Characters Block's setup, and new entries
+    // What "#" can point at: every entry, each set-up Block's setup (Characters, Items…), and new entries
     // still waiting as Drafts.
     const options: RefOption[] = [
       ...blocks.flatMap((b) => b.entries.map((e) => ({ key: entryThread(b.id, e), label: e.name, where: whereOf(b), search: { name: e.name, text: `${b.title} ${b.page.title}` } }))),
-      ...blocks.filter((b) => b.type === 'characters').map((b) => ({ key: blockThread(b.id), label: `Setting up ${b.title}`, where: b.page.title, search: { name: `${b.title} setup`, text: b.page.title } })),
+      ...blocks.filter(byFields).map((b) => ({ key: blockThread(b.id), label: `Setting up ${b.title}`, where: b.page.title, search: { name: `${b.title} setup`, text: b.page.title } })),
       ...drafts.filter((d) => !d.cardId && (d.status === 'open' || d.status === 'checking')).map((d) => {
         const b = placeOf(d.blockKey);
         return { key: draftThread(d), label: d.title, where: `New Draft${b ? ` · ${whereOf(b)}` : ''}`, search: { name: d.title, text: b?.title ?? '' } };
