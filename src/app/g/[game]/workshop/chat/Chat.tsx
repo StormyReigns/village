@@ -167,9 +167,13 @@ function ThreadIcon({ info, small = false }: { info: ThreadInfo; small?: boolean
 function ReactionPicker({ onPick }: { onPick: (emoji: string) => void }) {
   const [more, setMore] = useState(false);
   const [query, setQuery] = useState('');
+  const box = useRef<HTMLDivElement>(null);
   const found = [...new Set(findReactions(query))];
+  // It opens under the message, so near the bottom of the chat it could open out of sight:
+  // bring it into view when it opens, and again when "More" makes it taller.
+  useEffect(() => { box.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [more]);
   return (
-    <div role="group" aria-label="React" className="grid gap-1 rounded-2xl bg-card p-1 shadow-soft ring-1 ring-line">
+    <div ref={box} role="group" aria-label="React" className="grid scroll-my-3 gap-1 rounded-2xl bg-card p-1 shadow-soft ring-1 ring-line">
       <div className="flex flex-wrap items-center gap-0.5">
         {QUICK.map((e) => (
           <button key={e} type="button" onClick={() => onPick(e)} aria-label={`React with ${e}`}
@@ -283,7 +287,7 @@ export function Message({ m, me, live, compact = false, small = false }: {
   }
 
   // In full: a soft bubble, yours on the right, everyone else's on the left with their picture.
-  // Reacting and the options sit beside it: on hover with a mouse, after a tap on a phone.
+  // Reacting and the options sit beside it: on hover with a mouse, always on a touch screen.
   return (
     <li className={'group flex items-start gap-2 ' + (own ? 'flex-row-reverse ' : '') + (m.removed ? 'opacity-50' : '')}>
       {!own && <Avatar name={m.author.name} url={m.author.avatarUrl} size={small ? 26 : 32} />}
@@ -329,8 +333,9 @@ export function Message({ m, me, live, compact = false, small = false }: {
         {reporting && !reported && <ReportForm target={{ messageId: m.id }} live={live} onDone={() => { setReporting(false); setTools(false); }} />}
       </div>
       {(me || hasTools) && (
-        <div className={'shrink-0 flex-col gap-0.5 self-center sm:flex sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 '
-          + (picking || tools ? 'flex sm:opacity-100' : 'hidden group-focus-within:flex')}>
+        // With a mouse they appear on hover; on touch screens (no hover) they always show.
+        <div className={'flex shrink-0 flex-col gap-0.5 self-center ' + (picking || tools ? ''
+          : '[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100')}>
           {me && (
             <Tip text="React">
               <button type="button" onClick={() => setPicking(!picking)} aria-expanded={picking} aria-label="Add a reaction"
