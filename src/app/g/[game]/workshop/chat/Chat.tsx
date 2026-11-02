@@ -383,7 +383,7 @@ function Pictures({ list, m }: { list: Attachment[]; m: ChatMessage }) {
       {viewing !== null && shown.length > 0 && (
         <Lightbox start={Math.max(0, viewing)} by={by} when={clock(m.createdAt)} onClose={() => setViewing(null)}
           messageLink={links ? location.origin + messagePath(links.gameId, m.id) : location.href}
-          pictures={shown.map((a, i) => ({ url: imageUrl(a.path), name: `village-${m.id}-${i + 1}.${a.path.split('.').pop()}` }))} />
+          pictures={shown.map((a, i) => ({ url: imageUrl(a.path), name: `village-${links?.gameId ?? 'chat'}-${m.id}-${i + 1}.${a.path.split('.').pop()}` }))} />
       )}
     </div>
   );
