@@ -27,7 +27,7 @@ import {
   type LiveDraft, type ReportGroup, type WorkshopData,
 } from './useWorkshop';
 import { ChatLinks, MessageText, Stream, ThreadPanel, useThreads, type Placed } from './chat/Chat';
-import { ago, ReportForm, SmallButton, useAction } from './chat/bits';
+import { ago, ReportForm, showInList, SmallButton, useAction } from './chat/bits';
 import { blockThread, draftThread, entryThread, threadOf, type ThreadKey } from '@/lib/threads';
 import { mentionsIn } from '@/lib/refs';
 import { EntryForm, ChangeList, type FormStart, type Posted } from './EntryForm';
@@ -295,11 +295,7 @@ export function Workshop({ game, pages, routes }: {
     const key = threadOf(m, threads.byId);
     if (key) openThread(key);
     else { setThread(null); setDetail(null); setChatFolded(false); setPhoneTab('chat'); }
-    setTimeout(() => {
-      const el = document.getElementById(`msg-${id}`);
-      el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      el?.animate?.([{ backgroundColor: 'color-mix(in srgb, var(--signal) 40%, transparent)' }, { backgroundColor: 'transparent' }], { duration: 1800 });
-    }, 400);
+    setTimeout(() => showInList(document.getElementById(`msg-${id}`)), 400);
   };
   useEffect(() => {
     if (!pendingMsg || live.state !== 'ready') return;

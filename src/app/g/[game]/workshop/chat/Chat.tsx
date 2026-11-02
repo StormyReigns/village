@@ -20,7 +20,7 @@ import { browserClient } from '@/lib/supabase/browser';
 import { imageUrl, targetKey, uploadChatImage, type Attachment, type ChatMessage, type LiveDraft, type Reaction, type WorkshopData } from '../useWorkshop';
 import { changesBetween } from '../changes';
 import { ChangeList } from '../EntryForm';
-import { ago, clock, fullTime, ReportForm, SmallButton, useAction } from './bits';
+import { ago, clock, fullTime, ReportForm, showInList, SmallButton, useAction } from './bits';
 import { Popover } from './Popover';
 import { Lightbox } from './Lightbox';
 
@@ -394,10 +394,7 @@ function Quote({ id }: { id: number }) {
   const links = useContext(ChatLinks);
   const q = links?.threads.byMessage.get(id);
   const show = () => {
-    const el = document.getElementById(`msg-${id}`);
-    if (!el) return;
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    el.animate?.([{ backgroundColor: 'color-mix(in srgb, var(--signal) 35%, transparent)' }, { backgroundColor: 'transparent' }], { duration: 1400 });
+    showInList(document.getElementById(`msg-${id}`));
   };
   return (
     <button type="button" onClick={show} disabled={!q}
@@ -712,6 +709,8 @@ export function Composer({ me, placeholder, onSend, id, compact = false, onShade
       : rank(links.threads.people.filter((p) => p.id !== me?.id), typed.query, (p) => ({ name: p.name, text: p.username }))
         .slice(0, 8).map((p) => ({ key: p.id, label: p.name, where: `@${p.username}` }));
   const picking = Boolean(typed && !hidden && choices.length);
+  // "@" with no one to pick says why, so it doesn't look broken.
+  const nobody = Boolean(typed && typed.mark === '@' && !hidden && !choices.length && links);
   // The box grows with what's written, up to about six lines, then scrolls.
   useEffect(() => {
     const el = field.current;
@@ -788,6 +787,11 @@ export function Composer({ me, placeholder, onSend, id, compact = false, onShade
             </li>
           ))}
         </ul>
+      )}
+      {nobody && links && (
+        <p role="status" className="absolute inset-x-0 bottom-full z-30 mb-2 rounded-2xl bg-card px-3 py-2 text-sm text-muted shadow-soft ring-1 ring-line">
+          {links.threads.people.some((p) => p.id !== me?.id) ? 'No one here by that name.' : 'No one else has talked here yet. Mentions list people who chat or post Drafts in this game.'}
+        </p>
       )}
       {replyTo && (
         <div className="mb-1.5 flex items-center gap-2 rounded-xl bg-card-2 px-3 py-1.5 text-xs text-ink ring-1 ring-line">
@@ -881,26 +885,28 @@ function ThreadCard({ info, messages, me, live, onOpen, as: Box = 'li' }: {
   as?: 'li' | 'div';
 }) {
   const count = messages.filter((m) => !m.removed && m.kind !== 'system').length;
+  // A small copy of the thread's own look: its ink top, then ruled paper with the Page edge.
+  const edge = info.block ? `var(--${info.block.page.tint})` : 'var(--ink)';
   return (
-    <Box className="rounded-2xl bg-card p-2.5 ring-1 ring-line">
-      <button onClick={onOpen} className="flex w-full items-center gap-2.5 text-left">
+    <Box className="overflow-hidden rounded-2xl bg-card ring-1 ring-ink/80">
+      <button onClick={onOpen} className="flex w-full items-center gap-2.5 bg-ink px-2.5 py-1.5 text-left text-paper">
         <ThreadIcon info={info} small />
         <span className="min-w-0 flex-1">
           <span className="block truncate font-bold leading-tight">{info.title}</span>
-          <span className="block truncate text-xs text-muted">
+          <span className="block truncate text-xs text-paper/70">
             {info.where}{info.where ? ' · ' : ''}{count} message{count === 1 ? '' : 's'}{info.drafts.length ? ` · ${info.drafts.length} Draft${info.drafts.length === 1 ? '' : 's'}` : ''}
           </span>
         </span>
         <Tip text="Open this thread beside the chat" className="shrink-0">
-          <span className="grid size-8 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink"><PanelRight size={16} aria-hidden="true" /><span className="sr-only">Open</span></span>
+          <span className="grid size-8 place-items-center rounded-full text-paper/70 hover:bg-white/10 hover:text-paper"><PanelRight size={16} aria-hidden="true" /><span className="sr-only">Open</span></span>
         </Tip>
       </button>
-      {messages.length > 0 && (
-        <ul className="mt-2 grid grid-cols-[minmax(0,1fr)] gap-2 border-t border-line pt-2">
-          {messages.slice(-2).map((m) => <Message key={m.id} m={m} me={me} live={live} compact />)}
-        </ul>
-      )}
-      <div className="mt-2">
+      <div className="grid gap-2 p-2.5" style={{ ...THREAD_WALL, boxShadow: `inset 3px 0 0 ${edge}` }}>
+        {messages.length > 0 ? (
+          <ul className="grid grid-cols-[minmax(0,1fr)] gap-2">
+            {messages.slice(-2).map((m) => <Message key={m.id} m={m} me={me} live={live} compact />)}
+          </ul>
+        ) : <p className="text-xs text-muted">No messages yet{me ? '. Start one below.' : '.'}</p>}
         <Composer compact me={me} placeholder={`Reply about ${info.title}`} onSend={sendToThread(live, info)} />
       </div>
     </Box>

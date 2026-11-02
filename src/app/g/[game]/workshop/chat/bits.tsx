@@ -32,6 +32,20 @@ export function clock(iso: string) {
 /** The full date and time, for a tooltip. */
 export const fullTime = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' });
 
+/**
+ * Brings a message into the middle of its chat list and flashes it, scrolling only the list,
+ * never the page around it (which on phones would push the chat up under the top bar).
+ */
+export function showInList(el: HTMLElement | null) {
+  if (!el) return;
+  const list = el.closest('ul');
+  if (list) {
+    const e = el.getBoundingClientRect(), l = list.getBoundingClientRect();
+    list.scrollBy({ top: e.top - l.top - (l.height - e.height) / 2, behavior: 'smooth' });
+  }
+  el.animate?.([{ backgroundColor: 'color-mix(in srgb, var(--signal) 40%, transparent)' }, { backgroundColor: 'transparent' }], { duration: 1600 });
+}
+
 /** Runs an action that returns an error in plain words (or null), tracking busy and error. */
 export function useAction() {
   const [busy, setBusy] = useState(false);
