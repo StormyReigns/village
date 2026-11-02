@@ -21,6 +21,7 @@ import { imageUrl, targetKey, uploadChatImage, type Attachment, type ChatMessage
 import { changesBetween } from '../changes';
 import { ChangeList } from '../EntryForm';
 import { ago, clock, fullTime, ReportForm, SmallButton, useAction } from './bits';
+import { Popover } from './Popover';
 
 // The Workshop's chat (docs/chat.md): one stream for the whole game, and a thread for each
 // thing being built. A thread shows in the stream as a card at its newest message, with a
@@ -252,13 +253,9 @@ function ThreadIcon({ info, small = false }: { info: ThreadInfo; small?: boolean
 function ReactionPicker({ onPick }: { onPick: (emoji: string) => void }) {
   const [more, setMore] = useState(false);
   const [query, setQuery] = useState('');
-  const box = useRef<HTMLDivElement>(null);
   const found = [...new Set(findReactions(query))];
-  // It opens under the message, so near the bottom of the chat it could open out of sight:
-  // bring it into view when it opens, and again when "More" makes it taller.
-  useEffect(() => { box.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, [more]);
   return (
-    <div ref={box} role="group" aria-label="React" className="grid scroll-my-3 gap-1 rounded-2xl bg-card p-1 shadow-soft ring-1 ring-line">
+    <div role="group" aria-label="React" className="grid w-[17.5rem] max-w-[calc(100vw-1rem)] gap-1">
       <div className="flex flex-wrap items-center gap-0.5">
         {QUICK.map((e) => (
           <button key={e} type="button" onClick={() => onPick(e)} aria-label={`React with ${e}`}
@@ -291,9 +288,38 @@ function whoReacted(people: Reaction[], me: Villager | null | undefined) {
   return `${names.slice(0, 2).join(', ')} and ${names.length - 2} other${names.length === 3 ? '' : 's'}`;
 }
 
+/**
+ * The smiley that adds a reaction: the picker floats beside it, over the chat, and closes once
+ * you pick, or click anywhere else.
+ */
+function ReactButton({ m, live, className = '' }: { m: ChatMessage; live: WorkshopData; className?: string }) {
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState('');
+  const button = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => { setOpen(false); setError(''); }, []);
+  const pick = async (emoji: string) => {
+    const err = await live.react(m.id, emoji);
+    if (err) setError(err); else close();
+  };
+  return (
+    <>
+      <Tip text="React">
+        <button ref={button} type="button" onClick={() => (open ? close() : setOpen(true))} aria-expanded={open} aria-label="Add a reaction"
+          className={'grid size-7 place-items-center rounded-full text-muted hover:bg-card hover:text-ink ' + className}>
+          <SmilePlus size={16} aria-hidden="true" />
+        </button>
+      </Tip>
+      <Popover anchor={button} open={open} onClose={close} label="React">
+        <ReactionPicker onPick={pick} />
+        {error && <p role="status" className="px-2 pb-1 text-xs text-berry">{error}</p>}
+      </Popover>
+    </>
+  );
+}
+
 /** Reactions under a message, Slack-style: one pill per emoji with how many, yours highlighted. */
-function Reactions({ m, me, live, picking, onPicked, centered = false }: {
-  m: ChatMessage; me: Villager | null | undefined; live: WorkshopData; picking: boolean; onPicked: () => void;
+function Reactions({ m, me, live, centered = false }: {
+  m: ChatMessage; me: Villager | null | undefined; live: WorkshopData;
   /** Under a system line in the main chat, which sits in the middle. */
   centered?: boolean;
 }) {
@@ -303,7 +329,7 @@ function Reactions({ m, me, live, picking, onPicked, centered = false }: {
     const g = groups.find((x) => x.emoji === r.emoji);
     if (g) g.people.push(r); else groups.push({ emoji: r.emoji, people: [r] });
   }
-  if (!groups.length && !picking && !error) return null;
+  if (!groups.length && !error) return null;
   const toggle = async (emoji: string) => setError((await live.react(m.id, emoji)) ?? '');
   return (
     <div className={'mt-1 grid gap-1 ' + (centered ? 'justify-items-center' : 'justify-items-start')}>
@@ -323,7 +349,6 @@ function Reactions({ m, me, live, picking, onPicked, centered = false }: {
           })}
         </div>
       )}
-      {picking && <ReactionPicker onPick={(e) => { toggle(e); onPicked(); }} />}
       {error && <p role="status" className="text-xs text-berry">{error}</p>}
     </div>
   );
@@ -390,7 +415,8 @@ export function Message({ m, me, live, compact = false, small = false, onReply }
   const [shown, setShown] = useState(false);
   const [tools, setTools] = useState(false);
   const [reporting, setReporting] = useState(false);
-  const [picking, setPicking] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const closeMenu = useCallback(() => setTools(false), []);
   const { run, busy, error } = useAction();
   const own = me?.id === m.author.id && !me.practice;
   const reported = live.myReports.has(targetKey({ messageId: m.id }));
@@ -450,44 +476,15 @@ export function Message({ m, me, live, compact = false, small = false, onReply }
             </>
           )}
         </div>
-        <Reactions m={m} me={me} live={live} picking={picking} onPicked={() => setPicking(false)} />
-        {tools && (
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            <SmallButton onClick={copyLink} icon={copied ? <Check size={13} aria-hidden="true" /> : <Link2 size={13} aria-hidden="true" />}>{copied ? 'Link copied' : 'Copy link'}</SmallButton>
-            {canReport && (reported
-              ? <span className="px-1 text-xs font-bold text-muted">You reported this</span>
-              : <SmallButton onClick={() => setReporting(!reporting)} icon={<Flag size={13} aria-hidden="true" />}>Report</SmallButton>)}
-            {live.mod && (
-              <>
-                <SmallButton disabled={busy} onClick={() => run(() => live.moderate.markSpoiler(m.id, !m.spoiler))} icon={<EyeOff size={13} aria-hidden="true" />}>
-                  {m.spoiler ? 'Unmark spoiler' : 'Mark as spoiler'}
-                </SmallButton>
-                <Tip text={m.removed ? 'Bring the words back (pictures were deleted for good)'
-                  : m.attachments.length ? 'Hide it from everyone. Its pictures are deleted for good' : 'Hide it from everyone'} tint="berry">
-                  <SmallButton tone={m.removed ? 'plain' : 'bad'} disabled={busy} onClick={() => run(() => live.moderate.removeMessage(m.id, !m.removed))}
-                    icon={m.removed ? <RotateCcw size={13} aria-hidden="true" /> : <Trash2 size={13} aria-hidden="true" />}>
-                    {m.removed ? 'Restore' : 'Remove'}
-                  </SmallButton>
-                </Tip>
-              </>
-            )}
-          </div>
-        )}
+        <Reactions m={m} me={me} live={live} />
         {error && <p role="status" className="mt-1 text-sm text-berry">{error}</p>}
-        {reporting && !reported && <ReportForm target={{ messageId: m.id }} live={live} onDone={() => { setReporting(false); setTools(false); }} />}
+        {reporting && !reported && <ReportForm target={{ messageId: m.id }} live={live} onDone={() => setReporting(false)} />}
       </div>
       {(me || hasTools) && (
         // With a mouse they appear on hover; on touch screens (no hover) they always show.
-        <div className={'flex shrink-0 flex-col gap-0.5 self-center ' + (picking || tools ? ''
+        <div className={'flex shrink-0 flex-col gap-0.5 self-center ' + (tools ? ''
           : '[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100')}>
-          {me && (
-            <Tip text="React">
-              <button type="button" onClick={() => setPicking(!picking)} aria-expanded={picking} aria-label="Add a reaction"
-                className="grid size-7 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
-                <SmilePlus size={16} aria-hidden="true" />
-              </button>
-            </Tip>
-          )}
+          {me && <ReactButton m={m} live={live} />}
           {me && onReply && !m.removed && (
             <Tip text="Reply">
               <button type="button" onClick={() => onReply(m)} aria-label="Reply"
@@ -497,21 +494,54 @@ export function Message({ m, me, live, compact = false, small = false, onReply }
             </Tip>
           )}
           {hasTools && (
-            <button type="button" onClick={() => { setTools(!tools); setReporting(false); }} aria-expanded={tools} aria-label="Message options"
+            <button ref={menuButton} type="button" onClick={() => setTools(!tools)} aria-expanded={tools} aria-label="Message options"
               className="grid size-7 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
               <MoreHorizontal size={16} aria-hidden="true" />
             </button>
           )}
+          {/* The options float beside the dots, over the chat, and close on any other click. */}
+          <Popover anchor={menuButton} open={tools} onClose={closeMenu} label="Message options">
+            <div className="grid min-w-44 gap-0.5 text-sm">
+              <MenuItem onClick={copyLink} icon={copied ? <Check size={15} aria-hidden="true" /> : <Link2 size={15} aria-hidden="true" />}>{copied ? 'Link copied' : 'Copy link'}</MenuItem>
+              {canReport && (reported
+                ? <p className="px-3 py-1.5 text-xs font-bold text-muted">You reported this</p>
+                : <MenuItem onClick={() => { closeMenu(); setReporting(true); }} icon={<Flag size={15} aria-hidden="true" />}>Report</MenuItem>)}
+              {live.mod && (
+                <>
+                  <MenuItem disabled={busy} onClick={() => { closeMenu(); run(() => live.moderate.markSpoiler(m.id, !m.spoiler)); }} icon={<EyeOff size={15} aria-hidden="true" />}>
+                    {m.spoiler ? 'Unmark spoiler' : 'Mark as spoiler'}
+                  </MenuItem>
+                  <MenuItem tone={m.removed ? 'plain' : 'bad'} disabled={busy} onClick={() => { closeMenu(); run(() => live.moderate.removeMessage(m.id, !m.removed)); }}
+                    icon={m.removed ? <RotateCcw size={15} aria-hidden="true" /> : <Trash2 size={15} aria-hidden="true" />}
+                    note={m.removed ? "The words come back; deleted pictures don't" : m.attachments.length ? 'Its pictures are deleted for good' : undefined}>
+                    {m.removed ? 'Restore' : 'Remove'}
+                  </MenuItem>
+                </>
+              )}
+            </div>
+          </Popover>
         </div>
       )}
     </li>
   );
 }
 
+/** One line in a floating menu. */
+function MenuItem({ onClick, icon, children, note, tone = 'plain', disabled }: {
+  onClick: () => void; icon: React.ReactNode; children: React.ReactNode; note?: string; tone?: 'plain' | 'bad'; disabled?: boolean;
+}) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled}
+      className={'flex items-start gap-2 rounded-xl px-3 py-1.5 text-left font-bold hover:bg-card-2 disabled:opacity-50 ' + (tone === 'bad' ? 'text-berry' : '')}>
+      <span className="mt-0.5 shrink-0">{icon}</span>
+      <span>{children}{note && <span className="block text-xs font-normal text-muted">{note}</span>}</span>
+    </button>
+  );
+}
+
 /** Something published, as one line in the game's chat: the detail is in its thread. */
 function SystemLine({ m, me, live }: { m: ChatMessage; me: Villager | null | undefined; live: WorkshopData }) {
   const links = useContext(ChatLinks);
-  const [picking, setPicking] = useState(false);
   const key = links && m.threadKey ? links.threads.resolve(m.threadKey) : null;
   const info = key && links ? links.threads.info(key) : null;
   const title = info && info.kind !== 'unknown' ? info.title : null;
@@ -526,16 +556,9 @@ function SystemLine({ m, me, live }: { m: ChatMessage; me: Villager | null | und
           </span>
           <time dateTime={m.createdAt} title={fullTime(m.createdAt)} className="shrink-0 opacity-60">{clock(m.createdAt)}</time>
         </button>
-        {me && (
-          <Tip text="React" className="shrink-0">
-            <button type="button" onClick={() => setPicking(!picking)} aria-expanded={picking} aria-label="Add a reaction"
-              className="grid size-7 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
-              <SmilePlus size={16} aria-hidden="true" />
-            </button>
-          </Tip>
-        )}
+        {me && <span className="shrink-0"><ReactButton m={m} live={live} /></span>}
       </div>
-      <Reactions m={m} me={me} live={live} picking={picking} onPicked={() => setPicking(false)} centered />
+      <Reactions m={m} me={me} live={live} centered />
     </li>
   );
 }
@@ -547,7 +570,6 @@ function SystemLine({ m, me, live }: { m: ChatMessage; me: Villager | null | und
 function SystemNote({ m, info, me, live }: { m: ChatMessage; info: ThreadInfo; me: Villager | null | undefined; live: WorkshopData }) {
   const links = useContext(ChatLinks);
   const ev = m.event;
-  const [picking, setPicking] = useState(false);
   const draft = ev ? links?.threads.byId.get(ev.draft) : undefined;
   // What the entry was before, from the revision the Draft started from (none for a new entry).
   const [before, setBefore] = useState<EntryContent | null | undefined>(ev?.before ? undefined : null);
@@ -579,13 +601,8 @@ function SystemNote({ m, info, me, live }: { m: ChatMessage; info: ThreadInfo; m
         )}
         {changes.length > 0 && <ChangeList changes={changes} />}
         <div className="mt-1 flex items-start gap-1">
-          <div className="min-w-0 flex-1"><Reactions m={m} me={me} live={live} picking={picking} onPicked={() => setPicking(false)} /></div>
-          {me && (
-            <button type="button" onClick={() => setPicking(!picking)} aria-expanded={picking} aria-label="Add a reaction"
-              className="grid size-7 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink">
-              <SmilePlus size={16} aria-hidden="true" />
-            </button>
-          )}
+          <div className="min-w-0 flex-1"><Reactions m={m} me={me} live={live} /></div>
+          {me && <span className="shrink-0"><ReactButton m={m} live={live} /></span>}
         </div>
       </div>
     </li>

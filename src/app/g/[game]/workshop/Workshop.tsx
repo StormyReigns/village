@@ -33,6 +33,7 @@ import { mentionsIn } from '@/lib/refs';
 import { EntryForm, ChangeList, type FormStart, type Posted } from './EntryForm';
 import { FieldSetup } from './FieldSetup';
 import { EditorChat, EditSwap } from './EditorShell';
+import { Resizer } from './chat/Resizer';
 import { useBeside } from './split';
 import { sharePath } from '@/data/pages/links';
 import { changesBetween } from './changes';
@@ -86,6 +87,9 @@ export function Workshop({ game, pages, routes }: {
   const [searching, setSearching] = useState(false);
   // Wide screens: the chat can fold to a thin strip, to give an editor more room.
   const [chatFolded, setChatFolded] = useStored('village:workshop:chat-folded', false);
+  // Wide screens: how wide the chat is, dragged by the handle beside it (0 is the usual width).
+  const [chatWidth, setChatWidth] = useStored('village:workshop:chat-width', 0);
+  const columns = useRef<HTMLDivElement>(null);
   const [introDone, setIntroDone] = useStored('village:workshop:intro-seen', false);
   const [phoneTab, setPhoneTab] = useState<'work' | 'chat'>('work');
   // Smaller screens: the chat opened over an editor, as a side trip from it. It belongs to
@@ -316,6 +320,9 @@ export function Workshop({ game, pages, routes }: {
     <span aria-label={`${unseenMentions} new mention${unseenMentions === 1 ? '' : 's'} of you`}
       className="ml-1 rounded-full bg-signal px-1.5 text-xs font-bold text-ink">@{unseenMentions}</span>
   );
+  // While an editor is open, a widened chat gives way so the editor keeps 768px for its preview.
+  const shownChatWidth = chatWidth && editing && typeof window !== 'undefined'
+    ? Math.min(chatWidth, Math.max(260, window.innerWidth - 48 - 768 - 32)) : chatWidth;
   // Phones show the chat or the work, one at a time. The switch between them sits at the top
   // right of whichever is showing, in the same spot, so the chat gets the whole height.
   const phoneSwitch = (
@@ -374,7 +381,8 @@ export function Workshop({ game, pages, routes }: {
 
       {/* Two columns that fill the screen on wide ones, each scrolling on its own: the chat, and
           the work (Drafts, what's in the app, or an open editor). On phones, one at a time. */}
-      <div className="mt-3 flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+      <div ref={columns} className="mt-3 flex min-h-0 flex-1 flex-col gap-4 lg:flex-row"
+        style={shownChatWidth ? { ['--chat-w' as string]: `${shownChatWidth}px` } : undefined}>
         {chatFolded && (
           <div className="hidden shrink-0 lg:flex">
           <Tip text="Open the chat" tint="sky">
@@ -391,7 +399,7 @@ export function Workshop({ game, pages, routes }: {
         {/* The stream, and beside it the open thread. Where both don't fit (below the widest
             screens, on phones, and whenever an editor needs the room for its preview) the
             thread takes the stream's place, with a way back. */}
-        <div className={(phoneTab === 'chat' && !threadInfo ? 'flex' : 'hidden') + ' min-h-0 min-w-0 flex-1 flex-col gap-2 lg:w-80 lg:flex-none lg:shrink-0 2xl:w-96 '
+        <div data-chat-col className={(phoneTab === 'chat' && !threadInfo ? 'flex' : 'hidden') + ' min-h-0 min-w-0 flex-1 flex-col gap-2 lg:w-[var(--chat-w,20rem)] lg:flex-none lg:shrink-0 2xl:w-[var(--chat-w,24rem)] '
           + (chatFolded ? 'lg:hidden' : threadInfo ? (editing ? 'lg:hidden' : 'lg:hidden 2xl:flex') : 'lg:flex')}>
           <Stream
             topic={current ? { key: current.id, label: current.title } : null}
@@ -406,9 +414,20 @@ export function Workshop({ game, pages, routes }: {
           />
         </div>
         {threadInfo && (
-          <div className={(phoneTab === 'chat' ? 'flex' : 'hidden') + ' min-h-0 min-w-0 flex-1 flex-col gap-2 lg:w-80 lg:flex-none lg:shrink-0 2xl:w-96 ' + (chatFolded ? 'lg:hidden' : 'lg:flex')}>
+          <div data-chat-col className={(phoneTab === 'chat' ? 'flex' : 'hidden') + ' min-h-0 min-w-0 flex-1 flex-col gap-2 lg:w-[var(--chat-w,20rem)] lg:flex-none lg:shrink-0 2xl:w-[var(--chat-w,24rem)] ' + (chatFolded ? 'lg:hidden' : 'lg:flex')}>
             {threadPanel({ onBack: () => setThread(null), switcher: phoneSwitch })}
           </div>
+        )}
+        {!chatFolded && (
+          <Resizer onReset={() => setChatWidth(0)} onWidth={setChatWidth}
+            measure={() => [...(columns.current?.querySelectorAll<HTMLElement>('[data-chat-col]') ?? [])].find((el) => el.offsetWidth)?.offsetWidth ?? 320}
+            limits={() => {
+              // The chat may grow until the work column would get too narrow: an open editor needs
+              // 768px to keep its preview beside the form.
+              const all = columns.current?.offsetWidth ?? 1200;
+              const shown = [...(columns.current?.querySelectorAll<HTMLElement>('[data-chat-col]') ?? [])].filter((el) => el.offsetWidth).length || 1;
+              return { min: 260, max: Math.max(260, Math.min(640, (all - (editing ? 768 : 480) - 16 * (shown + 1)) / shown)) };
+            }} />
         )}
 
         <div className={(phoneTab === 'work' ? 'flex' : 'hidden') + ' min-w-0 flex-1 flex-col lg:flex lg:min-h-0'}>

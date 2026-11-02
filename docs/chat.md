@@ -381,6 +381,11 @@ Dated, newest last, each with why.
   (the phone switch's selected side turns yellow to show on it); the main chat keeps the
   village wallpaper between, and a thread is white paper with faint ruled lines (replaces the
   cream). Why: the page felt busy; ink bars frame the chat and white paper calms the thread.
+- 2026-11-02 (Matt): the reaction picker and a message's "…" menu float beside their button,
+  over the chat (chat/Popover.tsx), and close on a click anywhere else, Escape or scrolling.
+  On wide screens a handle between the chat and the work column drags the chat wider or
+  narrower (260–640px, remembered per device, double-click resets); an open editor always
+  keeps 768px. Why: the inline pop-ups felt clunky, and people want room for the chat.
 
 ## Open questions
 
