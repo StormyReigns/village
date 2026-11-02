@@ -56,14 +56,18 @@ const WALL: React.CSSProperties = {
   scrollbarColor: 'color-mix(in srgb, var(--ink) 25%, transparent) transparent',
 };
 /**
- * A thread is a smaller room inside the main chat: a slightly darker frame, and the same
- * wallpaper a shade darker with its shapes drawn smaller and closer together.
+ * A thread is the builders' notebook for one thing (agreed 2026-11-02): warm cream with faint
+ * ruled lines that scroll with the messages, so beside the grey editor it reads as notes pinned
+ * to the build, and as its own smaller room next to the main chat's wallpaper. Its own cream,
+ * not a Page tint (Page colors mean "this Page").
  */
-const THREAD_FRAME = 'color-mix(in srgb, var(--ink) 5%, var(--card))';
+const THREAD_FRAME = '#fff6e3';
 const THREAD_WALL: React.CSSProperties = {
-  ...WALL,
-  backgroundColor: 'color-mix(in srgb, var(--ink) 7%, var(--paper))',
-  backgroundSize: '48px 48px',
+  backgroundColor: '#fffbf2',
+  backgroundImage: 'repeating-linear-gradient(transparent 0 23px, #f1e3c2 23px 24px)',
+  backgroundAttachment: 'local',
+  scrollbarWidth: 'thin',
+  scrollbarColor: 'color-mix(in srgb, var(--ink) 25%, transparent) transparent',
 };
 /** The message list: edge to edge in the chat box (which has 1rem of padding), on the wallpaper. */
 const WALL_LIST = '-mx-4 my-3 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-4 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-3';
@@ -1056,7 +1060,7 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, switcher
         {timeline.map((x) => 'm' in x ? (x.m.kind === 'system'
           ? <SystemNote key={`m${x.m.id}`} m={x.m} info={info} me={me} live={live} />
           : <Message key={`m${x.m.id}`} m={x.m} me={me} live={live} small onReply={setReplyTo} />) : (
-          <li key={`d${x.d.id}`} className="flex items-center gap-2.5 rounded-2xl bg-card-2 px-3 py-2 text-sm ring-1 ring-line">
+          <li key={`d${x.d.id}`} className="flex items-center gap-2.5 rounded-2xl bg-card px-3 py-2 text-sm ring-1 ring-line">
             <FileText size={16} className="shrink-0 text-muted" aria-hidden="true" />
             <span className="min-w-0 flex-1">
               <span className="font-bold">{x.d.author.name}</span> posted {x.d.cardId ? 'a fix' : 'a new entry'}

@@ -373,6 +373,10 @@ Dated, newest last, each with why.
   smaller. Why: so it's clear you're in a corner of the main chat, not a separate room.
   Then (Matt): its frame is a shade darker and its wallpaper darker, with the shapes smaller
   and closer together (not the editor's dot grid, so a thread never looks like an editor).
+- 2026-11-02 (Matt): threads look like the builders' notebook: warm cream with faint ruled
+  lines (the thread's own cream, not a Page tint), the Page-color edge and the "← Chat ›"
+  heading kept. Replaces the darker grey. Why: beside the grey dotted editor the grey thread
+  blended in; the notebook has personality and still reads as a part of the main chat.
 
 ## Open questions
 
