@@ -1,6 +1,6 @@
 # The Workshop chat
 
-**Status:** Building: threads and `#` references built 2026-11-01; Town Hall next ·
+**Status:** Building: threads, `#` references, reactions and system notes built 2026-11-01; Town Hall next ·
 **Chat:** `Village · Chat` (owns the chat's design and this file) · **Code:**
 `src/app/g/[game]/workshop/chat/Chat.tsx` (`Stream`, `ThreadCard`, `ThreadPanel`, `Message`,
 `Composer`, `useThreads`), `chat/bits.tsx` (report form and small shared pieces),
@@ -208,6 +208,30 @@ in the app.
 - No database change. Not yet: browsing with a `#` button, pasted links becoming cards,
   "linked from the chat" in the thread, other games (with Town Hall).
 
+## Step 3: times, bubbles, reactions and system notes (built 2026-11-01)
+
+- **Times** are the real time in your own time zone: "3:42 PM" today, "Yesterday 3:42 PM",
+  then "Oct 31, 3:42 PM". The full date shows on hover. (Draft cards still say "5m", "3h".)
+- **Soft bubbles**: everyone else's messages in white bubbles on the left with their picture;
+  yours in a light yellow bubble on the right, as "You". Thread previews inside cards stay plain.
+- **Reactions**, Slack-style: one pill per emoji under a message, with how many; yours is
+  highlighted, and tapping a pill adds yours or takes it back. Hovering a pill says who reacted.
+  The smiley beside a message (on hover with a mouse, after a tap on a phone) opens eight quick
+  reactions: 👍 ❤️ 😂 🎉 👀 🙏 ✅ 🤔. Stored in `chat_reactions`, live for everyone.
+- **System notes**, written by the database (never a person) when a moderator publishes or
+  declines a Draft (`20261101120000_chat_reactions_system.sql`):
+  - in the entry's thread, a card with an ink band ("Updated in the app", "New in the app" or
+    "Declined"), who wrote the Draft and who approved it, and what changed, field by field;
+  - in the game's main chat, published ones only, as one ink line: "Eshmel was updated in the
+    app · 3:42 PM", which opens the thread.
+  Both carry the Village mark (yellow sparkle on ink) instead of a picture. Villagers can't post
+  system notes; they don't count toward rate limits or thread message counts.
+- **Before the SQL is run** the chat reads as before: no reactions (trying one says the database
+  needs an update) and no system notes.
+
+Later: a full emoji picker with search, unread marks, presence ("Ben is editing"), notes when
+a new Draft is posted.
+
 ## Proposal: one stream, threads that surface (2026-11-01, step 1 built)
 
 The answer to "each thing gets its own chat" vs "split chats go quiet":
@@ -304,6 +328,11 @@ Dated, newest last, each with why.
   genre-shape outlines) behind the messages, which run edge to edge in the chat box with a thin
   scrollbar at the very edge. No bubbles; your own messages sit on the right ("You"), everyone
   else's on the left. Why: plain white was easy to overlook; this makes the chat a place.
+- 2026-11-01 (Matt): times show when a message was sent, in your own time; messages go back in
+  soft bubbles (yours yellow, on the right) to make room for Slack-style reactions; a published
+  update posts a detailed system note in the entry's thread and one line in the main chat; system
+  notes look clearly different from people's messages. Why: easier to read, react and follow what
+  changed without anyone having to announce it.
 
 ## Open questions
 

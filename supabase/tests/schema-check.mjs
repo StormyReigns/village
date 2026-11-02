@@ -142,3 +142,21 @@ const shipped = await db.query(`select d.status, c.slug, r.content->>'name' as n
 shipped.rows[0]?.status === 'stable' && shipped.rows[0]?.slug === 'new-unit' && shipped.rows[0]?.name === 'New unit'
   ? ok('published Draft is a new entry on Stable (new-unit)') : bad('ship ' + JSON.stringify(shipped.rows));
 await expectFail(A, `select public.ship_draft('${D2}')`, 'a published Draft cannot be published twice');
+
+// System notes: publishing writes one into the entry's thread; nobody can post one by hand.
+const note = await db.query(`select m.id, m.kind, m.thread_key, m.event->>'type' as type, d.card_id from public.chat_messages m join public.drafts d on d.id = m.linked_draft_id where m.linked_draft_id = '${D2}' and m.kind = 'system'`);
+note.rows.length === 1 && note.rows[0].type === 'published' && note.rows[0].thread_key === `card:${note.rows[0].card_id}`
+  ? ok("publishing posts a system note in the entry's thread") : bad('note ' + JSON.stringify(note.rows));
+const declined = await db.query(`select count(*)::int as n from public.chat_messages where kind = 'system' and event->>'type' = 'declined'`);
+declined.rows[0].n > 0 ? ok('declining posts a system note too') : bad('no declined note');
+await expectFail(C, `insert into public.chat_messages (game_id, author_id, body, kind) values ('fortunes-weave', '${C}', 'Totally official', 'system')`, 'villagers cannot post system notes');
+
+// Reactions: as yourself, once per emoji, and gone when you take it back.
+const noteId = note.rows[0]?.id;
+await expectOk(C, `insert into public.chat_reactions (message_id, profile_id, emoji) values (${noteId}, '${C}', '🎉')`, 'villager can react to a message');
+await expectFail(C, `insert into public.chat_reactions (message_id, profile_id, emoji) values (${noteId}, '${C}', '🎉')`, 'one of each emoji per person');
+await expectFail(C, `insert into public.chat_reactions (message_id, profile_id, emoji) values (${noteId}, '${B}', '👍')`, 'villager cannot react as someone else');
+const rg = await db.query(`select game_id from public.chat_reactions where message_id = ${noteId}`);
+rg.rows[0]?.game_id === 'fortunes-weave' ? ok('reactions are filed under the right game') : bad('reaction game ' + JSON.stringify(rg.rows));
+await expectFail(B, `delete from public.chat_reactions where profile_id = '${C}'`, "villager cannot take back someone else's reaction");
+await expectOk(C, `delete from public.chat_reactions where message_id = ${noteId} and profile_id = '${C}'`, 'villager can take back a reaction');

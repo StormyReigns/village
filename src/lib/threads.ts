@@ -11,7 +11,11 @@
 export type ThreadKey = string;
 
 interface DraftLike { id: string; cardId: string | null }
-interface MessageLike { id: number; threadKey: string | null; draftId: string | null; createdAt: string }
+interface MessageLike {
+  id: number; threadKey: string | null; draftId: string | null; createdAt: string;
+  /** System notes (written by the database) aren't talk: see buildStream. */
+  kind?: 'chat' | 'system'; event?: { type: string } | null;
+}
 
 export const entryThread = (blockId: string, entry: { id: string; ref?: { card: string } }): ThreadKey =>
   entry.ref ? `card:${entry.ref.card}` : `entry:${blockId}.${entry.id}`;
@@ -36,16 +40,23 @@ export function threadOf(m: MessageLike, drafts: Map<string, DraftLike>): Thread
 
 /**
  * The game's chat as it reads: messages to everyone, and one card per thread, placed where
- * its newest message is, so a thread that's talking moves down to the latest spot.
+ * its newest message is, so a thread that's talking moves down to the latest spot. System
+ * notes stay out of the cards: something published shows as its own one-line notice (the
+ * detail is in the thread), and other notes (a decline) show only in the thread.
  */
 export type StreamItem<M> =
   | { kind: 'message'; m: M }
+  | { kind: 'system'; m: M }
   | { kind: 'thread'; key: ThreadKey; messages: M[]; at: string };
 
 export function buildStream<M extends MessageLike>(messages: M[], drafts: Map<string, DraftLike>): StreamItem<M>[] {
   const threads = new Map<ThreadKey, M[]>();
   const items: StreamItem<M>[] = [];
   for (const m of messages) {
+    if (m.kind === 'system') {
+      if (m.event?.type === 'published') items.push({ kind: 'system', m });
+      continue;
+    }
     const key = threadOf(m, drafts);
     if (!key) { items.push({ kind: 'message', m }); continue; }
     const list = threads.get(key);
@@ -53,6 +64,6 @@ export function buildStream<M extends MessageLike>(messages: M[], drafts: Map<st
     else threads.set(key, [m]);
   }
   for (const [key, list] of threads) items.push({ kind: 'thread', key, messages: list, at: list.at(-1)!.createdAt });
-  const last = (x: StreamItem<M>) => (x.kind === 'message' ? x.m : x.messages.at(-1)!);
+  const last = (x: StreamItem<M>) => (x.kind === 'thread' ? x.messages.at(-1)! : x.m);
   return items.sort((a, b) => last(a).createdAt.localeCompare(last(b).createdAt) || last(a).id - last(b).id);
 }

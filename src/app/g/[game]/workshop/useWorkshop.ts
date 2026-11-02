@@ -22,11 +22,26 @@ export interface ChatMessage {
   draftId: string | null;
   /** The thread it's in (src/lib/threads.ts), or null for a message to everyone. */
   threadKey: string | null;
+  /** 'system': written by the database when something happens (a Draft published), not a person. */
+  kind: 'chat' | 'system';
+  event: ChatEvent | null;
   spoiler: boolean;
   /** Only moderators ever see removed messages. */
   removed: boolean;
   createdAt: string;
   author: Author;
+}
+
+/** What a system message is about (written by the database, see 20261101120000_chat_reactions_system.sql). */
+export interface ChatEvent {
+  type: 'published' | 'declined';
+  draft: string;
+  /** Who wrote the Draft. */
+  author: string;
+  /** The revision the Draft started from, to show what changed; null for a new entry. */
+  before: number | null;
+  isNew?: boolean;
+  reason?: string | null;
 }
 
 export interface LiveDraft extends DraftStats {
@@ -86,11 +101,11 @@ export interface ReportGroup {
 type Row = Record<string, unknown>;
 const PROFILE = 'id, username, display_name, avatar_url';
 const MESSAGE_COLUMNS = 'id, body, block_key, linked_draft_id, thread_key, spoiler, removed_at, created_at, author_id';
-const MESSAGE = `${MESSAGE_COLUMNS}, author:profiles!chat_messages_author_id_fkey(${PROFILE})`;
-// Until the threads SQL (20261101000000_chat_threads.sql) is run, the database has no
-// thread_key, so the chat reads without it rather than going dark.
-const OLD_MESSAGE = MESSAGE.replace('thread_key, ', '');
-const noThreadColumn = (e: { message?: string } | null) => Boolean(e && /thread_key/.test(e.message ?? ''));
+const MESSAGE = `${MESSAGE_COLUMNS}, kind, event, author:profiles!chat_messages_author_id_fkey(${PROFILE})`;
+// Until the system-notes SQL (20261101120000_chat_reactions_system.sql) is run, the database
+// has no kind or event, so the chat reads without them rather than going dark.
+const OLD_MESSAGE = MESSAGE.replace('kind, event, ', '');
+const missingColumn = (e: { message?: string } | null) => Boolean(e && /(kind|event|thread_key)\b.*does not exist|does not exist.*(kind|event)/.test(e.message ?? ''));
 
 function toAuthor(p: Row | null | undefined, id: string): Author {
   const username = (p?.username as string) ?? 'villager';
@@ -101,9 +116,24 @@ function toMessage(r: Row, author: Author): ChatMessage {
   return {
     id: r.id as number, body: r.body as string, blockKey: (r.block_key as string) ?? null,
     draftId: (r.linked_draft_id as string) ?? null, threadKey: (r.thread_key as string) ?? null,
+    kind: r.kind === 'system' ? 'system' : 'chat', event: (r.event as ChatEvent | null) ?? null,
     spoiler: Boolean(r.spoiler), removed: Boolean(r.removed_at),
     createdAt: r.created_at as string, author,
   };
+}
+
+/** One person's reaction to a message. */
+export interface Reaction { emoji: string; by: string; name: string }
+
+function addReaction(map: Map<number, Reaction[]>, messageId: number, r: Reaction) {
+  const list = map.get(messageId) ?? [];
+  if (list.some((x) => x.by === r.by && x.emoji === r.emoji)) return map;
+  return new Map(map).set(messageId, [...list, r]);
+}
+function dropReaction(map: Map<number, Reaction[]>, messageId: number, by: string, emoji: string) {
+  const list = map.get(messageId);
+  if (!list) return map;
+  return new Map(map).set(messageId, list.filter((x) => !(x.by === by && x.emoji === emoji)));
 }
 
 /** Turns database errors into words a villager can act on. */
@@ -120,6 +150,8 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
   const [drafts, setDrafts] = useState<LiveDraft[]>([]);
   const [reports, setReports] = useState<ReportGroup[]>([]);
   const [myReports, setMyReports] = useState<Set<string>>(new Set());
+  /** Reactions on each message, oldest first. */
+  const [reactions, setReactions] = useState<Map<number, Reaction[]>>(new Map());
   const [state, setState] = useState<'loading' | 'ready' | 'offline'>('loading');
   const authors = useRef(new Map<string, Author>());
   const channel = useRef<RealtimeChannel | null>(null);
@@ -157,7 +189,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
       return q;
     };
     let { data, error } = await read(MESSAGE);
-    if (noThreadColumn(error)) ({ data, error } = await read(OLD_MESSAGE));
+    if (missingColumn(error)) ({ data, error } = await read(OLD_MESSAGE));
     if (error) throw error;
     const list = ((data ?? []) as unknown as Row[]).reverse().map((r) => {
       const a = toAuthor(r.author as Row, r.author_id as string);
@@ -186,9 +218,13 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
       ...keys.map((k) => `thread_key.eq.${k}`),
       ...(draftIds.length ? [`linked_draft_id.in.(${draftIds.join(',')})`] : []),
     ];
-    let q = db.from('chat_messages').select(MESSAGE).eq('game_id', gameId).or(ors.join(',')).order('id', { ascending: false }).limit(500);
-    if (!mod) q = q.is('removed_at', null);
-    const { data, error } = await q;
+    const read = (columns: string) => {
+      let q = db.from('chat_messages').select(columns).eq('game_id', gameId).or(ors.join(',')).order('id', { ascending: false }).limit(500);
+      if (!mod) q = q.is('removed_at', null);
+      return q;
+    };
+    let { data, error } = await read(MESSAGE);
+    if (missingColumn(error)) ({ data, error } = await read(OLD_MESSAGE));
     if (error) return;
     const found = ((data ?? []) as unknown as Row[]).map((r) => {
       const a = toAuthor(r.author as Row, r.author_id as string);
@@ -266,9 +302,26 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     setReports([...groups.values()]);
   }, [gameId, meId, mod]);
 
+  /** Everyone's reactions in this game. Before the reactions SQL is run there are none. */
+  const loadReactions = useCallback(async () => {
+    const db = browserClient();
+    if (!db) return;
+    const { data, error } = await db.from('chat_reactions')
+      .select('message_id, emoji, profile_id, created_at, profile:profiles!chat_reactions_profile_id_fkey(username, display_name)')
+      .eq('game_id', gameId).order('created_at').limit(5000);
+    if (error) return;
+    const next = new Map<number, Reaction[]>();
+    for (const r of (data ?? []) as Row[]) {
+      const list = next.get(r.message_id as number) ?? [];
+      list.push({ emoji: r.emoji as string, by: r.profile_id as string, name: toAuthor(r.profile as Row, r.profile_id as string).name });
+      next.set(r.message_id as number, list);
+    }
+    setReactions(next);
+  }, [gameId]);
+
   const reloadAll = useCallback(async () => {
-    await Promise.all([loadMessages(), loadDrafts(), loadReports()]);
-  }, [loadMessages, loadDrafts, loadReports]);
+    await Promise.all([loadMessages(), loadDrafts(), loadReports(), loadReactions()]);
+  }, [loadMessages, loadDrafts, loadReports, loadReactions]);
 
   const authorFor = useCallback(async (id: string): Promise<Author> => {
     const known = authors.current.get(id);
@@ -311,6 +364,14 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
       // Villagers can't see a message or Draft once it's removed, so the database can't
       // tell them it changed. Moderators send this nudge to everyone instead.
       .on('broadcast', { event: 'refresh' }, soon(reloadAll))
+      // Reactions arrive and leave one at a time.
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_reactions', filter: `game_id=eq.${gameId}` }, async ({ new: r }) => {
+        const a = await authorFor(r.profile_id as string);
+        setReactions((map) => addReaction(map, r.message_id as number, { emoji: r.emoji as string, by: a.id, name: a.name }));
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'chat_reactions', filter: `game_id=eq.${gameId}` }, ({ old: r }) => {
+        setReactions((map) => dropReaction(map, r.message_id as number, r.profile_id as string, r.emoji as string));
+      })
       .subscribe();
     channel.current = ch;
 
@@ -328,8 +389,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     const row: Row = { game_id: gameId, author_id: meId, body, block_key: opts.blockKey ?? null, linked_draft_id: opts.draftId ?? null, spoiler: Boolean(opts.spoiler) };
     if (opts.threadKey) row.thread_key = opts.threadKey;
     const { data, error } = await db.from('chat_messages').insert(row)
-      .select(opts.threadKey ? MESSAGE_COLUMNS : MESSAGE_COLUMNS.replace('thread_key, ', '')).single();
-    if (noThreadColumn(error)) return 'Threads are almost ready: the database needs one more update. Try the main chat for now.';
+      .select(MESSAGE_COLUMNS).single();
     if (error) return plainError(error.message);
     addMessage(toMessage(data as unknown as Row, await authorFor(meId)));
     return null;
@@ -384,6 +444,22 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     if (!db || !meId) return;
     await db.from('draft_views').upsert({ draft_id: draftId, viewer_key: meId }, { onConflict: 'draft_id,viewer_key,day', ignoreDuplicates: true });
   }, [meId]);
+
+  /** Adds your reaction to a message, or takes it back if it's already there. */
+  const react = useCallback(async (messageId: number, emoji: string) => {
+    const db = browserClient();
+    if (!db || !meId) return 'Sign in to react.';
+    const mine = (reactions.get(messageId) ?? []).some((r) => r.by === meId && r.emoji === emoji);
+    const a = await authorFor(meId);
+    setReactions((map) => (mine ? dropReaction(map, messageId, meId, emoji) : addReaction(map, messageId, { emoji, by: meId, name: a.name })));
+    const { error } = mine
+      ? await db.from('chat_reactions').delete().eq('message_id', messageId).eq('profile_id', meId).eq('emoji', emoji)
+      : await db.from('chat_reactions').insert({ message_id: messageId, profile_id: meId, emoji });
+    if (!error) return null;
+    // Put it back as it was.
+    setReactions((map) => (mine ? addReaction(map, messageId, { emoji, by: meId, name: a.name }) : dropReaction(map, messageId, meId, emoji)));
+    return /chat_reactions/.test(error.message) ? 'Reactions are almost ready: the database needs one more update.' : plainError(error.message);
+  }, [meId, reactions, authorFor]);
 
   /** Reports a message or Draft to the moderators. */
   const report = useCallback(async (t: Target, reason: ReportReason, note: string) => {
@@ -469,8 +545,8 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
   }, [closeReports, finish]);
 
   return {
-    state, messages, drafts: shownDrafts, reports, myReports, mod,
-    send, loadThread, postDraft, vote, view, report,
+    state, messages, reactions, drafts: shownDrafts, reports, myReports, mod,
+    send, loadThread, react, postDraft, vote, view, report,
     moderate: { removeMessage, markSpoiler, publish, decide, dismissReports },
   };
 }

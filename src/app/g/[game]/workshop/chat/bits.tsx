@@ -14,6 +14,24 @@ export function ago(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+/**
+ * When a message was sent, in your own time zone: "3:42 PM" today, "Yesterday 3:42 PM", then
+ * "Oct 31, 3:42 PM" (with the year once it's another year). Only ever runs in the browser.
+ */
+export function clock(iso: string) {
+  const d = new Date(iso), now = new Date();
+  const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  if (d.toDateString() === now.toDateString()) return time;
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return `Yesterday ${time}`;
+  const date = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', ...(d.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}) });
+  return `${date}, ${time}`;
+}
+
+/** The full date and time, for a tooltip. */
+export const fullTime = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' });
+
 /** Runs an action that returns an error in plain words (or null), tracking busy and error. */
 export function useAction() {
   const [busy, setBusy] = useState(false);

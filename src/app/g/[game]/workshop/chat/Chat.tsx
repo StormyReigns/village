@@ -1,10 +1,10 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, EyeOff, FileText, Flag, MessageCircle, MoreHorizontal, PanelLeftClose, PanelRight, PenLine, RotateCcw, Send, Trash2, X } from 'lucide-react';
-import type { Block, Entry, Page } from '@/data/pages';
+import { ArrowLeft, EyeOff, FileText, Flag, MessageCircle, MoreHorizontal, PanelLeftClose, PanelRight, PenLine, RotateCcw, Send, SmilePlus, Sparkles, Trash2, X } from 'lucide-react';
+import type { Block, Entry, EntryContent, Page } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
-import { EntryIcon } from '@/components/app/EntryPanel';
+import { EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
 import { SignInPrompt } from '@/components/SignInPrompt';
 import { Avatar } from '@/components/Avatar';
 import { Tip } from '@/components/Tip';
@@ -13,8 +13,11 @@ import { sharePath } from '@/data/pages/links';
 import { blockThread, buildStream, draftThread, entryThread, resolveThread, threadOf, type ThreadKey } from '@/lib/threads';
 import { encodeRefs, insertPick, refsIn, splitRefs, typedHash, type Ref } from '@/lib/refs';
 import { rank, type Searchable } from '@/lib/search';
-import { targetKey, type ChatMessage, type LiveDraft, type WorkshopData } from '../useWorkshop';
-import { ago, ReportForm, SmallButton, useAction } from './bits';
+import { browserClient } from '@/lib/supabase/browser';
+import { targetKey, type ChatMessage, type LiveDraft, type Reaction, type WorkshopData } from '../useWorkshop';
+import { changesBetween } from '../changes';
+import { ChangeList } from '../EntryForm';
+import { ago, clock, fullTime, ReportForm, SmallButton, useAction } from './bits';
 
 // The Workshop's chat (docs/chat.md): one stream for the whole game, and a thread for each
 // thing being built. A thread shows in the stream as a card at its newest message, with a
@@ -88,7 +91,7 @@ export function useThreads(blocks: Placed[], drafts: LiveDraft[], messages: Chat
     const counts = new Map<ThreadKey, number>();
     for (const m of messages) {
       const k = threadOf(m, byId);
-      if (k && !m.removed) counts.set(k, (counts.get(k) ?? 0) + 1);
+      if (k && !m.removed && m.kind !== 'system') counts.set(k, (counts.get(k) ?? 0) + 1);
     }
     const inThread = (key: ThreadKey) => messages.filter((m) => threadOf(m, byId) === key);
 
@@ -113,7 +116,7 @@ export interface RefOption { key: ThreadKey; label: string; where: string; searc
  * What the chat needs to turn "#Eshmel" into a link: the game, its threads, and how to open
  * one. Provided once by the Workshop, so every message box and message can use it.
  */
-export const ChatLinks = createContext<{ gameId: string; threads: Threads; open: (key: ThreadKey) => void } | null>(null);
+export const ChatLinks = createContext<{ gameId: string; threads: Threads; open: (key: ThreadKey) => void; routes: RouteOption[] } | null>(null);
 
 /** A message's words, with each "#" reference as a tag in its Page's color that opens the thread. */
 export function MessageText({ body }: { body: string }) {
@@ -156,42 +159,122 @@ function ThreadIcon({ info, small = false }: { info: ThreadInfo; small?: boolean
   );
 }
 
+/** The quick reactions: tap one to add it, tap a reaction under a message to add yours or take it back. */
+const QUICK = ['👍', '❤️', '😂', '🎉', '👀', '🙏', '✅', '🤔'];
+
+/** "Ana", "Ana and Ben", "Ana, Ben and 3 others", with you as "You". */
+function whoReacted(people: Reaction[], me: Villager | null | undefined) {
+  const names = people.map((p) => (me && p.by === me.id ? 'You' : p.name));
+  if (names.length <= 2) return names.join(' and ');
+  return `${names.slice(0, 2).join(', ')} and ${names.length - 2} other${names.length === 3 ? '' : 's'}`;
+}
+
+/** Reactions under a message, Slack-style: one pill per emoji with how many, yours highlighted. */
+function Reactions({ m, me, live, picking, onPicked }: {
+  m: ChatMessage; me: Villager | null | undefined; live: WorkshopData; picking: boolean; onPicked: () => void;
+}) {
+  const [error, setError] = useState('');
+  const groups: { emoji: string; people: Reaction[] }[] = [];
+  for (const r of live.reactions.get(m.id) ?? []) {
+    const g = groups.find((x) => x.emoji === r.emoji);
+    if (g) g.people.push(r); else groups.push({ emoji: r.emoji, people: [r] });
+  }
+  if (!groups.length && !picking && !error) return null;
+  const toggle = async (emoji: string) => setError((await live.react(m.id, emoji)) ?? '');
+  return (
+    <div className="mt-1 grid justify-items-start gap-1">
+      {groups.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {groups.map((g) => {
+            const yours = Boolean(me && g.people.some((p) => p.by === me.id));
+            return (
+              <Tip key={g.emoji} text={`${whoReacted(g.people, me)} reacted with ${g.emoji}${me ? '' : '. Sign in to react'}`}>
+                <button type="button" onClick={() => { if (me) toggle(g.emoji); }} aria-pressed={yours} aria-label={`${g.emoji} ${g.people.length}`}
+                  className={'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ring-1 ' + (yours ? 'ring-ink/50' : 'bg-card ring-line hover:ring-ink')}
+                  style={yours ? { background: 'color-mix(in srgb, var(--signal) 30%, var(--card))' } : undefined}>
+                  <span className="text-sm leading-none">{g.emoji}</span>{g.people.length}
+                </button>
+              </Tip>
+            );
+          })}
+        </div>
+      )}
+      {picking && (
+        <div role="group" aria-label="React" className="flex flex-wrap gap-0.5 rounded-full bg-card p-1 shadow-soft ring-1 ring-line">
+          {QUICK.map((e) => (
+            <button key={e} type="button" onClick={() => { toggle(e); onPicked(); }} aria-label={`React with ${e}`}
+              className="grid size-8 place-items-center rounded-full text-lg leading-none hover:bg-card-2">{e}</button>
+          ))}
+        </div>
+      )}
+      {error && <p role="status" className="text-xs text-berry">{error}</p>}
+    </div>
+  );
+}
+
+/** The Village's own mark for system notes: never a person's picture. */
+function SystemMark({ size = 22 }: { size?: number }) {
+  return (
+    <span className="grid shrink-0 place-items-center rounded-full bg-ink text-signal" style={{ width: size, height: size }}>
+      <Sparkles size={Math.round(size * 0.55)} aria-hidden="true" />
+    </span>
+  );
+}
+
 export function Message({ m, me, live, compact = false }: { m: ChatMessage; me: Villager | null | undefined; live: WorkshopData; compact?: boolean }) {
   const [shown, setShown] = useState(false);
   const [tools, setTools] = useState(false);
   const [reporting, setReporting] = useState(false);
+  const [picking, setPicking] = useState(false);
   const { run, busy, error } = useAction();
   const own = me?.id === m.author.id && !me.practice;
   const reported = live.myReports.has(targetKey({ messageId: m.id }));
   const canReport = Boolean(me) && !own;
-  const hasTools = !compact && (canReport || live.mod);
-  // Your own messages sit on the right, everyone else's on the left (no bubbles).
-  const mine = own && !compact;
+  const hasTools = canReport || live.mod;
+  const system = m.kind === 'system';
+
+  // A small preview inside a thread's card: a line or two, no bubble.
+  if (compact) {
+    return (
+      <li className={'flex gap-2 ' + (m.removed ? 'opacity-50' : '')}>
+        {system ? <SystemMark /> : <Avatar name={m.author.name} url={m.author.avatarUrl} size={22} />}
+        <div className="min-w-0 flex-1 text-sm">
+          <p className="flex flex-wrap items-baseline gap-x-2">
+            <span className="font-bold">{system ? 'Village' : own ? 'You' : m.author.name}</span>
+            <time dateTime={m.createdAt} title={fullTime(m.createdAt)} className="text-xs text-muted">{clock(m.createdAt)}</time>
+          </p>
+          {m.spoiler ? <p className="text-muted">Spoiler · open the thread to read it</p>
+            : <p className={'line-clamp-2 break-words ' + (system ? 'text-muted' : '')}><MessageText body={m.body} /></p>}
+        </div>
+      </li>
+    );
+  }
+
+  // In full: a soft bubble, yours on the right, everyone else's on the left with their picture.
+  // Reacting and the options sit beside it: on hover with a mouse, after a tap on a phone.
   return (
-    <li className={'group flex gap-2.5 ' + (mine ? 'justify-end ' : '') + (m.removed ? 'opacity-50' : '')}>
-      {!mine && <Avatar name={m.author.name} url={m.author.avatarUrl} size={compact ? 22 : 32} />}
-      <div className={'min-w-0 ' + (mine ? 'max-w-[85%] text-right' : 'flex-1')}>
-        <p className={'flex flex-wrap items-baseline gap-x-2 text-sm ' + (mine ? 'flex-row-reverse' : '')}>
-          <span className="font-bold">{mine ? 'You' : m.author.name}</span>
-          <span className="text-xs text-muted">{ago(m.createdAt)}</span>
-          {m.removed && <span className="rounded-full bg-berry-soft px-2 py-0.5 text-xs font-bold text-berry">Removed · only moderators see it</span>}
-          {hasTools && (
-            <button onClick={() => { setTools(!tools); setReporting(false); }} aria-expanded={tools} aria-label="Message options"
-              className={'ml-auto grid size-6 place-items-center self-center rounded-full text-muted hover:bg-card-2 hover:text-ink ' + (tools ? '' : 'sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100')}>
-              <MoreHorizontal size={15} aria-hidden="true" />
+    <li className={'group flex items-start gap-2 ' + (own ? 'flex-row-reverse ' : '') + (m.removed ? 'opacity-50' : '')}>
+      {!own && <Avatar name={m.author.name} url={m.author.avatarUrl} size={32} />}
+      <div className={'flex min-w-0 max-w-[88%] flex-col ' + (own ? 'items-end' : 'items-start')}>
+        <div tabIndex={-1} className={'min-w-0 max-w-full rounded-2xl px-3 py-2 outline-none ' + (own ? 'rounded-tr-md' : 'rounded-tl-md bg-card ring-1 ring-line')}
+          style={own ? { background: 'color-mix(in srgb, var(--signal) 26%, var(--card))' } : undefined}>
+          <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
+            <span className="font-bold">{own ? 'You' : m.author.name}</span>
+            <time dateTime={m.createdAt} title={fullTime(m.createdAt)} className="text-xs text-muted">{clock(m.createdAt)}</time>
+            {m.removed && <span className="rounded-full bg-berry-soft px-2 py-0.5 text-xs font-bold text-berry">Removed · only moderators see it</span>}
+          </p>
+          {m.spoiler && !shown ? (
+            <button onClick={() => setShown(true)} className="mt-0.5 inline-flex items-center gap-1.5 rounded-xl bg-ink/80 px-3 py-1 text-sm font-bold text-paper">
+              <EyeOff size={14} aria-hidden="true" /> Spoiler · tap to show
             </button>
+          ) : (
+            <>
+              <p className="whitespace-pre-wrap break-words"><MessageText body={m.body} /></p>
+              <LinkedCard refs={refsIn(m.body)} me={me} live={live} />
+            </>
           )}
-        </p>
-        {m.spoiler && !shown ? (
-          <button onClick={() => setShown(true)} className="mt-0.5 inline-flex items-center gap-1.5 rounded-xl bg-ink/80 px-3 py-1 text-sm font-bold text-paper">
-            <EyeOff size={14} aria-hidden="true" /> Spoiler · tap to show
-          </button>
-        ) : (
-          <>
-            <p className={'whitespace-pre-wrap break-words ' + (compact ? 'line-clamp-2 text-sm' : '')}><MessageText body={m.body} /></p>
-            {!compact && <LinkedCard refs={refsIn(m.body)} me={me} live={live} />}
-          </>
-        )}
+        </div>
+        <Reactions m={m} me={me} live={live} picking={picking} onPicked={() => setPicking(false)} />
         {tools && (
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {canReport && (reported
@@ -212,6 +295,97 @@ export function Message({ m, me, live, compact = false }: { m: ChatMessage; me: 
         )}
         {error && <p role="status" className="mt-1 text-sm text-berry">{error}</p>}
         {reporting && !reported && <ReportForm target={{ messageId: m.id }} live={live} onDone={() => { setReporting(false); setTools(false); }} />}
+      </div>
+      {(me || hasTools) && (
+        <div className={'shrink-0 flex-col gap-0.5 self-center sm:flex sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 '
+          + (picking || tools ? 'flex sm:opacity-100' : 'hidden group-focus-within:flex')}>
+          {me && (
+            <Tip text="React">
+              <button type="button" onClick={() => setPicking(!picking)} aria-expanded={picking} aria-label="Add a reaction"
+                className="grid size-7 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
+                <SmilePlus size={16} aria-hidden="true" />
+              </button>
+            </Tip>
+          )}
+          {hasTools && (
+            <button type="button" onClick={() => { setTools(!tools); setReporting(false); }} aria-expanded={tools} aria-label="Message options"
+              className="grid size-7 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
+              <MoreHorizontal size={16} aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** Something published, as one line in the game's chat: the detail is in its thread. */
+function SystemLine({ m }: { m: ChatMessage }) {
+  const links = useContext(ChatLinks);
+  const key = links && m.threadKey ? links.threads.resolve(m.threadKey) : null;
+  const info = key && links ? links.threads.info(key) : null;
+  const title = info && info.kind !== 'unknown' ? info.title : null;
+  return (
+    <li className="flex justify-center">
+      <button type="button" onClick={() => { if (key) links?.open(key); }} disabled={!title}
+        className="inline-flex max-w-full items-center gap-2 rounded-full bg-ink py-1 pl-1 pr-3 text-xs text-paper hover:ring-2 hover:ring-signal">
+        <SystemMark />
+        <span className="min-w-0 truncate">
+          {title ? <><b>{title}</b> {m.event?.isNew ? 'is new in the app' : 'was updated in the app'}</> : m.body}
+        </span>
+        <time dateTime={m.createdAt} title={fullTime(m.createdAt)} className="shrink-0 opacity-60">{clock(m.createdAt)}</time>
+      </button>
+    </li>
+  );
+}
+
+/**
+ * A system note in a thread, in detail: what happened, who wrote it and who approved it, and
+ * for something published, what changed. Marked as the Village's, never a person's.
+ */
+function SystemNote({ m, info, me, live }: { m: ChatMessage; info: ThreadInfo; me: Villager | null | undefined; live: WorkshopData }) {
+  const links = useContext(ChatLinks);
+  const ev = m.event;
+  const [picking, setPicking] = useState(false);
+  const draft = ev ? links?.threads.byId.get(ev.draft) : undefined;
+  // What the entry was before, from the revision the Draft started from (none for a new entry).
+  const [before, setBefore] = useState<EntryContent | null | undefined>(ev?.before ? undefined : null);
+  useEffect(() => {
+    if (!ev?.before) return;
+    let gone = false;
+    browserClient()?.from('card_revisions').select('content').eq('id', ev.before).maybeSingle()
+      .then(({ data }) => { if (!gone) setBefore((data?.content as EntryContent | undefined) ?? null); });
+    return () => { gone = true; };
+  }, [ev?.before]);
+  const published = ev?.type === 'published';
+  const changes = published && draft && info.block && before !== undefined && links
+    ? changesBetween(before ?? undefined, draft.content, info.block, links.routes) : [];
+  const writer = draft?.author.name;
+  return (
+    <li className="overflow-hidden rounded-2xl bg-card ring-1 ring-ink/70">
+      <div className="flex items-center gap-2 bg-ink py-1 pl-1 pr-3 text-xs font-bold text-paper">
+        <SystemMark />
+        <span>{published ? (ev?.isNew ? 'New in the app' : 'Updated in the app') : 'Declined'}</span>
+        <time dateTime={m.createdAt} title={fullTime(m.createdAt)} className="ml-auto font-normal opacity-70">{clock(m.createdAt)}</time>
+      </div>
+      <div className="px-3 py-2 text-sm">
+        {published ? (
+          <p>
+            {writer ? <><b>{writer}</b>&apos;s {ev?.isNew ? 'new entry' : 'fix'}</> : 'A Draft'} was approved by <b>{m.author.name}</b> and is now in the app.
+          </p>
+        ) : (
+          <p><b>{m.author.name}</b> declined {writer ? <><b>{writer}</b>&apos;s Draft</> : 'a Draft'}{ev?.reason ? <>: “{ev.reason}”</> : '.'}</p>
+        )}
+        {changes.length > 0 && <ChangeList changes={changes} />}
+        <div className="mt-1 flex items-start gap-1">
+          <div className="min-w-0 flex-1"><Reactions m={m} me={me} live={live} picking={picking} onPicked={() => setPicking(false)} /></div>
+          {me && (
+            <button type="button" onClick={() => setPicking(!picking)} aria-expanded={picking} aria-label="Add a reaction"
+              className="grid size-7 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink">
+              <SmilePlus size={16} aria-hidden="true" />
+            </button>
+          )}
+        </div>
       </div>
     </li>
   );
@@ -352,7 +526,7 @@ function ThreadCard({ info, messages, me, live, onOpen, as: Box = 'li' }: {
   /** A list item in the stream; a plain box under a message that points at it. */
   as?: 'li' | 'div';
 }) {
-  const count = messages.filter((m) => !m.removed).length;
+  const count = messages.filter((m) => !m.removed && m.kind !== 'system').length;
   return (
     <Box className="rounded-2xl bg-card p-2.5 ring-1 ring-line">
       <button onClick={onOpen} className="flex w-full items-center gap-2.5 text-left">
@@ -455,8 +629,8 @@ export function Stream({ topic, onAll, onFold, switcher, bar, className = '', me
         </div></div>
       ) : (
         <ul ref={list} onScroll={onScroll} aria-live="polite" className={WALL_LIST} style={WALL}>
-          {items.map((x) => x.kind === 'message'
-            ? <Message key={x.m.id} m={x.m} me={me} live={live} />
+          {items.map((x) => x.kind === 'message' ? <Message key={x.m.id} m={x.m} me={me} live={live} />
+            : x.kind === 'system' ? <SystemLine key={x.m.id} m={x.m} />
             : <ThreadCard key={x.key} info={threads.info(x.key)} messages={x.messages} me={me} live={live} onOpen={() => onOpen(x.key)} />)}
           {messages.length < 4 && (
             <li className="mt-2 rounded-2xl bg-card-2 px-3 py-2.5 text-sm text-muted">
@@ -546,7 +720,9 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, onClose,
             <p className="text-sm text-muted">Ask what you&apos;re unsure of, or say what you&apos;re working on, so nobody does it twice. It shows in the main chat too.</p>
           </li>
         )}
-        {timeline.map((x) => 'm' in x ? <Message key={`m${x.m.id}`} m={x.m} me={me} live={live} /> : (
+        {timeline.map((x) => 'm' in x ? (x.m.kind === 'system'
+          ? <SystemNote key={`m${x.m.id}`} m={x.m} info={info} me={me} live={live} />
+          : <Message key={`m${x.m.id}`} m={x.m} me={me} live={live} />) : (
           <li key={`d${x.d.id}`} className="flex items-center gap-2.5 rounded-2xl bg-card-2 px-3 py-2 text-sm ring-1 ring-line">
             <FileText size={16} className="shrink-0 text-muted" aria-hidden="true" />
             <span className="min-w-0 flex-1">

@@ -24,11 +24,20 @@ test("a fix's Discuss messages join the entry's thread, and a published Draft's 
   assert.equal(threadOf(msg(4, '00'), drafts), null);
 });
 
+test('a publish note is its own line in the chat; a decline note stays in its thread', () => {
+  const published = { ...msg(2, '02', 'card:c-eshmel'), kind: 'system' as const, event: { type: 'published' } };
+  const declined = { ...msg(3, '03', 'card:c-eshmel'), kind: 'system' as const, event: { type: 'declined' } };
+  const stream = buildStream([msg(1, '01'), published, declined, msg(4, '04', 'card:c-eshmel')], drafts);
+  assert.deepEqual(stream.map((x) => (x.kind === 'thread' ? x.key : `${x.kind}:${x.m.id}`)), ['message:1', 'system:2', 'card:c-eshmel']);
+  const card = stream[2];
+  assert.equal(card.kind === 'thread' && card.messages.length, 1);
+});
+
 test('one card per thread, at its newest message', () => {
   const stream = buildStream([
     msg(1, '01'), msg(2, '02', 'card:c-eshmel'), msg(3, '03'), msg(4, '04', null, 'd-fix'), msg(5, '05'),
   ], drafts);
-  assert.deepEqual(stream.map((x) => (x.kind === 'message' ? x.m.id : x.key)), [1, 3, 'card:c-eshmel', 5]);
+  assert.deepEqual(stream.map((x) => (x.kind === 'thread' ? x.key : x.m.id)), [1, 3, 'card:c-eshmel', 5]);
   const card = stream[2];
   assert.equal(card.kind === 'thread' && card.messages.length, 2);
 });

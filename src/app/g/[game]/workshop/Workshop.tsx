@@ -296,7 +296,7 @@ export function Workshop({ game, pages, routes }: {
   const chatCount = threadInfo ? threadMessages.filter((m) => !m.removed).length : chat.length;
 
   return (
-    <ChatLinks.Provider value={{ gameId: game.id, threads, open: openThread }}>
+    <ChatLinks.Provider value={{ gameId: game.id, threads, open: openThread, routes }}>
     {/* On phones the Chat tab fills the screen like the wide layout: messages scroll inside it
         and the message box stays at the bottom (page.tsx sizes the screen from data-phone-chat). */}
     <main data-phone-chat={phoneTab === 'chat' || undefined}
