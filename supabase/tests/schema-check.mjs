@@ -151,6 +151,11 @@ const declined = await db.query(`select count(*)::int as n from public.chat_mess
 declined.rows[0].n > 0 ? ok('declining posts a system note too') : bad('no declined note');
 await expectFail(C, `insert into public.chat_messages (game_id, author_id, body, kind) values ('fortunes-weave', '${C}', 'Totally official', 'system')`, 'villagers cannot post system notes');
 
+// Pictures and replies: a message can be pictures alone, never nothing at all.
+await expectOk(C, `insert into public.chat_messages (game_id, author_id, body, attachments, reply_to) values ('fortunes-weave', '${C}', '', '[{"path":"fortunes-weave/${C}/a.webp","w":800,"h":600}]', ${note.rows[0]?.id})`, 'a message can be a picture alone, replying to another');
+await expectFail(C, `insert into public.chat_messages (game_id, author_id, body) values ('fortunes-weave', '${C}', '')`, 'an empty message with no picture is refused');
+await expectFail(C, `insert into public.chat_messages (game_id, author_id, body, attachments) values ('fortunes-weave', '${C}', 'Too many', '[{},{},{},{},{}]')`, 'at most four pictures on a message');
+
 // Reactions: as yourself, once per emoji, and gone when you take it back.
 const noteId = note.rows[0]?.id;
 await expectOk(C, `insert into public.chat_reactions (message_id, profile_id, emoji) values (${noteId}, '${C}', '🎉')`, 'villager can react to a message');

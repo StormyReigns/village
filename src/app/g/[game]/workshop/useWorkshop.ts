@@ -25,12 +25,19 @@ export interface ChatMessage {
   /** 'system': written by the database when something happens (a Draft published), not a person. */
   kind: 'chat' | 'system';
   event: ChatEvent | null;
+  /** Pictures on the message (screenshots), in the chat-images bucket. */
+  attachments: Attachment[];
+  /** The message this one answers, quoted above it. */
+  replyTo: number | null;
   spoiler: boolean;
   /** Only moderators ever see removed messages. */
   removed: boolean;
   createdAt: string;
   author: Author;
 }
+
+/** A picture on a message: where it is in the chat-images bucket, and its size. */
+export interface Attachment { path: string; w: number; h: number }
 
 /** What a system message is about (written by the database, see 20261101120000_chat_reactions_system.sql). */
 export interface ChatEvent {
@@ -101,11 +108,11 @@ export interface ReportGroup {
 type Row = Record<string, unknown>;
 const PROFILE = 'id, username, display_name, avatar_url';
 const MESSAGE_COLUMNS = 'id, body, block_key, linked_draft_id, thread_key, spoiler, removed_at, created_at, author_id';
-const MESSAGE = `${MESSAGE_COLUMNS}, kind, event, author:profiles!chat_messages_author_id_fkey(${PROFILE})`;
+const MESSAGE = `${MESSAGE_COLUMNS}, kind, event, attachments, reply_to, author:profiles!chat_messages_author_id_fkey(${PROFILE})`;
 // Until the system-notes SQL (20261101120000_chat_reactions_system.sql) is run, the database
 // has no kind or event, so the chat reads without them rather than going dark.
-const OLD_MESSAGE = MESSAGE.replace('kind, event, ', '');
-const missingColumn = (e: { message?: string } | null) => Boolean(e && /(kind|event|thread_key)\b.*does not exist|does not exist.*(kind|event)/.test(e.message ?? ''));
+const OLD_MESSAGE = MESSAGE.replace('kind, event, attachments, reply_to, ', '');
+const missingColumn = (e: { message?: string } | null) => Boolean(e && /(kind|event|thread_key|attachments|reply_to)\b.*does not exist|does not exist.*(kind|event|attachments|reply_to)/.test(e.message ?? ''));
 
 function toAuthor(p: Row | null | undefined, id: string): Author {
   const username = (p?.username as string) ?? 'villager';
@@ -117,6 +124,7 @@ function toMessage(r: Row, author: Author): ChatMessage {
     id: r.id as number, body: r.body as string, blockKey: (r.block_key as string) ?? null,
     draftId: (r.linked_draft_id as string) ?? null, threadKey: (r.thread_key as string) ?? null,
     kind: r.kind === 'system' ? 'system' : 'chat', event: (r.event as ChatEvent | null) ?? null,
+    attachments: Array.isArray(r.attachments) ? (r.attachments as Attachment[]) : [], replyTo: (r.reply_to as number) ?? null,
     spoiler: Boolean(r.spoiler), removed: Boolean(r.removed_at),
     createdAt: r.created_at as string, author,
   };
@@ -143,6 +151,41 @@ export function plainError(message: string): string {
   if (/row-level security|permission/i.test(message)) return "That wasn't allowed. Try signing in again.";
   if (/fetch|network/i.test(message)) return "Couldn't reach the village. Check your connection and try again.";
   return message;
+}
+
+/** Where a chat picture can be seen. */
+export function imageUrl(path: string) {
+  return browserClient()?.storage.from('chat-images').getPublicUrl(path).data.publicUrl ?? '';
+}
+
+/**
+ * Puts a picture in the chat-images bucket, under game/you/, ready to send. Big pictures are
+ * made smaller first (1600 pixels at most, as WebP); GIFs go as they are, to keep them moving.
+ * Returns the picture, or an error in plain words.
+ */
+export async function uploadChatImage(gameId: string, meId: string, file: File): Promise<Attachment | string> {
+  const db = browserClient();
+  if (!db) return "Couldn't reach the village.";
+  if (!file.type.startsWith('image/')) return 'Only pictures can be shared here.';
+  let blob: Blob = file, type = file.type, ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+  let w = 0, h = 0;
+  try {
+    const bitmap = await createImageBitmap(file);
+    w = bitmap.width; h = bitmap.height;
+    if (file.type !== 'image/gif') {
+      const scale = Math.min(1, 1600 / Math.max(w, h));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(w * scale); canvas.height = Math.round(h * scale);
+      canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const small = await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/webp', 0.85));
+      if (small) { blob = small; type = 'image/webp'; ext = 'webp'; w = canvas.width; h = canvas.height; }
+    }
+  } catch { /* the browser couldn't read it: send it as it is */ }
+  if (blob.size > 5 * 1024 * 1024) return 'That picture is too big (5 MB at most).';
+  const path = `${gameId}/${meId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await db.storage.from('chat-images').upload(path, blob, { contentType: type, upsert: false });
+  if (error) return /bucket/i.test(error.message) ? 'Pictures are almost ready: the database needs one more update.' : plainError(error.message);
+  return { path, w, h };
 }
 
 export function useWorkshop(gameId: string, me: Villager | null | undefined) {
@@ -383,15 +426,18 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
   }, []);
 
   /** Posts a chat message. Returns an error in plain words, or null. */
-  const send = useCallback(async (body: string, opts: { blockKey?: string | null; draftId?: string | null; threadKey?: string | null; spoiler?: boolean } = {}) => {
+  const send = useCallback(async (body: string, opts: { blockKey?: string | null; draftId?: string | null; threadKey?: string | null; spoiler?: boolean; attachments?: Attachment[]; replyTo?: number | null } = {}) => {
     const db = browserClient();
     if (!db || !meId) return 'Sign in to chat.';
     const row: Row = { game_id: gameId, author_id: meId, body, block_key: opts.blockKey ?? null, linked_draft_id: opts.draftId ?? null, spoiler: Boolean(opts.spoiler) };
     if (opts.threadKey) row.thread_key = opts.threadKey;
+    if (opts.attachments?.length) row.attachments = opts.attachments;
+    if (opts.replyTo) row.reply_to = opts.replyTo;
     const { data, error } = await db.from('chat_messages').insert(row)
       .select(MESSAGE_COLUMNS).single();
+    if (missingColumn(error)) return 'Pictures and replies are almost ready: the database needs one more update.';
     if (error) return plainError(error.message);
-    addMessage(toMessage(data as unknown as Row, await authorFor(meId)));
+    addMessage({ ...toMessage(data as unknown as Row, await authorFor(meId)), attachments: opts.attachments ?? [], replyTo: opts.replyTo ?? null });
     return null;
   }, [gameId, meId, addMessage, authorFor]);
 

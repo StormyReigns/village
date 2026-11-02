@@ -29,6 +29,7 @@ import {
 import { ChatLinks, MessageText, Stream, ThreadPanel, useThreads, type Placed } from './chat/Chat';
 import { ago, ReportForm, SmallButton, useAction } from './chat/bits';
 import { blockThread, draftThread, entryThread, type ThreadKey } from '@/lib/threads';
+import { mentionsIn } from '@/lib/refs';
 import { EntryForm, ChangeList, type FormStart, type Posted } from './EntryForm';
 import { FieldSetup } from './FieldSetup';
 import { EditorChat, EditSwap } from './EditorShell';
@@ -275,13 +276,25 @@ export function Workshop({ game, pages, routes }: {
   };
   const threadInfo = thread ? threads.info(thread) : null;
   const threadMessages = thread ? threads.inThread(thread) : [];
+  // Mentions of you since you last had the chat open (on this device): a small "@" badge on the
+  // way into the chat, until you look.
+  const [mentionsSeen, setMentionsSeen] = useStored(`village:${game.id}:mentions-seen`, '');
+  const unseenMentions = myId ? live.messages.filter((m) => m.author.id !== myId && m.createdAt > mentionsSeen && mentionsIn(m.body).includes(myId)).length : 0;
+  const chatShowing = phoneTab === 'chat' || (beside && !chatFolded);
+  useEffect(() => {
+    if (chatShowing && unseenMentions) setMentionsSeen(new Date().toISOString());
+  }, [chatShowing, unseenMentions, setMentionsSeen]);
+  const mentionBadge = unseenMentions > 0 && (
+    <span aria-label={`${unseenMentions} new mention${unseenMentions === 1 ? '' : 's'} of you`}
+      className="ml-1 rounded-full bg-signal px-1.5 text-xs font-bold text-ink">@{unseenMentions}</span>
+  );
   // Phones show the chat or the work, one at a time. The switch between them sits at the top
   // right of whichever is showing, in the same spot, so the chat gets the whole height.
   const phoneSwitch = (
     <div role="tablist" aria-label="Build or chat" className="inline-flex shrink-0 rounded-full bg-card-2 p-0.5 ring-1 ring-line lg:hidden">
       {([['work', 'Build'], ['chat', `Chat · ${chat.length}`]] as const).map(([k, label]) => (
         <button key={k} role="tab" aria-selected={phoneTab === k} onClick={() => setPhoneTab(k)}
-          className={'whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-bold ' + (phoneTab === k ? 'bg-ink text-paper' : 'text-muted')}>{label}</button>
+          className={'whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-bold ' + (phoneTab === k ? 'bg-ink text-paper' : 'text-muted')}>{label}{k === 'chat' && mentionBadge}</button>
       ))}
     </div>
   );
@@ -296,7 +309,7 @@ export function Workshop({ game, pages, routes }: {
   const chatCount = threadInfo ? threadMessages.filter((m) => !m.removed).length : chat.length;
 
   return (
-    <ChatLinks.Provider value={{ gameId: game.id, threads, open: openThread, routes }}>
+    <ChatLinks.Provider value={{ gameId: game.id, threads, open: openThread, routes, me: myId }}>
     {/* On phones the Chat tab fills the screen like the wide layout: messages scroll inside it
         and the message box stays at the bottom (page.tsx sizes the screen from data-phone-chat). */}
     <main data-phone-chat={phoneTab === 'chat' || undefined}
@@ -341,6 +354,7 @@ export function Workshop({ game, pages, routes }: {
               <PanelLeftOpen size={18} aria-hidden="true" />
               <MessageCircle size={18} className="text-sky" aria-hidden="true" />
               <span className="text-xs font-bold">{chat.length}</span>
+              {mentionBadge}
             </button>
           </Tip>
           </div>

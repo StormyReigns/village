@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, EyeOff, FileText, Flag, MessageCircle, MoreHorizontal, PanelLeftClose, PanelRight, PenLine, Play, ExternalLink, RotateCcw, Send, SmilePlus, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowLeft, CornerUpLeft, EyeOff, FileText, Flag, ImagePlus, MessageCircle, MoreHorizontal, PanelLeftClose, PanelRight, PenLine, Play, ExternalLink, RotateCcw, Send, SmilePlus, Sparkles, Trash2, X } from 'lucide-react';
 import type { Block, Entry, EntryContent, Page } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
 import { EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
@@ -11,13 +11,13 @@ import { Tip } from '@/components/Tip';
 import type { Villager } from '@/components/useVillager';
 import { sharePath } from '@/data/pages/links';
 import { blockThread, buildStream, draftThread, entryThread, resolveThread, threadOf, type ThreadKey } from '@/lib/threads';
-import { encodeRefs, insertPick, refsIn as refs, splitRefs, typedHash, type Ref } from '@/lib/refs';
+import { encodeRefs, insertPick, mentionsIn, mentionToken, plainRefs, refsIn as refs, refToken, splitRefs, typedMark } from '@/lib/refs';
 import { findLinks, linksIn, VILLAGE_HOSTS, villagePath, youTube } from '@/lib/links';
 import { resolveItem } from '@/data/pages/links';
 import { rank, type Searchable } from '@/lib/search';
 import { findReactions, QUICK } from '@/lib/reactions';
 import { browserClient } from '@/lib/supabase/browser';
-import { targetKey, type ChatMessage, type LiveDraft, type Reaction, type WorkshopData } from '../useWorkshop';
+import { imageUrl, targetKey, uploadChatImage, type Attachment, type ChatMessage, type LiveDraft, type Reaction, type WorkshopData } from '../useWorkshop';
 import { changesBetween } from '../changes';
 import { ChangeList } from '../EntryForm';
 import { ago, clock, fullTime, ReportForm, SmallButton, useAction } from './bits';
@@ -124,7 +124,15 @@ export function useThreads(blocks: Placed[], drafts: LiveDraft[], messages: Chat
       const found = page ? resolveItem(page, item) : null;
       return found?.entry ? entryThread(found.block.id, found.entry) : null;
     };
-    return { info, counts, inThread, options, byId, entryAt, resolve: (k: ThreadKey) => resolveThread(k, byId) };
+    // Everyone who has talked or posted a Draft here, for "@" and for showing mentions.
+    const peopleById = new Map<string, { id: string; name: string; username: string }>();
+    for (const x of [...messages.filter((m) => m.kind !== 'system').map((m) => m.author), ...drafts.map((d) => d.author)]) {
+      if (!peopleById.has(x.id)) peopleById.set(x.id, { id: x.id, name: x.name, username: x.username });
+    }
+    const people = [...peopleById.values()].sort((a, b) => a.name.localeCompare(b.name));
+    const personName = (id: string) => peopleById.get(id)?.name ?? 'someone';
+    const byMessage = new Map(messages.map((m) => [m.id, m]));
+    return { info, counts, inThread, options, people, personName, byId, byMessage, entryAt, resolve: (k: ThreadKey) => resolveThread(k, byId) };
   }, [blocks, drafts, messages]);
 }
 
@@ -135,7 +143,7 @@ export interface RefOption { key: ThreadKey; label: string; where: string; searc
  * What the chat needs to turn "#Eshmel" into a link: the game, its threads, and how to open
  * one. Provided once by the Workshop, so every message box and message can use it.
  */
-export const ChatLinks = createContext<{ gameId: string; threads: Threads; open: (key: ThreadKey) => void; routes: RouteOption[] } | null>(null);
+export const ChatLinks = createContext<{ gameId: string; threads: Threads; open: (key: ThreadKey) => void; routes: RouteOption[]; me?: string | null } | null>(null);
 
 /** A message's words, with each "#" reference as a tag in its Page's color that opens the thread. */
 export function MessageText({ body }: { body: string }) {
@@ -144,6 +152,15 @@ export function MessageText({ body }: { body: string }) {
     <>
       {splitRefs(body).map((p, i) => {
         if ('text' in p) return <LinkedText key={i} text={p.text} />;
+        if ('mention' in p) {
+          const you = links?.me === p.mention;
+          return (
+            <span key={i} className={'rounded-md px-1 font-bold ' + (you ? 'text-ink' : 'text-sky')}
+              style={you ? { background: 'color-mix(in srgb, var(--signal) 45%, transparent)' } : undefined}>
+              @{links ? links.threads.personName(p.mention) : 'someone'}
+            </span>
+          );
+        }
         if (!links) return <span key={i} className="font-bold">#a thread</span>;
         if (p.ref.game !== links.gameId) return <span key={i} className="font-bold">#a thread in another game</span>;
         // info() never fails: something deleted or hidden since comes back as 'unknown', and
@@ -298,6 +315,43 @@ function Reactions({ m, me, live, picking, onPicked, centered = false }: {
   );
 }
 
+/** Pictures on a message: one shown large, several in a grid. Tap one to see it full size. */
+function Pictures({ list, by }: { list: Attachment[]; by: string }) {
+  if (!list.length) return null;
+  const one = list.length === 1;
+  return (
+    <div className={'mt-1.5 grid gap-1 ' + (one ? '' : 'grid-cols-2')}>
+      {list.map((a) => (
+        <a key={a.path} href={imageUrl(a.path)} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-xl bg-card-2 ring-1 ring-line">
+          {/* eslint-disable-next-line @next/next/no-img-element -- a villager's picture from our own storage, any size */}
+          <img src={imageUrl(a.path)} alt={`Picture shared by ${by}`} loading="lazy"
+            className={one ? 'max-h-72 w-auto max-w-full object-contain' : 'aspect-square size-full object-cover'}
+            style={one && a.w && a.h ? { aspectRatio: `${a.w} / ${a.h}` } : undefined} />
+        </a>
+      ))}
+    </div>
+  );
+}
+
+/** The message a reply answers, quoted at the top of the reply. Tap it to see the original. */
+function Quote({ id }: { id: number }) {
+  const links = useContext(ChatLinks);
+  const q = links?.threads.byMessage.get(id);
+  const show = () => {
+    const el = document.getElementById(`msg-${id}`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    el.animate?.([{ backgroundColor: 'color-mix(in srgb, var(--signal) 35%, transparent)' }, { backgroundColor: 'transparent' }], { duration: 1400 });
+  };
+  return (
+    <button type="button" onClick={show} disabled={!q}
+      className="mb-1 flex w-full min-w-0 items-start gap-1.5 rounded-lg border-l-2 border-ink/40 bg-ink/5 px-2 py-1 text-left text-xs hover:bg-ink/10">
+      <CornerUpLeft size={12} className="mt-0.5 shrink-0 text-muted" aria-hidden="true" />
+      <span className="min-w-0 truncate">{q ? <><b>{q.author.name}</b> {q.spoiler ? 'Spoiler' : gist(q, links)}</> : 'A message no longer here'}</span>
+    </button>
+  );
+}
+
 /** The Village's own mark for system notes: never a person's picture. */
 function SystemMark({ size = 22 }: { size?: number }) {
   return (
@@ -307,10 +361,12 @@ function SystemMark({ size = 22 }: { size?: number }) {
   );
 }
 
-export function Message({ m, me, live, compact = false, small = false }: {
+export function Message({ m, me, live, compact = false, small = false, onReply }: {
   m: ChatMessage; me: Villager | null | undefined; live: WorkshopData; compact?: boolean;
   /** Inside a thread: a little smaller than the main chat, as a part of it. */
   small?: boolean;
+  /** Answer this message: the box quotes it until you send. */
+  onReply?: (m: ChatMessage) => void;
 }) {
   const [shown, setShown] = useState(false);
   const [tools, setTools] = useState(false);
@@ -343,11 +399,14 @@ export function Message({ m, me, live, compact = false, small = false }: {
   // In full: a soft bubble, yours on the right, everyone else's on the left with their picture.
   // Reacting and the options sit beside it: on hover with a mouse, always on a touch screen.
   return (
-    <li className={'group flex items-start gap-2 ' + (own ? 'flex-row-reverse ' : '') + (m.removed ? 'opacity-50' : '')}>
+    <li id={`msg-${m.id}`} className={'group flex scroll-my-6 items-start gap-2 ' + (own ? 'flex-row-reverse ' : '') + (m.removed ? 'opacity-50' : '')}>
       {!own && <Avatar name={m.author.name} url={m.author.avatarUrl} size={small ? 26 : 32} />}
       <div className={'flex min-w-0 max-w-[88%] flex-col ' + (own ? 'items-end' : 'items-start')}>
-        <div tabIndex={-1} className={'min-w-0 max-w-full rounded-2xl px-3 py-2 outline-none ' + (own ? 'rounded-tr-md' : 'rounded-tl-md bg-card ring-1 ring-line')}
+        {/* A message that mentions you has a yellow ring, so it stands out as yours to answer. */}
+        <div tabIndex={-1} className={'min-w-0 max-w-full rounded-2xl px-3 py-2 outline-none transition-shadow ' + (own ? 'rounded-tr-md' : 'rounded-tl-md bg-card '
+          + (me && mentionsIn(m.body).includes(me.id) ? 'ring-2 ring-signal' : 'ring-1 ring-line'))}
           style={own ? { background: 'color-mix(in srgb, var(--signal) 26%, var(--card))' } : undefined}>
+          {m.replyTo && <Quote id={m.replyTo} />}
           <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
             <span className="font-bold">{own ? 'You' : m.author.name}</span>
             <time dateTime={m.createdAt} title={fullTime(m.createdAt)} className="text-xs text-muted">{clock(m.createdAt)}</time>
@@ -359,7 +418,8 @@ export function Message({ m, me, live, compact = false, small = false }: {
             </button>
           ) : (
             <>
-              <p className={'whitespace-pre-wrap break-words ' + (small ? 'text-sm' : '')}><MessageText body={m.body} /></p>
+              {m.body && <p className={'whitespace-pre-wrap break-words ' + (small ? 'text-sm' : '')}><MessageText body={m.body} /></p>}
+              <Pictures list={m.attachments} by={m.author.name} />
               <LinkedCard body={m.body} me={me} live={live} />
             </>
           )}
@@ -395,6 +455,14 @@ export function Message({ m, me, live, compact = false, small = false }: {
               <button type="button" onClick={() => setPicking(!picking)} aria-expanded={picking} aria-label="Add a reaction"
                 className="grid size-7 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
                 <SmilePlus size={16} aria-hidden="true" />
+              </button>
+            </Tip>
+          )}
+          {me && onReply && !m.removed && (
+            <Tip text="Reply">
+              <button type="button" onClick={() => onReply(m)} aria-label="Reply"
+                className="grid size-7 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
+                <CornerUpLeft size={16} aria-hidden="true" />
               </button>
             </Tip>
           )}
@@ -537,36 +605,54 @@ function LinkedCard({ body, me, live }: { body: string; me: Villager | null | un
   );
 }
 
+/** What a message carries besides its words. */
+export interface Extra { attachments: Attachment[]; replyTo: number | null }
+
+/** The first words of a message, for a quote or a "Replying to" line. */
+const gist = (m: ChatMessage, links: { threads: Threads } | null) => {
+  const words = plainRefs(m.body, (r) => (links ? links.threads.info(links.threads.resolve(r.key)).title : 'a thread'), (id) => links?.threads.personName(id) ?? 'someone').trim();
+  return words || (m.attachments.length ? (m.attachments.length > 1 ? `${m.attachments.length} pictures` : 'A picture') : '');
+};
+
 /**
- * The message box: a text field, a spoiler switch and Send. Visitors get a sign-in button.
- * Typing "#" opens a list of things to point at (#esh finds Eshmel); picking one writes
- * #Eshmel, and sending turns it into a link to his thread.
+ * The message box: a text field that grows to several lines, a picture button, a spoiler
+ * switch and Send. Visitors get a sign-in button. Typing "#" lists things to point at (#esh
+ * finds Eshmel) and "@" lists people (@an finds Ana); picking writes #Eshmel or @Ana, and
+ * sending turns them into links. Pictures can also be pasted in.
  */
-export function Composer({ me, placeholder, onSend, id, compact = false, onShade = false }: {
-  me: Villager | null | undefined; placeholder: string; onSend: (body: string, spoiler: boolean) => Promise<string | null>;
+export function Composer({ me, placeholder, onSend, id, compact = false, onShade = false, replyTo = null, onCancelReply }: {
+  me: Villager | null | undefined; placeholder: string; onSend: (body: string, spoiler: boolean, extra: Extra) => Promise<string | null>;
   /** The stream's box has an id, so "Say hi" can put the cursor in it. */
   id?: string;
-  /** Inside a thread's card: smaller, and no sign-in button (the stream's box has one). */
+  /** Inside a thread's card: smaller, no pictures, and no sign-in button (the stream's box has one). */
   compact?: boolean;
   /** On a thread's darker frame: a white box, so it still stands out. */
   onShade?: boolean;
+  /** The message being answered, quoted above the box until it's sent or cancelled. */
+  replyTo?: ChatMessage | null;
+  onCancelReply?: () => void;
 }) {
   const [text, setText] = useState('');
   const field = useRef<HTMLTextAreaElement>(null);
+  const files = useRef<HTMLInputElement>(null);
   const [spoiler, setSpoiler] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const links = useContext(ChatLinks);
   const [caret, setCaret] = useState(0);
-  const [picked, setPicked] = useState<{ label: string; ref: Ref }[]>([]);
+  const [picked, setPicked] = useState<{ label: string; mark: '#' | '@'; token: string }[]>([]);
   const [sel, setSel] = useState(0);
   const [hidden, setHidden] = useState(false);
+  const [pictures, setPictures] = useState<{ file: File; preview: string }[]>([]);
 
   const listId = useId();
-  const hash = links ? typedHash(text, caret) : null;
-  const query = hash ? hash.query : null;
-  const choices = query === null || !links ? [] : rank(links.threads.options, query, (o) => o.search).slice(0, query ? 8 : 40);
-  const picking = Boolean(hash && !hidden && choices.length);
+  const typed = links ? typedMark(text, caret) : null;
+  const choices: { key: string; label: string; where: string }[] = !typed || !links ? []
+    : typed.mark === '#'
+      ? rank(links.threads.options, typed.query, (o) => o.search).slice(0, typed.query ? 8 : 40)
+      : rank(links.threads.people.filter((p) => p.id !== me?.id), typed.query, (p) => ({ name: p.name, text: p.username }))
+        .slice(0, 8).map((p) => ({ key: p.id, label: p.name, where: `@${p.username}` }));
+  const picking = Boolean(typed && !hidden && choices.length);
   // The box grows with what's written, up to about six lines, then scrolls.
   useEffect(() => {
     const el = field.current;
@@ -574,49 +660,98 @@ export function Composer({ me, placeholder, onSend, id, compact = false, onShade
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, [text]);
+  // Choosing Reply puts the cursor in the box.
+  useEffect(() => { if (replyTo) field.current?.focus(); }, [replyTo]);
 
   if (me === null) return compact ? null : <div className="mt-auto pt-2"><SignInPrompt>Sign in to chat</SignInPrompt></div>;
 
-  const pick = (o: RefOption) => {
-    if (!hash || !links) return;
-    const next = insertPick(text, hash.start, caret, o.label);
+  const pick = (o: { key: string; label: string }) => {
+    if (!typed || !links) return;
+    const next = insertPick(text, typed.start, caret, o.label, typed.mark);
     setText(next.text);
     setCaret(next.caret);
-    setPicked((p) => [...p.filter((x) => x.label !== o.label), { label: o.label, ref: { game: links.gameId, key: o.key } }]);
+    const token = typed.mark === '#' ? refToken({ game: links.gameId, key: o.key }) : mentionToken(o.key);
+    setPicked((p) => [...p.filter((x) => !(x.label === o.label && x.mark === typed.mark)), { label: o.label, mark: typed.mark, token }]);
     setSel(0);
     requestAnimationFrame(() => { field.current?.focus(); field.current?.setSelectionRange(next.caret, next.caret); });
   };
 
+  const addPictures = (list: FileList | File[]) => {
+    const images = [...list].filter((f) => f.type.startsWith('image/'));
+    if (!images.length) return;
+    setError(pictures.length + images.length > 4 ? 'Four pictures at most on one message.' : '');
+    setPictures((p) => [...p, ...images.map((file) => ({ file, preview: URL.createObjectURL(file) }))].slice(0, 4));
+  };
+  const dropPicture = (i: number) => setPictures((p) => {
+    URL.revokeObjectURL(p[i].preview);
+    return p.filter((_, j) => j !== i);
+  });
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const body = encodeRefs(text.trim(), picked);
-    if (!body || busy) return;
+    if ((!body && !pictures.length) || busy || !me || !links) return;
     setBusy(true);
-    const err = await onSend(body, spoiler);
+    const attachments: Attachment[] = [];
+    for (const p of pictures) {
+      const up = await uploadChatImage(links.gameId, me.id, p.file);
+      if (typeof up === 'string') { setBusy(false); setError(up); return; }
+      attachments.push(up);
+    }
+    const err = await onSend(body, spoiler, { attachments, replyTo: replyTo?.id ?? null });
     setBusy(false);
     setError(err ?? '');
-    if (!err) { setText(''); setSpoiler(false); setPicked([]); setCaret(0); }
+    if (!err) {
+      setText(''); setSpoiler(false); setPicked([]); setCaret(0);
+      pictures.forEach((p) => URL.revokeObjectURL(p.preview));
+      setPictures([]);
+      onCancelReply?.();
+    }
   };
   const size = compact ? 'size-7' : 'size-9';
   const track = (el: HTMLTextAreaElement) => setCaret(el.selectionStart ?? el.value.length);
   // Enter sends and Shift+Enter starts a new line. On a phone (no hover, an on-screen keyboard)
   // Enter starts a new line, and the Send button sends.
   const enterSends = () => typeof window !== 'undefined' && !window.matchMedia('(hover: none)').matches;
+  const canSend = Boolean(text.trim() || pictures.length);
 
   return (
     <div className={'relative ' + (compact ? '' : 'mt-auto')}>
-      {picking && (
-        <ul id={listId} role="listbox" aria-label="Point at something" className="absolute inset-x-0 bottom-full z-30 mb-2 max-h-64 overflow-y-auto overscroll-contain rounded-2xl bg-card p-1 shadow-soft ring-1 ring-line">
+      {picking && typed && (
+        <ul id={listId} role="listbox" aria-label={typed.mark === '#' ? 'Point at something' : 'Mention someone'} className="absolute inset-x-0 bottom-full z-30 mb-2 max-h-64 overflow-y-auto overscroll-contain rounded-2xl bg-card p-1 shadow-soft ring-1 ring-line">
           {choices.map((o, i) => (
             <li key={o.key} role="option" aria-selected={i === sel}>
               <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => pick(o)} onMouseEnter={() => setSel(i)}
                 className={'flex w-full items-baseline gap-2 rounded-xl px-2.5 py-1.5 text-left text-sm ' + (i === sel ? 'bg-card-2 ring-1 ring-ink' : '')}>
-                <span className="shrink-0 font-bold">#{o.label}</span>
+                <span className="shrink-0 font-bold">{typed.mark}{o.label}</span>
                 <span className="min-w-0 truncate text-xs text-muted">{o.where}</span>
               </button>
             </li>
           ))}
         </ul>
+      )}
+      {replyTo && (
+        <div className="mb-1.5 flex items-center gap-2 rounded-xl bg-card-2 px-3 py-1.5 text-xs ring-1 ring-line">
+          <CornerUpLeft size={13} className="shrink-0 text-muted" aria-hidden="true" />
+          <span className="min-w-0 flex-1 truncate">Replying to <b>{replyTo.author.id === me?.id ? 'yourself' : replyTo.author.name}</b>: {gist(replyTo, links)}</span>
+          <button type="button" onClick={onCancelReply} aria-label="Don't reply" className="grid size-5 shrink-0 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
+            <X size={12} aria-hidden="true" />
+          </button>
+        </div>
+      )}
+      {pictures.length > 0 && (
+        <div className="mb-1.5 flex flex-wrap gap-1.5">
+          {pictures.map((p, i) => (
+            <div key={p.preview} className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element -- a picture from your own device, before it's sent */}
+              <img src={p.preview} alt="" className={'size-14 rounded-xl object-cover ring-1 ring-line ' + (spoiler ? 'blur-sm' : '')} />
+              <button type="button" onClick={() => dropPicture(i)} aria-label="Remove this picture"
+                className="absolute -right-1.5 -top-1.5 grid size-5 place-items-center rounded-full bg-ink text-paper ring-2 ring-card">
+                <X size={11} aria-hidden="true" />
+              </button>
+            </div>
+          ))}
+        </div>
       )}
       {/* The whole box takes a click: the text field fills its height, and a click on its edge lands in the field. */}
       <form onSubmit={submit} onMouseDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); field.current?.focus(); } }}
@@ -624,6 +759,7 @@ export function Composer({ me, placeholder, onSend, id, compact = false, onShade
         <textarea ref={field} id={id} value={text} maxLength={4000} disabled={me === undefined} rows={1}
           onChange={(e) => { setText(e.target.value); track(e.target); setHidden(false); setSel(0); if (error) setError(''); }}
           onSelect={(e) => track(e.currentTarget)}
+          onPaste={(e) => { if (!compact && e.clipboardData.files.length) { e.preventDefault(); addPictures(e.clipboardData.files); } }}
           onBlur={() => setHidden(true)}
           onFocus={() => {
             setHidden(false);
@@ -642,17 +778,30 @@ export function Composer({ me, placeholder, onSend, id, compact = false, onShade
           }}
           role="combobox" aria-expanded={picking} aria-controls={listId} aria-autocomplete="list"
           className={'max-h-40 min-w-0 flex-1 resize-none self-center overflow-y-auto bg-transparent outline-none placeholder:text-muted ' + (compact ? 'px-2.5 py-1 text-sm leading-5' : 'px-3 py-1.5 leading-6')} placeholder={placeholder} aria-label={placeholder} />
+        {!compact && (
+          <>
+            <input ref={files} type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple className="hidden"
+              onChange={(e) => { if (e.target.files) addPictures(e.target.files); e.target.value = ''; }} />
+            <Tip text="Add a picture (or paste one)" className="shrink-0">
+              <button type="button" onClick={() => files.current?.click()} disabled={pictures.length >= 4}
+                className={'grid place-items-center rounded-full text-muted hover:text-ink disabled:opacity-40 ' + size}>
+                <ImagePlus size={16} aria-hidden="true" /><span className="sr-only">Add a picture</span>
+              </button>
+            </Tip>
+          </>
+        )}
         <Tip text="Spoiler: hide this message behind a tap" className="shrink-0">
           <button type="button" onClick={() => setSpoiler(!spoiler)} aria-pressed={spoiler}
             className={'grid place-items-center rounded-full ' + size + ' ' + (spoiler ? 'bg-ink text-paper' : 'text-muted hover:text-ink')}>
             <EyeOff size={compact ? 14 : 16} aria-hidden="true" /><span className="sr-only">Spoiler</span>
           </button>
         </Tip>
-        <button disabled={busy || !text.trim()} className={'btn-primary grid place-items-center rounded-full disabled:opacity-50 ' + size} aria-label="Send">
+        <button disabled={busy || !canSend} className={'btn-primary grid place-items-center rounded-full disabled:opacity-50 ' + size} aria-label={busy ? 'Sending' : 'Send'}>
           <Send size={compact ? 14 : 16} aria-hidden="true" />
         </button>
       </form>
       {spoiler && <p className="mt-1 px-3 text-xs text-muted">Hidden behind a tap until someone chooses to read it.</p>}
+      {busy && pictures.length > 0 && <p role="status" className="mt-1 px-3 text-xs text-muted">Sending your picture{pictures.length > 1 ? 's' : ''}…</p>}
       {error && <p role="status" className="mt-1 px-3 text-sm text-berry">{error}</p>}
     </div>
   );
@@ -660,9 +809,9 @@ export function Composer({ me, placeholder, onSend, id, compact = false, onShade
 
 /** Sends a message into a thread, stored under its key and tagged with its Page. */
 export function sendToThread(live: WorkshopData, info: ThreadInfo) {
-  return (body: string, spoiler: boolean) => live.send(body, {
+  return (body: string, spoiler: boolean, extra?: Extra) => live.send(body, {
     blockKey: info.block?.page.id ?? null, threadKey: info.key,
-    draftId: info.kind === 'new' ? info.drafts.at(-1)?.id ?? null : null, spoiler,
+    draftId: info.kind === 'new' ? info.drafts.at(-1)?.id ?? null : null, spoiler, ...extra,
   });
 }
 
@@ -743,6 +892,7 @@ export function Stream({ topic, onAll, onFold, switcher, bar, className = '', me
   onOpen: (key: ThreadKey) => void;
 }) {
   const items = useMemo(() => buildStream(messages, threads.byId), [messages, threads.byId]);
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const last = messages.at(-1);
   const { list, onScroll } = useStickToBottom(last?.id, me, last?.author.id);
 
@@ -775,7 +925,7 @@ export function Stream({ topic, onAll, onFold, switcher, bar, className = '', me
         </div></div>
       ) : (
         <ul ref={list} onScroll={onScroll} aria-live="polite" className={WALL_LIST} style={WALL}>
-          {items.map((x) => x.kind === 'message' ? <Message key={x.m.id} m={x.m} me={me} live={live} />
+          {items.map((x) => x.kind === 'message' ? <Message key={x.m.id} m={x.m} me={me} live={live} onReply={setReplyTo} />
             : x.kind === 'system' ? <SystemLine key={x.m.id} m={x.m} me={me} live={live} />
             : <ThreadCard key={x.key} info={threads.info(x.key)} messages={x.messages} me={me} live={live} onOpen={() => onOpen(x.key)} />)}
           {messages.length < 4 && (
@@ -786,7 +936,8 @@ export function Stream({ topic, onAll, onFold, switcher, bar, className = '', me
         </ul>
       )}
       <Composer id="chat-input" me={me} placeholder={topic ? `Message about ${topic.label}` : 'Message everyone'}
-        onSend={(body, spoiler) => live.send(body, { blockKey: topic?.key ?? null, spoiler })} />
+        replyTo={replyTo} onCancelReply={() => setReplyTo(null)}
+        onSend={(body, spoiler, extra) => live.send(body, { blockKey: topic?.key ?? null, spoiler, ...extra })} />
     </section>
   );
 }
@@ -813,6 +964,7 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, switcher
   className?: string;
 }) {
   const { loadThread } = live;
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const keys = info.storedKeys.join('|');
   const draftIds = info.drafts.map((d) => d.id).join(',');
   // The whole history, past the newest messages the Workshop loads.
@@ -875,7 +1027,7 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, switcher
         )}
         {timeline.map((x) => 'm' in x ? (x.m.kind === 'system'
           ? <SystemNote key={`m${x.m.id}`} m={x.m} info={info} me={me} live={live} />
-          : <Message key={`m${x.m.id}`} m={x.m} me={me} live={live} small />) : (
+          : <Message key={`m${x.m.id}`} m={x.m} me={me} live={live} small onReply={setReplyTo} />) : (
           <li key={`d${x.d.id}`} className="flex items-center gap-2.5 rounded-2xl bg-card-2 px-3 py-2 text-sm ring-1 ring-line">
             <FileText size={16} className="shrink-0 text-muted" aria-hidden="true" />
             <span className="min-w-0 flex-1">
@@ -888,7 +1040,8 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, switcher
           </li>
         ))}
       </ul>
-      <Composer onShade me={me} placeholder={`Message about ${info.title}`} onSend={sendToThread(live, info)} />
+      <Composer onShade me={me} placeholder={`Message about ${info.title}`} onSend={sendToThread(live, info)}
+        replyTo={replyTo} onCancelReply={() => setReplyTo(null)} />
     </section>
   );
 }

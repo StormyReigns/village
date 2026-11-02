@@ -1,6 +1,6 @@
 # The Workshop chat
 
-**Status:** Building: threads, `#` references, reactions and system notes built 2026-11-01; Town Hall next ·
+**Status:** Building: threads, `#` references, reactions, system notes, links, pictures, replies and @mentions built 2026-11-01; Town Hall next ·
 **Chat:** `Village · Chat` (owns the chat's design and this file) · **Code:**
 `src/app/g/[game]/workshop/chat/Chat.tsx` (`Stream`, `ThreadCard`, `ThreadPanel`, `Message`,
 `Composer`, `useThreads`), `chat/bits.tsx` (report form and small shared pieces),
@@ -235,6 +235,29 @@ in the app.
 
 Later: Village-made reactions, unread marks, presence ("Ben is editing"), notes when
 a new Draft is posted.
+
+## Step 4: links, pictures, replies and @mentions (built 2026-11-01)
+
+From the "where do builders leave the chat" map (agreed with Matt; general website previews,
+GIFs, polls and files left out for now):
+- **Links** are real links (new tab, marked nofollow). A **YouTube** link gets a picture card
+  with a play mark and its start time (the picture comes from YouTube's own address, so no
+  server work). A pasted **Village entry link** reads as its #tag and gets its card. (`src/lib/links.ts`)
+- **Several lines**: the box grows to about six lines. Enter sends, Shift+Enter starts a new
+  line; on phones Enter starts a new line and Send sends.
+- **Pictures** (screenshots as proof): the picture button, or paste one in; up to four per
+  message, 5 MB each, made smaller before sending (1600 px, WebP; GIFs kept moving). A message
+  can be pictures alone. One picture shows large, several in a grid; tap for full size. The
+  spoiler switch hides them too. Stored in the public `chat-images` bucket under
+  game/person/; only you can upload into your folder; you and the game's moderators can delete.
+- **Reply**: the arrow beside a message quotes it above the box; the reply shows the quote at
+  its top, and tapping the quote scrolls to the original. (`chat_messages.reply_to`)
+- **@mentions** (lite): typing @ lists people who have talked or posted Drafts here; the message
+  shows @Name, and a message that mentions you has a yellow ring. A yellow "@2" badge on the
+  way into the chat counts mentions of you since you last had it open, on this device.
+  Real notifications (on any device, by email) come with unread marks later.
+- Needs `20261101180000_chat_images_replies.sql` for pictures and replies; links, YouTube
+  cards, several lines and mentions work without it.
 
 ## Proposal: one stream, threads that surface (2026-11-01, step 1 built)
 
