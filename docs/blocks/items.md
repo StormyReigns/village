@@ -1,6 +1,6 @@
 # Block 2: Items
 
-**Status:** Built, first version (2026-11-02); live on Fortune's Weave once the SQL is run ·
+**Status:** Live, first version (2026-11-02), on Fortune's Weave · Items and Weapons and magic ·
 **Chat:** `Village · Block: Items` · **Mockup:** none yet · **Code:**
 `src/components/app/Items.tsx` (tiles, List, Compare, Got it), `src/lib/items.ts` (group
 order), the item fields in `src/lib/fields.ts` (`ITEM_FIELDS`, `tileFields`, `linkedFrom`),

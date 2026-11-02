@@ -30,7 +30,7 @@ designed properly), **Idea** (not built).
 | # | Block | Status | Where it's used now | Spec |
 |---|-------|--------|---------------------|------|
 | 1 | Characters | Refined, still being polished | Fortune's Weave · Units | [characters.md](characters.md) |
-| 2 | Items | Built, first version (live once its SQL is run) | Fortune's Weave · Items, Weapons and magic | [items.md](items.md) |
+| 2 | Items | Live, first version | Fortune's Weave · Items, Weapons and magic | [items.md](items.md) |
 | – | Collection: map | Live, first version | Fortune's Weave · Dungeons and places | |
 | – | Collection: slots and rows | Live, first version | Classes, Foes, Mysteries | |
 | – | Checklist | Live, first version | Last chances | |
