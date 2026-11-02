@@ -78,13 +78,14 @@ export function Lightbox({ pictures, start, by, when, messageLink, onClose }: {
     try { await navigator.clipboard.writeText(messageLink); flash('link'); } catch { setError("Couldn't copy the link."); }
   };
 
-  const tool = 'inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-2 text-sm font-bold text-paper hover:bg-white/20';
+  // Solid buttons, so they stand out on any backdrop (the black chat behind it on phones).
+  const tool = 'inline-flex items-center gap-1.5 rounded-full bg-card px-3.5 py-2 text-sm font-bold text-ink shadow-soft ring-1 ring-line hover:ring-2 hover:ring-signal';
   return createPortal(
     <div role="dialog" aria-modal="true" aria-label={`Picture shared by ${by}`} onClick={onClose}
-      className="fixed inset-0 z-[90] flex flex-col bg-ink/90 text-paper">
+      className="fixed inset-0 z-[90] flex flex-col bg-ink/95 text-paper backdrop-blur-sm">
       <div className="flex items-center gap-3 px-4 py-3" onClick={(e) => e.stopPropagation()}>
         <p className="min-w-0 flex-1 truncate text-sm"><b>{by}</b> <span className="opacity-70">· {when}{many ? ` · ${at + 1} of ${pictures.length}` : ''}</span></p>
-        <button ref={close} type="button" onClick={onClose} aria-label="Close" className="grid size-10 shrink-0 place-items-center rounded-full bg-white/10 hover:bg-white/20">
+        <button ref={close} type="button" onClick={onClose} aria-label="Close" className="grid size-10 shrink-0 place-items-center rounded-full bg-card text-ink shadow-soft hover:ring-2 hover:ring-signal">
           <X size={20} aria-hidden="true" />
         </button>
       </div>
@@ -95,18 +96,18 @@ export function Lightbox({ pictures, start, by, when, messageLink, onClose }: {
         {many && (
           <>
             <button type="button" aria-label="Previous picture" onClick={(e) => { e.stopPropagation(); setAt((at - 1 + pictures.length) % pictures.length); }}
-              className="absolute left-3 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-ink/70 hover:bg-ink">
+              className="absolute left-3 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-card text-ink shadow-soft hover:ring-2 hover:ring-signal">
               <ChevronLeft size={22} aria-hidden="true" />
             </button>
             <button type="button" aria-label="Next picture" onClick={(e) => { e.stopPropagation(); setAt((at + 1) % pictures.length); }}
-              className="absolute right-3 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-ink/70 hover:bg-ink">
+              className="absolute right-3 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-card text-ink shadow-soft hover:ring-2 hover:ring-signal">
               <ChevronRight size={22} aria-hidden="true" />
             </button>
           </>
         )}
       </div>
       <div className="flex flex-wrap items-center justify-center gap-2 px-4 py-4" onClick={(e) => e.stopPropagation()}>
-        <button type="button" onClick={download} className={tool}><Download size={16} aria-hidden="true" /> Download</button>
+        <button type="button" onClick={download} className="btn-primary inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-bold shadow-soft"><Download size={16} aria-hidden="true" /> Download</button>
         {canCopyPicture && (
           <button type="button" onClick={copyPicture} className={tool}>
             {done === 'picture' ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />} {done === 'picture' ? 'Copied' : 'Copy picture'}
