@@ -320,9 +320,17 @@ export function Workshop({ game, pages, routes }: {
     <span aria-label={`${unseenMentions} new mention${unseenMentions === 1 ? '' : 's'} of you`}
       className="ml-1 rounded-full bg-signal px-1.5 text-xs font-bold text-ink">@{unseenMentions}</span>
   );
-  // While an editor is open, a widened chat gives way so the editor keeps 768px for its preview.
-  const shownChatWidth = chatWidth && editing && typeof window !== 'undefined'
-    ? Math.min(chatWidth, Math.max(260, window.innerWidth - 48 - 768 - 32)) : chatWidth;
+  // A widened chat gives way when the window is narrower, so the work column keeps its room:
+  // 768px with an editor open (for its preview beside the form), 480px otherwise.
+  const [windowWidth, setWindowWidth] = useState(0);
+  useEffect(() => {
+    const track = () => setWindowWidth(window.innerWidth);
+    track();
+    window.addEventListener('resize', track);
+    return () => window.removeEventListener('resize', track);
+  }, []);
+  const shownChatWidth = chatWidth && windowWidth
+    ? Math.min(chatWidth, Math.max(260, windowWidth - 48 - (editing ? 768 : 480) - 32)) : chatWidth;
   // Phones show the chat or the work, one at a time. The switch between them sits at the top
   // right of whichever is showing, in the same spot, so the chat gets the whole height.
   const phoneSwitch = (
@@ -419,7 +427,7 @@ export function Workshop({ game, pages, routes }: {
           </div>
         )}
         {!chatFolded && (
-          <Resizer onReset={() => setChatWidth(0)} onWidth={setChatWidth}
+          <Resizer value={shownChatWidth} onReset={() => setChatWidth(0)} onWidth={setChatWidth}
             measure={() => [...(columns.current?.querySelectorAll<HTMLElement>('[data-chat-col]') ?? [])].find((el) => el.offsetWidth)?.offsetWidth ?? 320}
             limits={() => {
               // The chat may grow until the work column would get too narrow: an open editor needs

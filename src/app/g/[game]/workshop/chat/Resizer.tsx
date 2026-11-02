@@ -7,7 +7,9 @@ import { useRef } from 'react';
  * wider or narrower, like a column in a spreadsheet. Arrow keys work too, and a double click
  * puts it back to the usual width.
  */
-export function Resizer({ measure, onWidth, limits, onReset }: {
+export function Resizer({ value, measure, onWidth, limits, onReset }: {
+  /** The chat's width now, for screen readers (0 before it's known). */
+  value: number;
   /** The chat's width right now, in pixels. */
   measure: () => number;
   onWidth: (px: number) => void;
@@ -19,6 +21,7 @@ export function Resizer({ measure, onWidth, limits, onReset }: {
   const clamp = (px: number) => { const { min, max } = limits(); return Math.round(Math.min(max, Math.max(min, px))); };
   return (
     <div role="separator" aria-orientation="vertical" aria-label="Chat width: drag, or use the arrow keys" tabIndex={0}
+      aria-valuenow={value || undefined} aria-valuemin={260} aria-valuemax={640}
       className="group/resize relative -mx-3 hidden w-2 shrink-0 cursor-col-resize touch-none outline-none lg:block"
       onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); start.current = { x: e.clientX, w: measure() }; }}
       onPointerMove={(e) => { if (start.current) onWidth(clamp(start.current.w + e.clientX - start.current.x)); }}

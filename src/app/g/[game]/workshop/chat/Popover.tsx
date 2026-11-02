@@ -39,13 +39,24 @@ export function Popover({ anchor, open, onClose, align = 'end', label, children 
     return () => ro?.disconnect();
   }, [open, anchor, align]);
 
+  // Focus moves into the box when it opens, and back to its button when it closes, unless
+  // you've already clicked something else.
+  useEffect(() => {
+    if (!open) return;
+    const button = anchor.current, el = box.current;
+    requestAnimationFrame(() => el?.querySelector<HTMLElement>('button, input, [tabindex]:not([tabindex="-1"])')?.focus({ preventScroll: true }));
+    return () => {
+      if (document.activeElement === document.body || el?.contains(document.activeElement)) button?.focus({ preventScroll: true });
+    };
+  }, [open, anchor]);
+
   useEffect(() => {
     if (!open) return;
     const outside = (e: PointerEvent) => {
       const t = e.target as Node;
       if (!box.current?.contains(t) && !anchor.current?.contains(t)) onClose();
     };
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); anchor.current?.focus(); } };
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } };
     const scroll = (e: Event) => { if (!box.current?.contains(e.target as Node)) onClose(); };
     document.addEventListener('pointerdown', outside, true);
     document.addEventListener('keydown', key, true);
