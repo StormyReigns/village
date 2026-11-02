@@ -205,7 +205,7 @@ function LinkedText({ text }: { text: string }) {
             <button key={i} type="button" onClick={() => links.jump?.(msg.id)}
               className="inline-flex max-w-full items-center gap-1 rounded-md bg-ink/5 px-1.5 align-bottom text-sm hover:bg-ink/10">
               <CornerUpLeft size={12} className="shrink-0 text-muted" aria-hidden="true" />
-              <span className="min-w-0 truncate">{q && !q.removed ? <><b>{q.author.name}</b>: {q.spoiler ? 'Spoiler' : gist(q, links)}</> : 'a message'}</span>
+              <span className="min-w-0 truncate">{!q ? 'a message' : q.removed ? 'a message no longer here' : <><b>{q.author.name}</b>: {q.spoiler ? 'Spoiler' : gist(q, links)}</>}</span>
             </button>
           );
         }
