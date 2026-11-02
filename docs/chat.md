@@ -386,6 +386,10 @@ Dated, newest last, each with why.
   On wide screens a handle between the chat and the work column drags the chat wider or
   narrower (260–640px, remembered per device, double-click resets); an open editor always
   keeps 768px. Why: the inline pop-ups felt clunky, and people want room for the chat.
+- 2026-11-02 (Matt): a chat picture opens in a viewer over the page (chat/Lightbox.tsx), not
+  a new tab: large on a dark backdrop with who shared it and when, Download, Copy picture,
+  Copy link (to the message) and Open full size; arrows for several pictures; Escape, X or a
+  click on the backdrop closes it.
 
 ## Open questions
 

@@ -22,6 +22,7 @@ import { changesBetween } from '../changes';
 import { ChangeList } from '../EntryForm';
 import { ago, clock, fullTime, ReportForm, SmallButton, useAction } from './bits';
 import { Popover } from './Popover';
+import { Lightbox } from './Lightbox';
 
 // The Workshop's chat (docs/chat.md): one stream for the whole game, and a thread for each
 // thing being built. A thread shows in the stream as a card at its newest message, with a
@@ -355,24 +356,35 @@ function Reactions({ m, me, live, centered = false }: {
 }
 
 /** Pictures on a message: one shown large, several in a grid. Tap one to see it full size. */
-function Pictures({ list, by }: { list: Attachment[]; by: string }) {
+function Pictures({ list, m }: { list: Attachment[]; m: ChatMessage }) {
   // A picture deleted with its removed message (and the message restored since) says so.
   const [gone, setGone] = useState<string[]>([]);
+  // Tapping one opens the viewer over the page, at that picture.
+  const [viewing, setViewing] = useState<number | null>(null);
+  const links = useContext(ChatLinks);
   if (!list.length) return null;
+  const by = m.author.name;
+  const shown = list.filter((a) => !gone.includes(a.path));
   const one = list.length === 1;
   return (
     <div className={'mt-1.5 grid gap-1 ' + (one ? '' : 'grid-cols-2')}>
       {list.map((a) => gone.includes(a.path) ? (
         <p key={a.path} className="rounded-xl bg-card-2 px-3 py-2 text-xs text-muted ring-1 ring-line">Picture removed</p>
       ) : (
-        <a key={a.path} href={imageUrl(a.path)} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-xl bg-card-2 ring-1 ring-line">
+        <button key={a.path} type="button" onClick={() => setViewing(shown.indexOf(a))} aria-label={`Open the picture shared by ${by}`}
+          className="block cursor-zoom-in overflow-hidden rounded-xl bg-card-2 ring-1 ring-line hover:ring-ink">
           {/* eslint-disable-next-line @next/next/no-img-element -- a villager's picture from our own storage, any size */}
           <img src={imageUrl(a.path)} alt={`Picture shared by ${by}`} loading="lazy"
             className={one ? 'max-h-72 w-auto max-w-full object-contain' : 'aspect-square size-full object-cover'}
             style={one && a.w && a.h ? { aspectRatio: `${a.w} / ${a.h}` } : undefined}
             onError={() => setGone((g) => [...g, a.path])} />
-        </a>
+        </button>
       ))}
+      {viewing !== null && shown.length > 0 && (
+        <Lightbox start={Math.max(0, viewing)} by={by} when={clock(m.createdAt)} onClose={() => setViewing(null)}
+          messageLink={links ? location.origin + messagePath(links.gameId, m.id) : location.href}
+          pictures={shown.map((a, i) => ({ url: imageUrl(a.path), name: `village-${m.id}-${i + 1}.${a.path.split('.').pop()}` }))} />
+      )}
     </div>
   );
 }
@@ -471,7 +483,7 @@ export function Message({ m, me, live, compact = false, small = false, onReply }
           ) : (
             <>
               {m.body && <p className={'whitespace-pre-wrap break-words ' + (small ? 'text-sm' : '')}><MessageText body={m.body} /></p>}
-              <Pictures list={m.attachments} by={m.author.name} />
+              <Pictures list={m.attachments} m={m} />
               <LinkedCard body={m.body} me={me} live={live} />
             </>
           )}
