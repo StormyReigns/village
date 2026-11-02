@@ -337,6 +337,10 @@ Dated, newest last, each with why.
   update posts a detailed system note in the entry's thread and one line in the main chat; system
   notes look clearly different from people's messages. Why: easier to read, react and follow what
   changed without anyone having to announce it.
+- 2026-11-01 (Matt): a thread reads as a part of the main chat: its heading is a breadcrumb,
+  "← Chat › Eshmel" (on phones, "← Chat ›" and the switch on top, the name below), a strip in
+  the entry's Page color runs down the left of its messages, and its messages are a little
+  smaller. Why: so it's clear you're in a corner of the main chat, not a separate room.
 
 ## Open questions
 

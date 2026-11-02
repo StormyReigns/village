@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, EyeOff, FileText, Flag, MessageCircle, MoreHorizontal, PanelLeftClose, PanelRight, PenLine, RotateCcw, Send, SmilePlus, Sparkles, Trash2, X } from 'lucide-react';
+import { ArrowLeft, EyeOff, FileText, Flag, MessageCircle, MoreHorizontal, PanelLeftClose, PanelRight, PenLine, RotateCcw, Send, SmilePlus, Sparkles, Trash2 } from 'lucide-react';
 import type { Block, Entry, EntryContent, Page } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
 import { EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
@@ -249,7 +249,11 @@ function SystemMark({ size = 22 }: { size?: number }) {
   );
 }
 
-export function Message({ m, me, live, compact = false }: { m: ChatMessage; me: Villager | null | undefined; live: WorkshopData; compact?: boolean }) {
+export function Message({ m, me, live, compact = false, small = false }: {
+  m: ChatMessage; me: Villager | null | undefined; live: WorkshopData; compact?: boolean;
+  /** Inside a thread: a little smaller than the main chat, as a part of it. */
+  small?: boolean;
+}) {
   const [shown, setShown] = useState(false);
   const [tools, setTools] = useState(false);
   const [reporting, setReporting] = useState(false);
@@ -282,7 +286,7 @@ export function Message({ m, me, live, compact = false }: { m: ChatMessage; me: 
   // Reacting and the options sit beside it: on hover with a mouse, after a tap on a phone.
   return (
     <li className={'group flex items-start gap-2 ' + (own ? 'flex-row-reverse ' : '') + (m.removed ? 'opacity-50' : '')}>
-      {!own && <Avatar name={m.author.name} url={m.author.avatarUrl} size={32} />}
+      {!own && <Avatar name={m.author.name} url={m.author.avatarUrl} size={small ? 26 : 32} />}
       <div className={'flex min-w-0 max-w-[88%] flex-col ' + (own ? 'items-end' : 'items-start')}>
         <div tabIndex={-1} className={'min-w-0 max-w-full rounded-2xl px-3 py-2 outline-none ' + (own ? 'rounded-tr-md' : 'rounded-tl-md bg-card ring-1 ring-line')}
           style={own ? { background: 'color-mix(in srgb, var(--signal) 26%, var(--card))' } : undefined}>
@@ -297,7 +301,7 @@ export function Message({ m, me, live, compact = false }: { m: ChatMessage; me: 
             </button>
           ) : (
             <>
-              <p className="whitespace-pre-wrap break-words"><MessageText body={m.body} /></p>
+              <p className={'whitespace-pre-wrap break-words ' + (small ? 'text-sm' : '')}><MessageText body={m.body} /></p>
               <LinkedCard refs={refsIn(m.body)} me={me} live={live} />
             </>
           )}
@@ -693,15 +697,12 @@ const DRAFT_STATUS: Record<string, string> = {
  * One thread on its own: everything said about the thing, with its Drafts in the timeline so
  * feedback and votes sit beside the talk that led to them.
  */
-export function ThreadPanel({ info, messages, me, live, gameId, onBack, onClose, besideStream = false, switcher, onDraft, onEdit, bar, className = '' }: {
+export function ThreadPanel({ info, messages, me, live, gameId, onBack, switcher, onDraft, onEdit, bar, className = '' }: {
   info: ThreadInfo; messages: ChatMessage[]; me: Villager | null | undefined; live: WorkshopData; gameId: string;
   /** Phones: the Build / Chat switch, at the top right. */
   switcher?: React.ReactNode;
   /** Back to the stream, where the two don't fit side by side. */
   onBack?: () => void;
-  /** On the widest screens the stream stays beside the thread: Back gives way to an X there. */
-  besideStream?: boolean;
-  onClose?: () => void;
   /** Opens a Draft's card, to read it and vote. */
   onDraft: (draftId: string) => void;
   /** Opens the entry's editor (not shown while it's already open). */
@@ -726,26 +727,27 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, onClose,
 
   return (
     <section aria-label={`Thread: ${info.title}`} className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl bg-card p-4 ring-1 ring-line in-data-[phone-chat]:min-h-0 lg:min-h-0 ' + className}>
-      <div className="flex items-center gap-2">
+      {/* Phones: "← Chat ›" and the switch on the first line, the thread's name on the next. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {bar && <span className="shrink-0">{bar}</span>}
+        {/* A thread is a part of the main chat, so its heading says so: Chat › Eshmel. */}
         {onBack && (
-          <Tip text="Back to the whole chat" className={'shrink-0 ' + (besideStream ? '2xl:hidden' : '')}>
-            <button onClick={onBack} aria-label="Back to the whole chat" className="grid size-8 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink">
-              <ArrowLeft size={17} aria-hidden="true" />
+          <Tip text="Back to the whole chat" className="shrink-0">
+            <button onClick={onBack} aria-label="Back to the whole chat"
+              className="inline-flex h-8 items-center gap-0.5 rounded-full pl-1 pr-2 text-sm font-bold text-muted hover:bg-card-2 hover:text-ink">
+              <ArrowLeft size={16} aria-hidden="true" /> Chat
             </button>
           </Tip>
         )}
-        <ThreadIcon info={info} small />
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate font-display text-lg leading-tight" title={info.title}>{info.title}</h2>
-          <p className="truncate text-xs text-muted">{info.where}{people ? ` · ${people} ${people === 1 ? 'person' : 'people'} talking` : ''}</p>
+        {onBack && <span aria-hidden="true" className="-mx-1 shrink-0 text-muted">›</span>}
+        <div className="flex min-w-0 flex-1 items-center gap-2 max-lg:order-last max-lg:basis-full">
+          <ThreadIcon info={info} small />
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate font-display text-lg leading-tight" title={info.title}>{info.title}</h2>
+            <p className="truncate text-xs text-muted">{info.where}{people ? ` · ${people} ${people === 1 ? 'person' : 'people'} talking` : ''}</p>
+          </div>
         </div>
-        {switcher && <span className="shrink-0 lg:hidden">{switcher}</span>}
-        {onClose && besideStream && (
-          <button onClick={onClose} aria-label="Close this thread" className="hidden size-8 shrink-0 2xl:grid place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink">
-            <X size={17} aria-hidden="true" />
-          </button>
-        )}
+        {switcher && <span className="ml-auto shrink-0 lg:hidden">{switcher}</span>}
       </div>
       {(onEdit || href) && (
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -753,7 +755,8 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, onClose,
           {href && <a href={href} className="inline-flex items-center gap-1 rounded-full bg-card px-2.5 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">See it in the app</a>}
         </div>
       )}
-      <ul ref={list} onScroll={onScroll} aria-live="polite" className={WALL_LIST} style={WALL}>
+      <ul ref={list} onScroll={onScroll} aria-live="polite" className={WALL_LIST}
+        style={{ ...WALL, boxShadow: `inset 4px 0 0 ${info.block ? 'var(--' + info.block.page.tint + ')' : 'var(--ink)'}` }}>
         {timeline.length === 0 && (
           <li className="m-auto grid max-w-xs justify-items-center gap-2 py-8 text-center">
             <h3 className="font-display text-lg">Start the thread</h3>
@@ -762,7 +765,7 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, onClose,
         )}
         {timeline.map((x) => 'm' in x ? (x.m.kind === 'system'
           ? <SystemNote key={`m${x.m.id}`} m={x.m} info={info} me={me} live={live} />
-          : <Message key={`m${x.m.id}`} m={x.m} me={me} live={live} />) : (
+          : <Message key={`m${x.m.id}`} m={x.m} me={me} live={live} small />) : (
           <li key={`d${x.d.id}`} className="flex items-center gap-2.5 rounded-2xl bg-card-2 px-3 py-2 text-sm ring-1 ring-line">
             <FileText size={16} className="shrink-0 text-muted" aria-hidden="true" />
             <span className="min-w-0 flex-1">

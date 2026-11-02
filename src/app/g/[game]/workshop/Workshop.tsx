@@ -285,7 +285,7 @@ export function Workshop({ game, pages, routes }: {
       ))}
     </div>
   );
-  const threadPanel = (extra: { onBack?: () => void; onClose?: () => void; besideStream?: boolean; switcher?: React.ReactNode; bar?: React.ReactNode; className?: string }) => threadInfo && (
+  const threadPanel = (extra: { onBack?: () => void; switcher?: React.ReactNode; bar?: React.ReactNode; className?: string }) => threadInfo && (
     <ThreadPanel info={threadInfo} messages={threadMessages} me={me} live={live} gameId={game.id} onDraft={setDetail}
       onEdit={threadInfo.key === editThread || !threadInfo.block ? undefined
         : threadInfo.kind === 'setup' ? () => setSetup(threadInfo.block!.id)
@@ -364,7 +364,7 @@ export function Workshop({ game, pages, routes }: {
         </div>
         {threadInfo && (
           <div className={(phoneTab === 'chat' ? 'flex' : 'hidden') + ' min-h-0 min-w-0 flex-1 flex-col gap-2 lg:w-80 lg:flex-none lg:shrink-0 2xl:w-96 ' + (chatFolded ? 'lg:hidden' : 'lg:flex')}>
-            {threadPanel({ onBack: () => setThread(null), onClose: () => setThread(null), besideStream: !editing, switcher: phoneSwitch })}
+            {threadPanel({ onBack: () => setThread(null), switcher: phoneSwitch })}
           </div>
         )}
 
