@@ -159,43 +159,43 @@ export function imageUrl(path: string) {
 }
 
 /**
- * Puts a picture in the chat-images bucket, under game/you/, ready to send. Big pictures are
- * made smaller first (1600 pixels at most, as WebP); GIFs go as they are, to keep them moving.
- * Returns the picture, or an error in plain words.
+ * Gets a picture ready to send. Photos are always drawn afresh, which also drops what a phone
+ * hides inside them (where it was taken), and made smaller (1600 pixels at most): WebP where
+ * the browser can make it, else JPEG. Safari (every iPhone) can't make WebP and quietly hands
+ * back a much bigger PNG instead, so the result's real type decides. GIFs go as they are, to
+ * keep them moving. A photo that can't be redrawn isn't sent.
  */
+export async function preparePicture(file: File): Promise<{ blob: Blob; type: string; ext: string; w: number; h: number } | string> {
+  if (!file.type.startsWith('image/')) return 'Only pictures can be shared here.';
+  const gif = file.type === 'image/gif';
+  try {
+    const bitmap = await createImageBitmap(file);
+    if (gif) return { blob: file, type: file.type, ext: 'gif', w: bitmap.width, h: bitmap.height };
+    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const encode = (as: string) => new Promise<Blob | null>((done) => canvas.toBlob(done, as, 0.85));
+    let small = await encode('image/webp');
+    if (small?.type !== 'image/webp') small = await encode('image/jpeg');
+    if (!small || (small.type !== 'image/jpeg' && small.type !== 'image/webp')) throw new Error('no re-encode');
+    return { blob: small, type: small.type, ext: small.type === 'image/webp' ? 'webp' : 'jpg', w: canvas.width, h: canvas.height };
+  } catch {
+    return gif ? { blob: file, type: file.type, ext: 'gif', w: 0, h: 0 } : "That picture couldn't be read. Try a screenshot or another picture.";
+  }
+}
+
+/** Puts a picture in the chat-images bucket, under game/you/, ready to send. Returns it, or an error in plain words. */
 export async function uploadChatImage(gameId: string, meId: string, file: File): Promise<Attachment | string> {
   const db = browserClient();
   if (!db) return "Couldn't reach the village.";
-  if (!file.type.startsWith('image/')) return 'Only pictures can be shared here.';
-  // Photos are always drawn afresh before they leave the device: that also drops what a phone
-  // hides inside them (where it was taken). If that can't be done, the photo isn't sent.
-  const gif = file.type === 'image/gif';
-  let blob: Blob = file, type = file.type, ext = 'gif';
-  let w = 0, h = 0;
-  try {
-    const bitmap = await createImageBitmap(file);
-    w = bitmap.width; h = bitmap.height;
-    if (!gif) {
-      const scale = Math.min(1, 1600 / Math.max(w, h));
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(w * scale); canvas.height = Math.round(h * scale);
-      canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      // WebP where the browser can make it; Safari (every iPhone) can't, and quietly hands back
-      // a much bigger PNG instead, so then it's JPEG, which every browser makes.
-      const encode = (as: string) => new Promise<Blob | null>((done) => canvas.toBlob(done, as, 0.85));
-      let small = await encode('image/webp');
-      if (small?.type !== 'image/webp') small = await encode('image/jpeg');
-      if (!small || small.type !== 'image/jpeg' && small.type !== 'image/webp') throw new Error('no re-encode');
-      blob = small; type = small.type; ext = small.type === 'image/webp' ? 'webp' : 'jpg'; w = canvas.width; h = canvas.height;
-    }
-  } catch {
-    if (!gif) return "That picture couldn't be read. Try a screenshot or another picture.";
-  }
-  if (blob.size > 5 * 1024 * 1024) return 'That picture is too big (5 MB at most).';
-  const path = `${gameId}/${meId}/${crypto.randomUUID()}.${ext}`;
-  const { error } = await db.storage.from('chat-images').upload(path, blob, { contentType: type, upsert: false });
+  const p = await preparePicture(file);
+  if (typeof p === 'string') return p;
+  if (p.blob.size > 5 * 1024 * 1024) return 'That picture is too big (5 MB at most).';
+  const path = `${gameId}/${meId}/${crypto.randomUUID()}.${p.ext}`;
+  const { error } = await db.storage.from('chat-images').upload(path, p.blob, { contentType: p.type, upsert: false });
   if (error) return /bucket/i.test(error.message) ? 'Pictures are almost ready: the database needs one more update.' : plainError(error.message);
-  return { path, w, h };
+  return { path, w: p.w, h: p.h };
 }
 
 export function useWorkshop(gameId: string, me: Villager | null | undefined) {
