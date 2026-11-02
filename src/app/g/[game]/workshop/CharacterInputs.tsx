@@ -69,7 +69,7 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
           return (
             <label key={f.key} id={fid('description')} className={'grid gap-1' + hl('description')}>
               <span className="text-sm font-bold">{f.label}</span>
-              <textarea value={content.description ?? ''} onChange={(e) => set({ description: e.target.value })} rows={3} placeholder="Who they are, in a few lines" className={input} />
+              <textarea value={content.description ?? ''} onChange={(e) => set({ description: e.target.value })} rows={3} placeholder={block.type === 'items' ? 'A line or two about it' : 'Who they are, in a few lines'} className={input} />
             </label>
           );
         }
@@ -82,7 +82,7 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
           return (
             <div key={f.key} role="group" aria-label={f.label} id={fid(part)} className={'grid gap-1.5' + hl(part)}>
               <span className="text-sm font-bold">{f.label}</span>
-              <Rows text={v} onChange={put} links={f.kind === 'links'} names={others} label={f.label} />
+              <Rows text={v} onChange={put} links={f.kind === 'links'} item={block.type === 'items'} names={others} label={f.label} />
             </div>
           );
         }
@@ -149,7 +149,10 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
  * characters, who and how they know them). Written back as "Name: note" lines, which is
  * how the card reads them.
  */
-function Rows({ text, onChange, links, names, label }: { text: string; onChange: (t: string) => void; links: boolean; names: string[]; label: string }) {
+function Rows({ text, onChange, links, item = false, names, label }: { text: string; onChange: (t: string) => void; links: boolean; item?: boolean; names: string[]; label: string }) {
+  // Items link other items, with how many ("Iron Ore: 3"); characters link people and how they know them.
+  const who = links ? (item ? 'Which item' : 'Who') : 'Name';
+  const how = links ? (item ? 'How many, or a note' : 'How they know them') : (item ? 'Details' : 'What it does');
   // Rows live here so an empty one (just added) stays until it's filled or removed.
   const [rows, setRows] = useState(() => {
     const items = listItems(text);
@@ -166,9 +169,9 @@ function Rows({ text, onChange, links, names, label }: { text: string; onChange:
       {rows.map((r, i) => (
         <div key={i} className="flex gap-1.5">
           <input value={r.name} onChange={(e) => edit(i, { name: e.target.value })} list={links ? listId : undefined}
-            placeholder={links ? 'Who' : 'Name'} aria-label={`${label} ${i + 1}: ${links ? 'who' : 'name'}`} className={input + ' min-w-0 flex-[2] py-1.5 font-bold'} />
+            placeholder={who} aria-label={`${label} ${i + 1}: ${who.toLowerCase()}`} className={input + ' min-w-0 flex-[2] py-1.5 font-bold'} />
           <input value={r.note} onChange={(e) => edit(i, { note: e.target.value })}
-            placeholder={links ? 'How they know them' : 'What it does'} aria-label={`${label} ${i + 1}: ${links ? 'how they know them' : 'what it does'}`} className={input + ' min-w-0 flex-[3] py-1.5'} />
+            placeholder={how} aria-label={`${label} ${i + 1}: ${how.toLowerCase()}`} className={input + ' min-w-0 flex-[3] py-1.5'} />
           <button type="button" onClick={() => write(rows.length > 1 ? rows.filter((_, j) => j !== i) : [{ name: '', note: '' }])} aria-label={`Remove ${r.name || 'this one'}`}
             className="grid size-9 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-berry"><X size={15} aria-hidden="true" /></button>
         </div>

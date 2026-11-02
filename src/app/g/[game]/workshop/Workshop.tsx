@@ -969,7 +969,7 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
 function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSetup }: {
   pages: Page[]; drafts: LiveDraft[]; query: string; focus?: string;
   onFix: (blockId: string, entryId: string) => void; onAdd: (blockId: string) => void; onDrafts: (cardId: string) => void;
-  /** Characters Blocks: open their field setup. */
+  /** Characters and Items Blocks: open their field setup. */
   onSetup: (blockId: string) => void;
 }) {
   const [folded, setFolded] = useStored<string[]>('village:workshop:folded-blocks', []);
@@ -1003,8 +1003,8 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSe
                     <span className="text-xs text-muted">{b.entries.length}</span>
                     <ChevronDown size={15} className={'shrink-0 text-muted transition ' + (isFolded ? '-rotate-90' : '')} aria-hidden="true" />
                   </button>
-                  {b.type === 'characters' && (
-                    <Tip text={`Choose the fields ${b.title} cards show, with a preview`} tint={p.tint} className="shrink-0">
+                  {(b.type === 'characters' || b.type === 'items') && (
+                    <Tip text={b.type === 'items' ? `Choose what ${b.title} tiles and full views show, with a preview` : `Choose the fields ${b.title} cards show, with a preview`} tint={p.tint} className="shrink-0">
                       <button onClick={() => onSetup(b.id)} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">
                         <SlidersHorizontal size={13} aria-hidden="true" /> Set up
                       </button>

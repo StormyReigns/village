@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, Info, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, Info, LayoutGrid, Plus, Trash2 } from 'lucide-react';
 import type { Block, FieldDef, FieldKind, Page, StatDef } from '@/data/pages';
 import type { RouteOption } from '@/components/app/EntryPanel';
 import { CharacterCard } from '@/components/app/CharacterCard';
@@ -12,15 +12,17 @@ import { useWide } from './split';
 import { EditorShell } from './EditorShell';
 import { browserClient } from '@/lib/supabase/browser';
 import { appChanged } from '@/app/actions';
-import { DESCRIPTION, FIELD_KINDS, besideText, toggleOptions, STATS, chartDefs, fieldsOf, hasValue, withCommon, johnDoe, kindLabel, shownFields, spotOf, statKeyFor, valueOf } from '@/lib/fields';
+import { DESCRIPTION, TILE_MAX, besideText, canTile, toggleOptions, STATS, chartDefs, fieldsOf, hasValue, withCommon, johnDoe, kindLabel, kindsFor, shownFields, spotOf, statKeyFor, valueOf } from '@/lib/fields';
+import { ItemTile } from '@/components/app/Items';
 
 const input = 'w-full rounded-xl bg-card px-2.5 py-1.5 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-sky';
 const slug = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_]+/g, '-');
 
 /**
- * Setting up a Characters Block: which fields its cards have, what they're called, their
- * order, and which are spoilers, with "John Doe" filled in beside it so builders see the
- * card their choices make. Changing a Block changes it for everyone, so for now only the
+ * Setting up a Characters or Items Block: which fields its cards have, what they're called,
+ * their order, and which are spoilers, with "John Doe" (or a sample item, with its tile)
+ * filled in beside it so builders see the card their choices make. Items also choose what
+ * goes on the tile. Changing a Block changes it for everyone, so for now only the
  * game's moderators can save; anyone can try a setup and see the preview.
  */
 export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
@@ -31,7 +33,7 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
   const draftKey = `village:setup:${gameId}:${block.id}`;
   const [saved] = useState(() => readDraft(draftKey));
   // Common fields added since this Block was set up are offered too, switched off.
-  const [fields, setFields] = useState<FieldDef[]>(() => saved?.fields ?? withCommon(fieldsOf(block)).map((f) => ({ ...f })));
+  const [fields, setFields] = useState<FieldDef[]>(() => saved?.fields ?? withCommon(fieldsOf(block), block.type).map((f) => ({ ...f })));
   // Each chart's stat names as typed, by the chart's key.
   const [names, setNames] = useState<Record<string, string>>(() => saved?.names ?? Object.fromEntries(fieldsOf(block).filter((f) => f.kind === 'chart')
     .map((f) => [f.key, chartDefs(block, f).map((d) => d.label).join(', ')])));
@@ -41,6 +43,9 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
   const [note, setNote] = useState(saved ? 'Picked up the setup you saved as a draft.' : '');
   const [busy, setBusy] = useState(false);
   const color = `var(--${block.page.tint})`;
+  // Items: tiles, and their own words, kinds and stat suggestions.
+  const item = block.type === 'items';
+  const kinds = kindsFor(block.type);
 
   // Stat names become each chart's columns. Names already in use keep their key, so
   // entries keep their numbers.
@@ -54,8 +59,9 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
   const drafted = fields.map((f) => (f.kind === 'chart' && f.key !== STATS ? { ...f, stats: defsFor(f) } : f));
   const draft = { ...block, fields: drafted, stats };
   const sample = johnDoe(draft);
+  const onTile = fields.filter((f) => !f.off && f.tile && canTile(f)).length;
   // What the Block has now, to tell whether anything would be lost by closing.
-  const [baseline, setBaseline] = useState(() => JSON.stringify({ fields: withCommon(fieldsOf(block)), stats: block.stats ?? [] }));
+  const [baseline, setBaseline] = useState(() => JSON.stringify({ fields: withCommon(fieldsOf(block), block.type), stats: block.stats ?? [] }));
   const dirty = JSON.stringify({ fields: drafted, stats }) !== baseline;
 
   const patch = (i: number, p: Partial<FieldDef>) => { setFields(fields.map((f, j) => (j === i ? { ...f, ...p } : f))); setNote(''); };
@@ -116,7 +122,7 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
       onDiscard={() => { forgetDraft(draftKey); onClose(); }}
       draftHint="Save draft keeps this setup on this device, ready the next time you open Set up. Discard throws the changes away."
       tint={block.page.tint}
-      sheetExtra={
+      sheetExtra={item ? undefined :
         <div role="group" aria-label="Preview as" className="flex rounded-full bg-card p-0.5 text-xs font-bold ring-1 ring-line">
           {([['profile', 'Profile'], ['row', 'List row']] as const).map(([v, label]) => (
             <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v}
@@ -128,7 +134,7 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
         <>
         <ul className="grid rounded-2xl bg-card ring-1 ring-line">
           <li className="flex items-center gap-2 rounded-t-2xl bg-card-2 px-3 py-2 text-sm">
-            <span className="w-8" /><span className="font-bold">Name</span><span className="ml-auto text-xs text-muted">Every character has one: the big title on their card</span>
+            <span className="w-8" /><span className="font-bold">Name</span><span className="ml-auto text-xs text-muted">{item ? 'Every item has one: under its tile, and the title of its full view' : 'Every character has one: the big title on their card'}</span>
           </li>
           {fields.map((f, i) => (
             <li key={f.key} className={'grid gap-2 border-t border-line px-3 py-2 last:rounded-b-2xl ' + (f.off ? 'bg-card-2/60' : '')}>
@@ -138,7 +144,16 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
                   <span className={'absolute top-0.5 size-4 rounded-full bg-card transition-all ' + (f.off ? 'left-0.5' : 'left-[1.15rem]')} />
                 </button>
                 <input value={f.label} onChange={(e) => patch(i, { label: e.target.value })} aria-label="Field name" className={input + ' min-w-0 flex-1 font-bold' + (f.off ? ' text-muted' : '')} />
-                <span className="hidden w-28 shrink-0 truncate rounded-md bg-card-2 px-1 py-0.5 text-center text-[11px] font-bold sm:inline">{kindLabel(f.kind)}</span>
+                <span className="hidden w-28 shrink-0 truncate rounded-md bg-card-2 px-1 py-0.5 text-center text-[11px] font-bold sm:inline">{kindLabel(f.kind, block.type)}</span>
+                {/* Items: whether it's on the tile too, for the kinds that fit there (three at most). */}
+                {item && (canTile(f) ? (
+                  <button type="button" onClick={() => patch(i, { tile: !f.tile || undefined })} aria-pressed={Boolean(f.tile)} aria-label={`${f.label} on the tile`}
+                    disabled={!f.tile && onTile >= TILE_MAX}
+                    title={f.tile ? 'On the tile and in the full view' : onTile >= TILE_MAX ? `The tile is full (${TILE_MAX} things). Take one off to put this on` : 'Full view only. Tap to put it on the tile too'}
+                    className={'grid size-8 shrink-0 place-items-center rounded-full disabled:opacity-30 ' + (f.tile && !f.off ? 'bg-signal text-ink' : 'text-muted/60 hover:text-ink')}>
+                    <LayoutGrid size={15} aria-hidden="true" />
+                  </button>
+                ) : <span className="size-8 shrink-0" title="Too long for the tile: full view only" />)}
                 <button type="button" onClick={() => patch(i, { spoiler: !f.spoiler || undefined })} aria-pressed={Boolean(f.spoiler)} aria-label={`${f.label} is a spoiler`}
                   title={f.spoiler ? 'Spoiler: hidden until tapped' : 'Not a spoiler'}
                   className={'grid size-8 shrink-0 place-items-center rounded-full ' + (f.spoiler ? 'text-berry' : 'text-muted/60 hover:text-ink')}>
@@ -154,10 +169,10 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
                 <div className="grid gap-1 pl-11 text-xs">
                   <div className="flex items-center gap-2">
                     <label htmlFor={`stats-${block.id}-${slug(f.key)}`} className="flex-1 font-bold text-muted">Stat names, in order, separated by commas</label>
-                    <StatSuggestions current={names[f.key] ?? ''} onPick={(v) => setNames({ ...names, [f.key]: v })} />
+                    <StatSuggestions current={names[f.key] ?? ''} onPick={(v) => setNames({ ...names, [f.key]: v })} item={item} />
                   </div>
                   <input id={`stats-${block.id}-${slug(f.key)}`} value={names[f.key] ?? ''} onChange={(e) => setNames({ ...names, [f.key]: e.target.value })}
-                    placeholder="HP, Str, Mag, Dex, Spd, Lck, Def, Res" className={input} />
+                    placeholder={item ? 'Might, Hit, Weight, Crit' : 'HP, Str, Mag, Dex, Spd, Lck, Def, Res'} className={input} />
                   {/* Both are on unless switched off; with both off the chart only shows in the form. */}
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted">
                     <label className="flex items-center gap-1.5">
@@ -192,16 +207,16 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
           <p className="flex items-center gap-1.5 text-sm font-bold"><Plus size={15} aria-hidden="true" /> Add your own field</p>
           <div className="flex flex-wrap gap-2">
             <input value={adding.label} onChange={(e) => setAdding({ ...adding, label: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') add(); }}
-              placeholder="Its name, e.g. Voice actor" aria-label="New field name" className={input + ' min-w-40 flex-1'} />
+              placeholder={item ? 'Its name, e.g. Element' : 'Its name, e.g. Voice actor'} aria-label="New field name" className={input + ' min-w-40 flex-1'} />
             <button type="button" onClick={add} className="rounded-full bg-ink px-4 py-1.5 text-sm font-bold text-paper">Add</button>
           </div>
           <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="What kind of field">
-            {FIELD_KINDS.map((k) => (
+            {kinds.map((k) => (
               <button key={k.kind} type="button" role="radio" aria-checked={adding.kind === k.kind} onClick={() => setAdding({ ...adding, kind: k.kind })} title={k.hint}
                 className={'rounded-full px-3 py-1 text-xs font-bold ring-1 ' + (adding.kind === k.kind ? 'bg-ink text-paper ring-ink' : 'bg-card ring-line hover:ring-ink')}>{k.label}</button>
             ))}
           </div>
-          <p className="text-xs text-muted">{FIELD_KINDS.find((k) => k.kind === adding.kind)?.hint}.</p>
+          <p className="text-xs text-muted">{kinds.find((k) => k.kind === adding.kind)?.hint}.</p>
           {/* On a phone the example sits right here; on wider screens it's under the preview. */}
           <KindExample {...adding} block={block} routes={routes} color={color} className="md:hidden" />
         </div>
@@ -211,7 +226,21 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
           )}
         </>
       }
-      preview={
+      preview={item ? (
+        // Items: the tile as it sits on the shelf, then the full view it opens.
+        <div className="grid gap-3">
+          <div className="rounded-2xl bg-card p-3 ring-1 ring-line">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted">Tile</p>
+            <ul className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2">
+              <ItemTile e={{ ...sample, id: 'sample' }} block={draft} among={[]} color="#b8bcc8" got={false} route="all" />
+            </ul>
+          </div>
+          <div className="rounded-2xl bg-card p-3 ring-1 ring-line md:p-4">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Full view</p>
+            <CharacterCard entry={sample} block={draft} route="all" routes={routes} color={color} sample size={wide ? 96 : 64} />
+          </div>
+        </div>
+      ) : (
         <div className="rounded-2xl bg-card p-3 ring-1 ring-line md:p-4">
           {view === 'profile' ? (
             <CharacterCard entry={sample} block={draft} route="all" routes={routes} color={color} sample size={wide ? 120 : 76} />
@@ -219,10 +248,10 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
             <SampleRow draft={draft} />
           )}
         </div>
-      }
+      )}
       aside={
         <>
-          <p className="text-xs text-muted">Made-up values, so you can see each field&apos;s place. Spoiler fields show covered, the way players first see them.</p>
+          <p className="text-xs text-muted">Made-up values, so you can see each field&apos;s place. Spoiler fields show covered, the way players first see them.{item && ' The grid button on a field puts it on the tile too.'}</p>
           <KindExample {...adding} block={block} routes={routes} color={color} />
         </>
       }
@@ -252,11 +281,21 @@ const STAT_SETS: { name: string; stats: string }[] = [
 ];
 const ONE_STATS = ['HP', 'MP', 'Atk', 'Def', 'Mag', 'Res', 'Spd', 'Lck', 'Move'];
 
+/** The same for items: weapons, armor and the like. */
+const ITEM_STAT_SETS: { name: string; stats: string }[] = [
+  { name: 'Tactics weapon', stats: 'Might, Hit, Weight, Crit' },
+  { name: 'Action weapon', stats: 'Attack, Weight, Durability' },
+  { name: 'Armor', stats: 'Defense, Magic defense, Weight' },
+  { name: 'Classic RPG gear', stats: 'Atk, Def, Mag, Spd' },
+];
+const ITEM_ONE_STATS = ['Might', 'Hit', 'Crit', 'Weight', 'Range', 'Attack', 'Defense', 'Uses'];
+
 /**
  * A small menu beside the stat names: pick a whole set, or add one stat at a time. It
  * floats over the setup, so it takes no room until it's opened.
  */
-function StatSuggestions({ current, onPick }: { current: string; onPick: (stats: string) => void }) {
+function StatSuggestions({ current, onPick, item = false }: { current: string; onPick: (stats: string) => void; item?: boolean }) {
+  const sets = item ? ITEM_STAT_SETS : STAT_SETS, ones = item ? ITEM_ONE_STATS : ONE_STATS;
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -278,7 +317,7 @@ function StatSuggestions({ current, onPick }: { current: string; onPick: (stats:
       </button>
       {open && (
         <div className="absolute right-0 top-full z-10 mt-1 grid w-72 gap-1 rounded-2xl bg-card p-2 shadow-soft ring-1 ring-line">
-          {STAT_SETS.map((set) => (
+          {sets.map((set) => (
             <button key={set.name} type="button" onClick={() => pick(set.stats)} className="grid rounded-xl px-2 py-1.5 text-left hover:bg-card-2">
               <span className="font-bold">{set.name}</span>
               <span className="truncate text-muted">{set.stats}</span>
@@ -286,7 +325,7 @@ function StatSuggestions({ current, onPick }: { current: string; onPick: (stats:
           ))}
           <p className="mt-1 border-t border-line px-2 pt-2 font-bold text-muted">Or add one</p>
           <div className="flex flex-wrap gap-1 px-1 pb-1">
-            {ONE_STATS.filter((s) => !have.includes(s.toLowerCase())).map((s) => (
+            {ones.filter((s) => !have.includes(s.toLowerCase())).map((s) => (
               <button key={s} type="button" onClick={() => onPick(have.length ? `${current.trim().replace(/,\s*$/, '')}, ${s}` : s)}
                 className="rounded-full bg-card-2 px-2.5 py-1 font-bold ring-1 ring-line hover:ring-ink">+ {s}</button>
             ))}
@@ -309,6 +348,23 @@ const EXAMPLE_VALUES: Partial<Record<FieldKind, string>> = {
   links: 'Jane Doe: Sister\nOld Tom: Mentor\nThe Baron: Rival',
 };
 
+/** Likely names, values and notes in an Items Block, where they differ. */
+const ITEM_EXAMPLE_NAMES: Partial<Record<FieldKind, string>> = {
+  text: 'Element', number: 'Weight', tag: 'Element', place: 'Found in', when: 'Available from', chart: 'Stats', list: 'Effects', links: 'Ingredients', longtext: 'Lore', yesno: 'Missable',
+  playable: 'Weapon or magic',
+};
+const ITEM_EXAMPLE_VALUES: Partial<Record<FieldKind, string>> = {
+  list: 'Burn: Hurts a little each turn.\nBright: Lights dark rooms.',
+  links: 'Iron Ore: 3\nOak Log: 1\nFire Gem: 1',
+};
+const ITEM_EXAMPLE_NOTES: Partial<Record<FieldKind, string>> = {
+  text: 'A few words, small beside the name. The grid button puts it on the tile too.',
+  number: 'A number, small beside the name, like a price or a weight.',
+  tag: 'A pill under the name. Players can also group and filter items by it.',
+  chart: 'Numbers like Might or Weight, as boxes colored against every other item. On the tile, the first four show small.',
+  links: 'Other items from this Block. A number after the name is how many. Players tap one to open it.',
+};
+
 /** One line under the example on how that kind behaves. */
 const EXAMPLE_NOTES: Record<FieldKind, string> = {
   text: 'A few words, small beside the name, like Age.',
@@ -329,20 +385,21 @@ const EXAMPLE_NOTES: Record<FieldKind, string> = {
  * and where it sits, using the name typed so far.
  */
 function KindExample({ label, kind, block, routes, color, className = '' }: { label: string; kind: FieldKind; block: Block; routes: RouteOption[]; color: string; className?: string }) {
-  const name = label.trim() || EXAMPLE_NAMES[kind];
-  const sampleStats = kind === 'chart' ? ['HP', 'Str', 'Mag', 'Spd', 'Def'].map((l) => ({ key: `${name}.${l.toLowerCase()}`, label: l, better: 'high' as const })) : undefined;
-  const draft = { title: block.title, icon: block.icon, fields: [{ key: name, label: name, kind, stats: sampleStats }], stats: [] };
+  const item = block.type === 'items';
+  const name = label.trim() || (item ? ITEM_EXAMPLE_NAMES[kind] : undefined) || EXAMPLE_NAMES[kind];
+  const sampleStats = kind === 'chart' ? (item ? ['Might', 'Hit', 'Weight', 'Crit'] : ['HP', 'Str', 'Mag', 'Spd', 'Def']).map((l) => ({ key: `${name}.${l.toLowerCase()}`, label: l, better: 'high' as const })) : undefined;
+  const draft = { title: block.title, icon: block.icon, type: block.type, fields: [{ key: name, label: name, kind, stats: sampleStats, ...(item && kind === 'chart' ? { noWeb: true } : {}) }], stats: [] };
   const entry = johnDoe(draft);
-  const more = EXAMPLE_VALUES[kind];
+  const more = (item ? ITEM_EXAMPLE_VALUES[kind] : undefined) ?? EXAMPLE_VALUES[kind];
   if (more) entry.sections = entry.sections.map((s) => ({ ...s, text: more }));
   return (
     <div className={className}>
       <div className="grid gap-2 rounded-2xl border border-dashed border-line p-3">
-        <p className="text-xs font-bold uppercase tracking-wide text-muted">Example: {kindLabel(kind)}</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-muted">Example: {kindLabel(kind, block.type)}</p>
         <div className="rounded-xl bg-card p-3 ring-1 ring-line">
           <CharacterCard entry={entry} block={draft} route="all" routes={routes} color={color} sample size={56} />
         </div>
-        <p className="text-xs text-muted">{EXAMPLE_NOTES[kind]}</p>
+        <p className="text-xs text-muted">{(item ? ITEM_EXAMPLE_NOTES[kind] : undefined) ?? EXAMPLE_NOTES[kind]}</p>
       </div>
     </div>
   );

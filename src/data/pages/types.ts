@@ -23,7 +23,7 @@ export interface StatDef {
 }
 
 /** The preset Block types. New ones come from community requests. */
-export type BlockType = 'collection' | 'guide' | 'checklist' | 'timeline' | 'characters';
+export type BlockType = 'collection' | 'guide' | 'checklist' | 'timeline' | 'characters' | 'items';
 
 /**
  * What kind of thing a field holds, which decides how it's typed in and shown:
@@ -34,7 +34,7 @@ export type BlockType = 'collection' | 'guide' | 'checklist' | 'timeline' | 'cha
 export type FieldKind = 'text' | 'number' | 'tag' | 'place' | 'when' | 'chart' | 'list' | 'links' | 'longtext' | 'yesno' | 'playable';
 
 /**
- * One field of a Characters Block, as its builders set it up. Every field is optional on
+ * One field of a Characters or Items Block, as its builders set it up. Every field is optional on
  * every entry; empty ones don't show.
  */
 export interface FieldDef {
@@ -59,6 +59,8 @@ export interface FieldDef {
   noNumbers?: boolean;
   /** Toggles: the two choices, the first shown green and the second red (Playable or NPC). */
   options?: [string, string];
+  /** Items: shown on the item's tile as well as in its full view (three at most). */
+  tile?: boolean;
 }
 
 /** A "+" section on an entry: a label the Builder chose, and its text. Lines become a list. */
@@ -111,7 +113,7 @@ export interface Block {
   intro?: string;
   /** Category names players can filter by (Collection only). */
   filters?: string[];
-  /** Characters only: the fields each entry can have, in the order they show. The name,
+  /** Characters and Items: the fields each entry can have, in the order they show. The name,
    *  description and stats chart use the entry's own name, description and stats. */
   fields?: FieldDef[];
   /** Entries change with the player's route, so the page shows a route switcher. */

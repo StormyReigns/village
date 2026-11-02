@@ -19,13 +19,14 @@ import { RegionMap, RegionSheet, regionsOf, type Region } from './MapBlock';
 import { TINT } from './tint';
 import { StatTable, statSort } from './StatTable';
 import { Characters } from './Characters';
+import { Items } from './Items';
 import { FilterChip, HiddenNote, OpenPanel, useVisible, type BlockContext } from './blockParts';
 
 export type { BlockContext } from './blockParts';
 import { byStat } from '@/lib/stats';
 
 export function BlockView({ block, ctx: page }: { block: Block; ctx: BlockContext }) {
-  const Cmp = { collection: Collection, timeline: Timeline, checklist: Checklist, guide: Guide, characters: Characters }[block.type];
+  const Cmp = { collection: Collection, timeline: Timeline, checklist: Checklist, guide: Guide, characters: Characters, items: Items }[block.type];
   const t = TINT[page.tint];
   // "Show them" under a Block reveals that Block's spoilers only; the Page's switch does them all.
   const [revealed, setRevealed] = useState(false);

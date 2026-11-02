@@ -128,6 +128,11 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
   const [ticks, toggleTick] = useTicks(gameId);
   const people = (block.look ?? 'slots') === 'portraits' || (block.type === 'characters' && (block.fields ?? []).some((f) => !f.off && /recruit/i.test(`${f.key} ${f.label}`)));
   const recruitKey = `recruited:${block.id}.${entry.id}`;
+  // Items: "Got it", on this device (and the player's account when signed in), like recruits.
+  const gotKey = block.type === 'items' ? `got:${block.id}.${entry.id}` : null;
+  const got = gotKey ? ticks.has(gotKey) : false;
+  // The tick snaps into place as it turns solid, only when ticked just now.
+  const [snapGot, setSnapGot] = useState(false);
   // A Mystery: an open question players can answer or theorize about.
   const status = entry.categories.Status;
   const mystery = Boolean(status && block.filters?.includes('Status'));
@@ -205,6 +210,15 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
                 </section>
               )}
             </>
+          )}
+
+          {gotKey && (
+            <button type="button" onClick={() => { toggleTick(gotKey); setSnapGot(!got); }} role="checkbox" aria-checked={got}
+              className="mt-4 inline-flex items-center gap-2.5 rounded-full py-1 pl-1 pr-4 text-sm font-bold ring-1 ring-line hover:ring-leaf">
+              {/* A piece as the tick box: solid with a check once you have it, the split outline until then. */}
+              <Piece size={34} color="var(--leaf)" outline={!got} snap={got && snapGot}>{got ? <Check size={14} strokeWidth={3} aria-hidden="true" /> : null}</Piece>
+              {got ? 'Got it' : 'Mark as got'}
+            </button>
           )}
 
           {people && (
@@ -293,8 +307,9 @@ export function EntryDetails({ entry, block, route, routes, fixHref, invite, col
   /** Characters: open someone named in Relationships. */
   onGo?: (e: Entry) => void;
 }) {
-  // Characters lay themselves out by their Block's fields.
+  // Characters and Items lay themselves out by their Block's fields (an item's picture is smaller).
   if (block.type === 'characters') return <CharacterCard entry={entry} block={block} route={route} routes={routes} color={color} fixHref={fixHref} onGo={onGo} size={136} />;
+  if (block.type === 'items') return <CharacterCard entry={entry} block={block} route={route} routes={routes} color={color} fixHref={fixHref} onGo={onGo} size={96} />;
   const name = (r: Route) => routes.find((o) => o.key === r)?.label ?? r;
   const mine = route !== 'all' ? entry.perRoute?.[route] : undefined;
   // In the game's own route order (the database keeps object keys in its own order).

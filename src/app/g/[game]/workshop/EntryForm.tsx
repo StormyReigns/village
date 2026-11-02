@@ -11,7 +11,7 @@ import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/Entr
 import { CharacterCard } from '@/components/app/CharacterCard';
 import { entryText } from '@/components/app/entries';
 import { rank } from '@/lib/search';
-import { fieldsOf } from '@/lib/fields';
+import { byFields, fieldsOf } from '@/lib/fields';
 import { CharacterInputs } from './CharacterInputs';
 import { useWide } from './split';
 import { EditorShell } from './EditorShell';
@@ -33,6 +33,7 @@ const DEFAULT_LABELS: Record<Block['type'], string[]> = {
   checklist: ['Before'],
   timeline: [],
   characters: [],
+  items: [],
 };
 
 const DESCRIPTION_LABEL: Record<Block['type'], string> = {
@@ -41,6 +42,7 @@ const DESCRIPTION_LABEL: Record<Block['type'], string> = {
   checklist: 'How not to miss it',
   timeline: 'What happens (spoiler-light)',
   characters: 'Description',
+  items: 'Description',
 };
 
 const blank = (): EntryContent => ({ name: '', sections: [], categories: {} });
@@ -154,8 +156,8 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
     if (v.trim() === '' || !Number.isFinite(Number(v))) delete next[key]; else next[key] = Number(v);
     set({ stats: Object.keys(next).length ? next : undefined });
   };
-  // Characters: each field is asked for by name; its value is the section (or tag) under the field's key.
-  const people = block.type === 'characters';
+  // Characters and Items: each field is asked for by name; its value is the section (or tag) under the field's key.
+  const people = byFields(block);
   const fieldKeys = new Set(people ? fieldsOf(block).map((f) => f.key) : []);
   const setField = (key: string, text: string) => set({ sections: content.sections.some((s) => s.label === key)
     ? content.sections.map((s) => (s.label === key ? { ...s, text } : s)) : [...content.sections, { label: key, text }] });

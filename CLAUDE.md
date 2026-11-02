@@ -29,7 +29,10 @@ Community-built companion apps for games, with a village theme. Two layers:
   rename and reorder, plus builders' own, all optional. Values live on entries as they
   always have (tags as categories, the rest as sections under the field's key), so Drafts
   work unchanged. Builders set fields up in the Workshop ("Set up", with a "John Doe"
-  preview); moderators save for now, voting on setups comes later.
+  preview); moderators save for now, voting on setups comes later. Block 2 is **Items**
+  (`src/components/app/Items.tsx`, 2026-11-02): tiles with basic stats, grouped by Type, plus
+  List and Compare; builders pick what's "On the tile" in Set up; "Made from" works out
+  "Used to make"; a "Got it" tick. Its full view is the Characters card. Spec: `docs/blocks/items.md`.
 - **Block specs** (`docs/blocks/`, from 2026-10-31): one file per Block, the source of truth
   for its purpose, fields, layout, decisions and open questions; the roadmap and how we
   work are in `docs/blocks/README.md`. Each Block gets its own chat ("Village · Block:

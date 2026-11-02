@@ -5,7 +5,7 @@ import type { Card, Route } from '../content/types.ts';
 import type { Block, Entry, Page, Section } from './types.ts';
 import { WEAPON_STATS, weapons } from './fortunes-weave-weapons.ts';
 import { GROWTH_STATS, GROWTHS } from './fortunes-weave-growths.ts';
-import { COMMON_FIELDS, STATS } from '../../lib/fields.ts';
+import { COMMON_FIELDS, ITEM_FIELDS, STATS, withCommon } from '../../lib/fields.ts';
 
 const ROUTE_NAMES: Record<string, Route> = { Cai: 'cai', Dietrich: 'dietrich', Theodora: 'theodora', Leda: 'leda' };
 
@@ -179,6 +179,28 @@ const FACTIONS: Record<string, string> = {
   Unaffiliated: 'Compass',
 };
 
+/** Items: the common item fields, with the names our starter cards already use ("Used for"). */
+const ITEMS_FIELDS = ITEM_FIELDS.map((f) => (f.key === 'What it does' ? { ...f, key: 'Used for', label: 'Used for' } : f));
+
+/** Weapons and magic: Rank and the four numbers on the tile; the effect, notes and where to get it in the full view. */
+const WEAPON_FIELDS = withCommon([
+  { key: 'Rank', label: 'Rank', kind: 'tag', tile: true },
+  { key: STATS, label: 'Stats', kind: 'chart', tile: true, noWeb: true },
+  { key: 'Effect', label: 'What it does', kind: 'longtext' },
+  { key: 'Note', label: 'Note', kind: 'longtext' },
+  { key: 'Where to get it', label: 'Where to get it', kind: 'list' },
+  { key: 'Used for', label: 'Used for', kind: 'longtext' },
+], 'items');
+
+/** A symbol for each kind of item. */
+const ITEM_TYPES: Record<string, string> = {
+  'Key item': 'KeyRound',
+  Material: 'Gem',
+  'Quest item': 'ScrollText',
+  License: 'BadgeCheck',
+  Resource: 'Sparkles',
+};
+
 export const PAGES: Page[] = [
   {
     id: 'units-and-classes', title: 'Units and classes', short: 'Units', icon: 'Users', tint: 'berry',
@@ -193,9 +215,10 @@ export const PAGES: Page[] = [
     id: 'items', title: 'Items', short: 'Items', icon: 'Backpack', tint: 'sun',
     blurb: 'Key items, materials, weapons and magic: where to find them and how they compare.',
     blocks: [
-      block({ type: 'collection', look: 'slots', title: 'Items', icon: 'Backpack', filters: ['Type'], entries: items() }),
-      block({ type: 'collection', look: 'table', title: 'Weapons and magic', icon: 'Swords', filters: ['Rank'], stats: WEAPON_STATS, entries: [...weapons(), ...weaponItems()],
-        intro: 'Every number side by side: the stronger the color, the better. Tap a column to sort, or a row for details.' }),
+      block({ type: 'items', title: 'Items', icon: 'Backpack', filters: ['Type'], symbols: ITEM_TYPES, fields: ITEMS_FIELDS, entries: items(),
+        intro: 'What each one is for and where to find it. Tap one for the details.' }),
+      block({ type: 'items', title: 'Weapons and magic', icon: 'Swords', filters: ['Rank'], stats: WEAPON_STATS, fields: WEAPON_FIELDS, entries: [...weapons(), ...weaponItems()],
+        intro: 'The stronger the color, the better the number. Compare puts every number side by side.' }),
     ],
   },
   {

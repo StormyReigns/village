@@ -30,12 +30,12 @@ designed properly), **Idea** (not built).
 | # | Block | Status | Where it's used now | Spec |
 |---|-------|--------|---------------------|------|
 | 1 | Characters | Refined, still being polished | Fortune's Weave · Units | [characters.md](characters.md) |
-| – | Collection: stats table | Live, first version | Fortune's Weave · Weapons and magic | |
+| 2 | Items | Built, first version (live once its SQL is run) | Fortune's Weave · Items, Weapons and magic | [items.md](items.md) |
 | – | Collection: map | Live, first version | Fortune's Weave · Dungeons and places | |
-| – | Collection: slots and rows | Live, first version | Classes, Items, Foes, Mysteries | |
+| – | Collection: slots and rows | Live, first version | Classes, Foes, Mysteries | |
 | – | Checklist | Live, first version | Last chances | |
 | – | Timeline | Live, first version | Story | |
 | – | Guide | Live, first version | How-to | |
 
-The order after Characters isn't decided yet. Pick the next Block with Matt, give it a
+Block 2 is Items (2026-11-02). The order after Items isn't decided yet. Pick the next Block with Matt, give it a
 number here, and start its file from the template.

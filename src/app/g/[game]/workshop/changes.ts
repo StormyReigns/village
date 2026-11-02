@@ -16,8 +16,8 @@ export function changesBetween(before: EntryContent | undefined, after: EntryCon
 
   add('Name', before?.name, after.name);
   add(block.statName ?? 'Key fact', before?.stat, after.stat);
-  // Characters can have several charts (Base stats, Growths), each with its own stats.
-  for (const d of block.type === 'characters' ? allStatDefs(block) : block.stats ?? []) add(d.label, before?.stats?.[d.key]?.toString(), after.stats?.[d.key]?.toString());
+  // Characters and Items can have several charts (Base stats, Growths), each with its own stats.
+  for (const d of block.type === 'characters' || block.type === 'items' ? allStatDefs(block) : block.stats ?? []) add(d.label, before?.stats?.[d.key]?.toString(), after.stats?.[d.key]?.toString());
   add('Order', before?.order?.toString(), after.order?.toString());
   add('Description', before?.description, after.description);
   for (const k of new Set([...Object.keys(before?.categories ?? {}), ...Object.keys(after.categories)])) {

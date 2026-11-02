@@ -1,8 +1,8 @@
-// The fields of a Characters Block: the common ones builders start from, the kinds a
-// builder can add, where each value lives on an entry, and the "John Doe" sample the
+// The fields of a Characters or Items Block: the common ones builders start from, the kinds
+// a builder can add, where each value lives on an entry, and the "John Doe" sample the
 // builder's preview fills in. See FieldDef in src/data/pages/types.ts.
 
-import type { Block, EntryContent, FieldDef, FieldKind, Route, Section, StatDef } from '@/data/pages/types';
+import type { Block, BlockType, EntryContent, FieldDef, FieldKind, Route, Section, StatDef } from '@/data/pages/types';
 
 /** Fields whose values are the entry's own description and stats, not a section. */
 export const DESCRIPTION = '@description';
@@ -23,7 +23,14 @@ export const FIELD_KINDS: { kind: FieldKind; label: string; hint: string }[] = [
   { kind: 'chart', label: 'Chart', hint: 'Numbers like stats or growths: a web by the portrait and boxes colored against the rest' },
 ];
 
-export const kindLabel = (k: FieldKind) => FIELD_KINDS.find((x) => x.kind === k)?.label ?? k;
+/** The kinds as an Items Block offers them: links point at other items there. */
+const ITEM_KINDS = FIELD_KINDS.map((k) => (k.kind === 'links' ? { ...k, label: 'Other items', hint: 'Other items, one per line: "Iron Ore: 3" for how many' } : k));
+
+export const kindsFor = (type?: BlockType) => (type === 'items' ? ITEM_KINDS : FIELD_KINDS);
+export const kindLabel = (k: FieldKind, type?: BlockType) => kindsFor(type).find((x) => x.kind === k)?.label ?? k;
+
+/** Blocks whose entries are laid out by their fields (Characters, Items), not a Collection's fixed parts. */
+export const byFields = (block: Pick<Block, 'type'>) => block.type === 'characters' || block.type === 'items';
 
 /** "Playable or NPC": one of the common fields (not one builders add), a green or red pill. */
 export const PLAYABLE = { yes: 'Playable', no: 'NPC' } as const;
@@ -64,18 +71,62 @@ export const COMMON_FIELDS: FieldDef[] = [
   { key: 'Likes and gifts', label: 'Likes and gifts', kind: 'list', off: true },
 ];
 
+/** Items: what they're made from and what they upgrade to, kept under these keys so the
+ *  other side ("Used to make", "Upgrades from") can be worked out. */
+export const MADE_FROM = 'Made from';
+export const UPGRADES_TO = 'Upgrades to';
+
+/** The common fields every new Items Block starts with. Stats show as number boxes, no web. */
+export const ITEM_FIELDS: FieldDef[] = [
+  { key: 'Type', label: 'Type', kind: 'tag' },
+  { key: 'Rank', label: 'Rank or rarity', kind: 'tag', off: true, tile: true },
+  { key: 'Price', label: 'Price', kind: 'number', off: true, tile: true },
+  { key: 'Sell price', label: 'Sell price', kind: 'number', off: true },
+  { key: STATS, label: 'Stats', kind: 'chart', off: true, tile: true, noWeb: true },
+  { key: 'What it does', label: 'What it does', kind: 'longtext' },
+  { key: 'Where to get it', label: 'Where to get it', kind: 'list' },
+  { key: MADE_FROM, label: 'Made from', kind: 'links' },
+  { key: UPGRADES_TO, label: 'Upgrades to', kind: 'links', off: true },
+  { key: 'Who can use it', label: 'Who can use it', kind: 'text', off: true },
+  { key: DESCRIPTION, label: 'Description', kind: 'longtext', off: true },
+];
+
+/** The common fields for a Block type: Items have their own, Characters the set above. */
+export const commonFor = (type?: BlockType) => (type === 'items' ? ITEM_FIELDS : COMMON_FIELDS);
+
 /** A Block's own fields plus any common field it doesn't have yet (switched off), so a Block
  *  set up before a common field existed can still switch it on. */
-export const withCommon = (fields: FieldDef[]) => [...fields, ...COMMON_FIELDS.filter((c) => !fields.some((f) => sameField(f, c))).map((c) => ({ ...c, off: true }))];
+export const withCommon = (fields: FieldDef[], type?: BlockType) => [...fields, ...commonFor(type).filter((c) => !fields.some((f) => sameField(f, c))).map((c) => ({ ...c, off: true }))];
 
 /** The same common field, even if a Block keeps it under another key ('Recruit' for How to recruit). */
 const sameField = (f: FieldDef, c: FieldDef) => f.key === c.key || f.label.toLowerCase() === c.label.toLowerCase();
 
-/** A Block's fields, or the common ones if it hasn't set any. */
-export const fieldsOf = (block: Pick<Block, 'fields'>) => block.fields?.length ? block.fields : COMMON_FIELDS;
+/** A Block's fields, or the common ones for its type if it hasn't set any. */
+export const fieldsOf = (block: Pick<Block, 'fields'> & Partial<Pick<Block, 'type'>>) => block.fields?.length ? block.fields : commonFor(block.type);
 
 /** Fields that are switched on. */
-export const shownFields = (block: Pick<Block, 'fields'>) => fieldsOf(block).filter((f) => !f.off);
+export const shownFields = (block: Pick<Block, 'fields'> & Partial<Pick<Block, 'type'>>) => fieldsOf(block).filter((f) => !f.off);
+
+/** The most a tile holds, so tiles stay small and even. */
+export const TILE_MAX = 3;
+/** Kinds that fit on a tile: long text, lists and links don't. */
+export const canTile = (f: FieldDef) => !['longtext', 'list', 'links'].includes(f.kind) && f.key !== DESCRIPTION;
+/** What an item's tile shows, in the builders' order. */
+export const tileFields = (block: Pick<Block, 'fields'> & Partial<Pick<Block, 'type'>>) => shownFields(block).filter((f) => f.tile && canTile(f)).slice(0, TILE_MAX);
+
+/** The other side of a links field: entries whose `key` field names this one (what a
+ *  material is used to make, what an item upgrades from), with the note they give. */
+export function linkedFrom(name: string, entries: EntryContent[], key: string) {
+  const me = name.trim().toLowerCase();
+  if (!me) return [];
+  return entries.flatMap((e) => {
+    const hit = listItems(e.sections.find((s) => s.label === key)?.text ?? '').find((i) => i.name.toLowerCase() === me);
+    return hit && e.name.trim().toLowerCase() !== me ? [{ name: e.name, note: hit.note }] : [];
+  });
+}
+
+/** A links note that's just a number is an amount: "3" reads "× 3". */
+export const amountText = (note: string) => (/^\d+$/.test(note.trim()) ? `× ${note.trim()}` : note);
 
 /** Where on the card a field goes. */
 export type Spot = 'beside' | 'tags' | 'meta' | 'chart' | 'body' | 'section';
@@ -122,6 +173,12 @@ export function listItems(text: string) {
   });
 }
 
+/** Made-up values for an Items Block's sample, for its common fields. */
+const ITEM_SAMPLE: Partial<Record<string, string>> = {
+  Type: 'Material', Rank: 'B', Price: '1200', 'Sell price': '600', 'What it does': 'What the item does, in a sentence or two.',
+  'Where to get it': 'Some town: Sold at the market\nOld mine: In a chest', [MADE_FROM]: 'Iron Ore: 3\nOak Log: 1', [UPGRADES_TO]: 'Sample item +1', 'Who can use it': 'Anyone',
+};
+
 /** Made-up values for the builder's preview, one per kind. */
 const SAMPLE: Record<FieldKind, string> = {
   text: 'Sample', number: '12', tag: 'Tag', place: 'Some town', when: 'Chapter 3', chart: '',
@@ -132,18 +189,21 @@ const SAMPLE: Record<FieldKind, string> = {
  * "John Doe": a sample character with every switched-on field filled in, so builders see
  * the card their choices make before anyone adds a real one.
  */
-export function johnDoe(block: Pick<Block, 'fields' | 'stats'>): EntryContent {
+export function johnDoe(block: Pick<Block, 'fields' | 'stats'> & Partial<Pick<Block, 'type'>>): EntryContent {
   const sections: Section[] = [];
   const categories: Record<string, string> = {};
   let description: string | undefined;
+  // An Items Block's sample is an item, with item-like values for its common fields.
+  const item = block.type === 'items';
   for (const f of shownFields(block)) {
     if (f.kind === 'chart') continue;
-    if (f.key === DESCRIPTION) { description = 'A few lines about who they are and why you would bring them along go here.'; continue; }
-    const v = /\bage\b/i.test(f.label) ? '30' : f.kind === 'tag' ? f.label : f.kind === 'playable' ? toggleOptions(f)[0] : SAMPLE[f.kind];
+    if (f.key === DESCRIPTION) { description = item ? 'A line or two of flavor or extra notes goes here.' : 'A few lines about who they are and why you would bring them along go here.'; continue; }
+    const v = (item ? ITEM_SAMPLE[f.key] : undefined) ?? (/\bage\b/i.test(f.label) ? '30' : f.kind === 'tag' ? f.label : f.kind === 'playable' ? toggleOptions(f)[0]
+      : item && f.kind === 'links' ? 'Sample part: 2' : SAMPLE[f.kind]);
     if (isCategory(f)) categories[f.key] = v;
     else sections.push({ label: f.key, text: v });
   }
   const defs = shownFields(block).filter((f) => f.kind === 'chart').flatMap((f) => chartDefs(block, f));
   const stats = defs.length ? Object.fromEntries(defs.map((d, i) => [d.key, 8 + ((i * 7) % 13)])) : undefined;
-  return { name: 'John Doe', description, sections, categories, stats };
+  return { name: item ? 'Sample item' : 'John Doe', description, sections, categories, stats };
 }

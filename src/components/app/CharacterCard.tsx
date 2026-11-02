@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { Fragment, createContext, useContext, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { Check, Clock, EyeOff, MapPin, Pencil, TriangleAlert, X } from 'lucide-react';
@@ -11,7 +11,7 @@ import { RichText } from './TextLinks';
 import { initials } from './entries';
 import type { RouteOption } from './EntryPanel';
 import { symbolFor } from './symbols';
-import { STATS, besideText, toggleOptions, chartDefs, listItems, shownFields, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
+import { MADE_FROM, STATS, UPGRADES_TO, amountText, besideText, toggleOptions, chartDefs, linkedFrom, listItems, shownFields, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
 import { byStat, heatFill, placeText, rangeOf, statFacts } from '@/lib/stats';
 import { StatTable, statSort } from './StatTable';
 
@@ -21,13 +21,15 @@ import { StatTable, statSort } from './StatTable';
  */
 export const TagPick = createContext<((key: string, value: string) => void) | null>(null);
 
-type CardBlock = Pick<Block, 'title' | 'icon'> & Partial<Pick<Block, 'fields' | 'stats' | 'symbols' | 'filters' | 'entries'>>;
+type CardBlock = Pick<Block, 'title' | 'icon'> & Partial<Pick<Block, 'type' | 'fields' | 'stats' | 'symbols' | 'filters' | 'entries'>>;
 
 /**
  * A character's profile, laid out by its Block's fields: the portrait, the name with
  * anything set beside it, tags, where and when they turn up, the stats chart, then the
  * rest in the builders' order. Empty fields don't show. Used by the Characters Block,
  * its details panel, the Workshop's previews and the builders' "John Doe" sample.
+ * Items use it too, as an item's full view: amounts on "Made from", and "Used to make" and
+ * "Upgrades from" worked out from the other items. (Named for Characters, which came first.)
  */
 export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)', spoilers = false, sample = false, size = 152, onGo, fixHref }: {
   entry: EntryContent; block: CardBlock; route: Route | 'all'; routes: RouteOption[];
@@ -60,6 +62,14 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
   const pickTag = useContext(TagPick);
   const chartColor = sample ? '#9aa0ad' : color;
   const webSize = Math.round(Math.max(size * 0.92, 96));
+  // Items: the other side of "Made from" and "Upgrades to", from every other item.
+  const item = block.type === 'items';
+  const others = block.entries ?? [];
+  const derived: Record<string, { key: string; label: string; text: string } | undefined> = item ? Object.fromEntries([[MADE_FROM, 'Used to make'], [UPGRADES_TO, 'Upgrades from']]
+    .map(([key, label]) => {
+      const found = linkedFrom(entry.name, others, key);
+      return [key, found.length ? { key: `@from:${key}`, label, text: found.map((x) => (x.note ? `${x.name}: ${x.note}` : x.name)).join('\n') } : undefined];
+    })) : {};
 
   return (
     <article className="relative min-w-0">
@@ -165,19 +175,34 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
           onSort={(sort) => setHeat({ ...heat, sort })} onClose={() => setHeat(null)} onGo={onGo} />
       )}
 
-      {fields.filter((f) => ['body', 'section'].includes(spotOf(f))).map((f) => (
-        <section key={f.key} className="mt-4">
-          {spotOf(f) === 'section' && (
-            <div className="flex items-center">
-              <h3 className="flex-1 text-xs font-bold uppercase tracking-wide" style={{ color }}>{f.label}</h3>
-              {fixHref && <Fix href={fixHref(`section:${f.key}`)} what={f.label} />}
-            </div>
-          )}
-          <Spoiler f={f} on={spoilers}>
-            <FieldBody f={f} v={valueOf(entry, f)} route={route} routeName={routeName} name={entry.name} block={block} onGo={onGo} color={color} />
-          </Spoiler>
-        </section>
-      ))}
+      {/* Every switched-on field in order; an item's "Used to make" follows its "Made from"
+          spot even when the item itself is made from nothing. */}
+      {shownFields(block).filter((f) => ['body', 'section'].includes(spotOf(f))).map((f) => {
+        const from = derived[f.key];
+        return (
+          <Fragment key={f.key}>
+            {hasValue(entry, f) && (
+              <section className="mt-4">
+                {spotOf(f) === 'section' && (
+                  <div className="flex items-center">
+                    <h3 className="flex-1 text-xs font-bold uppercase tracking-wide" style={{ color }}>{f.label}</h3>
+                    {fixHref && <Fix href={fixHref(`section:${f.key}`)} what={f.label} />}
+                  </div>
+                )}
+                <Spoiler f={f} on={spoilers}>
+                  <FieldBody f={f} v={valueOf(entry, f)} route={route} routeName={routeName} name={entry.name} block={block} onGo={onGo} color={color} />
+                </Spoiler>
+              </section>
+            )}
+            {from && (
+              <section className="mt-4">
+                <h3 className="text-xs font-bold uppercase tracking-wide" style={{ color }}>{from.label}</h3>
+                <FieldBody f={{ ...from, kind: 'links' }} v={{ text: from.text, byRoute: [] }} route={route} routeName={routeName} name={entry.name} block={block} onGo={onGo} color={color} />
+              </section>
+            )}
+          </Fragment>
+        );
+      })}
     </article>
   );
 }
@@ -219,7 +244,10 @@ function FieldBody({ f, v, route, routeName, name, block, onGo, color }: {
   const mine = route !== 'all' ? v.byRoute.find(([r]) => r === route)?.[1] : undefined;
   const others = route === 'all' ? v.byRoute : [];
   const body = (text: string) => {
-    if (f.kind === 'list') {
+    // Items: lines without "Name:" that are whole sentences ("Lake Brontes, past the mine.")
+    // read as text below, not as chips or bold names.
+    const sentences = f.kind === 'list' && block.type === 'items' && listItems(text).every((i) => !i.note) && listItems(text).some((i) => i.name.length > 24);
+    if (f.kind === 'list' && !sentences) {
       const items = listItems(text);
       // Names alone (likes, gifts) read as chips; "Name: what it does" as rows.
       if (items.every((i) => !i.note)) return <ul className="mt-1 flex flex-wrap gap-1.5">{items.map((i) => <li key={i.name} className="rounded-full bg-card-2 px-2.5 py-1 text-sm"><RichText text={i.name} skip={name} /></li>)}</ul>;
@@ -230,10 +258,14 @@ function FieldBody({ f, v, route, routeName, name, block, onGo, color }: {
         <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-2">
           {listItems(text).map((i) => {
             const who = block.entries?.find((e) => e.name.toLowerCase() === i.name.toLowerCase());
+            // Items: a linked item shows its type's symbol, and a number is how many ("× 3").
+            const item = block.type === 'items';
+            const symbol = item && who ? symbolFor(who, block) : undefined;
+            const note = item ? amountText(i.note) : i.note;
             const inner = (
               <>
-                <Piece size={34} color={color} image={who?.icon}>{who?.icon ? null : initials(i.name)}</Piece>
-                <span className="grid text-left leading-tight"><span className="text-sm font-bold">{i.name}</span>{i.note && <span className="text-xs text-muted">{i.note}</span>}</span>
+                <Piece size={34} color={color} image={who?.icon}>{who?.icon ? null : symbol ? <BlockIcon name={symbol} size={12} strokeWidth={2.4} /> : initials(i.name)}</Piece>
+                <span className="grid text-left leading-tight"><span className="text-sm font-bold">{i.name}</span>{note && <span className="text-xs text-muted">{note}</span>}</span>
               </>
             );
             return (
