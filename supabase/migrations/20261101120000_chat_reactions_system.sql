@@ -25,24 +25,31 @@ declare
   page text;
   thread text;
 begin
-  if new.status = old.status or new.status not in ('stable', 'declined') then return new; end if;
-  select page_key into page from public.game_blocks where game_id = new.game_id and block_key = new.block_key;
-  thread := case when new.card_id is null then 'draft:' || new.id else 'card:' || new.card_id end;
-  insert into public.chat_messages (game_id, author_id, body, block_key, linked_draft_id, thread_key, kind, event)
-  values (
-    new.game_id,
-    coalesce(new.decided_by, new.author_id),
-    case when new.status = 'stable'
-      then new.title || ' is now in the app.'
-      else new.title || ' was declined' || coalesce(': ' || new.decline_reason, '.') end,
-    page, new.id, thread, 'system',
-    jsonb_build_object(
-      'type', case when new.status = 'stable' then 'published' else 'declined' end,
-      'draft', new.id,
-      'author', new.author_id,
-      'before', new.base_revision_id,
-      'isNew', old.card_id is null,
-      'reason', new.decline_reason));
+  if new.status is not distinct from old.status or new.status not in ('stable', 'declined') then return new; end if;
+  -- A note must never undo a publish: if writing it fails for any reason, it's skipped.
+  begin
+    select page_key into page from public.game_blocks where game_id = new.game_id and block_key = new.block_key;
+    thread := case when new.card_id is null then 'draft:' || new.id else 'card:' || new.card_id end;
+    -- The note carries the moderator who decided (the Draft's author if unknown); the chat
+    -- shows it as the Village's note, naming both the author and the moderator.
+    insert into public.chat_messages (game_id, author_id, body, block_key, linked_draft_id, thread_key, kind, event)
+    values (
+      new.game_id,
+      coalesce(new.decided_by, new.author_id),
+      left(case when new.status = 'stable'
+        then new.title || ' is now in the app.'
+        else new.title || ' was declined' || coalesce(': ' || new.decline_reason, '.') end, 4000),
+      page, new.id, thread, 'system',
+      jsonb_build_object(
+        'type', case when new.status = 'stable' then 'published' else 'declined' end,
+        'draft', new.id,
+        'author', new.author_id,
+        'before', new.base_revision_id,
+        'isNew', old.card_id is null,
+        'reason', new.decline_reason));
+  exception when others then
+    null;
+  end;
   return new;
 end $$;
 
@@ -81,7 +88,7 @@ create policy "react" on public.chat_reactions for insert with check (
 drop policy if exists "unreact" on public.chat_reactions;
 create policy "unreact" on public.chat_reactions for delete using (profile_id = auth.uid());
 
--- Rate limits: system notes don't count, and reactions get their own -----------------------
+-- Rate limits: system notes don't count (the drafts and reports limits are unchanged) -------
 create or replace function public.slow_down() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare recent int;
@@ -99,12 +106,6 @@ begin
     if recent >= 20 then
       raise exception 'Slow down a little: 20 Drafts an hour at most.' using errcode = 'P0001';
     end if;
-  elsif tg_table_name = 'chat_reactions' then
-    select count(*) into recent from public.chat_reactions
-    where profile_id = new.profile_id and created_at > now() - interval '1 minute';
-    if recent >= 30 then
-      raise exception 'Slow down a little: 30 reactions a minute at most.' using errcode = 'P0001';
-    end if;
   else
     select count(*) into recent from public.flags
     where reporter_id = new.reporter_id and created_at > now() - interval '1 hour';
@@ -115,9 +116,21 @@ begin
   return new;
 end $$;
 
+-- Reactions have a limit of their own, kept apart from the shared one above.
+create or replace function public.reactions_slow_down() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare recent int;
+begin
+  select count(*) into recent from public.chat_reactions
+  where profile_id = new.profile_id and created_at > now() - interval '1 minute';
+  if recent >= 30 then
+    raise exception 'Slow down a little: 30 reactions a minute at most.' using errcode = 'P0001';
+  end if;
+  return new;
+end $$;
 drop trigger if exists chat_reactions_slow_down on public.chat_reactions;
 create trigger chat_reactions_slow_down before insert on public.chat_reactions
-  for each row execute function public.slow_down();
+  for each row execute function public.reactions_slow_down();
 
 -- Live updates: reactions come and go for everyone in the game ------------------------------
 alter table public.chat_reactions replica identity full;
