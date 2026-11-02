@@ -53,6 +53,16 @@ const WALL: React.CSSProperties = {
   scrollbarWidth: 'thin',
   scrollbarColor: 'color-mix(in srgb, var(--ink) 25%, transparent) transparent',
 };
+/**
+ * A thread is a smaller room inside the main chat: a slightly darker frame, and the same
+ * wallpaper a shade darker with its shapes drawn smaller and closer together.
+ */
+const THREAD_FRAME = 'color-mix(in srgb, var(--ink) 5%, var(--card))';
+const THREAD_WALL: React.CSSProperties = {
+  ...WALL,
+  backgroundColor: 'color-mix(in srgb, var(--ink) 7%, var(--paper))',
+  backgroundSize: '48px 48px',
+};
 /** The message list: edge to edge in the chat box (which has 1rem of padding), on the wallpaper. */
 const WALL_LIST = '-mx-4 my-3 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-4 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-3';
 
@@ -460,12 +470,14 @@ function LinkedCard({ refs, me, live }: { refs: Ref[]; me: Villager | null | und
  * Typing "#" opens a list of things to point at (#esh finds Eshmel); picking one writes
  * #Eshmel, and sending turns it into a link to his thread.
  */
-export function Composer({ me, placeholder, onSend, id, compact = false }: {
+export function Composer({ me, placeholder, onSend, id, compact = false, onShade = false }: {
   me: Villager | null | undefined; placeholder: string; onSend: (body: string, spoiler: boolean) => Promise<string | null>;
   /** The stream's box has an id, so "Say hi" can put the cursor in it. */
   id?: string;
   /** Inside a thread's card: smaller, and no sign-in button (the stream's box has one). */
   compact?: boolean;
+  /** On a thread's darker frame: a white box, so it still stands out. */
+  onShade?: boolean;
 }) {
   const [text, setText] = useState('');
   const field = useRef<HTMLInputElement>(null);
@@ -526,7 +538,7 @@ export function Composer({ me, placeholder, onSend, id, compact = false }: {
       )}
       {/* The whole box takes a click: the text field fills its height, and a click on its edge lands in the field. */}
       <form onSubmit={submit} onMouseDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); field.current?.focus(); } }}
-        className={'flex cursor-text items-center gap-1.5 rounded-full ring-1 ring-line focus-within:ring-2 focus-within:ring-sky ' + (compact ? 'bg-card p-1' : 'bg-card-2 p-1.5')}>
+        className={'flex cursor-text items-center gap-1.5 rounded-full ring-1 ring-line focus-within:ring-2 focus-within:ring-sky ' + (compact ? 'bg-card p-1' : onShade ? 'bg-card p-1.5' : 'bg-card-2 p-1.5')}>
         <input ref={field} id={id} value={text} maxLength={4000} disabled={me === undefined}
           onChange={(e) => { setText(e.target.value); track(e.target); setHidden(false); setSel(0); if (error) setError(''); }}
           onSelect={(e) => track(e.currentTarget)}
@@ -732,7 +744,8 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, switcher
 
   return (
     // Escape goes back to the main chat, unless you're partway through writing a message.
-    <section aria-label={`Thread: ${info.title}`} className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl bg-card p-4 ring-1 ring-line in-data-[phone-chat]:min-h-0 lg:min-h-0 ' + className}
+    <section aria-label={`Thread: ${info.title}`} style={{ background: THREAD_FRAME }}
+      className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl p-4 ring-1 ring-line in-data-[phone-chat]:min-h-0 lg:min-h-0 ' + className}
       onKeyDown={(e) => {
         if (e.key !== 'Escape' || !onBack || e.defaultPrevented) return;
         if (e.target instanceof HTMLInputElement && e.target.value.trim()) return;
@@ -768,7 +781,7 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, switcher
         </div>
       )}
       <ul ref={list} onScroll={onScroll} aria-live="polite" className={WALL_LIST}
-        style={{ ...WALL, boxShadow: `inset 4px 0 0 ${info.block ? 'var(--' + info.block.page.tint + ')' : 'var(--ink)'}` }}>
+        style={{ ...THREAD_WALL, boxShadow: `inset 4px 0 0 ${info.block ? 'var(--' + info.block.page.tint + ')' : 'var(--ink)'}` }}>
         {timeline.length === 0 && (
           <li className="m-auto grid max-w-xs justify-items-center gap-2 py-8 text-center">
             <h3 className="font-display text-lg">Start the thread</h3>
@@ -790,7 +803,7 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, switcher
           </li>
         ))}
       </ul>
-      <Composer me={me} placeholder={`Message about ${info.title}`} onSend={sendToThread(live, info)} />
+      <Composer onShade me={me} placeholder={`Message about ${info.title}`} onSend={sendToThread(live, info)} />
     </section>
   );
 }

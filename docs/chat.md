@@ -341,6 +341,8 @@ Dated, newest last, each with why.
   "← Chat › Eshmel" (on phones, "← Chat ›" and the switch on top, the name below), a strip in
   the entry's Page color runs down the left of its messages, and its messages are a little
   smaller. Why: so it's clear you're in a corner of the main chat, not a separate room.
+  Then (Matt): its frame is a shade darker and its wallpaper darker, with the shapes smaller
+  and closer together (not the editor's dot grid, so a thread never looks like an editor).
 
 ## Open questions
 
