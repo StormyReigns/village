@@ -56,21 +56,19 @@ const WALL: React.CSSProperties = {
   scrollbarColor: 'color-mix(in srgb, var(--ink) 25%, transparent) transparent',
 };
 /**
- * A thread is the builders' notebook for one thing (agreed 2026-11-02): warm cream with faint
- * ruled lines that scroll with the messages, so beside the grey editor it reads as notes pinned
- * to the build, and as its own smaller room next to the main chat's wallpaper. Its own cream,
- * not a Page tint (Page colors mean "this Page").
+ * Both chats have an ink top and bottom, like the site's top bar (agreed 2026-11-02). The main
+ * chat has the village wallpaper between them; a thread is the builders' notebook for one
+ * thing: white paper with faint ruled lines that scroll with the messages.
  */
-const THREAD_FRAME = '#fff6e3';
 const THREAD_WALL: React.CSSProperties = {
-  backgroundColor: '#fffbf2',
-  backgroundImage: 'repeating-linear-gradient(transparent 0 23px, #f1e3c2 23px 24px)',
+  backgroundColor: 'var(--card)',
+  backgroundImage: 'repeating-linear-gradient(transparent 0 23px, #e3e8f0 23px 24px)',
   backgroundAttachment: 'local',
   scrollbarWidth: 'thin',
   scrollbarColor: 'color-mix(in srgb, var(--ink) 25%, transparent) transparent',
 };
 /** The message list: edge to edge in the chat box (which has 1rem of padding), on the wallpaper. */
-const WALL_LIST = '-mx-4 my-3 grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-4 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-3';
+const WALL_LIST = '-mx-4 my-3 grid text-ink min-h-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-4 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-3';
 
 const whereOf = (b?: Placed) => (!b ? '' : b.page.title === b.title ? b.title : `${b.page.title} · ${b.title}`);
 
@@ -750,7 +748,7 @@ export function Composer({ me, placeholder, onSend, id, compact = false, onShade
   return (
     <div className={'relative ' + (compact ? '' : 'mt-auto')}>
       {picking && typed && (
-        <ul id={listId} role="listbox" aria-label={typed.mark === '#' ? 'Point at something' : 'Mention someone'} className="absolute inset-x-0 bottom-full z-30 mb-2 max-h-64 overflow-y-auto overscroll-contain rounded-2xl bg-card p-1 shadow-soft ring-1 ring-line">
+        <ul id={listId} role="listbox" aria-label={typed.mark === '#' ? 'Point at something' : 'Mention someone'} className="absolute inset-x-0 bottom-full z-30 mb-2 max-h-64 overflow-y-auto overscroll-contain rounded-2xl bg-card p-1 text-ink shadow-soft ring-1 ring-line">
           {choices.map((o, i) => (
             <li key={o.key} role="option" aria-selected={i === sel}>
               <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => pick(o)} onMouseEnter={() => setSel(i)}
@@ -763,7 +761,7 @@ export function Composer({ me, placeholder, onSend, id, compact = false, onShade
         </ul>
       )}
       {replyTo && (
-        <div className="mb-1.5 flex items-center gap-2 rounded-xl bg-card-2 px-3 py-1.5 text-xs ring-1 ring-line">
+        <div className="mb-1.5 flex items-center gap-2 rounded-xl bg-card-2 px-3 py-1.5 text-xs text-ink ring-1 ring-line">
           <CornerUpLeft size={13} className="shrink-0 text-muted" aria-hidden="true" />
           <span className="min-w-0 flex-1 truncate">Replying to <b>{replyTo.author.id === me?.id ? 'yourself' : replyTo.author.name}</b>: {gist(replyTo, links)}</span>
           <button type="button" onClick={onCancelReply} aria-label="Don't reply" className="grid size-5 shrink-0 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
@@ -787,7 +785,7 @@ export function Composer({ me, placeholder, onSend, id, compact = false, onShade
       )}
       {/* The whole box takes a click: the text field fills its height, and a click on its edge lands in the field. */}
       <form onSubmit={submit} onMouseDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); field.current?.focus(); } }}
-        className={'flex cursor-text items-end gap-1.5 rounded-[1.25rem] ring-1 ring-line focus-within:ring-2 focus-within:ring-sky ' + (compact ? 'bg-card p-1' : onShade ? 'bg-card p-1.5' : 'bg-card-2 p-1.5')}>
+        className={'flex cursor-text items-end gap-1.5 rounded-[1.25rem] text-ink ring-1 ring-line focus-within:ring-2 focus-within:ring-sky ' + (compact ? 'bg-card p-1' : onShade ? 'bg-card p-1.5' : 'bg-card-2 p-1.5')}>
         <textarea ref={field} id={id} value={text} maxLength={4000} disabled={me === undefined} rows={1}
           onChange={(e) => { setText(e.target.value); track(e.target); setHidden(false); setSel(0); if (error) setError(''); }}
           onSelect={(e) => track(e.currentTarget)}
@@ -832,9 +830,9 @@ export function Composer({ me, placeholder, onSend, id, compact = false, onShade
           <Send size={compact ? 14 : 16} aria-hidden="true" />
         </button>
       </form>
-      {spoiler && <p className="mt-1 px-3 text-xs text-muted">Hidden behind a tap until someone chooses to read it.</p>}
-      {busy && pictures.length > 0 && <p role="status" className="mt-1 px-3 text-xs text-muted">Sending your picture{pictures.length > 1 ? 's' : ''}…</p>}
-      {error && <p role="status" className="mt-1 px-3 text-sm text-berry">{error}</p>}
+      {spoiler && <p className="mt-1 px-3 text-xs opacity-70">Hidden behind a tap until someone chooses to read it.</p>}
+      {busy && pictures.length > 0 && <p role="status" className="mt-1 px-3 text-xs opacity-70">Sending your picture{pictures.length > 1 ? 's' : ''}…</p>}
+      {error && <p role="status" className="mt-1 w-fit rounded-full bg-berry-soft px-3 text-sm text-berry">{error}</p>}
     </div>
   );
 }
@@ -929,28 +927,28 @@ export function Stream({ topic, onAll, onFold, switcher, bar, className = '', me
   const { list, onScroll } = useStickToBottom(last?.id, me, last?.author.id);
 
   return (
-    <section aria-label="Chat" className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl bg-card p-4 ring-1 ring-line in-data-[phone-chat]:min-h-0 lg:min-h-0 ' + className}>
+    <section aria-label="Chat" className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl bg-ink p-4 text-paper ring-1 ring-ink in-data-[phone-chat]:min-h-0 lg:min-h-0 ' + className}>
       <div className="flex flex-wrap items-center gap-x-2">
         {bar && <span className="mr-1 shrink-0">{bar}</span>}
         <h2 className="font-display text-xl">Chat</h2>
         {switcher && <span className="ml-auto lg:hidden">{switcher}</span>}
         {topic && (
-          <span className="order-last basis-full text-sm text-muted">
-            {topic.label} only · <button onClick={onAll} className="font-bold text-leaf underline underline-offset-2">show all</button>
+          <span className="order-last basis-full text-sm text-paper/70">
+            {topic.label} only · <button onClick={onAll} className="font-bold text-signal underline underline-offset-2">show all</button>
           </span>
         )}
         {onFold && <span className="ml-auto hidden shrink-0 lg:block">
           <Tip text="Fold the chat away, for more room">
-            <button onClick={onFold} aria-label="Fold the chat away" className="grid size-8 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink">
+            <button onClick={onFold} aria-label="Fold the chat away" className="grid size-8 place-items-center rounded-full text-paper/70 hover:bg-white/10 hover:text-paper">
               <PanelLeftClose size={17} aria-hidden="true" />
             </button>
           </Tip>
         </span>}
       </div>
       {live.state === 'loading' ? (
-        <div className="m-auto py-10 text-sm text-muted">Opening the workshop doors…</div>
+        <div className="m-auto py-10 text-sm text-paper/70">Opening the workshop doors…</div>
       ) : messages.length === 0 ? (
-        <div className="-mx-4 my-3 grid flex-1 place-items-center px-3" style={WALL}><div className="grid max-w-sm justify-items-center gap-2 py-10 text-center">
+        <div className="-mx-4 my-3 grid flex-1 place-items-center px-3 text-ink" style={WALL}><div className="grid max-w-sm justify-items-center gap-2 py-10 text-center">
           <span className="grid size-14 place-items-center rounded-full bg-sky-soft text-sky"><MessageCircle aria-hidden="true" /></span>
           <h3 className="font-display text-xl">{topic ? `Nothing about ${topic.label} yet` : 'The village is quiet'}</h3>
           <p className="text-sm text-muted">Say what you&apos;ve found or what you&apos;re stuck on. Messages show up for everyone here right away.</p>
@@ -1013,8 +1011,8 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, switcher
 
   return (
     // Escape goes back to the main chat, unless you're partway through writing a message.
-    <section aria-label={`Thread: ${info.title}`} style={{ background: THREAD_FRAME }}
-      className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl p-4 ring-1 ring-line in-data-[phone-chat]:min-h-0 lg:min-h-0 ' + className}
+    <section aria-label={`Thread: ${info.title}`}
+      className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl bg-ink p-4 text-paper ring-1 ring-ink in-data-[phone-chat]:min-h-0 lg:min-h-0 ' + className}
       onKeyDown={(e) => {
         if (e.key !== 'Escape' || !onBack || e.defaultPrevented) return;
         if (e.target instanceof HTMLInputElement && e.target.value.trim()) return;
@@ -1028,17 +1026,17 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, switcher
         {onBack && (
           <Tip text="Back to the whole chat" className="shrink-0">
             <button onClick={onBack} aria-label="Back to the whole chat"
-              className="inline-flex h-8 items-center gap-0.5 rounded-full pl-1 pr-2 text-sm font-bold text-muted hover:bg-card-2 hover:text-ink">
+              className="inline-flex h-8 items-center gap-0.5 rounded-full pl-1 pr-2 text-sm font-bold text-signal hover:bg-white/10">
               <ArrowLeft size={16} aria-hidden="true" /> Chat
             </button>
           </Tip>
         )}
-        {onBack && <span aria-hidden="true" className="-mx-1 shrink-0 text-muted">›</span>}
+        {onBack && <span aria-hidden="true" className="-mx-1 shrink-0 text-paper/50">›</span>}
         <div className="flex min-w-0 flex-1 items-center gap-2 max-lg:order-last max-lg:basis-full">
           <ThreadIcon info={info} small />
           <div className="min-w-0 flex-1">
             <h2 className="truncate font-display text-lg leading-tight" title={info.title}>{info.title}</h2>
-            <p className="truncate text-xs text-muted">{info.where}{people ? ` · ${people} ${people === 1 ? 'person' : 'people'} talking` : ''}</p>
+            <p className="truncate text-xs text-paper/70">{info.where}{people ? ` · ${people} ${people === 1 ? 'person' : 'people'} talking` : ''}</p>
           </div>
         </div>
         {switcher && <span className="ml-auto shrink-0 lg:hidden">{switcher}</span>}
@@ -1046,7 +1044,7 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, switcher
       {(onEdit || href) && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {onEdit && <SmallButton onClick={onEdit} icon={<PenLine size={13} aria-hidden="true" />}>{info.kind === 'setup' ? 'Set up' : 'Fix'}</SmallButton>}
-          {href && <a href={href} className="inline-flex items-center gap-1 rounded-full bg-card px-2.5 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">See it in the app</a>}
+          {href && <a href={href} className="inline-flex items-center gap-1 rounded-full bg-card px-2.5 py-1 text-xs font-bold text-ink ring-1 ring-line hover:ring-signal">See it in the app</a>}
         </div>
       )}
       <ul ref={list} onScroll={onScroll} aria-live="polite" className={WALL_LIST}

@@ -49,7 +49,7 @@ export function useAction() {
 export function SmallButton({ onClick, icon, children, tone = 'plain', disabled }: {
   onClick: () => void; icon?: React.ReactNode; children: React.ReactNode; tone?: 'plain' | 'good' | 'bad'; disabled?: boolean;
 }) {
-  const tones = { plain: 'bg-card ring-line hover:ring-ink', good: 'bg-leaf-soft text-leaf ring-leaf/40 hover:ring-leaf', bad: 'bg-berry-soft text-berry ring-berry/40 hover:ring-berry' };
+  const tones = { plain: 'bg-card text-ink ring-line hover:ring-ink', good: 'bg-leaf-soft text-leaf ring-leaf/40 hover:ring-leaf', bad: 'bg-berry-soft text-berry ring-berry/40 hover:ring-berry' };
   return (
     <button onClick={onClick} disabled={disabled} className={'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ring-1 disabled:opacity-50 ' + tones[tone]}>
       {icon}{children}

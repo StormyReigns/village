@@ -377,6 +377,10 @@ Dated, newest last, each with why.
   lines (the thread's own cream, not a Page tint), the Page-color edge and the "← Chat ›"
   heading kept. Replaces the darker grey. Why: beside the grey dotted editor the grey thread
   blended in; the notebook has personality and still reads as a part of the main chat.
+- 2026-11-02 (Matt): calmer: both chats get an ink top and bottom bar like the site's top bar
+  (the phone switch's selected side turns yellow to show on it); the main chat keeps the
+  village wallpaper between, and a thread is white paper with faint ruled lines (replaces the
+  cream). Why: the page felt busy; ink bars frame the chat and white paper calms the thread.
 
 ## Open questions
 
