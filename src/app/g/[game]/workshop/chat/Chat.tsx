@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, EyeOff, FileText, Flag, MessageCircle, MoreHorizontal, PanelLeftClose, PanelRight, PenLine, RotateCcw, Send, SmilePlus, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowLeft, EyeOff, FileText, Flag, MessageCircle, MoreHorizontal, PanelLeftClose, PanelRight, PenLine, Play, ExternalLink, RotateCcw, Send, SmilePlus, Sparkles, Trash2 } from 'lucide-react';
 import type { Block, Entry, EntryContent, Page } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
 import { EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
@@ -11,7 +11,9 @@ import { Tip } from '@/components/Tip';
 import type { Villager } from '@/components/useVillager';
 import { sharePath } from '@/data/pages/links';
 import { blockThread, buildStream, draftThread, entryThread, resolveThread, threadOf, type ThreadKey } from '@/lib/threads';
-import { encodeRefs, insertPick, refsIn, splitRefs, typedHash, type Ref } from '@/lib/refs';
+import { encodeRefs, insertPick, refsIn as refs, splitRefs, typedHash, type Ref } from '@/lib/refs';
+import { findLinks, linksIn, VILLAGE_HOSTS, villagePath, youTube } from '@/lib/links';
+import { resolveItem } from '@/data/pages/links';
 import { rank, type Searchable } from '@/lib/search';
 import { findReactions, QUICK } from '@/lib/reactions';
 import { browserClient } from '@/lib/supabase/browser';
@@ -116,7 +118,13 @@ export function useThreads(blocks: Placed[], drafts: LiveDraft[], messages: Chat
         return { key: draftThread(d), label: d.title, where: `New Draft${b ? ` · ${whereOf(b)}` : ''}`, search: { name: d.title, text: b?.title ?? '' } };
       }),
     ];
-    return { info, counts, inThread, options, byId, resolve: (k: ThreadKey) => resolveThread(k, byId) };
+    /** The thread of the entry a Village address points at (/g/game/page/eshmel), or null. */
+    const entryAt = (pageId: string, item: string): ThreadKey | null => {
+      const page = blocks.find((b) => b.page.id === pageId)?.page;
+      const found = page ? resolveItem(page, item) : null;
+      return found?.entry ? entryThread(found.block.id, found.entry) : null;
+    };
+    return { info, counts, inThread, options, byId, entryAt, resolve: (k: ThreadKey) => resolveThread(k, byId) };
   }, [blocks, drafts, messages]);
 }
 
@@ -135,7 +143,7 @@ export function MessageText({ body }: { body: string }) {
   return (
     <>
       {splitRefs(body).map((p, i) => {
-        if ('text' in p) return <span key={i}>{p.text}</span>;
+        if ('text' in p) return <LinkedText key={i} text={p.text} />;
         if (!links) return <span key={i} className="font-bold">#a thread</span>;
         if (p.ref.game !== links.gameId) return <span key={i} className="font-bold">#a thread in another game</span>;
         // info() never fails: something deleted or hidden since comes back as 'unknown', and
@@ -155,6 +163,42 @@ export function MessageText({ body }: { body: string }) {
   );
 }
 export type Threads = ReturnType<typeof useThreads>;
+
+/** Where this copy of Village runs, so links to it are known as Village links. */
+const ownHosts = () => [...VILLAGE_HOSTS, ...(typeof window === 'undefined' ? [] : [window.location.host])];
+
+/** The thread a Village address points at in this game, or null. */
+function villageThread(url: string, links: { gameId: string; threads: Threads } | null) {
+  const v = villagePath(url, ownHosts());
+  return v && links && v.game === links.gameId ? links.threads.entryAt(v.page, v.item) : null;
+}
+
+/** Plain words with their web addresses as links; a Village entry address reads as its tag. */
+function LinkedText({ text }: { text: string }) {
+  const links = useContext(ChatLinks);
+  return (
+    <>
+      {findLinks(text).map((p, i) => {
+        if ('text' in p) return <span key={i}>{p.text}</span>;
+        const key = villageThread(p.url, links);
+        const here = key && links ? links.threads.info(key) : null;
+        if (here && here.kind !== 'unknown' && links) {
+          const tint = here.block?.page.tint;
+          return (
+            <button key={i} type="button" onClick={() => links.open(here.key)} className="rounded-md px-1 font-bold hover:underline"
+              style={tint ? { background: `var(--${tint}-soft)`, color: `var(--${tint})` } : undefined}>
+              #{here.title}
+            </button>
+          );
+        }
+        return (
+          <a key={i} href={p.url} target="_blank" rel="noopener noreferrer nofollow ugc"
+            className="break-all font-bold text-sky underline decoration-sky/40 underline-offset-2 hover:decoration-sky">{p.url.replace(/^https?:\/\//, '')}</a>
+        );
+      })}
+    </>
+  );
+}
 
 /** A thread's face: the entry's piece, or the Block's symbol (Blocks are never pieces). */
 function ThreadIcon({ info, small = false }: { info: ThreadInfo; small?: boolean }) {
@@ -316,7 +360,7 @@ export function Message({ m, me, live, compact = false, small = false }: {
           ) : (
             <>
               <p className={'whitespace-pre-wrap break-words ' + (small ? 'text-sm' : '')}><MessageText body={m.body} /></p>
-              <LinkedCard refs={refsIn(m.body)} me={me} live={live} />
+              <LinkedCard body={m.body} me={me} live={live} />
             </>
           )}
         </div>
@@ -450,12 +494,40 @@ function SystemNote({ m, info, me, live }: { m: ChatMessage; info: ThreadInfo; m
   );
 }
 
+/** A YouTube video under a message: its picture, a play mark, and where it starts. */
+function VideoCard({ url, id, start }: { url: string; id: string; start?: number }) {
+  const at = start ? `${Math.floor(start / 60)}:${String(start % 60).padStart(2, '0')}` : null;
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer nofollow ugc"
+      className="mt-2 block w-full max-w-72 overflow-hidden rounded-2xl bg-card text-left ring-1 ring-line hover:ring-ink">
+      <span className="relative block aspect-video bg-ink">
+        {/* eslint-disable-next-line @next/next/no-img-element -- a thumbnail from YouTube's own servers */}
+        <img src={`https://i.ytimg.com/vi/${id}/hqdefault.jpg`} alt="" loading="lazy" className="size-full object-cover" />
+        <span className="absolute inset-0 grid place-items-center">
+          <span className="grid size-11 place-items-center rounded-full bg-ink/80 text-paper"><Play size={20} className="ml-0.5" aria-hidden="true" /></span>
+        </span>
+      </span>
+      <span className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold">
+        YouTube{at && <span className="font-normal text-muted">· starts at {at}</span>}
+        <ExternalLink size={12} className="ml-auto text-muted" aria-hidden="true" />
+      </span>
+    </a>
+  );
+}
+
 /** The first thread a message points at, as a card under it: its latest words and a reply box. */
-function LinkedCard({ refs, me, live }: { refs: Ref[]; me: Villager | null | undefined; live: WorkshopData }) {
+function LinkedCard({ body, me, live }: { body: string; me: Villager | null | undefined; live: WorkshopData }) {
   const links = useContext(ChatLinks);
-  const first = links && refs.find((r) => r.game === links.gameId);
-  if (!links || !first) return null;
-  const key = links.threads.resolve(first.key);
+  // A "#" pick or a pasted Village entry address gets the entry's card; failing that, a
+  // YouTube link gets a picture of the video.
+  const urls = splitRefs(body).flatMap((p) => ('text' in p ? linksIn(p.text) : []));
+  const first = links && refs(body).find((r) => r.game === links.gameId);
+  const pasted = urls.map((u) => villageThread(u, links)).find(Boolean);
+  if (!links || (!first && !pasted)) {
+    const video = urls.map((u) => ({ u, v: youTube(u) })).find((x) => x.v);
+    return video ? <VideoCard url={video.u} id={video.v!.id} start={video.v!.start} /> : null;
+  }
+  const key = links.threads.resolve(first ? first.key : pasted!);
   const info = links.threads.info(key);
   if (info.kind === 'unknown') return null;
   return (
@@ -480,7 +552,7 @@ export function Composer({ me, placeholder, onSend, id, compact = false, onShade
   onShade?: boolean;
 }) {
   const [text, setText] = useState('');
-  const field = useRef<HTMLInputElement>(null);
+  const field = useRef<HTMLTextAreaElement>(null);
   const [spoiler, setSpoiler] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -495,6 +567,13 @@ export function Composer({ me, placeholder, onSend, id, compact = false, onShade
   const query = hash ? hash.query : null;
   const choices = query === null || !links ? [] : rank(links.threads.options, query, (o) => o.search).slice(0, query ? 8 : 40);
   const picking = Boolean(hash && !hidden && choices.length);
+  // The box grows with what's written, up to about six lines, then scrolls.
+  useEffect(() => {
+    const el = field.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [text]);
 
   if (me === null) return compact ? null : <div className="mt-auto pt-2"><SignInPrompt>Sign in to chat</SignInPrompt></div>;
 
@@ -519,7 +598,10 @@ export function Composer({ me, placeholder, onSend, id, compact = false, onShade
     if (!err) { setText(''); setSpoiler(false); setPicked([]); setCaret(0); }
   };
   const size = compact ? 'size-7' : 'size-9';
-  const track = (el: HTMLInputElement) => setCaret(el.selectionStart ?? el.value.length);
+  const track = (el: HTMLTextAreaElement) => setCaret(el.selectionStart ?? el.value.length);
+  // Enter sends and Shift+Enter starts a new line. On a phone (no hover, an on-screen keyboard)
+  // Enter starts a new line, and the Send button sends.
+  const enterSends = () => typeof window !== 'undefined' && !window.matchMedia('(hover: none)').matches;
 
   return (
     <div className={'relative ' + (compact ? '' : 'mt-auto')}>
@@ -538,8 +620,8 @@ export function Composer({ me, placeholder, onSend, id, compact = false, onShade
       )}
       {/* The whole box takes a click: the text field fills its height, and a click on its edge lands in the field. */}
       <form onSubmit={submit} onMouseDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); field.current?.focus(); } }}
-        className={'flex cursor-text items-center gap-1.5 rounded-full ring-1 ring-line focus-within:ring-2 focus-within:ring-sky ' + (compact ? 'bg-card p-1' : onShade ? 'bg-card p-1.5' : 'bg-card-2 p-1.5')}>
-        <input ref={field} id={id} value={text} maxLength={4000} disabled={me === undefined}
+        className={'flex cursor-text items-end gap-1.5 rounded-[1.25rem] ring-1 ring-line focus-within:ring-2 focus-within:ring-sky ' + (compact ? 'bg-card p-1' : onShade ? 'bg-card p-1.5' : 'bg-card-2 p-1.5')}>
+        <textarea ref={field} id={id} value={text} maxLength={4000} disabled={me === undefined} rows={1}
           onChange={(e) => { setText(e.target.value); track(e.target); setHidden(false); setSel(0); if (error) setError(''); }}
           onSelect={(e) => track(e.currentTarget)}
           onBlur={() => setHidden(true)}
@@ -549,14 +631,17 @@ export function Composer({ me, placeholder, onSend, id, compact = false, onShade
             setTimeout(() => field.current?.scrollIntoView({ block: 'nearest' }), 350);
           }}
           onKeyDown={(e) => {
-            if (!picking) return;
+            if (!picking) {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && enterSends()) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); }
+              return;
+            }
             if (e.key === 'ArrowDown') { e.preventDefault(); setSel((sel + 1) % choices.length); }
             else if (e.key === 'ArrowUp') { e.preventDefault(); setSel((sel - 1 + choices.length) % choices.length); }
             else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pick(choices[Math.min(sel, choices.length - 1)]); }
             else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setHidden(true); }
           }}
           role="combobox" aria-expanded={picking} aria-controls={listId} aria-autocomplete="list"
-          className={'min-w-0 flex-1 self-stretch bg-transparent outline-none placeholder:text-muted ' + (compact ? 'px-2.5 text-sm' : 'px-3')} placeholder={placeholder} aria-label={placeholder} />
+          className={'max-h-40 min-w-0 flex-1 resize-none self-center overflow-y-auto bg-transparent outline-none placeholder:text-muted ' + (compact ? 'px-2.5 py-1 text-sm leading-5' : 'px-3 py-1.5 leading-6')} placeholder={placeholder} aria-label={placeholder} />
         <Tip text="Spoiler: hide this message behind a tap" className="shrink-0">
           <button type="button" onClick={() => setSpoiler(!spoiler)} aria-pressed={spoiler}
             className={'grid place-items-center rounded-full ' + size + ' ' + (spoiler ? 'bg-ink text-paper' : 'text-muted hover:text-ink')}>
