@@ -7,8 +7,11 @@ Matt is building this. He relies on Claude for the tech; explain choices in plai
 ## What it is
 
 Community-built companion apps for games, with a village theme. Two layers:
-- **Workshop** (community layer): one chat per game, Page chips across the top (a symbol
-  each, "Everything" first, with counts, plus the Notice Board). Below, two columns that fill
+- **Workshop** (community layer): one chat per game, Pages as folder tabs across the top (a
+  symbol each, with counts; the open one stands in its Page color on an edge of that color;
+  "Everything" first as its own ink folder; the Notice Board last). The open Page is in the
+  address (`?page=`), so the app's Workshop button opens on the Page you were reading and
+  "Open the app" goes back to it (`src/components/PageLinks.tsx`, 2026-11-03). Below, two columns that fill
   the screen and scroll on their own: the chat (it folds to a strip) and the work column, with
   two tabs, "Drafts" (what waits on you first, then the rest, sortable) and "In the app"
   (entries to fix or add to). Editors open in the work column, so the chat stays beside them;

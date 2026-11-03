@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { WorkshopLink } from '@/components/PageLinks';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Hammer, X } from 'lucide-react';
 import type { Tint } from '@/data/pages';
@@ -66,9 +67,9 @@ export function AppNav({ game, pages }: { game: NavGame; pages: NavPage[] }) {
             })}
           </nav>
           <div className="grid gap-1 px-2 text-sm font-bold">
-            <Link href={`/g/${game.id}/workshop`} className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-muted hover:bg-card hover:text-ink">
+            <WorkshopLink gameId={game.id} className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-muted hover:bg-card hover:text-ink">
               <Hammer size={16} className="text-leaf" aria-hidden="true" /> Workshop
-            </Link>
+            </WorkshopLink>
             <Link href="/" className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-muted hover:bg-card hover:text-ink">
               <ArrowLeft size={16} aria-hidden="true" /> Village square
             </Link>

@@ -7,6 +7,7 @@ import { AppNav } from '@/components/app/AppNav';
 import { AccountButton } from '@/components/AccountButton';
 import { TopBar } from '@/components/Logo';
 import { GameShade } from '@/components/GameShade';
+import { WorkshopLink } from '@/components/PageLinks';
 import { withCovers } from '@/lib/pictures';
 
 // The game app: Pages made of Blocks, read from the database. The ink bar runs across the
@@ -36,9 +37,9 @@ async function Bar({ params }: { params: LayoutProps<'/g/[game]'>['params'] }) {
     <TopBar compact actions={
       <>
         {/* The hammer alone meant nothing to new players, so it always says what it's for. */}
-        <Link href={`/g/${id}/workshop`} className="btn-primary inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3 py-2 text-sm font-bold sm:px-4">
+        <WorkshopLink gameId={id} className="btn-primary inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3 py-2 text-sm font-bold sm:px-4">
           <Hammer size={16} aria-hidden="true" />Workshop
-        </Link>
+        </WorkshopLink>
         <AccountButton quiet dark />
       </>
     }>

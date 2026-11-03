@@ -129,6 +129,12 @@ html { touch-action: manipulation; }
   .lift:hover { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 35%, var(--line)); }
 }
 
+/* The Workshop's columns and editors: a thin, quiet scrollbar, like the chat's. */
+.thin-scroll, .thin-scroll * {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ink) 25%, transparent) transparent;
+}
+
 /* Hide scrollbars on horizontal strips but keep them scrollable. */
 .chip-strip, .swipe { scrollbar-width: none; }
 .chip-strip::-webkit-scrollbar, .swipe::-webkit-scrollbar { display: none; }

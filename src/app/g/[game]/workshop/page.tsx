@@ -1,8 +1,8 @@
 import { Suspense } from 'react';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ExternalLink } from 'lucide-react';
 import { AccountButton } from '@/components/AccountButton';
+import { OpenAppLink } from '@/components/PageLinks';
 import { TopBar } from '@/components/Logo';
 import { GameShade } from '@/components/GameShade';
 import type { Metadata } from 'next';
@@ -39,13 +39,13 @@ async function LoadedWorkshop({ params }: { params: PageProps<'/g/[game]/worksho
   return (
     // Everything in the Workshop takes the game's genre shade. On wide screens it fills the
     // screen exactly, and its columns scroll on their own; so does the chat on phones.
-    <GameShade className="flex flex-1 flex-col lg:h-dvh lg:flex-none lg:overflow-hidden max-lg:has-[[data-phone-chat]]:h-dvh max-lg:has-[[data-phone-chat]]:flex-none max-lg:has-[[data-phone-chat]]:overflow-hidden">
+    <GameShade className="thin-scroll flex flex-1 flex-col lg:h-dvh lg:flex-none lg:overflow-hidden max-lg:has-[[data-phone-chat]]:h-dvh max-lg:has-[[data-phone-chat]]:flex-none max-lg:has-[[data-phone-chat]]:overflow-hidden">
       <TopBar compact wide actions={
         <>
-          <Link href={`/g/${game.id}`} aria-label="Open the app"
+          <OpenAppLink gameId={game.id} pageIds={pages.map((p) => p.id)} label="Open the app"
             className="inline-flex items-center gap-2 rounded-full p-2.5 text-sm font-bold ring-1 ring-white/30 hover:ring-white sm:px-4 sm:py-2">
             <span className="hidden sm:inline">Open the app</span> <ExternalLink size={16} aria-hidden="true" />
-          </Link>
+          </OpenAppLink>
           <AccountButton quiet dark />
         </>
       }>

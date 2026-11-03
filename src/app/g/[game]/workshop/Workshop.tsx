@@ -141,7 +141,7 @@ export function Workshop({ game, pages, routes }: {
 
   // Next keeps a visited Workshop alive in the background, so coming back through a new
   // "Suggest a fix" link doesn't start it fresh. Follow each new link as it arrives.
-  const linkKey = `${params.get('fix') ?? ''}|${params.get('field') ?? ''}|${params.get('add') ?? ''}|${params.get('page') ?? ''}|${params.get('resume') ?? ''}|${params.get('draft') ?? ''}|${params.get('theory') ?? ''}|${params.get('msg') ?? ''}`;
+  const linkKey = `${params.get('fix') ?? ''}|${params.get('field') ?? ''}|${params.get('add') ?? ''}|${params.get('resume') ?? ''}|${params.get('draft') ?? ''}|${params.get('theory') ?? ''}|${params.get('msg') ?? ''}`;
   const [followed, setFollowed] = useState(linkKey);
   if (linkKey !== followed) {
     setFollowed(linkKey);
@@ -151,6 +151,38 @@ export function Workshop({ game, pages, routes }: {
     if (params.get('draft')) setDetail(params.get('draft'));
     if (Number(params.get('msg'))) setPendingMsg(Number(params.get('msg')));
   }
+  // ?page= is followed on its own: the Workshop also writes it (below), and that mustn't
+  // reopen whatever a link once opened.
+  const pageParam = params.get('page');
+  const [followedPage, setFollowedPage] = useState(pageParam);
+  if (pageParam !== followedPage) {
+    setFollowedPage(pageParam);
+    if (pageParam && pages.some((p) => p.id === pageParam)) setChip(pageParam);
+  }
+  // The chosen Page goes in the address, so "Open the app" (page.tsx) opens that Page, and a
+  // refresh or a shared link comes back to it.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const want = pages.some((p) => p.id === chip) ? chip : null;
+    if (url.searchParams.get('page') === want) return;
+    if (want) url.searchParams.set('page', want);
+    else url.searchParams.delete('page');
+    window.history.replaceState({}, '', url); // a fresh state, so Next notices the change
+  }, [chip, pages]);
+  // The open folder stays in view: on a phone the strip slides along to it (only the strip,
+  // never the page).
+  const tabs = useRef<HTMLDivElement>(null);
+  const tabsMoved = useRef(false);
+  useEffect(() => {
+    const strip = tabs.current?.parentElement;
+    const tab = tabs.current?.querySelector<HTMLElement>('button[aria-pressed="true"]');
+    if (!strip || !tab) return;
+    const s = strip.getBoundingClientRect(), t = tab.getBoundingClientRect();
+    const past = t.left - s.left - 16, beyond = t.right - s.right + 16;
+    const to = past < 0 ? strip.scrollLeft + past : beyond > 0 ? strip.scrollLeft + beyond : null;
+    if (to !== null) strip.scrollTo({ left: Math.max(0, to), behavior: tabsMoved.current ? 'smooth' : 'auto' });
+    tabsMoved.current = true;
+  }, [chip]);
   const me = useVillager();
   // A moderator seeing the site as someone else has a reminder pinned at the bottom; the
   // phone chat leaves room for it, so it never covers the message box.
@@ -369,13 +401,21 @@ export function Workshop({ game, pages, routes }: {
         </div>
       </header>
 
-      {/* The Pages: a symbol each, the chosen one in a piece */}
-      <ScrollRow as="nav" label="Pages" className="-mx-4 mt-3 flex shrink-0 gap-2 px-4 pb-2 pt-1 max-lg:in-data-[phone-chat]:[@media(max-height:560px)]:hidden">
-        <BlockChip on={chip === 'all'} tint="ink" icon="LayoutGrid" label="Everything" count={drafts.filter(isOpen).length} onClick={() => setChip('all')} />
-        {pages.map((p) => (
-          <BlockChip key={p.id} on={chip === p.id} tint={p.tint} icon={p.icon} label={p.title} count={counts[p.id]} onClick={() => setChip(p.id)} />
-        ))}
-        <BlockChip on={chip === 'notice'} tint="muted" icon="Megaphone" label="Notice Board" count={live.mod ? live.reports.length : 0} onClick={() => setChip('notice')} />
+      {/* The Pages, as folder tabs standing on one edge in the chosen Page's color: the chosen
+          tab is the front folder, cut into that edge, with its symbol in a piece. Everything
+          (all Pages at once) is its own solid ink folder, set apart from the rest. */}
+      <ScrollRow as="nav" label="Pages" className="-mx-4 mt-3 shrink-0 px-4 pt-1 max-lg:in-data-[phone-chat]:[@media(max-height:560px)]:hidden">
+        <div ref={tabs} className="relative flex w-max min-w-full items-end gap-1">
+          <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5"
+            style={{ background: chip === 'all' ? 'var(--ink)' : chip === 'notice' ? 'var(--muted)' : `var(--${pages.find((p) => p.id === chip)?.tint ?? 'ink'})` }} />
+          <FolderTab on={chip === 'all'} everything tint="ink" icon="LayoutGrid" label="Everything" count={drafts.filter(isOpen).length} onClick={() => setChip('all')} />
+          <span aria-hidden="true" className="mx-1 mb-2.5 h-6 w-px shrink-0 bg-line" />
+          {pages.map((p) => (
+            <FolderTab key={p.id} on={chip === p.id} tint={p.tint} icon={p.icon} label={p.title} count={counts[p.id]} onClick={() => setChip(p.id)} />
+          ))}
+          <span aria-hidden="true" className="mx-1 mb-2.5 h-6 w-px shrink-0 bg-line" />
+          <FolderTab on={chip === 'notice'} tint="muted" icon="Megaphone" label="Notice Board" count={live.mod ? live.reports.length : 0} onClick={() => setChip('notice')} />
+        </div>
       </ScrollRow>
 
       {jumpNote && <p role="status" className="mt-3 rounded-2xl bg-card-2 px-4 py-2 text-sm ring-1 ring-line">{jumpNote}</p>}
@@ -698,17 +738,34 @@ export function Workshop({ game, pages, routes }: {
 }
 
 /** A Page in the row across the top: its symbol in its color, in a piece when chosen, and how many Drafts wait there. */
-function BlockChip({ on, tint, icon, label, count, onClick }: {
-  on: boolean; tint: string; icon: string; label: string; count?: number; onClick: () => void;
+/**
+ * A Page's folder tab. The chosen one stands taller, in its Page's color, and covers the edge
+ * under it, so it reads as the folder that's open; the rest sit back on the edge, quieter.
+ * Everything, when chosen, is a solid ink folder with its symbol in a yellow piece.
+ */
+function FolderTab({ on, everything = false, tint, icon, label, count, onClick }: {
+  on: boolean; everything?: boolean; tint: string; icon: string; label: string; count?: number; onClick: () => void;
 }) {
+  const color = `var(--${tint})`;
+  const style: React.CSSProperties = on
+    ? everything
+      ? { background: 'var(--ink)', borderColor: 'var(--ink)' }
+      : { background: `color-mix(in srgb, ${color} 12%, white)`, borderColor: color }
+    : everything ? { borderColor: 'var(--ink)' } : {};
   return (
     <Tip text={count ? `${count} open Draft${count === 1 ? '' : 's'} waiting here` : 'Nothing waiting here right now'} tint={tint} className="shrink-0">
-    <button onClick={onClick} aria-pressed={on}
-      style={on ? { background: `color-mix(in srgb, var(--${tint}) 10%, white)`, boxShadow: `inset 0 0 0 1.5px var(--${tint})` } : undefined}
-      className={'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full py-1 pl-1.5 pr-3.5 text-sm ' + (on ? 'font-extrabold' : 'bg-card font-bold ring-1 ring-line hover:ring-ink')}>
-      <NavSymbol name={icon} color={`var(--${tint})`} on={on} size={38} />
+    <button onClick={onClick} aria-pressed={on} style={style}
+      className={'relative flex shrink-0 items-center gap-2 whitespace-nowrap rounded-t-2xl border-x-2 border-t-2 pl-1.5 pr-3.5 text-sm '
+        + (on
+          ? `z-10 pb-1.5 pt-1.5 font-extrabold ${everything ? 'text-paper' : 'text-ink'}`
+          : `mb-0.5 pb-1 pt-1 font-bold hover:bg-card hover:text-ink ${everything ? 'bg-card text-ink' : 'border-line bg-card/60 text-muted'}`)}>
+      {on && everything ? (
+        <Piece size={38} color="var(--signal)"><span className="text-ink"><BlockIcon name={icon} size={15} strokeWidth={2.4} /></span></Piece>
+      ) : (
+        <NavSymbol name={icon} color={color} on={on} size={38} />
+      )}
       {label}
-      {count ? <span className="grid min-w-5 place-items-center rounded-full bg-ink px-1.5 text-[11px] font-bold text-paper">{count}</span> : null}
+      {count ? <span className={'grid min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold ' + (on && everything ? 'bg-signal text-ink' : 'bg-ink text-paper')}>{count}</span> : null}
     </button>
     </Tip>
   );
