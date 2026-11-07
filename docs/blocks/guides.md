@@ -153,6 +153,10 @@ empty for now.
 - 2026-11-06: built. A guide opens in place of the list (not in the side panel), since it's
   read like a page. Set up shows for every Block laid out by fields. Characters and Items are
   unchanged (`fields.test.ts` still matches their pinned output).
+- 2026-11-06: a guide's own link (/g/fortunes-weave/guides/change-class) opens that guide, and
+  a guide Draft in the Workshop previews as the guide. Share cards (Discord previews) list the
+  steps but say "A spoiler: open it in the app to read" for a spoiler step, and never show a
+  picture mark. Why: a link shouldn't spoil what the guide itself covers.
 
 ## Open questions
 

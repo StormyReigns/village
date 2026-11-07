@@ -62,8 +62,9 @@ async function Loaded({ params }: { params: PageProps<'/g/[game]/[page]/[item]'>
   const { game, page, hit } = await find(params);
   if (!game || !page || !hit) notFound();
   const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
-  // Guides and timelines show every entry in place; the others open it (Characters: on the card).
-  const panel = hit.block.type === 'collection' || hit.block.type === 'checklist' || hit.block.type === 'characters' || hit.block.type === 'items';
+  // Timelines show every entry in place; the others open it (Characters: on the card; Guides:
+  // the one guide, in place of the list).
+  const panel = hit.block.type === 'collection' || hit.block.type === 'checklist' || hit.block.type === 'characters' || hit.block.type === 'items' || hit.block.type === 'guide';
   return (
     <PageView game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }} page={page} links={entryLinks(game.id, await getApp(game.id))} mentions={mapMentions(game.id, await getApp(game.id), page)}
       openOnLoad={hit.entry && panel ? `${hit.block.id}.${hit.entry.id}` : undefined}

@@ -83,3 +83,12 @@ test('the live guides fit the Guides fields: every part they have is a field tha
   assert.equal(sample.name, 'Beat the bridge fort');
   assert.ok(sample.sections.find((s) => s.label === 'Steps')!.text.includes('||'));
 });
+
+test('a share card never shows a spoiler step or a picture mark', async () => {
+  const { shareAnswer } = await import('../data/pages/links.ts');
+  const block = { id: 'how-to', type: 'guide' as const, title: 'How to', icon: 'BookOpen', entries: [] };
+  const entry = { id: 'x', name: 'Beat the fort', categories: {}, sections: [{ label: 'Steps', text: `Go to the bridge [picture:${A}]\n||The boss is a dragon||` }] };
+  const a = shareAnswer(block, entry);
+  assert.deepEqual(a.steps, ['Go to the bridge', 'A spoiler: open it in the app to read']);
+  assert.ok(!a.text.includes('dragon') && !a.text.includes('[picture'));
+});

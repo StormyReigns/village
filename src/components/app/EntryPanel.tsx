@@ -15,6 +15,7 @@ import { browserClient } from '@/lib/supabase/browser';
 import type { Mention } from '@/data/pages/links';
 import { heatFill, placeText, statFacts } from '@/lib/stats';
 import { CharacterCard } from './CharacterCard';
+import { GuideCard } from './Guides';
 
 interface OpenFix { id: string; theory: boolean; text: string; who: string }
 type Profile = { display_name?: string; username?: string } | null;
@@ -310,6 +311,7 @@ export function EntryDetails({ entry, block, route, routes, fixHref, invite, col
   // Characters and Items lay themselves out by their Block's fields (an item's picture is smaller).
   if (block.type === 'characters') return <CharacterCard entry={entry} block={block} route={route} routes={routes} color={color} fixHref={fixHref} onGo={onGo} size={136} />;
   if (block.type === 'items') return <CharacterCard entry={entry} block={block} route={route} routes={routes} color={color} fixHref={fixHref} onGo={onGo} size={96} />;
+  if (block.type === 'guide') return <GuideCard entry={entry} block={block} route={route} routes={routes} color={color} />;
   const name = (r: Route) => routes.find((o) => o.key === r)?.label ?? r;
   const mine = route !== 'all' ? entry.perRoute?.[route] : undefined;
   // In the game's own route order (the database keeps object keys in its own order).

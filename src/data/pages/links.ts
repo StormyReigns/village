@@ -1,5 +1,6 @@
 import type { Block, Entry, Page } from './types';
-import { placeText, statFacts } from '../../lib/stats';
+import { placeText, statFacts } from '../../lib/stats.ts';
+import { STEPS, TIP, parseSteps } from '../../lib/guides.ts';
 
 // Clean, shareable addresses for a Block or an entry:
 //   /g/fortunes-weave/items/items           the Items Block
@@ -78,10 +79,11 @@ export function shareAnswer(block: Block, entry: Entry, routeNames: Record<strin
   if (entry.spoiler) {
     return { facts: [{ label: 'Spoiler', text: 'Open it in the app to read.' }], steps: [], text: 'Spoiler: open it in the app to read.' };
   }
-  const stepList = block.type === 'guide' ? entry.sections.find((s) => s.label === 'Steps') : undefined;
+  const stepList = block.type === 'guide' ? entry.sections.find((s) => s.label === STEPS) : undefined;
   if (stepList) {
-    const steps = stepList.text.split('\n').map((s) => s.trim()).filter(Boolean);
-    const tip = entry.sections.find((s) => s.label === 'Tip')?.text;
+    // A spoiler step stays covered in a share card too, and picture marks never show as text.
+    const steps = parseSteps(stepList.text).map((x) => (x.spoiler ? 'A spoiler: open it in the app to read' : x.text || 'See the picture in the app'));
+    const tip = entry.sections.find((s) => s.label === TIP)?.text;
     const text = [entry.description && flat(entry.description), steps.map((s, i) => `${i + 1}. ${s.replace(/[.!]$/, '')}.`).join(' '), tip && `Tip: ${flat(tip)}`];
     return { facts: [], steps, tip, text: clip(text.filter(Boolean).join(' '), 300) };
   }
