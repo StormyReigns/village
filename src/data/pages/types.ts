@@ -29,12 +29,13 @@ export type BlockType = 'collection' | 'guide' | 'checklist' | 'timeline' | 'cha
  * What kind of thing a field holds, which decides how it's typed in and shown:
  * short text, a number, a tag (a pill, and something to filter by), a place or a time
  * (the line under the name), a stats chart, a list (one item per line, "Name: what it
- * does"), links to other entries in the Block, long text, or yes/no.
+ * does"), links to other entries in the Block, long text, yes/no, or a guide's steps (one per
+ * line, each can be a spoiler or carry a picture; Guides Blocks only).
  */
-export type FieldKind = 'text' | 'number' | 'tag' | 'place' | 'when' | 'chart' | 'list' | 'links' | 'longtext' | 'yesno' | 'playable';
+export type FieldKind = 'text' | 'number' | 'tag' | 'place' | 'when' | 'chart' | 'list' | 'links' | 'longtext' | 'yesno' | 'playable' | 'steps';
 
 /**
- * One field of a Characters or Items Block, as its builders set it up. Every field is optional on
+ * One field of a Characters, Items or Guides Block, as its builders set it up. Every field is optional on
  * every entry; empty ones don't show.
  */
 export interface FieldDef {

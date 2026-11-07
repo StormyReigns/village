@@ -9,6 +9,7 @@ import { ScrollRow } from '@/components/ScrollRow';
 import type { Villager } from '@/components/useVillager';
 import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
 import { CharacterCard } from '@/components/app/CharacterCard';
+import { GuideCard } from '@/components/app/Guides';
 import { entryText } from '@/components/app/entries';
 import { rank } from '@/lib/search';
 import { byFields, fieldsOf } from '@/lib/fields';
@@ -17,7 +18,7 @@ import { useWide } from './split';
 import { EditorShell } from './EditorShell';
 import { changesBetween } from './changes';
 import { clearUnsent, hasWriting, saveUnsent, type Unsent } from './unsent';
-import type { NewDraft } from './useWorkshop';
+import { uploadPicture, type NewDraft } from './useWorkshop';
 
 /** Where the form opens: a Block to add to, optionally the entry being fixed, and the one
  *  part of it to fix ("description", "routes", "section:Where to get it") from an app pencil. */
@@ -313,7 +314,8 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
       {people && (
         <CharacterInputs key={`${block.id}.${fixing?.id ?? 'new'}`} block={block} content={content} set={set} setField={setField} setStat={setStat}
                 classes={pages.flatMap((p) => p.blocks).filter((b) => b.id !== block.id && /class/i.test(b.title)).flatMap((b) => b.entries.map((e) => e.name)).filter((n) => !/\bclasses\b/i.test(n))}
-          show={show} hl={hl} fid={fid} others={block.entries.filter((e) => e.id !== fixing?.id).map((e) => e.name)} />
+          show={show} hl={hl} fid={fid} others={block.entries.filter((e) => e.id !== fixing?.id).map((e) => e.name)}
+          upload={block.type === 'guide' && me ? (file) => uploadPicture('guide-pictures', gameId, me.id, file) : undefined} />
       )}
 
       {byRoute && show('routes') && (
@@ -405,6 +407,8 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
     <div className="rounded-2xl bg-card p-3 ring-1 ring-line md:p-4">
       {!cleaned.name
         ? <p className="text-sm text-muted">Start with a name, and the entry appears here.</p>
+        : block.type === 'guide'
+          ? <GuideCard entry={cleaned} block={block} route="all" routes={routes} color={`var(--${page.tint})`} />
         : people
           ? <CharacterCard entry={cleaned} block={block} route="all" routes={routes} color={`var(--${page.tint})`} size={wide ? 120 : 76} />
           : <EntryDetails entry={cleaned} block={block} route="all" routes={routes} color={`var(--${page.tint})`} />}

@@ -31,11 +31,12 @@ designed properly), **Idea** (not built).
 |---|-------|--------|---------------------|------|
 | 1 | Characters | Refined, still being polished | Fortune's Weave · Units | [characters.md](characters.md) |
 | 2 | Items | Live, first version | Fortune's Weave · Items, Weapons and magic | [items.md](items.md) |
+| 3 | Guides | Live, first version (designed with Matt) | Fortune's Weave · Guides · How to | [guides.md](guides.md) |
 | – | Collection: map | Live, first version | Fortune's Weave · Dungeons and places | |
 | – | Collection: slots and rows | Live, first version | Classes, Foes, Mysteries | |
 | – | Checklist | Live, first version | Last chances | |
 | – | Timeline | Live, first version | Story | |
-| – | Guide | Live, first version | How-to | |
 
-Block 2 is Items (2026-11-02). The order after Items isn't decided yet. Pick the next Block with Matt, give it a
-number here, and start its file from the template.
+Block 2 is Items (2026-11-02). Block 3 is Guides (2026-11-06), in `Village · Block: Guides`.
+The order after Guides isn't decided yet. Pick the next Block with Matt, give it a number
+here, and start its file from the template.

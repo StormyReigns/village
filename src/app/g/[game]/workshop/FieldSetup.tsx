@@ -6,6 +6,7 @@ import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, Info, LayoutGrid, Plus, T
 import type { Block, FieldDef, FieldKind, Page, StatDef } from '@/data/pages';
 import type { RouteOption } from '@/components/app/EntryPanel';
 import { CharacterCard } from '@/components/app/CharacterCard';
+import { GuideCard } from '@/components/app/Guides';
 import { Piece } from '@/components/Piece';
 import { Tip } from '@/components/Tip';
 import { useWide } from './split';
@@ -45,6 +46,8 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
   const color = `var(--${block.page.tint})`;
   // Items: tiles, and their own words, kinds and stat suggestions.
   const item = block.type === 'items';
+  // Guides: the sample is a guide, shown as players read it.
+  const guide = block.type === 'guide';
   const kinds = kindsFor(block.type);
 
   // Stat names become each chart's columns. Names already in use keep their key, so
@@ -122,7 +125,7 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
       onDiscard={() => { forgetDraft(draftKey); onClose(); }}
       draftHint="Save draft keeps this setup on this device, ready the next time you open Set up. Discard throws the changes away."
       tint={block.page.tint}
-      sheetExtra={item ? undefined :
+      sheetExtra={item || guide ? undefined :
         <div role="group" aria-label="Preview as" className="flex rounded-full bg-card p-0.5 text-xs font-bold ring-1 ring-line">
           {([['profile', 'Profile'], ['row', 'List row']] as const).map(([v, label]) => (
             <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v}
@@ -134,7 +137,7 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
         <>
         <ul className="grid rounded-2xl bg-card ring-1 ring-line">
           <li className="flex items-center gap-2 rounded-t-2xl bg-card-2 px-3 py-2 text-sm">
-            <span className="w-8" /><span className="font-bold">Name</span><span className="ml-auto text-xs text-muted">{item ? 'Every item has one: under its tile, and the title of its full view' : 'Every character has one: the big title on their card'}</span>
+            <span className="w-8" /><span className="font-bold">Name</span><span className="ml-auto text-xs text-muted">{item ? 'Every item has one: under its tile, and the title of its full view' : guide ? 'Every guide has one: its title in the list and at the top' : 'Every character has one: the big title on their card'}</span>
           </li>
           {fields.map((f, i) => (
             <li key={f.key} className={'grid gap-2 border-t border-line px-3 py-2 last:rounded-b-2xl ' + (f.off ? 'bg-card-2/60' : '')}>
@@ -226,7 +229,11 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
           )}
         </>
       }
-      preview={item ? (
+      preview={guide ? (
+        <div className="rounded-2xl bg-card p-3 ring-1 ring-line md:p-4">
+          <GuideCard entry={sample} block={draft} route="all" routes={routes} color={color} sample />
+        </div>
+      ) : item ? (
         // Items: the tile as it sits on the shelf, then the full view it opens.
         <div className="grid gap-3">
           <div className="rounded-2xl bg-card p-3 ring-1 ring-line">
@@ -339,7 +346,23 @@ function StatSuggestions({ current, onPick, item = false }: { current: string; o
 /** A likely name for each kind, until the builder types one. */
 const EXAMPLE_NAMES: Record<FieldKind, string> = {
   text: 'Voice actor', number: 'Level', tag: 'Weapon', place: 'Hometown', when: 'Joins', chart: 'Growths',
-  list: 'Skills', links: 'Family', longtext: 'Backstory', yesno: 'Recruitable', playable: 'Playable or NPC',
+  list: 'Skills', links: 'Family', longtext: 'Backstory', yesno: 'Recruitable', playable: 'Playable or NPC', steps: 'Steps',
+};
+
+/** Likely names in a Guides Block, where they differ. */
+const GUIDE_EXAMPLE_NAMES: Partial<Record<FieldKind, string>> = {
+  text: 'Time needed', number: 'Suggested level', tag: 'Difficulty', place: 'Where', when: 'When', list: 'What you get', links: 'See also',
+  longtext: 'Why it works', yesno: 'Missable', playable: 'Normal or Hard', steps: 'Steps',
+};
+const GUIDE_EXAMPLE_VALUES: Partial<Record<FieldKind, string>> = {
+  list: 'Silver Sword\n500 gold\nA new recruit',
+  links: 'Recruit a unit\nChange class',
+  steps: 'Talk to the guard at the gate\nGo up the east stairs\n||The key is behind the altar||',
+};
+const GUIDE_EXAMPLE_NOTES: Partial<Record<FieldKind, string>> = {
+  steps: 'Numbered steps, one per line. In the form, any step can be a spoiler (covered until tapped) or have a picture.',
+  list: 'Each line is its own item, in a list with its own heading.',
+  links: 'Other guides, one per line.',
 };
 
 /** Kinds that hold several things get several in their example, so it's clear they can. */
@@ -378,6 +401,7 @@ const EXAMPLE_NOTES: Record<FieldKind, string> = {
   longtext: 'A few sentences under its own heading.',
   yesno: "A pill with a tick when the answer is yes. When it's no, nothing shows.",
   playable: 'One of two choices, a green or red pill under the name. Name it "X or Y" and those become the choices.',
+  steps: 'Numbered steps, one per line.',
 };
 
 /**
@@ -386,20 +410,22 @@ const EXAMPLE_NOTES: Record<FieldKind, string> = {
  */
 function KindExample({ label, kind, block, routes, color, className = '' }: { label: string; kind: FieldKind; block: Block; routes: RouteOption[]; color: string; className?: string }) {
   const item = block.type === 'items';
-  const name = label.trim() || (item ? ITEM_EXAMPLE_NAMES[kind] : undefined) || EXAMPLE_NAMES[kind];
+  const guide = block.type === 'guide';
+  const name = label.trim() || (item ? ITEM_EXAMPLE_NAMES[kind] : guide ? GUIDE_EXAMPLE_NAMES[kind] : undefined) || EXAMPLE_NAMES[kind];
   const sampleStats = kind === 'chart' ? (item ? ['Might', 'Hit', 'Weight', 'Crit'] : ['HP', 'Str', 'Mag', 'Spd', 'Def']).map((l) => ({ key: `${name}.${l.toLowerCase()}`, label: l, better: 'high' as const })) : undefined;
   const draft = { title: block.title, icon: block.icon, type: block.type, fields: [{ key: name, label: name, kind, stats: sampleStats, ...(item && kind === 'chart' ? { noWeb: true } : {}) }], stats: [] };
   const entry = johnDoe(draft);
-  const more = (item ? ITEM_EXAMPLE_VALUES[kind] : undefined) ?? EXAMPLE_VALUES[kind];
+  const more = (item ? ITEM_EXAMPLE_VALUES[kind] : guide ? GUIDE_EXAMPLE_VALUES[kind] : undefined) ?? EXAMPLE_VALUES[kind];
   if (more) entry.sections = entry.sections.map((s) => ({ ...s, text: more }));
   return (
     <div className={className}>
       <div className="grid gap-2 rounded-2xl border border-dashed border-line p-3">
         <p className="text-xs font-bold uppercase tracking-wide text-muted">Example: {kindLabel(kind, block.type)}</p>
         <div className="rounded-xl bg-card p-3 ring-1 ring-line">
-          <CharacterCard entry={entry} block={draft} route="all" routes={routes} color={color} sample size={56} />
+          {guide ? <GuideCard entry={entry} block={draft} route="all" routes={routes} color={color} sample />
+            : <CharacterCard entry={entry} block={draft} route="all" routes={routes} color={color} sample size={56} />}
         </div>
-        <p className="text-xs text-muted">{(item ? ITEM_EXAMPLE_NOTES[kind] : undefined) ?? EXAMPLE_NOTES[kind]}</p>
+        <p className="text-xs text-muted">{(item ? ITEM_EXAMPLE_NOTES[kind] : guide ? GUIDE_EXAMPLE_NOTES[kind] : undefined) ?? EXAMPLE_NOTES[kind]}</p>
       </div>
     </div>
   );

@@ -134,9 +134,19 @@ function foes(): Entry[] {
   }));
 }
 
+/** "In short" for each starter guide: the gist, from what its steps already say. */
+export const IN_SHORT: Record<string, string> = {
+  'Recruit a unit': 'Give them a gift to unlock Recruit, then raise your Support with them and your Renown to what their card asks for your Flame Lord.',
+  'Change class': 'Buy the license in Hightown and pass the Certification Exam next to the vendor. Go in with a pass chance of 75% or more.',
+  'Earn Temple Blessings': "Send up to two units to Temple Service at Temple Row, best on a god's holy day, then equip up to four Blessings.",
+  'Carry progress between routes': 'Finish one route before starting the next: your map, finished subquests, Blessings, supports and Boons carry over.',
+  "Find Dagsion's services": 'Classes and the temple are in Hightown, the Headhunter in Midtown, the Tavern, Stable and trading in Lowtown, and Temple Service on Temple Row.',
+};
+
 function howtos(): Entry[] {
   return of('howto').map((c) => ({
     ...base(c, c.content.name),
+    description: IN_SHORT[c.content.name],
     sections: sections(['Steps', c.content.steps], ['Tip', c.content.tip]),
     categories: {},
   }));

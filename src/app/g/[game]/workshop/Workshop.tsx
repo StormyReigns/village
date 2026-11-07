@@ -11,6 +11,7 @@ import { BlockIcon, NavSymbol } from '@/components/Icon';
 import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
 import { entryText } from '@/components/app/entries';
 import { rank } from '@/lib/search';
+import { byFields } from '@/lib/fields';
 import { SignInPrompt } from '@/components/SignInPrompt';
 import { ScrollRow } from '@/components/ScrollRow';
 import { Tip } from '@/components/Tip';
@@ -1060,7 +1061,7 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSe
                     <span className="text-xs text-muted">{b.entries.length}</span>
                     <ChevronDown size={15} className={'shrink-0 text-muted transition ' + (isFolded ? '-rotate-90' : '')} aria-hidden="true" />
                   </button>
-                  {(b.type === 'characters' || b.type === 'items') && (
+                  {byFields(b) && (
                     <Tip text={b.type === 'items' ? `Choose what ${b.title} tiles and full views show, with a preview` : `Choose the fields ${b.title} cards show, with a preview`} tint={p.tint} className="shrink-0">
                       <button onClick={() => onSetup(b.id)} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">
                         <SlidersHorizontal size={13} aria-hidden="true" /> Set up

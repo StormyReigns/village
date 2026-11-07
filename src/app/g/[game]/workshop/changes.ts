@@ -1,6 +1,7 @@
 import type { Block, EntryContent, Route } from '@/data/pages';
 import type { RouteOption } from '@/components/app/EntryPanel';
-import { allStatDefs } from '@/lib/fields';
+import { DESCRIPTION, allStatDefs, fieldsOf } from '@/lib/fields';
+import { parseSteps, stepWords } from '@/lib/guides';
 
 // What a Draft changes compared with the entry on Stable, field by field, in words.
 
@@ -19,12 +20,16 @@ export function changesBetween(before: EntryContent | undefined, after: EntryCon
   // Characters and Items can have several charts (Base stats, Growths), each with its own stats.
   for (const d of block.type === 'characters' || block.type === 'items' ? allStatDefs(block) : block.stats ?? []) add(d.label, before?.stats?.[d.key]?.toString(), after.stats?.[d.key]?.toString());
   add('Order', before?.order?.toString(), after.order?.toString());
-  add('Description', before?.description, after.description);
+  const fields = block.type === 'characters' || block.type === 'items' || block.type === 'guide' ? fieldsOf(block) : block.fields ?? [];
+  add(fields.find((f) => f.key === DESCRIPTION)?.label ?? 'Description', before?.description, after.description);
+  // A guide's steps in words, numbered, with their spoiler and picture marks spelled out.
+  const words = (label: string, t?: string) => (fields.find((f) => f.key === label)?.kind === 'steps' && t
+    ? parseSteps(t).map((x, i) => `${i + 1}. ${stepWords(x)}`).join('\n') : t);
   for (const k of new Set([...Object.keys(before?.categories ?? {}), ...Object.keys(after.categories)])) {
     add(k, before?.categories?.[k], after.categories[k]);
   }
   for (const label of new Set([...(before?.sections ?? []).map((s) => s.label), ...after.sections.map((s) => s.label)])) {
-    add(block.fields?.find((f) => f.key === label)?.label ?? label, before?.sections.find((s) => s.label === label)?.text, after.sections.find((s) => s.label === label)?.text);
+    add(fields.find((f) => f.key === label)?.label ?? label, words(label, before?.sections.find((s) => s.label === label)?.text), words(label, after.sections.find((s) => s.label === label)?.text));
   }
   if (routeNames(before?.routes) !== routeNames(after.routes)) out.push({ label: 'Appears on', before: before ? routeNames(before.routes) : undefined, after: routeNames(after.routes) });
   for (const r of routes) {

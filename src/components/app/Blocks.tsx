@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Check, ChevronDown, Hourglass, Plus, Search, Sparkles, StickyNote } from 'lucide-react';
+import { Check, ChevronDown, Hourglass, Plus, Search, Sparkles } from 'lucide-react';
 import type { Block, Entry, Route, Tint } from '@/data/pages';
 import { sharePath } from '@/data/pages/links';
 import { ShareButton } from '@/components/ShareButton';
@@ -20,13 +20,14 @@ import { TINT } from './tint';
 import { StatTable, statSort } from './StatTable';
 import { Characters } from './Characters';
 import { Items } from './Items';
+import { Guides } from './Guides';
 import { FilterChip, HiddenNote, OpenPanel, useVisible, type BlockContext } from './blockParts';
 
 export type { BlockContext } from './blockParts';
 import { byStat } from '@/lib/stats';
 
 export function BlockView({ block, ctx: page }: { block: Block; ctx: BlockContext }) {
-  const Cmp = { collection: Collection, timeline: Timeline, checklist: Checklist, guide: Guide, characters: Characters, items: Items }[block.type];
+  const Cmp = { collection: Collection, timeline: Timeline, checklist: Checklist, guide: Guides, characters: Characters, items: Items }[block.type];
   const t = TINT[page.tint];
   // "Show them" under a Block reveals that Block's spoilers only; the Page's switch does them all.
   const [revealed, setRevealed] = useState(false);
@@ -405,66 +406,5 @@ function Checklist({ block, ctx }: { block: Block; ctx: BlockContext }) {
       <HiddenNote offRoute={offRoute} spoilers={spoilers} ctx={ctx} />
       <OpenPanel block={block} list={shown} ctx={ctx} />
     </>
-  );
-}
-
-// ------------------------------------------------------------------ Guide
-
-/** A handbook: contents on the side (computers) or on top (phones), steps and tip notes. */
-function Guide({ block, ctx }: { block: Block; ctx: BlockContext }) {
-  const { shown, offRoute, spoilers } = useVisible(block, ctx);
-  const t = TINT[ctx.tint];
-  return (
-    <div className="mt-4 lg:grid lg:grid-cols-[11rem_minmax(0,1fr)] lg:gap-6">
-      <nav aria-label="In this guide" className="lg:sticky lg:top-6 lg:self-start">
-        <p className="mb-2 hidden text-xs font-bold uppercase tracking-wide text-muted lg:block">Contents</p>
-        <ScrollRow as="ol" className="-mx-1 flex gap-1.5 px-1 pb-1 lg:mx-0 lg:grid lg:gap-1 lg:px-0">
-          {shown.map((e, i) => (
-            <li key={e.id} className="shrink-0">
-              <a href={`#${block.id}-${e.id}`} className="flex items-center gap-2 rounded-full bg-card-2 px-3 py-1.5 text-sm font-bold ring-1 ring-line hover:ring-ink lg:rounded-xl lg:bg-transparent lg:ring-0 lg:hover:bg-card-2">
-                <span className={`grid size-5 place-items-center rounded-full text-[11px] ${t.soft} ${t.text}`}>{i + 1}</span>{e.name}
-              </a>
-            </li>
-          ))}
-        </ScrollRow>
-      </nav>
-      <div className="mt-3 grid gap-4 lg:mt-0">
-        {shown.map((e, n) => {
-          const steps = e.sections.find((s) => s.label === 'Steps');
-          const rest = e.sections.filter((s) => s !== steps && s.label !== 'Tip');
-          const tip = e.sections.find((s) => s.label === 'Tip');
-          return (
-            <article key={e.id} id={`${block.id}-${e.id}`} className="group scroll-mt-20 rounded-2xl bg-card-2 p-4 ring-1 ring-line">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className={`text-xs font-bold uppercase tracking-wide ${t.text}`}>Guide {n + 1}</p>
-                  <h3 className="font-display text-xl leading-tight">{e.name}</h3>
-                </div>
-                <ShareButton path={sharePath(ctx.gameId, ctx.page, block, e)} title={e.name} what="guide" tint={ctx.tint} quiet />
-              </div>
-              {e.description && <div className="mt-1"><Lines text={e.description} /></div>}
-              {steps && (
-                <ol className="mt-3 grid gap-0">
-                  {steps.text.split('\n').filter(Boolean).map((s, i, all) => (
-                    <li key={i} className="relative flex gap-3 pb-3 last:pb-0">
-                      {i < all.length - 1 && <span className="absolute bottom-0 left-[0.8rem] top-7 w-0.5 bg-line" aria-hidden="true" />}
-                      <span className={`z-10 grid size-6.5 shrink-0 place-items-center rounded-full text-xs font-bold text-white ${t.solid}`}>{i + 1}</span>
-                      <span className="pt-0.5"><RichText text={s} /></span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-              {rest.map((s) => <div key={s.label} className="mt-2"><span className="font-bold">{s.label}:</span> <Lines text={s.text} /></div>)}
-              {tip && (
-                <p className="mt-4 flex -rotate-[0.6deg] gap-2 rounded-xl bg-sun-soft px-3 py-2.5 text-sm">
-                  <StickyNote size={16} className="mt-0.5 shrink-0 text-sun" aria-hidden="true" /><span><RichText text={tip.text} /></span>
-                </p>
-              )}
-            </article>
-          );
-        })}
-      </div>
-      <HiddenNote offRoute={offRoute} spoilers={spoilers} ctx={ctx} />
-    </div>
   );
 }

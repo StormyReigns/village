@@ -185,18 +185,24 @@ export async function preparePicture(file: File): Promise<{ blob: Blob; type: st
   }
 }
 
-/** Puts a picture in the chat-images bucket, under game/you/, ready to send. Returns it, or an error in plain words. */
-export async function uploadChatImage(gameId: string, meId: string, file: File): Promise<Attachment | string> {
+/**
+ * Puts a picture in one of our public buckets (chat-images, guide-pictures), under game/you/,
+ * after preparePicture has redrawn it. Returns where it went, or an error in plain words.
+ */
+export async function uploadPicture(bucket: 'chat-images' | 'guide-pictures', gameId: string, meId: string, file: File): Promise<Attachment | string> {
   const db = browserClient();
   if (!db) return "Couldn't reach the village.";
   const p = await preparePicture(file);
   if (typeof p === 'string') return p;
   if (p.blob.size > 5 * 1024 * 1024) return 'That picture is too big (5 MB at most).';
   const path = `${gameId}/${meId}/${crypto.randomUUID()}.${p.ext}`;
-  const { error } = await db.storage.from('chat-images').upload(path, p.blob, { contentType: p.type, upsert: false });
+  const { error } = await db.storage.from(bucket).upload(path, p.blob, { contentType: p.type, upsert: false });
   if (error) return /bucket/i.test(error.message) ? 'Pictures are almost ready: the database needs one more update.' : plainError(error.message);
   return { path, w: p.w, h: p.h };
 }
+
+/** Puts a picture in the chat-images bucket, under game/you/, ready to send. Returns it, or an error in plain words. */
+export const uploadChatImage = (gameId: string, meId: string, file: File) => uploadPicture('chat-images', gameId, meId, file);
 
 export function useWorkshop(gameId: string, me: Villager | null | undefined) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);

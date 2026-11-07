@@ -3,6 +3,7 @@
 // builder's preview fills in. See FieldDef in src/data/pages/types.ts.
 
 import type { Block, BlockType, EntryContent, FieldDef, FieldKind, Route, Section, StatDef } from '@/data/pages/types';
+import { STEPS, TIP, WATCH_OUT } from './guides.ts';
 
 /** Fields whose values are the entry's own description and stats, not a section. */
 export const DESCRIPTION = '@description';
@@ -26,11 +27,17 @@ export const FIELD_KINDS: { kind: FieldKind; label: string; hint: string }[] = [
 /** The kinds as an Items Block offers them: links point at other items there. */
 const ITEM_KINDS = FIELD_KINDS.map((k) => (k.kind === 'links' ? { ...k, label: 'Other items', hint: 'Other items, one per line: "Iron Ore: 3" for how many' } : k));
 
-export const kindsFor = (type?: BlockType) => (type === 'items' ? ITEM_KINDS : FIELD_KINDS);
+/** The kinds as a Guides Block offers them: no charts, links point at other guides, and Steps. */
+const GUIDE_KINDS = [
+  ...FIELD_KINDS.filter((k) => k.kind !== 'chart').map((k) => (k.kind === 'links' ? { ...k, label: 'Other guides', hint: 'Other guides, one per line: "Name: why"' } : k)),
+  { kind: 'steps' as const, label: 'Steps', hint: 'Numbered steps, one per line. Any step can be a spoiler or have a picture' },
+];
+
+export const kindsFor = (type?: BlockType) => (type === 'items' ? ITEM_KINDS : type === 'guide' ? GUIDE_KINDS : FIELD_KINDS);
 export const kindLabel = (k: FieldKind, type?: BlockType) => kindsFor(type).find((x) => x.kind === k)?.label ?? k;
 
-/** Blocks whose entries are laid out by their fields (Characters, Items), not a Collection's fixed parts. */
-export const byFields = (block: Pick<Block, 'type'>) => block.type === 'characters' || block.type === 'items';
+/** Blocks whose entries are laid out by their fields (Characters, Items, Guides), not a Collection's fixed parts. */
+export const byFields = (block: Pick<Block, 'type'>) => block.type === 'characters' || block.type === 'items' || block.type === 'guide';
 
 /** "Playable or NPC": one of the common fields (not one builders add), a green or red pill. */
 export const PLAYABLE = { yes: 'Playable', no: 'NPC' } as const;
@@ -91,8 +98,22 @@ export const ITEM_FIELDS: FieldDef[] = [
   { key: DESCRIPTION, label: 'Description', kind: 'longtext', off: true },
 ];
 
-/** The common fields for a Block type: Items have their own, Characters the set above. */
-export const commonFor = (type?: BlockType) => (type === 'items' ? ITEM_FIELDS : COMMON_FIELDS);
+/** The common fields every Guides Block starts with (docs/blocks/guides.md). The starter order is
+ *  the guide's: the answer, the warning, the steps, the tip. The keys are the ones the guides
+ *  already live use, so they keep their steps and tips. */
+export const GUIDE_FIELDS: FieldDef[] = [
+  { key: 'Kind', label: 'Kind', kind: 'tag', off: true },
+  { key: 'Difficulty', label: 'Difficulty', kind: 'tag', off: true },
+  { key: 'When', label: 'When', kind: 'when', off: true },
+  { key: DESCRIPTION, label: 'In short', kind: 'longtext' },
+  { key: WATCH_OUT, label: 'Watch out', kind: 'list' },
+  { key: STEPS, label: 'Steps', kind: 'steps' },
+  { key: TIP, label: 'Tip', kind: 'longtext' },
+  { key: 'What you get', label: 'What you get', kind: 'list', off: true },
+];
+
+/** The common fields for a Block type: Items and Guides have their own, Characters the set above. */
+export const commonFor = (type?: BlockType) => (type === 'items' ? ITEM_FIELDS : type === 'guide' ? GUIDE_FIELDS : COMMON_FIELDS);
 
 /** A Block's own fields plus any common field it doesn't have yet (switched off), so a Block
  *  set up before a common field existed can still switch it on. */
@@ -110,7 +131,7 @@ export const shownFields = (block: Pick<Block, 'fields'> & Partial<Pick<Block, '
 /** The most a tile holds, so tiles stay small and even. */
 export const TILE_MAX = 3;
 /** Kinds that fit on a tile: long text, lists and links don't. */
-export const canTile = (f: FieldDef) => !['longtext', 'list', 'links'].includes(f.kind) && f.key !== DESCRIPTION;
+export const canTile = (f: FieldDef) => !['longtext', 'list', 'links', 'steps'].includes(f.kind) && f.key !== DESCRIPTION;
 /** What an item's tile shows, in the builders' order. */
 export const tileFields = (block: Pick<Block, 'fields'> & Partial<Pick<Block, 'type'>>) => shownFields(block).filter((f) => f.tile && canTile(f)).slice(0, TILE_MAX);
 
@@ -183,6 +204,14 @@ const ITEM_SAMPLE: Partial<Record<string, string>> = {
 const SAMPLE: Record<FieldKind, string> = {
   text: 'Sample', number: '12', tag: 'Tag', place: 'Some town', when: 'Chapter 3', chart: '',
   list: 'Skill name: What it does.', links: 'Jane Doe: Friend', longtext: 'A sentence or two goes here.', yesno: 'Yes', playable: PLAYABLE.yes,
+  steps: 'The first thing to do\nThe next thing to do\n||A step that gives something away||',
+};
+
+/** Made-up values for a Guides Block's sample, for its common fields. */
+const GUIDE_SAMPLE: Partial<Record<string, string>> = {
+  Kind: 'Beat a fight', Difficulty: 'Hard', When: 'Chapter 3', [WATCH_OUT]: "Keep your healer out of the archers' reach",
+  [STEPS]: 'Move your fastest unit to the bridge\nKill the two archers on the walls first\n||The boss never leaves the throne, so heal up before you attack||',
+  [TIP]: 'A tip that helps, in a sentence or two.', 'What you get': 'Silver Sword\n500 gold',
 };
 
 /**
@@ -195,15 +224,21 @@ export function johnDoe(block: Pick<Block, 'fields' | 'stats'> & Partial<Pick<Bl
   let description: string | undefined;
   // An Items Block's sample is an item, with item-like values for its common fields.
   const item = block.type === 'items';
+  // A Guides Block's sample is a guide.
+  const guide = block.type === 'guide';
   for (const f of shownFields(block)) {
     if (f.kind === 'chart') continue;
-    if (f.key === DESCRIPTION) { description = item ? 'A line or two of flavor or extra notes goes here.' : 'A few lines about who they are and why you would bring them along go here.'; continue; }
-    const v = (item ? ITEM_SAMPLE[f.key] : undefined) ?? (/\bage\b/i.test(f.label) ? '30' : f.kind === 'tag' ? f.label : f.kind === 'playable' ? toggleOptions(f)[0]
+    if (f.key === DESCRIPTION) {
+      description = guide ? 'Bring two archers and take out the healers first. The boss never moves, so you can rest before the last push.'
+        : item ? 'A line or two of flavor or extra notes goes here.' : 'A few lines about who they are and why you would bring them along go here.';
+      continue;
+    }
+    const v = (item ? ITEM_SAMPLE[f.key] : guide ? GUIDE_SAMPLE[f.key] : undefined) ?? (/\bage\b/i.test(f.label) ? '30' : f.kind === 'tag' ? f.label : f.kind === 'playable' ? toggleOptions(f)[0]
       : item && f.kind === 'links' ? 'Sample part: 2' : SAMPLE[f.kind]);
     if (isCategory(f)) categories[f.key] = v;
     else sections.push({ label: f.key, text: v });
   }
   const defs = shownFields(block).filter((f) => f.kind === 'chart').flatMap((f) => chartDefs(block, f));
   const stats = defs.length ? Object.fromEntries(defs.map((d, i) => [d.key, 8 + ((i * 7) % 13)])) : undefined;
-  return { name: item ? 'Sample item' : 'John Doe', description, sections, categories, stats };
+  return { name: item ? 'Sample item' : guide ? 'Beat the bridge fort' : 'John Doe', description, sections, categories, stats };
 }
