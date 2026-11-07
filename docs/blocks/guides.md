@@ -6,7 +6,7 @@
 the guide fields in `src/lib/fields.ts` (`GUIDE_FIELDS`, the Steps kind), the steps input in
 `CharacterInputs.tsx` (`StepRows`), and Set up in `FieldSetup.tsx` · **Database:**
 `supabase/migrations/20261106000000_guide_pictures.sql`, then
-`20261106000100_guides_in_short.sql`, then `seed-app.sql` · **Live on:** Fortune's Weave ·
+`20261106000100_guides_in_short.sql`, then `seed-app.sql` (all run by Matt, 2026-11-06) · **Live on:** Fortune's Weave ·
 Guides · How to (5 guides); Ocarina of Time · Guides · How to (empty)
 
 Built on Characters and Items: the same fields model (`src/lib/fields.ts`), the piece, the
