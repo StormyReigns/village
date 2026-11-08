@@ -94,15 +94,37 @@ export function communityText(c: Community, tiers: Tier[]): string | null {
 /** How dark a tier's letter is: the best tier in the full Page color, fading down the list. */
 export const tierGoodness = (i: number, n: number) => (n <= 1 ? 1 : 1 - (i / (n - 1)) * 0.8);
 
-/** A tier's box color (CSS), whether its letter reads white on it, and its row's wash. */
-export function tierFill(i: number, n: number, color: string) {
-  const g = tierGoodness(i, n);
-  const pct = Math.round(30 + 70 * g);
+/**
+ * Each tier's own color, best first (Matt, 2026-11-08): gold S, then orange, green, blue, violet.
+ * A Block with more tiers goes on to teal and slate; any beyond that stay slate.
+ */
+export const TIER_COLORS = ['#F5B301', '#F2711C', '#22A45D', '#2F7DEB', '#8B4FE0', '#14A3A3', '#6B7280'];
+export const tierColor = (i: number) => TIER_COLORS[Math.min(Math.max(i, 0), TIER_COLORS.length - 1)];
+
+/** A tier's colors: solid (bars), a soft box behind its letter, and a light wash for its row. */
+export function tierFill(i: number) {
+  const c = tierColor(i);
   return {
-    background: `color-mix(in srgb, ${color} ${pct}%, var(--card-2))`,
-    white: pct >= 70,
-    /** A light wash of the same color behind the tier's row. */
-    wash: `color-mix(in srgb, ${color} ${Math.round(10 + 22 * g)}%, var(--card))`,
+    solid: c,
+    background: `color-mix(in srgb, ${c} 26%, var(--card))`,
+    wash: `color-mix(in srgb, ${c} 11%, var(--card))`,
+  };
+}
+
+/**
+ * A tier's letter: its own color with an ink outline, at a size in pixels. The outline is drawn
+ * under the fill, so it sits outside the letter. `leaning` (fewer than 5 lists) is white with the
+ * brand's pink and violet split, the "not settled yet" look.
+ */
+export function letterStyle(i: number, px: number, leaning = false): Record<string, string | number> {
+  return {
+    color: leaning ? '#fff' : tierColor(i),
+    fontSize: px,
+    fontWeight: 900,
+    lineHeight: 1,
+    WebkitTextStroke: `${Math.max(2, Math.round(px / 9))}px #15171c`,
+    paintOrder: 'stroke fill',
+    ...(leaning ? { textShadow: `-${Math.max(1, px / 30)}px ${Math.max(1, px / 60)}px 0 #8b3dff, ${Math.max(1, px / 30)}px -${Math.max(1, px / 60)}px 0 #ff2bd6` } : {}),
   };
 }
 

@@ -76,10 +76,12 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
   return (
     <article className="relative min-w-0">
       {sample && <span className="absolute right-0 top-0 rounded-full bg-card-2 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">Sample</span>}
-      <div className="flex">
+      <div className="relative flex w-fit">
         <Piece size={size} color={portrait} image={entry.icon}>
           {entry.icon ? null : symbol ? <BlockIcon name={symbol} size={Math.round(size * 0.2)} strokeWidth={2.4} /> : initials(entry.name) || <BlockIcon name={block.icon} size={Math.round(size * 0.2)} />}
         </Piece>
+        {/* The community tier: a big letter on the portrait's corner (no real card in previews, so nothing there). */}
+        {!sample && 'id' in entry && <CommunityTier cardId={cardIdOf(entry)} entryId={String(entry.id)} size={size} />}
       </div>
 
       <div className="mt-3 grid gap-1.5">
@@ -102,7 +104,6 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
             </div>
           )}
         </div>
-        {!sample && 'id' in entry && <CommunityTier cardId={cardIdOf(entry)} entryId={String(entry.id)} color={color} />}
         {(at('tags').length > 0 || entry.routes?.length) ? (
           <div className="flex flex-wrap gap-1.5">
             {at('tags').map((f) => {

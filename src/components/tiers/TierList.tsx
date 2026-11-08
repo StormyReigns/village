@@ -9,7 +9,7 @@ import { sharePath } from '@/data/pages/links';
 import { Piece } from '@/components/Piece';
 import { BlockIcon } from '@/components/Icon';
 import {
-  MIN_LISTS, REASON_MAX, communityText, communityTier, fromCommunity, inLimits, place, placedCount, setReason, tierFill, tierOf, tiersOf, titleOf,
+  MIN_LISTS, REASON_MAX, communityText, communityTier, fromCommunity, inLimits, place, placedCount, setReason, letterStyle, tierFill, tierOf, tiersOf, titleOf,
   type Community, type Counts, type Tier,
 } from '@/lib/tiers';
 import { EntryPanel } from '@/components/app/EntryPanel';
@@ -156,7 +156,7 @@ function CommunityView({ title, tiers, shown, community, data, color, ranked, sh
           action={<HeaderShare label={`Share the community’s ${title} list`} getUrl={async () => window.location.origin + shareUrl} />} />
         {tiers.map((t, i) => (
           // Before anyone has ranked, the rows stay short so the empty board doesn't fill a phone.
-          <TierRow key={t.key} t={t} i={i} n={tiers.length} color={color} compact={!any} onTab={any ? () => onTier(t.key) : undefined}>
+          <TierRow key={t.key} t={t} i={i} compact={!any} onTab={any ? () => onTier(t.key) : undefined}>
             {/* Settled pieces first, solid; pieces still leaning (under 5 lists) after them, as split outlines. */}
             {shown.filter((e) => community.get(e.id)?.tier === t.key)
               .sort((a, b) => Number(Boolean(community.get(b.id)?.settled)) - Number(Boolean(community.get(a.id)?.settled)))
@@ -238,7 +238,7 @@ function PieceSheet({ e, ranked, tiers, counts, c, color, gameId, blockKey, meId
         </div>
         <div className="grid min-h-0 gap-4 overflow-y-auto px-5 pb-5">
           {/* How the lists split; only once there are 5, like every opinion count. */}
-          <Spread tiers={tiers} counts={counts ?? {}} color={color} />
+          <Spread tiers={tiers} counts={counts ?? {}} />
           <section>
             <h3 className="text-xs font-bold uppercase tracking-wide text-muted">Why people put it there</h3>
             {reasons === null ? <p className="mt-1 text-sm text-muted">Loading…</p>
@@ -265,7 +265,7 @@ function PieceSheet({ e, ranked, tiers, counts, c, color, gameId, blockKey, meId
  * How the lists placed one piece: a bar for every tier with how many lists put it there. Counts
  * show once 5 lists have placed it, like every opinion count; before that, only where it's leaning.
  */
-function Spread({ tiers, counts, color }: { tiers: Tier[]; counts: Counts; color: string }) {
+function Spread({ tiers, counts }: { tiers: Tier[]; counts: Counts }) {
   const n = tiers.reduce((s, t) => s + (counts[t.key] ?? 0), 0);
   if (n < MIN_LISTS) {
     return <p className="rounded-xl bg-card-2 px-3 py-2 text-sm text-muted">Fewer than {MIN_LISTS} lists have placed it so far. The counts show once {MIN_LISTS} have.</p>;
@@ -275,13 +275,13 @@ function Spread({ tiers, counts, color }: { tiers: Tier[]; counts: Counts; color
       <h3 className="text-xs font-bold uppercase tracking-wide text-muted">Where the lists put it · {n} lists</h3>
       <ul className="mt-1.5 grid gap-1">
         {tiers.map((t, i) => {
-          const f = tierFill(i, tiers.length, color);
+          const f = tierFill(i);
           const c = counts[t.key] ?? 0;
           return (
             <li key={t.key} className="flex items-center gap-2 text-sm">
-              <span className="grid h-6 w-8 shrink-0 place-items-center rounded-md text-xs font-extrabold" style={{ background: f.background, color: f.white ? '#fff' : 'var(--ink)' }}>{t.label}</span>
+              <span className="grid h-7 w-9 shrink-0 place-items-center rounded-md" style={{ background: f.background, ...letterStyle(i, 16) }}>{t.label}</span>
               <span className="h-3 min-w-0 flex-1 overflow-hidden rounded-full bg-card-2">
-                <span className="block h-full rounded-full" style={{ width: `${(c / n) * 100}%`, background: f.background }} />
+                <span className="block h-full rounded-full" style={{ width: `${(c / n) * 100}%`, background: f.solid }} />
               </span>
               <span className="w-16 shrink-0 text-right text-xs font-bold tabular-nums">{c} {c === 1 ? 'list' : 'lists'}</span>
             </li>
@@ -305,7 +305,7 @@ function TierSheet({ t, i, tiers, shown, counts, ranked, color, title, onPick, o
     window.addEventListener('keydown', esc);
     return () => window.removeEventListener('keydown', esc);
   }, [onClose]);
-  const f = tierFill(i, tiers.length, color);
+  const f = tierFill(i);
   const totalOf = (id: string) => tiers.reduce((s, x) => s + (counts.get(id)?.[x.key] ?? 0), 0);
   const here = shown.map((e) => ({ e, n: counts.get(e.id)?.[t.key] ?? 0, total: totalOf(e.id) }))
     .filter((r) => r.n > 0)
@@ -315,7 +315,7 @@ function TierSheet({ t, i, tiers, shown, counts, ranked, color, title, onPick, o
       <div role="dialog" aria-modal="true" aria-label={`${t.label} tier in the community’s ${title} list`} onClick={(ev) => ev.stopPropagation()}
         className="rise flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-[2rem] bg-card shadow-soft sm:rounded-[2rem]">
         <div className="flex items-center gap-3 px-5 pb-3 pt-5">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl text-2xl font-extrabold" style={{ background: f.background, color: f.white ? '#fff' : 'var(--ink)' }}>{t.label}</span>
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl" style={{ background: f.background, ...letterStyle(i, 30) }}>{t.label}</span>
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-xl font-extrabold leading-tight">{t.label} tier · {title}</h2>
             <p className="text-sm text-muted">Everyone the community’s lists put in {t.label}, most often first</p>
@@ -333,7 +333,7 @@ function TierSheet({ t, i, tiers, shown, counts, ranked, color, title, onPick, o
                       <span className="block truncate font-bold">{e.name}</span>
                       {total >= MIN_LISTS ? (
                         <span className="mt-0.5 flex items-center gap-2">
-                          <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-card-2"><span className="block h-full rounded-full" style={{ width: `${(n / total) * 100}%`, background: f.background }} /></span>
+                          <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-card-2"><span className="block h-full rounded-full" style={{ width: `${(n / total) * 100}%`, background: f.solid }} /></span>
                           <span className="shrink-0 text-xs font-bold tabular-nums text-muted">{n} of {total} lists</span>
                         </span>
                       ) : <span className="block text-xs text-muted">Fewer than {MIN_LISTS} lists so far</span>}
@@ -628,7 +628,7 @@ function MineView({ title, tiers, shown, data, community, color, ranked, block, 
           const row = (list.rows[t.key] ?? []).map((id) => byId.get(id)).filter(Boolean) as Entry[];
           const target = Boolean(picked) && pickedTier !== t.key;
           return (
-            <TierRow key={t.key} t={t} i={i} n={tiers.length} color={color} data-tier={t.key} glow={over === t.key ? 'on' : target ? 'target' : undefined}
+            <TierRow key={t.key} t={t} i={i} data-tier={t.key} glow={over === t.key ? 'on' : target ? 'target' : undefined}
               onClick={(ev) => { if (picked && !(ev.target as HTMLElement).closest('[data-id]')) { drop(t.key); setPicked(null); } }}>
               {row.map((e) => (
                 <li key={e.id} className="relative">
@@ -667,11 +667,11 @@ function MineView({ title, tiers, shown, data, community, color, ranked, block, 
               </div>
               <div role="toolbar" aria-label={pickedEntry ? `Place ${pickedEntry.name}` : 'Tiers'} className="flex items-center gap-1">
                 {tiers.map((t, i) => {
-                  const f = tierFill(i, tiers.length, color);
+                  const f = tierFill(i);
                   return (
                     <button key={t.key} type="button" onClick={() => drop(t.key)} disabled={!pickedEntry} aria-pressed={pickedTier === t.key}
-                      className={'h-9 min-w-0 flex-1 rounded-xl text-sm font-extrabold transition disabled:opacity-35 ' + (pickedTier === t.key ? 'ring-2 ring-signal ring-offset-1' : '')}
-                      style={{ background: f.background, color: f.white ? '#fff' : 'var(--ink)' }}>{t.label}</button>
+                      className={'h-9 min-w-0 flex-1 rounded-xl transition disabled:opacity-35 ' + (pickedTier === t.key ? 'ring-2 ring-signal ring-offset-1' : '')}
+                      style={{ background: f.background, ...letterStyle(i, 17) }}>{t.label}</button>
                   );
                 })}
                 <span className="mx-0.5 h-6 w-px shrink-0 bg-line" aria-hidden="true" />

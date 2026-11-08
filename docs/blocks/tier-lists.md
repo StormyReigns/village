@@ -115,6 +115,13 @@ Its title and intro line, then two tabs, yellow on the one you're on:
 
 ### On an entry's card
 
+(Matt, 2026-11-08, replacing the pill below.) A big tier letter over the portrait's bottom-left
+corner, partly off the piece (never inside it), about 60% of the portrait's width and tilted a
+little: settled, in its tier's color with an ink outline; leaning (under 5 lists), white with the
+brand's pink and violet split. Its tip gives the numbers ("Unit tiers: A, from 23 lists (S 4 · A 12
+· B 6)"); tapping it opens the tier list with the piece's sheet, so phones get the numbers too.
+Nothing shows in Workshop previews or the sample card. Earlier version:
+
 A small pill under the name: "Community tier: A" (or "Leaning A" before 5 lists), in the Page
 color. Tapping it opens the Tier list Block with that piece's sheet. Nothing shows when no Tier
 list ranks the entry or nobody has placed it.
@@ -204,6 +211,11 @@ and a reported reason on the Notice Board. Touch drag needs a real phone (the em
 mouse).
 
 ## Decisions
+
+- 2026-11-08: every tier has its own color, outlined in ink (Matt): gold S, orange A, green B, blue
+  C, violet D (then teal, slate). Letters, the tray's buttons, stats and the share picture use it;
+  each row gets a light wash of its tier's color. (`TIER_COLORS`, `letterStyle` in src/lib/tiers.ts.)
+- 2026-11-08: the card's "Community tier" pill became a big letter on the portrait's corner (Matt).
 
 - 2026-11-08: the tray resizes by dragging its handle (tap it for short or tall; arrow keys too), and
   remembers its height on the device (Matt). Its top row keeps one shape: Not placed and what's

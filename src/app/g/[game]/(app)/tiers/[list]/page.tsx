@@ -74,7 +74,7 @@ async function Loaded({ params }: { params: Params }) {
       <BoardCard className="mt-4">
         <BoardHead title={title} sub={`${ranked.title}, ranked by ${shared.maker}`} chip={`${placedCount(list)} placed`} />
         {tiers.map((t, i) => (
-          <TierRow key={t.key} t={t} i={i} n={tiers.length} color={color}>
+          <TierRow key={t.key} t={t} i={i}>
             {((list.rows[t.key] ?? []).map((id) => entries.get(id)).filter(Boolean) as Entry[]).map((e) => (
               <li key={e.id} className="flex w-[3.6rem] flex-col items-center gap-0.5 p-0.5 sm:w-16" title={list.reasons[e.id] ?? undefined}>
                 <Piece size={48} color={color} image={e.icon}><Mark e={e} block={ranked} px={48} /></Piece>

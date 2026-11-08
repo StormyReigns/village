@@ -2,14 +2,13 @@ import { ImageResponse } from 'next/og';
 import type { Tint } from '@/data/pages';
 import { clip } from '@/data/pages/links';
 import { shadeHex, type Shade } from './shades';
-import { CACHE, OG_SIZE, OgPiece, fontFile, initials, logoFile, shade } from './og-card';
-import { tierGoodness, type Tier } from './tiers';
+import { CACHE, OG_SIZE, OgPiece, fontFile, initials, logoFile } from './og-card';
+import { tierColor, type Tier } from './tiers';
 
 // The share picture for a tier list (docs/blocks/tier-lists.md): the Page's color, the maker's
 // name, and each tier as a row of white pieces with initials, like the list itself. Discord shows
 // it about a third of this size, so pieces stay big and long rows end in "+3".
 
-const INK = '#15171c';
 
 export interface TierCardContent {
   tint: Tint;
@@ -23,7 +22,6 @@ export interface TierCardContent {
 
 export async function tierCard({ tint, shade: genre, kicker, title, tiers, rows }: TierCardContent) {
   const color = shadeHex(tint, genre);
-  const dark = shade(color, -0.35);
   // Only tiers with pieces in them, at most five, so each row has room.
   const used = tiers.filter((t) => rows[t.key]?.length).slice(0, 5);
   const rowH = used.length <= 3 ? 120 : used.length === 4 ? 100 : 82;
@@ -52,12 +50,11 @@ export async function tierCard({ tint, shade: genre, kicker, title, tiers, rows 
         <div style={{ display: 'flex', flexDirection: 'column', marginTop: 18 }}>
           {used.map((t) => {
             const i = tiers.indexOf(t);
-            const g = tierGoodness(i, tiers.length);
             const names = rows[t.key];
             const shown = names.slice(0, names.length > perRow ? perRow - 1 : perRow);
             return (
               <div key={t.key} style={{ display: 'flex', alignItems: 'center', height: rowH, marginBottom: 10, background: 'rgba(255,255,255,0.14)', borderRadius: 24, padding: '0 12px' }}>
-                <div style={{ display: 'flex', flexShrink: 0, width: rowH * 0.9, height: rowH * 0.78, borderRadius: 18, background: 'white', color: g > 0.6 ? dark : INK, alignItems: 'center', justifyContent: 'center', fontSize: t.label.length <= 2 ? rowH * 0.48 : 22, fontWeight: 800, marginRight: 18 }}>
+                <div style={{ display: 'flex', flexShrink: 0, width: rowH * 0.9, height: rowH * 0.78, borderRadius: 18, background: 'white', color: tierColor(i), alignItems: 'center', justifyContent: 'center', fontSize: t.label.length <= 2 ? rowH * 0.48 : 22, fontWeight: 800, marginRight: 18 }}>
                   {clip(t.label, 10)}
                 </div>
                 {shown.map((n, k) => (
