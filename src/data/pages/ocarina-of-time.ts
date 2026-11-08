@@ -32,7 +32,6 @@ export const PAGES: Page[] = [
     blurb: "How things work, and the questions nobody has answered yet.",
     blocks: [
       { id: 'how-to', type: 'guide', title: 'How to', icon: 'BookOpen', entries: [] },
-      { id: 'mysteries', type: 'collection', look: 'rows', title: 'Mysteries', icon: 'CircleHelp', filters: ['Status'], entries: [] },
     ],
   },
 ];

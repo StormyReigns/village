@@ -1,10 +1,11 @@
 # Questions (replaces the Mysteries Block)
 
-**Status:** Building, steps 1 to 5 of 6 done (2026-11-08) · **Chat:** `Village · Block: Questions`
+**Status:** Built (2026-11-08); live once Matt runs the two SQL files · **Chat:** `Village · Block: Questions`
 (designed in `Village · Block: Guides`) · **Mockup:** none yet · **Replaces:** the Mysteries
-Block (a "rows" Collection) on every game's Guides Page · **Code today:** Mysteries is a
-Collection with a Status filter; its panel has "I know the answer" and "Share a theory"
-(`EntryPanel.tsx`), and the app's home shows "Help solve" (`HomeHooks.tsx`).
+Block (a "rows" Collection) on every game's Guides Page · **Code:** `src/components/questions/`
+(the bar, Ask, the lists), `workshop/Questions.tsx` (the Workshop tab), `src/components/Inbox.tsx`
+(the bell), `src/lib/questions.ts` (plain helpers, tested), and the SQL in
+`supabase/migrations/20261108000000_questions.sql` and `20261108120000_mysteries_to_questions.sql`.
 
 Not a Block: a part of every Page, plus its own place in the Workshop. It's written up here
 with the Blocks because it replaces one.
@@ -129,8 +130,15 @@ Built in `Village · Block: Questions`, one shippable step at a time (2026-11-08
    your avatar with a yellow dot while anything is unread; opening it marks everything read, and
    each reply links to the entry. On phones the avatar button drops your name (it's in its menu)
    so the bar keeps its room.
-6. **Mysteries move in**: their 6 entries become open questions (what was known goes along as a
-   note), and the Block leaves the Guides Page with its history kept.
+6. **Mysteries move in** (done, `20261108120000_mysteries_to_questions.sql`): their 6 entries become
+   open questions on the Guides Page (what was known goes along as a "Known so far" note; a
+   Theory says so), each remembering the entry it came from. The Block only leaves its Page, so
+   its entries, revisions and Drafts stay. Ocarina's empty Mysteries Block is deleted. The starter
+   files and `seed-app.sql` no longer have Mysteries, and the seed's cleanup now leaves a Block
+   that has entries alone. The panel's old "I know the answer" and "Share a theory" are gone.
+
+**SQL for Matt, in order:** `20261108000000_questions.sql`, then
+`20261108120000_mysteries_to_questions.sql`. Both are safe to run twice.
 
 ## Decisions
 

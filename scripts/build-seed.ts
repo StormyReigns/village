@@ -67,8 +67,9 @@ for (const [game, pages] of Object.entries(GAMES)) {
 }
 
 // Blocks from the old layout that the new Pages replaced.
-out.push('-- Old blocks the Pages replaced');
-out.push(`delete from public.game_blocks where page_key is null;`);
+out.push('-- Old blocks the Pages replaced, when they have no entries. A Block taken off its Page with');
+out.push('-- entries (Mysteries) keeps them and their history, so it stays, just out of the app.');
+out.push(`delete from public.game_blocks b where b.page_key is null and not exists (select 1 from public.cards c where c.game_id = b.game_id and c.block_key = b.block_key);`);
 out.push('');
 
 writeFileSync(new URL('../supabase/seed-app.sql', import.meta.url), out.join('\n'));

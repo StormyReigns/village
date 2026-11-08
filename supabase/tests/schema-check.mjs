@@ -45,7 +45,7 @@ if (process.argv[3]) {
     entries: await n(`select count(*)::int as n from public.cards c join public.card_pointers p on p.card_id = c.id and p.channel = 'stable'`),
     loose: await n(`select count(*)::int as n from public.game_blocks where page_key is null`),
   };
-  counts.games === 2 && counts.pages === 11 && counts.blocks === 17 && counts.entries === 186 && counts.loose === 0
+  counts.games === 2 && counts.pages === 11 && counts.blocks === 15 && counts.entries === 180 && counts.loose === 0
     ? ok(`seeds applied (${counts.games} games, ${counts.pages} pages, ${counts.blocks} blocks, ${counts.entries} entries on Stable) and safe to re-run`)
     : bad('seeds ' + JSON.stringify(counts));
   const st = await db.query(`select b.stats->0->>'label' as stat, r.content->'stats'->>'might' as might from public.game_blocks b join public.cards c on c.block_key = b.block_key and c.game_id = b.game_id join public.card_pointers p on p.card_id = c.id and p.channel = 'stable' join public.card_revisions r on r.id = p.revision_id where b.block_key = 'weapons-and-magic' and r.content->>'name' = 'Thoron'`);

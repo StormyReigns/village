@@ -21,7 +21,7 @@ interface OpenFix { id: string; theory: boolean; text: string; who: string }
 type Profile = { display_name?: string; username?: string } | null;
 const nameOf = (p: unknown) => { const a = (Array.isArray(p) ? p[0] : p) as Profile; return a?.display_name || a?.username || 'a villager'; };
 
-/** Open Drafts that change this entry (so nobody writes the same fix twice, and theories show). */
+/** Open Drafts that change this entry (so nobody writes the same fix twice). */
 function useOpenFixes(cardId?: string) {
   const [fixes, setFixes] = useState<OpenFix[]>([]);
   useEffect(() => {
@@ -134,10 +134,6 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
   const got = gotKey ? ticks.has(gotKey) : false;
   // The tick snaps into place as it turns solid, only when ticked just now.
   const [snapGot, setSnapGot] = useState(false);
-  // A Mystery: an open question players can answer or theorize about.
-  const status = entry.categories.Status;
-  const mystery = Boolean(status && block.filters?.includes('Status'));
-  const solved = mystery && !['Open', 'Theory'].includes(status!);
   const fixHref = (field: string) => `/g/${gameId}/workshop?fix=${block.id}.${entry.id}&field=${encodeURIComponent(field)}`;
 
   useEffect(() => {
@@ -181,7 +177,7 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
         </div>
 
         <div className="overflow-y-auto overscroll-contain px-5 pb-6 pt-3">
-          {fixes.length > 0 && !mystery && (
+          {fixes.length > 0 && (
             <Link href={`/g/${gameId}/workshop?draft=${fixes[0].id}`} className="mb-4 flex items-center gap-2 rounded-2xl bg-sun-soft px-3 py-2 text-sm hover:ring-1 hover:ring-sun">
               <Hourglass size={15} className="shrink-0 text-sun" aria-hidden="true" />
               <span className="flex-1"><span className="font-bold">A fix is waiting for votes.</span> See it before writing another</span>
@@ -229,34 +225,8 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
             </button>
           )}
 
-          {mystery && (
-            <div className="mt-5 grid gap-3 rounded-2xl bg-plum-soft p-3">
-              {solved && improvedBy && <p className="text-sm font-bold text-plum">Solved by {improvedBy}</p>}
-              {!solved && (
-                <div className="flex flex-wrap gap-2">
-                  <Link href={fixHref('description')} className="rounded-full bg-plum px-4 py-2 text-sm font-bold text-white">I know the answer</Link>
-                  <Link href={`${fixHref('description')}&theory=1`} className="rounded-full bg-card px-4 py-2 text-sm font-bold text-plum ring-1 ring-plum/40">Share a theory</Link>
-                </div>
-              )}
-              {fixes.length > 0 && (
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-plum">{fixes.some((f) => !f.theory) ? 'Answers and theories so far' : 'Theories so far'}</p>
-                  <ul className="mt-1.5 grid gap-1.5">
-                    {fixes.map((f) => (
-                      <li key={f.id}>
-                        <Link href={`/g/${gameId}/workshop?draft=${f.id}`} className="block rounded-xl bg-card px-3 py-2 text-sm ring-1 ring-line hover:ring-plum">
-                          <span className="block">{f.text || 'See the Draft'}</span>
-                          <span className="text-xs text-muted">{f.theory ? 'Theory' : 'Answer'} by {f.who} · tap to vote</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
           {entry.source && <p className="mt-6 text-xs text-muted">Source: {entry.source}</p>}
-          {improvedBy && !solved && <p className="mt-1 text-xs text-muted">Last improved by {improvedBy}</p>}
+          {improvedBy && <p className="mt-1 text-xs text-muted">Last improved by {improvedBy}</p>}
           <Tip text="Opens a Draft with this entry filled in. Change what's wrong; villagers check it" tint="leaf" className="mt-4">
             <Link href={`/g/${gameId}/workshop?fix=${block.id}.${entry.id}`} className="btn-primary inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold">
               <Hammer size={15} aria-hidden="true" /> Suggest a fix

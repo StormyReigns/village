@@ -152,16 +152,6 @@ function howtos(): Entry[] {
   }));
 }
 
-function mysteries(): Entry[] {
-  return of('mysteries').map((c) => ({
-    ...base(c, c.content.name),
-    description: c.content.known,
-    stat: c.content.status || 'Open',
-    sections: [],
-    categories: { Status: c.content.status || 'Open' },
-  }));
-}
-
 const block = (b: Omit<Block, 'id'>): Block => ({ id: slug(b.title), ...b });
 
 /** A simple symbol per faction, picked from its name (our own icons, not the game's crests). */
@@ -254,8 +244,6 @@ export const PAGES: Page[] = [
     blurb: "How the game's systems work, and the questions nobody has answered yet.",
     blocks: [
       block({ type: 'guide', title: 'How to', icon: 'BookOpen', entries: howtos() }),
-      block({ type: 'collection', look: 'rows', title: 'Mysteries', icon: 'CircleHelp', filters: ['Status'], entries: mysteries(),
-        intro: "Open questions. Found the answer? Bring it to the Workshop." }),
     ],
   },
 ];
