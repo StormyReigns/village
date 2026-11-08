@@ -161,6 +161,10 @@ Go-ahead for all of these from the hub, 2026-11-08.
 - 2026-11-08: entries first; videos about a whole Page or Block ("Every class explained") come
   later (Matt).
 
+- 2026-11-08: nobody votes on a video they added (the hub; Matt kept it after trying it). Their own
+  video says "You added this" where the buttons would be. Why: no one can push their own video
+  to the top, like authors and their own Drafts.
+
 ## Open questions (for Matt)
 
 - None open right now.
