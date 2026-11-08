@@ -41,6 +41,11 @@ Community-built companion apps for games, with a village theme. Two layers:
   Block): a bar on every Page to ask, a Questions tab in the Workshop, answered by a Draft or
   by linking an entry, with the reply sent to an inbox (the bell beside the account button).
   Specs: `docs/blocks/guides.md`, `docs/blocks/questions.md`.
+  #5 is **Videos** (2026-11-08, `src/components/videos/`): YouTube videos on any entry, sized to
+  where they show, played in YouTube's own player and credited from YouTube itself, voted
+  "This helped". #6 is **Tier lists** (2026-11-09, `src/components/tiers/`): a Tier list Block ranks
+  another Block on its Page; the community tier is the median of everyone's lists, hidden until 5,
+  with a pill on the entry's card. Specs: `docs/blocks/videos.md`, `docs/blocks/tier-lists.md`.
 - **Block specs** (`docs/blocks/`, from 2026-10-31): one file per Block, the source of truth
   for its purpose, fields, layout, decisions and open questions; the roadmap and how we
   work are in `docs/blocks/README.md`. Each Block gets its own chat ("Village · Block:
@@ -133,6 +138,8 @@ Community-built companion apps for games, with a village theme. Two layers:
 - Next.js 16 with Cache Components: `params` are promises. Read URL data inside
   `<Suspense>`. Compute dates in client components so pages can prerender.
 - Run `npm test` after changing the schema or Standouts; `npm run build` before committing.
+  After an SQL data change, delete `.next/cache/fetch-cache` before a local build, or it reuses old
+  database answers.
 - The game app reads from the database (`src/lib/app-data.ts`, cached, refreshed when a
   moderator publishes). Starter Pages live in `src/data/pages/`; `npm run db:seed-app`
   turns them into `supabase/seed-app.sql`, which is safe to rerun and never overwrites
