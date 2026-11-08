@@ -1,10 +1,10 @@
 # Videos (the first integration)
 
-**Status:** Building (2026-11-08) · **Chat:** `Village · Block: Videos` · **Mockup:** none yet ·
+**Status:** Live, first version (2026-11-08): SQL applied; no videos added yet · **Chat:** `Village · Block: Videos` · **Mockup:** none yet ·
 **Code:** `src/lib/videos.ts` (reading YouTube links and start times,
 ranking; plain and tested), `src/components/videos/` (`Videos.tsx`: the part in two sizes, the card, the row, Add a video; `useVideos.ts`: loading, voting, adding),
 `src/app/api/video-info/[id]/route.ts` (asks YouTube who made a video, kept for a day) ·
-**Database:** `supabase/migrations/20261108180000_videos.sql` (waiting on the hub's review, then Matt).
+**Database:** `supabase/migrations/20261108180000_videos.sql` (reviewed by the hub, run by Matt 2026-11-08).
 
 Not a Block of its own: videos are a part that sits on whatever they're about, on any entry
 (a character, an item, a guide, a place), sized to fit where they show (Matt, 2026-11-08).
