@@ -55,6 +55,8 @@ function Board({ block, ranked, ctx }: { block: Block; ranked: Block; ctx: Block
   const color = `var(--${ctx.tint})`;
   // A card's "Community tier" pill opens this Block with that piece's sheet (?t=block.entry).
   const [sheet, setSheet] = useState<string | null>(null);
+  // A tier's letter in Community opens everyone placed there.
+  const [tierSheet, setTierSheet] = useState<string | null>(null);
   const asked = params.get('t');
   useEffect(() => {
     const [b, id] = asked?.split('.') ?? [];
@@ -83,9 +85,13 @@ function Board({ block, ranked, ctx }: { block: Block; ranked: Block; ctx: Block
       </div>
 
       {tab === 'community'
-        ? <CommunityView title={title} shareUrl={sharePath(ctx.gameId, ctx.page, block)} tiers={tiers} shown={shown} community={community} data={data} color={color} ranked={ranked} onOpen={setSheet} onMine={toMine} />
+        ? <CommunityView title={title} shareUrl={sharePath(ctx.gameId, ctx.page, block)} tiers={tiers} shown={shown} community={community} data={data} color={color} ranked={ranked} onOpen={setSheet} onTier={setTierSheet} onMine={toMine} />
         : <MineView title={title} tiers={tiers} shown={shown} data={data} community={community} color={color} ranked={ranked} block={block} ctx={ctx} />}
 
+      {tierSheet && tiers.some((t) => t.key === tierSheet) && (
+        <TierSheet t={tiers.find((t) => t.key === tierSheet)!} i={tiers.findIndex((t) => t.key === tierSheet)} tiers={tiers} shown={shown} counts={data.counts}
+          ranked={ranked} color={color} title={title} onPick={(id) => { setTierSheet(null); setSheet(id); }} onClose={() => setTierSheet(null)} />
+      )}
       {sheetEntry && (
         <PieceSheet e={sheetEntry} ranked={ranked} tiers={tiers} counts={data.counts.get(sheetEntry.id)} c={community.get(sheetEntry.id)!} color={color}
           gameId={ctx.gameId} blockKey={block.id} meId={data.me?.id} mine={tierOf(data.list, sheetEntry.id)}
@@ -133,9 +139,9 @@ function PieceButton({ e, block, color, outline = false, picked = false, snap = 
 
 // --------------------------------------------------------------------------- Community
 
-function CommunityView({ title, tiers, shown, community, data, color, ranked, shareUrl, onOpen, onMine }: {
+function CommunityView({ title, tiers, shown, community, data, color, ranked, shareUrl, onOpen, onTier, onMine }: {
   title: string; shareUrl: string; tiers: Tier[]; shown: Entry[]; community: Map<string, Community>; data: Data; color: string; ranked: Block;
-  onOpen: (id: string) => void; onMine: () => void;
+  onOpen: (id: string) => void; onTier: (tier: string) => void; onMine: () => void;
 }) {
   const { state, total } = data;
   if (state === 'missing') return <p className="mt-3 rounded-xl bg-card-2 p-3 text-sm text-muted">The community list turns on soon. You can already make <button type="button" onClick={onMine} className="font-bold text-ink underline underline-offset-2">your own</button>.</p>;
@@ -150,7 +156,7 @@ function CommunityView({ title, tiers, shown, community, data, color, ranked, sh
           action={<HeaderShare label={`Share the community’s ${title} list`} getUrl={async () => window.location.origin + shareUrl} />} />
         {tiers.map((t, i) => (
           // Before anyone has ranked, the rows stay short so the empty board doesn't fill a phone.
-          <TierRow key={t.key} t={t} i={i} n={tiers.length} color={color} compact={!any}>
+          <TierRow key={t.key} t={t} i={i} n={tiers.length} color={color} compact={!any} onTab={any ? () => onTier(t.key) : undefined}>
             {/* Settled pieces first, solid; pieces still leaning (under 5 lists) after them, as split outlines. */}
             {shown.filter((e) => community.get(e.id)?.tier === t.key)
               .sort((a, b) => Number(Boolean(community.get(b.id)?.settled)) - Number(Boolean(community.get(a.id)?.settled)))
@@ -179,7 +185,7 @@ function HowItWorks({ empty, placed, signedIn, onMine }: { empty: boolean; place
   if (!empty) {
     return (
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-card-2 px-3 py-2.5 text-sm">
-        <p className="min-w-0 flex-1 text-muted">Built from everyone’s own lists: each piece sits in the tier most lists give it. Tap one to see why.</p>
+        <p className="min-w-0 flex-1 text-muted">Built from everyone’s own lists: each piece sits in the tier most lists give it. Tap a tier’s letter or a piece for the numbers.</p>
         <button type="button" onClick={onMine} className="btn-primary shrink-0 rounded-full px-4 py-1.5 text-sm font-bold">{cta}</button>
       </div>
     );
@@ -232,7 +238,7 @@ function PieceSheet({ e, ranked, tiers, counts, c, color, gameId, blockKey, meId
         </div>
         <div className="grid min-h-0 gap-4 overflow-y-auto px-5 pb-5">
           {/* How the lists split; only once there are 5, like every opinion count. */}
-          {c.settled && <Spread tiers={tiers} counts={counts ?? {}} color={color} />}
+          <Spread tiers={tiers} counts={counts ?? {}} color={color} />
           <section>
             <h3 className="text-xs font-bold uppercase tracking-wide text-muted">Why people put it there</h3>
             {reasons === null ? <p className="mt-1 text-sm text-muted">Loading…</p>
@@ -255,14 +261,90 @@ function PieceSheet({ e, ranked, tiers, counts, c, color, gameId, blockKey, meId
   );
 }
 
+/**
+ * How the lists placed one piece: a bar for every tier with how many lists put it there. Counts
+ * show once 5 lists have placed it, like every opinion count; before that, only where it's leaning.
+ */
 function Spread({ tiers, counts, color }: { tiers: Tier[]; counts: Counts; color: string }) {
-  const n = tiers.reduce((s, t) => s + (counts[t.key] ?? 0), 0) || 1;
+  const n = tiers.reduce((s, t) => s + (counts[t.key] ?? 0), 0);
+  if (n < MIN_LISTS) {
+    return <p className="rounded-xl bg-card-2 px-3 py-2 text-sm text-muted">Fewer than {MIN_LISTS} lists have placed it so far. The counts show once {MIN_LISTS} have.</p>;
+  }
   return (
-    <div>
-      <div className="flex h-3 overflow-hidden rounded-full bg-card-2" aria-hidden="true">
-        {tiers.map((t, i) => (counts[t.key] ? <span key={t.key} style={{ width: `${(counts[t.key] / n) * 100}%`, background: tierFill(i, tiers.length, color).background }} /> : null))}
+    <section>
+      <h3 className="text-xs font-bold uppercase tracking-wide text-muted">Where the lists put it · {n} lists</h3>
+      <ul className="mt-1.5 grid gap-1">
+        {tiers.map((t, i) => {
+          const f = tierFill(i, tiers.length, color);
+          const c = counts[t.key] ?? 0;
+          return (
+            <li key={t.key} className="flex items-center gap-2 text-sm">
+              <span className="grid h-6 w-8 shrink-0 place-items-center rounded-md text-xs font-extrabold" style={{ background: f.background, color: f.white ? '#fff' : 'var(--ink)' }}>{t.label}</span>
+              <span className="h-3 min-w-0 flex-1 overflow-hidden rounded-full bg-card-2">
+                <span className="block h-full rounded-full" style={{ width: `${(c / n) * 100}%`, background: f.background }} />
+              </span>
+              <span className="w-16 shrink-0 text-right text-xs font-bold tabular-nums">{c} {c === 1 ? 'list' : 'lists'}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * One tier in the community list: everyone any list put there, most often first, with how many
+ * lists did (once a piece has 5). Tapping one opens its sheet.
+ */
+function TierSheet({ t, i, tiers, shown, counts, ranked, color, title, onPick, onClose }: {
+  t: Tier; i: number; tiers: Tier[]; shown: Entry[]; counts: Map<string, Counts>; ranked: Block; color: string; title: string;
+  onPick: (id: string) => void; onClose: () => void;
+}) {
+  useEffect(() => {
+    const esc = (k: KeyboardEvent) => { if (k.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', esc);
+    return () => window.removeEventListener('keydown', esc);
+  }, [onClose]);
+  const f = tierFill(i, tiers.length, color);
+  const totalOf = (id: string) => tiers.reduce((s, x) => s + (counts.get(id)?.[x.key] ?? 0), 0);
+  const here = shown.map((e) => ({ e, n: counts.get(e.id)?.[t.key] ?? 0, total: totalOf(e.id) }))
+    .filter((r) => r.n > 0)
+    .sort((a, b) => b.n - a.n || b.n / (b.total || 1) - a.n / (a.total || 1) || a.e.name.localeCompare(b.e.name));
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label={`${t.label} tier in the community’s ${title} list`} onClick={(ev) => ev.stopPropagation()}
+        className="rise flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-[2rem] bg-card shadow-soft sm:rounded-[2rem]">
+        <div className="flex items-center gap-3 px-5 pb-3 pt-5">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl text-2xl font-extrabold" style={{ background: f.background, color: f.white ? '#fff' : 'var(--ink)' }}>{t.label}</span>
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-xl font-extrabold leading-tight">{t.label} tier · {title}</h2>
+            <p className="text-sm text-muted">Everyone the community’s lists put in {t.label}, most often first</p>
+          </div>
+          <button type="button" onClick={onClose} className="grid size-9 shrink-0 place-items-center rounded-full bg-card-2" aria-label="Close"><X size={18} aria-hidden="true" /></button>
+        </div>
+        <div className="min-h-0 overflow-y-auto px-5 pb-5">
+          {here.length === 0 ? <p className="rounded-xl bg-card-2 p-3 text-sm text-muted">No list has put anyone in {t.label} yet.</p> : (
+            <ul className="grid gap-1">
+              {here.map(({ e, n, total }) => (
+                <li key={e.id}>
+                  <button type="button" onClick={() => onPick(e.id)} className="flex w-full items-center gap-3 rounded-xl px-1.5 py-1.5 text-left hover:bg-card-2">
+                    <Piece size={40} color={color} image={e.icon}><Mark e={e} block={ranked} px={40} /></Piece>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-bold">{e.name}</span>
+                      {total >= MIN_LISTS ? (
+                        <span className="mt-0.5 flex items-center gap-2">
+                          <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-card-2"><span className="block h-full rounded-full" style={{ width: `${(n / total) * 100}%`, background: f.background }} /></span>
+                          <span className="shrink-0 text-xs font-bold tabular-nums text-muted">{n} of {total} lists</span>
+                        </span>
+                      ) : <span className="block text-xs text-muted">Fewer than {MIN_LISTS} lists so far</span>}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
-      <p className="mt-1 text-xs font-bold text-muted">{tiers.filter((t) => counts[t.key]).map((t) => `${t.label} ${counts[t.key]}`).join(' · ')}</p>
     </div>
   );
 }
@@ -359,6 +441,53 @@ function useTrayPlace(board: React.RefObject<HTMLDivElement | null>, showing: bo
   return place;
 }
 
+/** The tray's height in pixels, remembered on this device. */
+const TRAY_MIN = 128;
+const TRAY_START = 212;
+function useTrayHeight() {
+  const [h, setH] = useState(TRAY_START);
+  useEffect(() => {
+    try {
+      const saved = Number(localStorage.getItem('village:tierTrayHeight'));
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reading device storage after hydration
+      if (saved >= TRAY_MIN) setH(Math.min(saved, Math.round(window.innerHeight * 0.75)));
+    } catch { /* storage unavailable */ }
+  }, []);
+  const set = (next: number) => {
+    const v = Math.round(Math.max(TRAY_MIN, Math.min(next, window.innerHeight * 0.75)));
+    setH(v);
+    try { localStorage.setItem('village:tierTrayHeight', String(v)); } catch { /* storage unavailable */ }
+  };
+  return [h, set] as const;
+}
+
+/**
+ * The tray's grab handle: drag it up or down to resize, tap it to switch between short and tall,
+ * or use the arrow keys.
+ */
+function TrayHandle({ height, onHeight }: { height: number; onHeight: (h: number) => void }) {
+  const drag = useRef<{ y: number; h: number; moved: boolean } | null>(null);
+  const tall = () => Math.round(window.innerHeight * 0.6);
+  return (
+    <div className="flex shrink-0 cursor-ns-resize touch-none justify-center pb-1.5 pt-2"
+      onPointerDown={(e) => { drag.current = { y: e.clientY, h: height, moved: false }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* still works */ } }}
+      onPointerMove={(e) => {
+        const d = drag.current;
+        if (!d) return;
+        if (Math.abs(e.clientY - d.y) > 4) d.moved = true;
+        if (d.moved) onHeight(d.h + (d.y - e.clientY));
+      }}
+      onPointerUp={() => { const d = drag.current; drag.current = null; if (d && !d.moved) onHeight(height < tall() - 20 ? tall() : TRAY_START); }}
+      onPointerCancel={() => { drag.current = null; }}>
+      <button type="button" role="separator" aria-orientation="horizontal" aria-label="Tray size: drag, tap, or use the arrow keys"
+        onKeyDown={(e) => { if (e.key === 'ArrowUp') { e.preventDefault(); onHeight(height + 40); } if (e.key === 'ArrowDown') { e.preventDefault(); onHeight(height - 40); } }}
+        className="grid h-4 w-16 place-items-center rounded-full focus-visible:ring-2 focus-visible:ring-signal">
+        <span className="block h-1.5 w-10 rounded-full bg-muted/40" />
+      </button>
+    </div>
+  );
+}
+
 function useSignIn(blockId: string) {
   const router = useRouter();
   return (what: string) => router.push(`/signin?next=${encodeURIComponent(window.location.pathname + window.location.search + '#' + blockId)}&for=${encodeURIComponent(what)}`);
@@ -414,7 +543,7 @@ function MineView({ title, tiers, shown, data, community, color, ranked, block, 
 }) {
   const [picked, setPicked] = useState<string | null>(null);
   const [reasonOpen, setReasonOpen] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [trayHeight, setTrayHeight] = useTrayHeight();
   // The piece just placed snaps solid (the brand's one motion), once.
   const [fresh, setFresh] = useState<string | null>(null);
   useEffect(() => {
@@ -479,7 +608,7 @@ function MineView({ title, tiers, shown, data, community, color, ranked, block, 
 
   return (
     // Room at the bottom for the tray, so the last tier can scroll above it.
-    <div className="pb-48" ref={root}>
+    <div ref={root} style={{ paddingBottom: trayHeight + 16 }}>
       <ListPicker data={data} title={title} block={block} />
       <div ref={board}>
       <BoardCard className="mt-3">
@@ -521,59 +650,57 @@ function MineView({ title, tiers, shown, data, community, color, ranked, block, 
       <ListFooter data={data} ctx={ctx} placed={placed} onClear={() => { setList({ rows: {}, reasons: {} }); setPicked(null); }} />
 
       {/* The tray: a sheet that slides up from the bottom (above the phone's tab bar) while the
-          board is on screen. A picked piece's tiers and reason sit at its top. */}
+          board is on screen. Drag its handle to make it taller or shorter. Its top row never
+          changes shape: what's picked, then the tier buttons and three small tools. */}
       {(inView || pickedEntry) && (
         <div data-tier="" className="fixed inset-x-0 z-40 px-2 lg:px-0" style={trayPlace}
           onClick={(ev) => { if (picked && pickedTier && !(ev.target as HTMLElement).closest('[data-id],button,input')) drop(null); }}>
-          <div className={'rise mx-auto max-w-2xl overflow-hidden lg:max-w-none rounded-t-3xl bg-card shadow-[0_-10px_30px_rgba(21,23,28,0.18)] ring-1 transition-colors lg:rounded-b-none ' + (over === '' ? 'ring-2 ring-signal' : 'ring-line')}>
-            <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={open ? 'Make the tray smaller' : 'Make the tray bigger'} className="block w-full pb-1 pt-2">
-              <span className="mx-auto block h-1.5 w-10 rounded-full bg-line" />
-            </button>
-            {pickedEntry ? (
-              <div role="toolbar" aria-label={`Place ${pickedEntry.name}`} className="mx-2 mb-2 rounded-2xl bg-ink p-2.5 text-white">
-                <div className="flex items-center gap-2">
-                  <p className="min-w-0 flex-1 truncate text-sm font-bold">{pickedEntry.name}{pickedTier ? ` · ${tiers.find((t) => t.key === pickedTier)?.label}` : ''}</p>
-                  {pickedTier && (
-                    <button type="button" onClick={() => setReasonOpen(!reasonOpen)} aria-expanded={reasonOpen}
-                      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-white/30 hover:ring-white">
-                      <MessageSquareText size={13} aria-hidden="true" /> {list.reasons[pickedEntry.id] ? 'Reason' : 'Add a reason'}
-                    </button>
-                  )}
-                  <button type="button" onClick={() => setPicked(null)} aria-label="Done" className="grid size-8 place-items-center rounded-full bg-white/10 hover:bg-white/20"><Check size={16} aria-hidden="true" /></button>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {tiers.map((t) => (
-                    <button key={t.key} type="button" onClick={() => drop(t.key)} aria-pressed={pickedTier === t.key}
-                      className={'min-w-11 flex-1 rounded-full px-2 py-2 text-sm font-extrabold ' + (pickedTier === t.key ? 'bg-signal text-ink' : 'bg-white/10 hover:bg-white/20')}>{t.label}</button>
-                  ))}
-                  {pickedTier && (
-                    <button type="button" onClick={() => drop(null)} className="inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-2 text-xs font-bold hover:bg-white/20">
-                      <Undo2 size={13} aria-hidden="true" /> Not placed
-                    </button>
-                  )}
-                </div>
-                {reasonOpen && pickedTier && (
-                  <label className="mt-2 block">
-                    <span className="sr-only">Why {pickedEntry.name} is here</span>
-                    <input autoFocus value={list.reasons[pickedEntry.id] ?? ''} maxLength={REASON_MAX} placeholder={`Why ${pickedEntry.name} is here, in a line`}
-                      onChange={(ev) => setList(setReason(list, pickedEntry.id, ev.target.value))}
-                      onKeyDown={(ev) => { if (ev.key === 'Enter') setReasonOpen(false); }}
-                      className="w-full rounded-xl bg-white px-3 py-2 text-sm text-ink outline-none ring-2 ring-transparent focus:ring-signal" />
-                    <span className="mt-1 block text-[11px] text-white/70">{data.active === 'main' ? 'Shown to others without your name once you submit. ' : ''}{REASON_MAX - (list.reasons[pickedEntry.id]?.length ?? 0)} left.</span>
-                  </label>
-                )}
+          <div className={'rise mx-auto flex max-w-2xl flex-col overflow-hidden rounded-t-3xl bg-card shadow-[0_-10px_30px_rgba(21,23,28,0.18)] ring-1 transition-colors lg:max-w-none ' + (over === '' ? 'ring-2 ring-signal' : 'ring-line')}
+            style={{ height: trayHeight }}>
+            <TrayHandle height={trayHeight} onHeight={setTrayHeight} />
+            <div className="px-2.5 pb-1.5">
+              <div className="flex items-center gap-2 pb-1 text-xs">
+                <p className="shrink-0 font-bold uppercase tracking-wide text-muted">Not placed · {tray.length}</p>
+                <p className={'min-w-0 flex-1 truncate text-right ' + (pickedEntry ? 'font-bold text-ink' : 'text-muted')}>
+                  {pickedEntry ? `${pickedEntry.name}${pickedTier ? ` · ${tiers.find((t) => t.key === pickedTier)?.label}` : ''}` : tray.length ? 'Tap a piece, then a tier' : ''}
+                </p>
               </div>
-            ) : (
-              <div className="flex items-center gap-2 px-3 pb-1">
-                <p className="text-xs font-bold uppercase tracking-wide text-muted">Not placed · {tray.length}</p>
-                <p className="min-w-0 flex-1 truncate text-right text-xs text-muted">{tray.length ? 'Tap one, then a tier' : ''}</p>
+              <div role="toolbar" aria-label={pickedEntry ? `Place ${pickedEntry.name}` : 'Tiers'} className="flex items-center gap-1">
+                {tiers.map((t, i) => {
+                  const f = tierFill(i, tiers.length, color);
+                  return (
+                    <button key={t.key} type="button" onClick={() => drop(t.key)} disabled={!pickedEntry} aria-pressed={pickedTier === t.key}
+                      className={'h-9 min-w-0 flex-1 rounded-xl text-sm font-extrabold transition disabled:opacity-35 ' + (pickedTier === t.key ? 'ring-2 ring-signal ring-offset-1' : '')}
+                      style={{ background: f.background, color: f.white ? '#fff' : 'var(--ink)' }}>{t.label}</button>
+                  );
+                })}
+                <span className="mx-0.5 h-6 w-px shrink-0 bg-line" aria-hidden="true" />
+                <button type="button" onClick={() => drop(null)} disabled={!pickedTier} aria-label="Back to Not placed" title="Back to Not placed"
+                  className="grid size-9 shrink-0 place-items-center rounded-xl bg-card-2 text-ink disabled:opacity-35"><Undo2 size={16} aria-hidden="true" /></button>
+                <button type="button" onClick={() => setReasonOpen(!reasonOpen)} disabled={!pickedTier} aria-expanded={reasonOpen} aria-label="Why it's here" title="Why it's here"
+                  className={'relative grid size-9 shrink-0 place-items-center rounded-xl disabled:opacity-35 ' + (reasonOpen ? 'bg-ink text-white' : 'bg-card-2 text-ink')}>
+                  <MessageSquareText size={16} aria-hidden="true" />
+                  {pickedEntry && list.reasons[pickedEntry.id] && <span className="absolute right-1 top-1 size-2 rounded-full bg-signal" aria-hidden="true" />}
+                </button>
+                <button type="button" onClick={() => setPicked(null)} disabled={!pickedEntry} aria-label="Done" title="Done"
+                  className="grid size-9 shrink-0 place-items-center rounded-xl bg-ink text-white disabled:opacity-35"><Check size={16} aria-hidden="true" /></button>
               </div>
-            )}
+              {reasonOpen && pickedEntry && pickedTier && (
+                <label className="mt-1.5 block">
+                  <span className="sr-only">Why {pickedEntry.name} is here</span>
+                  <input autoFocus value={list.reasons[pickedEntry.id] ?? ''} maxLength={REASON_MAX} placeholder={`Why ${pickedEntry.name} is here, in a line`}
+                    onChange={(ev) => setList(setReason(list, pickedEntry.id, ev.target.value))}
+                    onKeyDown={(ev) => { if (ev.key === 'Enter') setReasonOpen(false); }}
+                    className="w-full rounded-xl bg-card-2 px-3 py-2 text-sm text-ink outline-none ring-1 ring-line focus:ring-2 focus:ring-signal" />
+                  <span className="mt-0.5 block text-[11px] text-muted">{data.active === 'main' ? 'Shown to others without your name once you submit. ' : ''}{REASON_MAX - (list.reasons[pickedEntry.id]?.length ?? 0)} left.</span>
+                </label>
+              )}
+            </div>
             {tray.length ? (
-              <ul className={'flex flex-wrap gap-x-1 overflow-y-auto overscroll-contain px-2 pb-2 transition-[max-height] ' + (open ? 'max-h-[42dvh]' : pickedEntry ? 'max-h-[4.6rem]' : 'max-h-[9.4rem]')}>
+              <ul className="flex min-h-0 flex-1 flex-wrap content-start gap-x-1 overflow-y-auto overscroll-contain border-t border-line/70 px-2 pb-2 pt-1">
                 {tray.map((e) => <li key={e.id}><PieceButton e={e} block={ranked} color={color} outline picked={picked === e.id} data-id={e.id} onClick={() => pick(e.id)} {...handlers(e.id)} /></li>)}
               </ul>
-            ) : <p className="px-3 pb-3 text-sm text-muted">Every piece is placed.</p>}
+            ) : <p className="border-t border-line/70 px-3 py-3 text-sm text-muted">Every piece is placed.</p>}
           </div>
         </div>
       )}

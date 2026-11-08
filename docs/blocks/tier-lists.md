@@ -205,6 +205,14 @@ mouse).
 
 ## Decisions
 
+- 2026-11-08: the tray resizes by dragging its handle (tap it for short or tall; arrow keys too), and
+  remembers its height on the device (Matt). Its top row keeps one shape: Not placed and what's
+  picked, then the tier buttons in their colors and three small tools (back to the tray, why it's
+  here, done), greyed until they apply (Matt: the old bar changed shape and felt bulky).
+- 2026-11-08: stats (Matt): in Community, a tier's letter opens everyone any list put in that tier,
+  most often first, with "12 of 23 lists"; a piece's sheet shows a bar per tier with its count.
+  Counts follow the 5-list rule: under 5 lists for a piece, it says so instead.
+
 - 2026-11-08: a list counts only once submitted, and later changes count when submitted again
   (Matt). Why: players choose when their opinion goes in; trying things out stays private.
 - 2026-11-08: each Tier list keeps one reason set by its builder (MVP); players can also make

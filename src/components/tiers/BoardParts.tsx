@@ -29,28 +29,30 @@ export function BoardHead({ title, sub, chip, action }: { title: string; sub?: R
 }
 
 /** A tier's letter tab: the best tier in the full Page color, fading down; the top tier wears a crown. */
-export function TierTab({ t, i, n, color }: { t: Tier; i: number; n: number; color: string }) {
+export function TierTab({ t, i, n, color, onClick }: { t: Tier; i: number; n: number; color: string; onClick?: () => void }) {
   const f = tierFill(i, n, color);
+  const Tag = onClick ? 'button' : 'span';
   return (
-    <span className="relative grid w-10 shrink-0 place-items-center self-stretch rounded-xl px-1 text-center font-extrabold leading-none sm:w-14"
+    <Tag type={onClick ? 'button' : undefined} onClick={onClick} aria-label={onClick ? `${t.label} tier: who's in it` : undefined}
+      className={'relative grid w-10 shrink-0 place-items-center self-stretch rounded-xl px-1 text-center font-extrabold leading-none sm:w-14 ' + (onClick ? 'cursor-pointer transition hover:brightness-110 focus-visible:ring-2 focus-visible:ring-signal' : '')}
       style={{ background: f.background, color: f.white ? '#fff' : 'var(--ink)', fontSize: t.label.length <= 2 ? '1.65rem' : '0.75rem' }}>
       {i === 0 && (
         <Crown size={15} strokeWidth={2.6} aria-hidden="true" className="absolute left-0.5 top-0.5 -rotate-12 fill-signal text-ink" />
       )}
       {t.label}
-    </span>
+    </Tag>
   );
 }
 
 /** One tier's row. `compact` keeps it short (an empty board); `glow` is a drop target ('on' while dragging over it). */
-export function TierRow({ t, i, n, color, compact = false, glow, children, className = '', style, ...rest }: {
-  t: Tier; i: number; n: number; color: string; compact?: boolean; glow?: 'target' | 'on'; children?: ReactNode;
+export function TierRow({ t, i, n, color, compact = false, glow, onTab, children, className = '', style, ...rest }: {
+  t: Tier; i: number; n: number; color: string; compact?: boolean; glow?: 'target' | 'on'; onTab?: () => void; children?: ReactNode;
 } & HTMLAttributes<HTMLDivElement> & { 'data-tier'?: string }) {
   const ring = glow === 'on' ? 'inset 0 0 0 3px var(--signal)' : glow === 'target' ? 'inset 0 0 0 2px color-mix(in srgb, var(--signal) 70%, transparent)' : undefined;
   return (
     <div {...rest} className={'flex gap-2 border-t border-line/70 px-1.5 py-1 transition-shadow ' + (compact ? 'min-h-11 ' : 'min-h-[4.6rem] ') + (glow ? 'cursor-pointer ' : '') + className}
       style={{ background: tierFill(i, n, color).wash, boxShadow: ring, ...style } as CSSProperties}>
-      <TierTab t={t} i={i} n={n} color={color} />
+      <TierTab t={t} i={i} n={n} color={color} onClick={onTab} />
       <ul className="flex min-w-0 flex-1 flex-wrap content-center items-start gap-x-1">{children}</ul>
     </div>
   );
