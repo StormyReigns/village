@@ -9,6 +9,8 @@ export interface Tier { key: string; label: string }
 export interface TierSetup {
   /** The Block whose pieces it ranks, on the same Page. */
   ranks: string;
+  /** What the list ranks them by: "MVP" (the default), "Hottest", "Most interesting"... */
+  title?: string;
   /** Best first. */
   tiers: Tier[];
   /** Optional: only pieces on these routes. */
@@ -24,6 +26,12 @@ export const MIN_LISTS = 5;
 
 /** The longest reason on a piece. */
 export const REASON_MAX = 140;
+
+/** A tier list's title when the builders haven't set one. */
+export const DEFAULT_TITLE = 'MVP';
+
+/** The title a setup uses: its own, or MVP. */
+export const titleOf = (setup?: Partial<TierSetup> | null): string => setup?.title?.trim() || DEFAULT_TITLE;
 
 /** The tiers a setup uses: its own, or S to D. */
 export const tiersOf = (setup?: Partial<TierSetup> | null): Tier[] => (setup?.tiers?.length ? setup.tiers : DEFAULT_TIERS);
@@ -86,10 +94,16 @@ export function communityText(c: Community, tiers: Tier[]): string | null {
 /** How dark a tier's letter is: the best tier in the full Page color, fading down the list. */
 export const tierGoodness = (i: number, n: number) => (n <= 1 ? 1 : 1 - (i / (n - 1)) * 0.8);
 
-/** A tier's box color (CSS) and whether its letter reads white on it. */
+/** A tier's box color (CSS), whether its letter reads white on it, and its row's wash. */
 export function tierFill(i: number, n: number, color: string) {
-  const pct = Math.round(30 + 70 * tierGoodness(i, n));
-  return { background: `color-mix(in srgb, ${color} ${pct}%, var(--card-2))`, white: pct >= 70 };
+  const g = tierGoodness(i, n);
+  const pct = Math.round(30 + 70 * g);
+  return {
+    background: `color-mix(in srgb, ${color} ${pct}%, var(--card-2))`,
+    white: pct >= 70,
+    /** A light wash of the same color behind the tier's row. */
+    wash: `color-mix(in srgb, ${color} ${Math.round(4 + 9 * g)}%, var(--card))`,
+  };
 }
 
 // ------------------------------------------------------------------------------- your own list

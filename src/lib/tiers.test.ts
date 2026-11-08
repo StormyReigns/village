@@ -3,10 +3,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_TIERS, EMPTY_LIST, communityText, communityTier, countsByCard, fromCommunity, fromPlacements, inLimits,
-  place, placedCount, readList, setReason, tidy, tierOf, tiersOf, toPieces,
+  place, placedCount, readList, setReason, tidy, tierOf, tiersOf, titleOf, toPieces,
 } from './tiers.ts';
 
 const T = DEFAULT_TIERS;
+
+test('MVP unless the builders named it', () => {
+  assert.equal(titleOf(null), 'MVP');
+  assert.equal(titleOf({ title: '  ' }), 'MVP');
+  assert.equal(titleOf({ title: 'Hottest' }), 'Hottest');
+});
 
 test('S to D unless the builders named their own', () => {
   assert.deepEqual(tiersOf(null).map((t) => t.label), ['S', 'A', 'B', 'C', 'D']);

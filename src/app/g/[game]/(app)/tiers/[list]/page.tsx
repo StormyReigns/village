@@ -10,7 +10,8 @@ import { BlockIcon } from '@/components/Icon';
 import { symbolFor } from '@/components/app/symbols';
 import { NO_LIST, getSharedList } from '@/lib/tier-share';
 import { shadeHex } from '@/lib/shades';
-import { tierFill } from '@/lib/tiers';
+import { placedCount, titleOf } from '@/lib/tiers';
+import { BoardCard, BoardHead, TierRow } from '@/components/tiers/BoardParts';
 
 // A shared tier list: /g/fortunes-weave/tiers/<list id>. Someone's own
 // list with their name on it, a share picture for Discord or Reddit (opengraph-image), and a way
@@ -29,7 +30,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const game = getGame(gameId);
   const shared = game ? await getSharedList(gameId, list) : null;
   if (!game || !shared) return { title: 'Not found' };
-  const title = `${shared.maker}’s ${shared.block.title} · ${game.shortTitle}`;
+  const title = `${shared.maker}’s ${titleOf(shared.block.tierSetup)} list · ${game.shortTitle}`;
   const top = shared.tiers.map((t) => ({ t, ids: shared.list.rows[t.key] ?? [] })).find((r) => r.ids.length);
   const description = top
     ? `${top.t.label}: ${top.ids.slice(0, 6).map((id) => shared.entries.get(id)?.name).filter(Boolean).join(', ')}. See the whole list, and what the community thinks, on Village.`
@@ -63,32 +64,26 @@ async function Loaded({ params }: { params: Params }) {
   const shared = game ? await getSharedList(gameId, listId) : null;
   if (!game || !shared) notFound();
   const { page, block, ranked, tiers, list, entries } = shared;
+  const title = titleOf(block.tierSetup);
   const color = `var(--${page.tint})`;
   return (
     <div className="app-block rounded-[1.25rem] p-4 sm:p-5" style={{ '--tint': color } as React.CSSProperties}>
-      <p className="text-xs font-bold uppercase tracking-wide text-muted">{game.shortTitle} · {page.title}</p>
-      <h1 className="mt-1 text-2xl font-extrabold leading-tight sm:text-3xl">{shared.maker}’s {block.title}</h1>
+      <p className="text-xs font-bold uppercase tracking-wide text-muted">{game.shortTitle} · {page.title} · {block.title}</p>
+      <h1 className="mt-1 text-2xl font-extrabold leading-tight sm:text-3xl">{shared.maker}’s {title} list</h1>
       {block.intro && <p className="mt-1 text-sm text-muted">{block.intro}</p>}
-      <div className="mt-4 grid gap-2">
-        {tiers.map((t, i) => {
-          const f = tierFill(i, tiers.length, color);
-          const row = (list.rows[t.key] ?? []).map((id) => entries.get(id)).filter(Boolean) as Entry[];
-          return (
-            <div key={t.key} className="flex min-h-[5.25rem] gap-2 rounded-2xl bg-card p-1.5 ring-1 ring-line">
-              <span className="grid w-12 shrink-0 place-items-center self-stretch rounded-xl px-1 text-center font-extrabold leading-tight sm:w-14"
-                style={{ background: f.background, color: f.white ? '#fff' : 'var(--ink)', fontSize: t.label.length <= 2 ? '1.5rem' : '0.75rem' }}>{t.label}</span>
-              <ul className="flex min-w-0 flex-1 flex-wrap content-start gap-1">
-                {row.map((e) => (
-                  <li key={e.id} className="flex w-16 flex-col items-center gap-1 p-1" title={list.reasons[e.id] ?? undefined}>
-                    <Piece size={48} color={color} image={e.icon}><Mark e={e} block={ranked} px={48} /></Piece>
-                    <span className="w-full truncate text-center text-[11px] leading-tight">{e.name}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })}
-      </div>
+      <BoardCard className="mt-4">
+        <BoardHead title={title} sub={`${ranked.title}, ranked by ${shared.maker}`} chip={`${placedCount(list)} placed`} />
+        {tiers.map((t, i) => (
+          <TierRow key={t.key} t={t} i={i} n={tiers.length} color={color}>
+            {((list.rows[t.key] ?? []).map((id) => entries.get(id)).filter(Boolean) as Entry[]).map((e) => (
+              <li key={e.id} className="flex w-[3.6rem] flex-col items-center gap-0.5 p-0.5 sm:w-16" title={list.reasons[e.id] ?? undefined}>
+                <Piece size={48} color={color} image={e.icon}><Mark e={e} block={ranked} px={48} /></Piece>
+                <span className="w-full truncate text-center text-[11px] leading-tight">{e.name}</span>
+              </li>
+            ))}
+          </TierRow>
+        ))}
+      </BoardCard>
       {Object.keys(list.reasons).length > 0 && (
         <section className="mt-4">
           <h2 className="text-xs font-bold uppercase tracking-wide text-muted">Why</h2>
@@ -106,7 +101,7 @@ async function Loaded({ params }: { params: Params }) {
           <Users size={15} aria-hidden="true" /> See the community’s tiers
         </Link>
         <Link href={`/g/${gameId}/${page.id}?mine=${block.id}#${block.id}`} className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold ring-1 ring-line hover:ring-ink">
-          Make your own
+          Make your own list
         </Link>
       </div>
     </div>

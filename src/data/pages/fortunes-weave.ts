@@ -211,7 +211,7 @@ export const PAGES: Page[] = [
         intro: 'Pick your Flame Lord to see who can join you and what it takes.' }),
       // A Tier list ranks the Units above (docs/blocks/tier-lists.md). Builders can rename the tiers later.
       block({ type: 'tierlist', title: 'Unit tiers', icon: 'Trophy', entries: [], tierSetup: { ranks: 'units', tiers: DEFAULT_TIERS },
-        intro: "Who's worth a spot in your army, across the whole game. Make your own list in Mine: once you sign in, it counts." }),
+        intro: "Who's worth a spot in your army, across the whole game? Rank them in My list, and the community list is everyone's lists together." }),
       block({ type: 'collection', look: 'slots', title: 'Classes', icon: 'Shield', filters: ['Tier'], entries: classes() }),
     ],
   },

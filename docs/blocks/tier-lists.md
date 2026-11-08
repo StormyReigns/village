@@ -56,6 +56,14 @@ What this means for the design:
 
 ### The Tier list Block
 
+The board (Matt, 2026-11-08: more attractive, tighter): an ink header with a yellow trophy, the
+list's **title** ("MVP" unless the builders named it: "Hottest", "Most interesting"), a line
+under it and a chip on the right (how many lists; in My list, "4 of 55"). Then the tiers as one
+card of rows with no gaps between them, each a letter tab in the Page color (fading from S down;
+S wears a small crown) on a light wash of that color. On a phone, 4 pieces fit a row at full size
+(48 px pictures). Pieces snap solid as they're placed (the brand's one motion). The look lives
+in , shared with a shared list's page.
+
 Its title and intro line, then two tabs, yellow on the one you're on:
 
 - **Community** (the default): one row per tier, best first: the tier's letter in a box on the
@@ -63,10 +71,17 @@ Its title and intro line, then two tabs, yellow on the one you're on:
   under them, pieces never touching. Each piece sits in its community tier. Pieces with fewer
   than 5 lists sit in a last row, "Still deciding", as split outlines, so it's clear they aren't
   settled; pieces nobody has placed yet aren't shown there. A line says "From 23 lists".
+  Pieces with fewer than 5 lists sit in the tier they're leaning toward as split outlines, settled
+  ones solid (Matt, 2026-11-08, replacing a separate "Still deciding" row, which with one list
+  became a heap of outlines under empty tiers); a line under the board says what outlines mean.
+  Under the board, **how it's built**, in plain words: on an empty board three steps (make your
+  list, sign in so it counts, the community decides) and a yellow "Make the first list"; once
+  there are lists, one line and "Add my list" or "Edit my list".
   Tapping a piece opens a small sheet: the piece and name, "Community tier: A · 23 lists", the
   spread as a bar ("S 4 · A 12 · B 6 · C 1"), reasons people gave (newest first, no names, each
   with a report flag), "Open <name>" (its card) and "Place it in my list".
-- **Mine**: your own list, the same rows, with a tray of "Not placed" pieces under them.
+- **My list** (was "Mine"): your own list, the same rows, with a tray of "Not placed" pieces
+  under them. Pieces in the tray show their uploaded picture inside the split outline.
 
 ### Making your list (Mine)
 
@@ -173,6 +188,14 @@ and a reported reason on the Notice Board. Touch drag needs a real phone (the em
 mouse).
 
 ## Decisions
+
+- 2026-11-08: each tier list has a title, "MVP" by default (Matt): , set by
+  builders (in Set up, slice 2). Shown in the board's header and on shared lists ("Matt's MVP list").
+- 2026-11-08: the board got more character and less air (Matt): ink header with the title, joined
+  rows on tinted washes, a crowned top tier, 4 pieces a row on phones without smaller pictures.
+- 2026-11-08: the tabs are Community and My list, and the Community tab says how it's built (Matt:
+  "it's not clear how to build the community tier list").
+- 2026-11-08: uploaded pictures show in the Not placed tray too (Matt).
 
 - 2026-11-08: build our own tier lists; link and credit outside ones rather than embed (Matt).
 - 2026-11-08: a Tier list is its own Block, ranking another Block's pieces (Matt). It can be

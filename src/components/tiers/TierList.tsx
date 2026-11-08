@@ -9,13 +9,14 @@ import { sharePath } from '@/data/pages/links';
 import { Piece } from '@/components/Piece';
 import { BlockIcon } from '@/components/Icon';
 import {
-  REASON_MAX, communityText, communityTier, fromCommunity, inLimits, place, placedCount, setReason, tierFill, tierOf, tiersOf,
+  MIN_LISTS, REASON_MAX, communityText, communityTier, fromCommunity, inLimits, place, placedCount, setReason, tierFill, tierOf, tiersOf, titleOf,
   type Community, type Counts, type Tier,
 } from '@/lib/tiers';
 import { EntryPanel } from '@/components/app/EntryPanel';
 import { symbolFor } from '@/components/app/symbols';
 import { initials, useOpenEntry } from '@/components/app/entries';
 import { useVisible, type BlockContext } from '@/components/app/blockParts';
+import { BoardCard, BoardHead, TierRow } from './BoardParts';
 import { reportReason, useReasons, useTierList } from './useTierList';
 
 type Tab = 'community' | 'mine';
@@ -25,9 +26,10 @@ export const listPath = (gameId: string, listId: string) => `/g/${gameId}/tiers/
 
 /**
  * A Tier list Block (docs/blocks/tier-lists.md): the pieces of another Block on this Page in
- * tiers. Community (the default) shows each piece in the median tier of everyone's lists;
- * Mine is your own list: tap a piece, then a tier (or drag it), with a one-line reason if you
- * like. Saved on this device, and to your account when signed in, where it counts.
+ * tiers, under the list's title ("MVP" unless the builders named it). Community (the default)
+ * shows each piece in the median tier of everyone's lists; My list is your own: tap a piece, then
+ * a tier (or drag it), with a one-line reason if you like. Saved on this device, and to your
+ * account when signed in, where it counts toward Community.
  */
 export function TierList({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const setup = block.tierSetup;
@@ -38,6 +40,7 @@ export function TierList({ block, ctx }: { block: Block; ctx: BlockContext }) {
 
 function Board({ block, ranked, ctx }: { block: Block; ranked: Block; ctx: BlockContext }) {
   const tiers = useMemo(() => tiersOf(block.tierSetup), [block.tierSetup]);
+  const title = titleOf(block.tierSetup);
   const { shown: visible } = useVisible(ranked, ctx);
   const shown = useMemo(() => visible.filter((e) => inLimits(e, block.tierSetup)), [visible, block.tierSetup]);
   const data = useTierList(ctx.gameId, block.id, shown, tiers);
@@ -66,28 +69,22 @@ function Board({ block, ranked, ctx }: { block: Block; ranked: Block; ctx: Block
   const { open, set, close } = useOpenEntry();
   const [ob, oid] = open?.split('.') ?? [];
   const opened = ob === block.id ? shown.find((e) => e.id === oid) : undefined;
+  const toMine = () => { setTab('mine'); document.getElementById(block.id)?.scrollIntoView({ block: 'start', behavior: 'smooth' }); };
 
   return (
     <>
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <div role="tablist" aria-label="Whose tiers" className="flex rounded-full bg-card-2 p-0.5 text-sm font-bold ring-1 ring-line">
-          {([['community', 'Community', Users], ['mine', 'Mine', UserRound]] as const).map(([t, label, Icon]) => (
-            <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}
-              className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 ' + (tab === t ? 'bg-signal text-ink' : 'text-muted hover:text-ink')}>
-              <Icon size={15} aria-hidden="true" /> {label}
-            </button>
-          ))}
-        </div>
-        <p className="min-w-0 flex-1 text-right text-xs font-bold text-muted">
-          {tab === 'community'
-            ? data.state === 'ready' ? (data.total ? `From ${data.total} ${data.total === 1 ? 'list' : 'lists'}` : 'No lists yet') : data.state === 'loading' ? 'Counting lists…' : ''
-            : <SaveNote save={data.save} signedIn={Boolean(data.me)} error={data.error} placed={placedCount(data.list)} />}
-        </p>
+      <div role="tablist" aria-label="Whose tiers" className="mt-4 inline-flex rounded-full bg-card-2 p-0.5 text-sm font-bold ring-1 ring-line">
+        {([['community', 'Community', Users], ['mine', 'My list', UserRound]] as const).map(([t, label, Icon]) => (
+          <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)}
+            className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 ' + (tab === t ? 'bg-signal text-ink' : 'text-muted hover:text-ink')}>
+            <Icon size={15} aria-hidden="true" /> {label}
+          </button>
+        ))}
       </div>
 
       {tab === 'community'
-        ? <CommunityView tiers={tiers} shown={shown} community={community} state={data.state} color={color} ranked={ranked} onOpen={setSheet} onMine={() => setTab('mine')} />
-        : <MineView tiers={tiers} shown={shown} data={data} community={community} color={color} ranked={ranked} block={block} ctx={ctx} />}
+        ? <CommunityView title={title} tiers={tiers} shown={shown} community={community} data={data} color={color} ranked={ranked} onOpen={setSheet} onMine={toMine} />
+        : <MineView title={title} tiers={tiers} shown={shown} data={data} community={community} color={color} ranked={ranked} block={block} ctx={ctx} />}
 
       {sheetEntry && (
         <PieceSheet e={sheetEntry} ranked={ranked} tiers={tiers} counts={data.counts.get(sheetEntry.id)} c={community.get(sheetEntry.id)!} color={color}
@@ -105,13 +102,6 @@ function Board({ block, ranked, ctx }: { block: Block; ranked: Block; ctx: Block
   );
 }
 
-function SaveNote({ save, signedIn, error, placed }: { save: string; signedIn: boolean; error: string | null; placed: number }) {
-  if (error) return <span className="text-berry">{error}</span>;
-  if (!signedIn) return <>{placed ? 'Kept on this device' : ''}</>;
-  if (save === 'saving') return <>Saving…</>;
-  return <>{placed ? 'Saved · counts toward the community tier' : ''}</>;
-}
-
 /** What's in a piece: its picture, else its group's symbol, else initials. */
 function Mark({ e, block, px }: { e: Entry; block: Block; px: number }) {
   if (e.icon) return null;
@@ -119,29 +109,22 @@ function Mark({ e, block, px }: { e: Entry; block: Block; px: number }) {
   return symbol ? <BlockIcon name={symbol} size={Math.round(px * 0.24)} strokeWidth={2.4} /> : <>{initials(e.name)}</>;
 }
 
-/** The tier's letter in a box: the best tier in the full Page color, fading down the list. */
-function TierLabel({ t, i, n, color }: { t: Tier; i: number; n: number; color: string }) {
-  const f = tierFill(i, n, color);
-  return (
-    <span className="grid w-12 shrink-0 place-items-center self-stretch rounded-xl px-1 text-center font-extrabold leading-tight sm:w-14"
-      style={{ background: f.background, color: f.white ? '#fff' : 'var(--ink)', fontSize: t.label.length <= 2 ? '1.5rem' : '0.75rem' }}>
-      {t.label}
-    </span>
-  );
-}
-
 const PIECE = 48;
 
-/** One piece with its name under it, like an app icon. */
-function PieceButton({ e, block, color, outline = false, picked = false, onClick, ...rest }: {
-  e: Entry; block: Block; color: string; outline?: boolean; picked?: boolean; onClick?: () => void;
+/**
+ * One piece with its name under it, like an app icon. `outline` is a piece not placed yet (the
+ * split outline, with its picture inside when it has one); `snap` plays the brand's snap as a
+ * piece turns solid in a tier.
+ */
+function PieceButton({ e, block, color, outline = false, picked = false, snap = false, onClick, ...rest }: {
+  e: Entry; block: Block; color: string; outline?: boolean; picked?: boolean; snap?: boolean; onClick?: () => void;
 } & React.HTMLAttributes<HTMLButtonElement> & { 'data-id'?: string }) {
   return (
     <button type="button" onClick={onClick} aria-pressed={picked} aria-label={e.name}
-      className={'group flex w-16 shrink-0 select-none flex-col items-center gap-1 rounded-xl p-1 [-webkit-touch-callout:none] ' + (picked ? 'bg-signal' : 'hover:bg-card-2')} {...rest}>
+      className={'group flex w-[3.6rem] shrink-0 select-none sm:w-16 flex-col items-center gap-0.5 rounded-xl p-0.5 [-webkit-touch-callout:none] ' + (picked ? 'bg-signal' : 'hover:bg-black/5')} {...rest}>
       <span className={'transition ' + (picked ? '-translate-y-0.5' : 'group-hover:-translate-y-0.5')}>
-        {outline ? <Piece size={PIECE} outline><Mark e={e} block={block} px={PIECE} /></Piece>
-          : <Piece size={PIECE} color={color} image={e.icon}><Mark e={e} block={block} px={PIECE} /></Piece>}
+        {outline ? <Piece size={PIECE} outline image={e.icon}><Mark e={e} block={block} px={PIECE} /></Piece>
+          : <Piece size={PIECE} color={color} image={e.icon} snap={snap}><Mark e={e} block={block} px={PIECE} /></Piece>}
       </span>
       <span className={'w-full truncate text-center text-[11px] leading-tight ' + (picked ? 'font-bold text-ink' : 'text-ink')}>{e.name}</span>
     </button>
@@ -150,40 +133,73 @@ function PieceButton({ e, block, color, outline = false, picked = false, onClick
 
 // --------------------------------------------------------------------------- Community
 
-function CommunityView({ tiers, shown, community, state, color, ranked, onOpen, onMine }: {
-  tiers: Tier[]; shown: Entry[]; community: Map<string, Community>; state: string; color: string; ranked: Block;
+function CommunityView({ title, tiers, shown, community, data, color, ranked, onOpen, onMine }: {
+  title: string; tiers: Tier[]; shown: Entry[]; community: Map<string, Community>; data: Data; color: string; ranked: Block;
   onOpen: (id: string) => void; onMine: () => void;
 }) {
-  if (state === 'missing') return <p className="mt-4 rounded-xl bg-card-2 p-3 text-sm text-muted">The community tiers turn on soon. You can already make your own list in <button type="button" onClick={onMine} className="font-bold text-ink underline underline-offset-2">Mine</button>.</p>;
-  if (state === 'offline') return <p className="mt-4 rounded-xl bg-card-2 p-3 text-sm text-muted">Couldn’t reach the village to count the lists. Your own list still works in <button type="button" onClick={onMine} className="font-bold text-ink underline underline-offset-2">Mine</button>.</p>;
-  const settled = (e: Entry) => community.get(e.id)?.settled;
-  const deciding = shown.filter((e) => { const c = community.get(e.id); return c?.tier && !c.settled; });
+  const { state, total } = data;
+  if (state === 'missing') return <p className="mt-3 rounded-xl bg-card-2 p-3 text-sm text-muted">The community list turns on soon. You can already make <button type="button" onClick={onMine} className="font-bold text-ink underline underline-offset-2">your own</button>.</p>;
+  if (state === 'offline') return <p className="mt-3 rounded-xl bg-card-2 p-3 text-sm text-muted">Couldn’t reach the village to count the lists. <button type="button" onClick={onMine} className="font-bold text-ink underline underline-offset-2">Your own list</button> still works.</p>;
   const any = shown.some((e) => community.get(e.id)?.tier);
+  const leaning = shown.some((e) => { const c = community.get(e.id); return c?.tier && !c.settled; });
+  const chip = state === 'loading' ? 'Counting…' : total ? `${total} ${total === 1 ? 'list' : 'lists'}` : 'No lists yet';
   return (
-    <div className="mt-3 grid gap-2">
-      {tiers.map((t, i) => {
-        const here = shown.filter((e) => settled(e) && community.get(e.id)?.tier === t.key);
-        return (
+    <div className="mt-3 grid gap-3">
+      <BoardCard>
+        <BoardHead title={title} sub={`${ranked.title}, ranked by everyone’s lists`} chip={chip} />
+        {tiers.map((t, i) => (
           // Before anyone has ranked, the rows stay short so the empty board doesn't fill a phone.
-          <div key={t.key} className={'flex gap-2 rounded-2xl bg-card p-1.5 ring-1 ring-line ' + (any ? 'min-h-[5.25rem]' : 'min-h-12')}>
-            <TierLabel t={t} i={i} n={tiers.length} color={color} />
-            <ul className="flex min-w-0 flex-1 flex-wrap content-start gap-1">
-              {here.map((e) => <li key={e.id}><PieceButton e={e} block={ranked} color={color} onClick={() => onOpen(e.id)} /></li>)}
-            </ul>
-          </div>
-        );
-      })}
-      {deciding.length > 0 && (
-        <div className="rounded-2xl p-1.5 ring-1 ring-dashed ring-line">
-          <p className="px-1.5 pt-1 text-xs font-bold uppercase tracking-wide text-muted">Still deciding · fewer than 5 lists</p>
-          <ul className="mt-1 flex flex-wrap gap-1">
-            {deciding.map((e) => <li key={e.id}><PieceButton e={e} block={ranked} color={color} outline onClick={() => onOpen(e.id)} /></li>)}
-          </ul>
-        </div>
-      )}
-      {state === 'ready' && !any && (
-        <p className="rounded-xl bg-card-2 p-3 text-sm text-muted">Nobody has ranked these yet. <button type="button" onClick={onMine} className="font-bold text-ink underline underline-offset-2">Make your list</button>: once you sign in, it counts.</p>
-      )}
+          <TierRow key={t.key} t={t} i={i} n={tiers.length} color={color} compact={!any}>
+            {/* Settled pieces first, solid; pieces still leaning (under 5 lists) after them, as split outlines. */}
+            {shown.filter((e) => community.get(e.id)?.tier === t.key)
+              .sort((a, b) => Number(Boolean(community.get(b.id)?.settled)) - Number(Boolean(community.get(a.id)?.settled)))
+              .map((e) => (
+                <li key={e.id}><PieceButton e={e} block={ranked} color={color} outline={!community.get(e.id)?.settled} onClick={() => onOpen(e.id)} /></li>
+              ))}
+          </TierRow>
+        ))}
+        {leaning && (
+          <p className="flex items-center gap-2 border-t border-line/70 px-3 py-1.5 text-xs text-muted">
+            <Piece size={16} outline /> Outlined pieces are still leaning: fewer than {MIN_LISTS} lists have placed them.
+          </p>
+        )}
+      </BoardCard>
+      <HowItWorks empty={state === 'ready' && !any} placed={placedCount(data.list)} signedIn={Boolean(data.me)} onMine={onMine} />
+    </div>
+  );
+}
+
+/**
+ * How the community list is built, said plainly: everyone ranks in My list, and each piece lands
+ * in the tier most lists give it. Three steps on an empty board; one line once there are lists.
+ */
+function HowItWorks({ empty, placed, signedIn, onMine }: { empty: boolean; placed: number; signedIn: boolean; onMine: () => void }) {
+  const cta = placed ? 'Edit my list' : empty ? 'Make the first list' : 'Add my list';
+  if (!empty) {
+    return (
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-card-2 px-3 py-2.5 text-sm">
+        <p className="min-w-0 flex-1 text-muted">Built from everyone’s own lists: each piece sits in the tier most lists give it. Tap one to see why.</p>
+        <button type="button" onClick={onMine} className="btn-primary shrink-0 rounded-full px-4 py-1.5 text-sm font-bold">{cta}</button>
+      </div>
+    );
+  }
+  const steps = [
+    ['Make your list', 'Open My list and put each piece in a tier. Tap a piece, then a tier.'],
+    [signedIn ? 'It counts' : 'Sign in', signedIn ? 'You’re signed in, so your list counts as soon as you make it.' : 'Your list counts once you’re signed in. Until then it stays on this device.'],
+    ['The community decides', `Each piece moves up here, into the tier most lists give it. After ${MIN_LISTS} lists it’s settled.`],
+  ];
+  return (
+    <div className="rounded-2xl bg-card-2 p-3">
+      <p className="text-sm font-extrabold">How the community list is built</p>
+      <ol className="mt-2 grid gap-2 sm:grid-cols-3">
+        {steps.map(([head, text], i) => (
+          <li key={head} className="flex gap-2.5 rounded-xl bg-card p-2.5 ring-1 ring-line">
+            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-ink text-xs font-extrabold text-signal">{i + 1}</span>
+            <span className="min-w-0 text-sm"><span className="block font-bold">{head}</span><span className="text-muted">{text}</span></span>
+          </li>
+        ))}
+      </ol>
+      <button type="button" onClick={onMine} className="btn-primary mt-3 rounded-full px-5 py-2 text-sm font-bold">{cta}</button>
     </div>
   );
 }
@@ -278,25 +294,42 @@ function ReasonRow({ r, label, meId }: { r: { id: string; text: string; mine: bo
   );
 }
 
-// --------------------------------------------------------------------------- Mine
+// --------------------------------------------------------------------------- My list
 
 type Data = ReturnType<typeof useTierList>;
 
-function MineView({ tiers, shown, data, community, color, ranked, block, ctx }: {
-  tiers: Tier[]; shown: Entry[]; data: Data; community: Map<string, Community>; color: string; ranked: Block; block: Block; ctx: BlockContext;
+/** Where your list stands, for the board's header. */
+function saveText(data: Data, placed: number): string {
+  if (data.error) return data.error;
+  if (!data.me) return placed ? 'Kept on this device. Sign in so it counts' : 'Sign in so your list counts';
+  if (data.save === 'saving') return 'Saving…';
+  return placed ? 'Saved. It counts toward Community' : 'It counts toward Community once you place a piece';
+}
+
+function MineView({ title, tiers, shown, data, community, color, ranked, block, ctx }: {
+  title: string; tiers: Tier[]; shown: Entry[]; data: Data; community: Map<string, Community>; color: string; ranked: Block; block: Block; ctx: BlockContext;
 }) {
   const [picked, setPicked] = useState<string | null>(null);
   const [reasonOpen, setReasonOpen] = useState(false);
+  // The piece just placed snaps solid (the brand's one motion), once.
+  const [fresh, setFresh] = useState<string | null>(null);
+  useEffect(() => {
+    if (!fresh) return;
+    const t = setTimeout(() => setFresh(null), 700);
+    return () => clearTimeout(t);
+  }, [fresh]);
   const { list, setList } = data;
   const byId = useMemo(() => new Map(shown.map((e) => [e.id, e])), [shown]);
   const tray = shown.filter((e) => !tierOf(list, e.id));
   const pickedEntry = picked ? byId.get(picked) : undefined;
   const pickedTier = picked ? tierOf(list, picked) : null;
+  const placed = placedCount(list);
 
   const pick = (id: string) => { setReasonOpen(false); setPicked(picked === id ? null : id); };
   const drop = (tier: string | null, before?: string) => {
     if (!picked) return;
     const at = tier && before ? (list.rows[tier] ?? []).filter((x) => x !== picked).indexOf(before) : undefined;
+    if (tier && tierOf(list, picked) !== tier) setFresh(picked);
     setList(place(list, picked, tier, at !== undefined && at >= 0 ? at : undefined));
     if (!tier) setPicked(null);
   };
@@ -308,6 +341,7 @@ function MineView({ tiers, shown, data, community, color, ranked, block, ctx }: 
 
   const root = useRef<HTMLDivElement>(null);
   const { handlers, over, ghost } = useDrag(root, (id, tier, before) => {
+    if (tier && tierOf(list, id) !== tier) setFresh(id);
     setList(place(list, id, tier, tier && before ? Math.max(0, (list.rows[tier] ?? []).filter((x) => x !== id).indexOf(before)) : undefined));
     setPicked(null);
   });
@@ -318,50 +352,48 @@ function MineView({ tiers, shown, data, community, color, ranked, block, ctx }: 
   return (
     // Room at the bottom while a piece is picked, so its bar never hides the last row.
     <div className={'mt-3' + (pickedEntry ? ' pb-40' : '')} ref={root}>
-      {placedCount(list) === 0 && (
-        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl bg-card-2 p-3 text-sm">
-          <p className="min-w-0 flex-1 text-muted">Tap a piece, then tap a tier. Or press and drag it.</p>
-          {hasCommunity && (
-            <button type="button" onClick={communityFill} className="inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 font-bold ring-1 ring-line hover:ring-ink">
-              <Sparkles size={14} aria-hidden="true" /> Start from the community’s
-            </button>
-          )}
-        </div>
-      )}
-      <div className="grid gap-2">
+      <BoardCard>
+        <BoardHead title={title} sub={saveText(data, placed)} chip={`${placed} of ${shown.length}`} />
+        {placed === 0 && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-line/70 bg-card-2 px-3 py-2 text-sm">
+            <p className="min-w-0 flex-1 text-muted">Tap a piece below, then tap a tier. Or press and drag it.</p>
+            {hasCommunity && (
+              <button type="button" onClick={communityFill} className="inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 font-bold ring-1 ring-line hover:ring-ink">
+                <Sparkles size={14} aria-hidden="true" /> Start from the community’s
+              </button>
+            )}
+          </div>
+        )}
         {tiers.map((t, i) => {
           const row = (list.rows[t.key] ?? []).map((id) => byId.get(id)).filter(Boolean) as Entry[];
           const target = Boolean(picked) && pickedTier !== t.key;
           return (
-            <div key={t.key} data-tier={t.key} onClick={(ev) => { if (picked && !(ev.target as HTMLElement).closest('[data-id]')) { drop(t.key); setPicked(null); } }}
-              className={'flex min-h-[5.25rem] gap-2 rounded-2xl bg-card p-1.5 ring-1 transition ' + (over === t.key ? 'ring-2 ring-signal' : target ? 'cursor-pointer ring-2 ring-signal/50' : 'ring-line')}>
-              <TierLabel t={t} i={i} n={tiers.length} color={color} />
-              <ul className="flex min-w-0 flex-1 flex-wrap content-start gap-1">
-                {row.map((e) => (
-                  <li key={e.id} className="relative">
-                    <PieceButton e={e} block={ranked} color={color} picked={picked === e.id} data-id={e.id} onClick={() => tapPiece(e.id)} {...handlers(e.id)} />
-                    {list.reasons[e.id] && <MessageSquareText size={11} className="pointer-events-none absolute -right-0.5 -top-0.5 rounded-full bg-card p-px text-muted" aria-label="Has a reason" />}
-                  </li>
-                ))}
-                {/* Only in an empty row: in a full one the yellow edge says it, and the row doesn't jump. */}
-                {target && !row.length && <li className="grid h-[4.6rem] place-items-center px-2 text-xs font-bold text-muted">Tap to put {pickedEntry?.name} here</li>}
-              </ul>
-            </div>
+            <TierRow key={t.key} t={t} i={i} n={tiers.length} color={color} data-tier={t.key} glow={over === t.key ? 'on' : target ? 'target' : undefined}
+              onClick={(ev) => { if (picked && !(ev.target as HTMLElement).closest('[data-id]')) { drop(t.key); setPicked(null); } }}>
+              {row.map((e) => (
+                <li key={e.id} className="relative">
+                  <PieceButton e={e} block={ranked} color={color} picked={picked === e.id} snap={fresh === e.id} data-id={e.id} onClick={() => tapPiece(e.id)} {...handlers(e.id)} />
+                  {list.reasons[e.id] && <MessageSquareText size={11} className="pointer-events-none absolute -right-0.5 -top-0.5 rounded-full bg-card p-px text-muted" aria-label="Has a reason" />}
+                </li>
+              ))}
+              {/* Only in an empty row: in a full one the yellow edge says it, and the row doesn't jump. */}
+              {target && !row.length && <li className="grid h-[4.3rem] place-items-center px-2 text-xs font-bold text-muted">Tap to put {pickedEntry?.name} here</li>}
+            </TierRow>
           );
         })}
-      </div>
+      </BoardCard>
 
       <div data-tier="" onClick={(ev) => { if (picked && pickedTier && !(ev.target as HTMLElement).closest('[data-id]')) drop(null); }}
-        className={'mt-3 rounded-2xl p-1.5 ring-1 ring-dashed ' + (over === '' ? 'ring-2 ring-signal' : picked && pickedTier ? 'cursor-pointer ring-signal/60' : 'ring-line')}>
-        <p className="px-1.5 pt-1 text-xs font-bold uppercase tracking-wide text-muted">Not placed · {tray.length}</p>
+        className={'mt-3 rounded-2xl border-2 border-dashed p-1.5 transition-colors ' + (over === '' ? 'border-signal bg-signal/10' : picked && pickedTier ? 'cursor-pointer border-signal/70' : 'border-line')}>
+        <p className="px-1.5 pt-0.5 text-xs font-bold uppercase tracking-wide text-muted">Not placed · {tray.length}</p>
         {tray.length ? (
-          <ul className="mt-1 flex flex-wrap gap-1">
+          <ul className="mt-0.5 flex flex-wrap gap-x-1">
             {tray.map((e) => <li key={e.id}><PieceButton e={e} block={ranked} color={color} outline picked={picked === e.id} data-id={e.id} onClick={() => pick(e.id)} {...handlers(e.id)} /></li>)}
           </ul>
         ) : <p className="px-1.5 pb-1 text-sm text-muted">Every piece is placed.</p>}
       </div>
 
-      <MineFooter data={data} ctx={ctx} block={block} placed={placedCount(list)} onClear={() => { setList({ rows: {}, reasons: {} }); setPicked(null); }} />
+      <MineFooter data={data} ctx={ctx} block={block} title={title} placed={placed} onClear={() => { setList({ rows: {}, reasons: {} }); setPicked(null); }} />
 
       {/* The picked piece's bar, pinned above the phone's tab bar: its tiers and its reason. */}
       {pickedEntry && (
@@ -406,7 +438,7 @@ function MineView({ tiers, shown, data, community, color, ranked, block, ctx }: 
   );
 }
 
-function MineFooter({ data, ctx, block, placed, onClear }: { data: Data; ctx: BlockContext; block: Block; placed: number; onClear: () => void }) {
+function MineFooter({ data, ctx, block, title, placed, onClear }: { data: Data; ctx: BlockContext; block: Block; title: string; placed: number; onClear: () => void }) {
   const router = useRouter();
   const [note, setNote] = useState('');
   const [sure, setSure] = useState(false);
@@ -415,7 +447,7 @@ function MineFooter({ data, ctx, block, placed, onClear }: { data: Data; ctx: Bl
     if (!r.id) { setNote(r.error ?? 'Couldn’t share it.'); return; }
     const url = window.location.origin + listPath(ctx.gameId, r.id);
     if (window.matchMedia('(pointer: coarse)').matches && navigator.share) {
-      try { await navigator.share({ title: `My ${block.title}`, url }); } catch { /* closed the share menu */ }
+      try { await navigator.share({ title: `My ${title} list`, url }); } catch { /* closed the share menu */ }
       return;
     }
     try { await navigator.clipboard.writeText(url); setNote('Link copied. Paste it in Discord or Reddit: it shows a picture of your tiers.'); }
@@ -430,7 +462,7 @@ function MineFooter({ data, ctx, block, placed, onClear }: { data: Data; ctx: Bl
             <Share2 size={15} aria-hidden="true" /> Share my list
           </button>
         ) : data.me === null && (
-          <button type="button" onClick={signIn} className="btn-primary inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold">Sign in to count it and share it</button>
+          <button type="button" onClick={signIn} className="btn-primary inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold">Sign in so it counts</button>
         )}
         {data.shared && data.listId && (
           <span className="text-xs text-muted">Shared · <Link href={listPath(ctx.gameId, data.listId)} className="font-bold text-ink underline underline-offset-2">see it</Link> · <button type="button" onClick={() => { data.unshare(); setNote('Your list is private again.'); }} className="font-bold text-ink underline underline-offset-2">make it private</button></span>
