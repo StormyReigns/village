@@ -1,7 +1,7 @@
 // Run with: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { answerHref, oldestFirst, openFor, openOn, similarQuestions, toQuestion, waitingOn, wantCount, type Question } from './questions.ts';
+import { answerHref, oldestFirst, openFor, openOn, questionsPage, similarQuestions, toQuestion, waitingOn, wantCount, type Question } from './questions.ts';
 
 const q = (id: string, body: string, extra: Partial<Question> = {}): Question => ({
   id, gameId: 'fortunes-weave', pageKey: 'units-and-classes', cardId: null, body, spoiler: false, note: null, askedBy: 'a',
@@ -56,4 +56,11 @@ test('database rows become questions with their "me too"s', () => {
   assert.deepEqual(x.meToo, ['b']);
   assert.equal(x.askedBy, null);
   assert.equal(x.spoiler, false);
+});
+
+test('every open question is listed on the first Page with a guide Block, whatever it is called', () => {
+  const page = (id: string, ...types: string[]) => ({ id, blocks: types.map((type) => ({ type })) });
+  assert.equal(questionsPage([page('units', 'characters'), page('how-it-works', 'collection', 'guide'), page('guides', 'guide')])?.id, 'how-it-works');
+  assert.equal(questionsPage([page('units', 'characters'), page('world', 'collection')])?.id, 'world');
+  assert.equal(questionsPage([]), undefined);
 });

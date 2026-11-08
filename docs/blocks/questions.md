@@ -1,6 +1,6 @@
 # Questions (replaces the Mysteries Block)
 
-**Status:** Building, step 1 of 6 done (2026-11-08) · **Chat:** `Village · Block: Questions`
+**Status:** Building, steps 1 and 2 of 6 done (2026-11-08) · **Chat:** `Village · Block: Questions`
 (designed in `Village · Block: Guides`) · **Mockup:** none yet · **Replaces:** the Mysteries
 Block (a "rows" Collection) on every game's Guides Page · **Code today:** Mysteries is a
 Collection with a Status filter; its panel has "I know the answer" and "Share a theory"
@@ -115,8 +115,9 @@ Built in `Village · Block: Questions`, one shippable step at a time (2026-11-08
    (`ship_draft` is unchanged). RPCs: `answer_question` ("it's already there"), `reopen_question`,
    `merge_question`. Flags can point at a question. Own rate limits: 10 questions an hour, 60
    "me too"s an hour, 20 answers an hour. Plain helpers in `src/lib/questions.ts`.
-2. **The bar and Ask** (`src/components/questions/`): the bar under every Page's title, the Page's
-   questions sheet, the Ask sheet, every open question on the Guides Page.
+2. **The bar and Ask** (done, `src/components/questions/`): the bar under every Page's title, the
+   Page's questions sheet, the Ask sheet (also from a search that found nothing), every open
+   question on the first Page with a guide Block, and "Help answer" on the app's front page.
 3. **Workshop tab** (`workshop/Questions.tsx`), and question reports on the Notice Board.
 4. **The two ways to answer**: a Draft carrying the question and reply (`EntryForm.tsx`,
    `useWorkshop.ts`), and linking an entry.
@@ -153,6 +154,12 @@ Built in `Village · Block: Questions`, one shippable step at a time (2026-11-08
   read from the question, so a removed one doesn't linger in anyone's inbox (the hub).
 - 2026-11-08 (building): the AI spam check isn't built anywhere yet; questions get it when chat
   and Drafts do. Until then: reports, spoiler tags and rate limits.
+
+- 2026-11-08 (building, the hub): the bar keeps its slot while it loads and fades in there, so
+  the Blocks never jump; it isn't read aloud on every slide; with reduced motion it never slides
+  and shows back and next arrows instead; spoiler questions read "Spoiler · tap to show". The
+  list of every open question goes on the first Page with a guide Block, never a fixed id, so
+  every game gets one.
 
 ## Open questions
 

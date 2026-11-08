@@ -6,6 +6,7 @@ import { getApp } from '@/lib/app-data';
 import { PageView } from '@/components/app/PageView';
 import { entryLinks, mapMentions } from '@/data/pages/links';
 import { shadeHex } from '@/lib/shades';
+import { questionsPage } from '@/lib/questions';
 
 export async function generateStaticParams() {
   const all = await Promise.all(GAMES.map(async (g) => (await getApp(g.id)).map((p) => ({ game: g.id, page: p.id }))));
@@ -47,6 +48,7 @@ async function Loaded({ params }: { params: PageProps<'/g/[game]/[page]'>['param
   if (!game || !page) notFound();
   const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
   return (
-    <PageView game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }} page={page} links={entryLinks(game.id, pages)} mentions={mapMentions(game.id, pages, page)} />
+    <PageView game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }} page={page} links={entryLinks(game.id, pages)} mentions={mapMentions(game.id, pages, page)}
+      pages={pages.map((p) => ({ id: p.id, title: p.title, short: p.short, tint: p.tint }))} questionsPage={questionsPage(pages)?.id} />
   );
 }

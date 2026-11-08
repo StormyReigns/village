@@ -104,3 +104,12 @@ export function plainError(message: string): string {
   if (/fetch|network/i.test(message)) return "Couldn't reach the village. Check your connection and try again.";
   return message;
 }
+
+/**
+ * The Page that lists every open question in the game: the first one with a guide Block (where
+ * players go to learn how things work), else the last Page. Never a fixed id, so every game
+ * gets one, whatever its Pages are called.
+ */
+export function questionsPage<P extends { id: string; blocks: { type: string }[] }>(pages: P[]): P | undefined {
+  return pages.find((p) => p.blocks.some((b) => b.type === 'guide')) ?? pages[pages.length - 1];
+}

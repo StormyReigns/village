@@ -17,6 +17,7 @@ import { EntryIcon, type RouteOption } from './EntryPanel';
 import { colorFor, entryText, onRoute, useRecent, useTicks } from './entries';
 import { closest, rank } from '@/lib/search';
 import { TINT } from './tint';
+import { AllQuestions, AskFromSearch, QuestionBar, type QPage } from '@/components/questions/Questions';
 
 export interface AppGame {
   id: string;
@@ -42,9 +43,13 @@ function RoutePicker({ game, route, onPick, solid }: { game: AppGame; route: Rou
   );
 }
 
-export function PageView({ game, page, openOnLoad, scrollTo, links = [], mentions }: {
+export function PageView({ game, page, openOnLoad, scrollTo, links = [], mentions, pages = [], questionsPage }: {
   game: AppGame; page: Page; openOnLoad?: string; scrollTo?: string; links?: TextLinkData['names'];
   mentions?: Record<string, Mention[]>;
+  /** Every Page, for the Ask sheet's "Which Page is it about?" (src/components/questions). */
+  pages?: QPage[];
+  /** The Page that lists every open question (questionsPage in src/lib/questions.ts). */
+  questionsPage?: string;
 }) {
   const textLinks = useMemo(() => ({ names: links, terms: GLOSSARY[game.id] ?? {}, gameDates: IN_GAME_DATES.has(game.id) }), [links, game.id]);
   // Arriving from a share link: open that entry (or bring that Block into view), then show
@@ -86,6 +91,8 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [], mention
             <p className="text-muted">{page.blurb}</p>
           </div>
         </div>
+        {/* What players have asked about this Page, one at a time, and Ask (docs/blocks/questions.md). */}
+        <QuestionBar gameId={game.id} page={page} pages={pages.length ? pages : [{ id: page.id, title: page.title, short: page.short, tint: page.tint }]} links={links} />
         {(byRoute || hasSpoilers) && (
           <div className="relative mt-4 flex flex-wrap items-center gap-2">
             {byRoute && (
@@ -118,6 +125,7 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [], mention
       <TextLinksProvider value={textLinks}>
         <div className="mt-4 grid gap-4">
           {page.blocks.map((b) => <BlockView key={b.id} block={b} ctx={ctx} />)}
+          {questionsPage === page.id && <AllQuestions gameId={game.id} pages={pages} allPages={[page]} />}
         </div>
       </TextLinksProvider>
     </div>
@@ -126,6 +134,7 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [], mention
 
 /** Search across every Page. */
 function AppSearch({ gameId, pages }: { gameId: string; pages: Page[] }) {
+  const qpages = useMemo(() => pages.map((p) => ({ id: p.id, title: p.title, short: p.short, tint: p.tint })), [pages]);
   const [query, setQuery] = useState('');
   const [going, setGoing] = useState<string | null>(null);
   const all = useMemo(() => pages.flatMap((p) => p.blocks.flatMap((b) => b.entries.map((e) => ({ p, b, e })))), [pages]);
@@ -166,6 +175,8 @@ function AppSearch({ gameId, pages }: { gameId: string; pages: Page[] }) {
           {hits.length === 0 && (
             <li className="grid gap-1 px-3 py-2 text-sm text-muted">
               <span>Nothing found for “{query.trim()}”.{example && <> Try just a name, like <span className="font-bold text-ink">{example}</span>.</>}</span>
+              {/* Not in the app: ask the people who know, with what they typed already filled in. */}
+              <AskFromSearch gameId={gameId} pages={qpages} query={query} links={open.map((h) => ({ name: h.e.name, href: href(h) }))} />
               {near.length > 0 && <span className="text-xs font-bold uppercase tracking-wide">Did you mean</span>}
             </li>
           )}

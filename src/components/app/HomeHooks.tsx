@@ -8,12 +8,23 @@ import { browserClient } from '@/lib/supabase/browser';
 import { MarketDay } from '@/components/Countdown';
 import { useStored } from '@/components/useStored';
 import { Piece } from '@/components/Piece';
+import { HelpAnswer } from '@/components/questions/Questions';
+import { questionsPage } from '@/lib/questions';
 
 // Reasons to come back to a game's app: questions nobody has answered yet, and what other
 // players found lately.
 
-/** Open Mysteries (status Open or Theory), with one example question to pull people in. */
+/**
+ * Open questions (docs/blocks/questions.md), oldest first, to pull in people who know. Until the
+ * Questions SQL is run, today's open Mysteries show instead, so the card never goes blank.
+ */
 export function HelpSolve({ gameId, pages }: { gameId: string; pages: Page[] }) {
+  const qpages = pages.map((p) => ({ id: p.id, title: p.title, short: p.short, tint: p.tint }));
+  return <HelpAnswer gameId={gameId} pages={qpages} listPage={questionsPage(pages)?.id} fallback={<OpenMysteries gameId={gameId} pages={pages} />} />;
+}
+
+/** Open Mysteries (status Open or Theory), with one example question. Goes once questions are live. */
+function OpenMysteries({ gameId, pages }: { gameId: string; pages: Page[] }) {
   for (const p of pages) for (const b of p.blocks) {
     const open = b.entries.filter((e) => !e.spoiler && ['Open', 'Theory'].includes(e.categories.Status ?? ''));
     if (!open.length) continue;
