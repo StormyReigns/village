@@ -71,8 +71,8 @@ test('the live guides fit the Guides fields: every part they have is a field tha
     assert.ok(e.description, `${e.name} has an In short`);
     for (const s of e.sections) assert.ok(on.has(s.label), `${e.name}: ${s.label}`);
   }
-  // In short comes first, then Watch out, the steps and the tip.
-  assert.deepEqual(shownFields(howTo).map((f) => f.label), ['In short', 'Watch out', 'Steps', 'Tip']);
+  // In short comes first, then Watch out, the body (Steps or Write-up) and the tip.
+  assert.deepEqual(shownFields(howTo).map((f) => f.label), ['In short', 'Watch out', 'Steps', 'Write-up', 'Tip']);
   // Steps are offered in Guides only; Guides get no charts.
   assert.ok(kindsFor('guide').some((k) => k.kind === 'steps'));
   assert.ok(!kindsFor('guide').some((k) => k.kind === 'chart'));
@@ -91,4 +91,48 @@ test('a share card never shows a spoiler step or a picture mark', async () => {
   const a = shareAnswer(block, entry);
   assert.deepEqual(a.steps, ['Go to the bridge', 'A spoiler: open it in the app to read']);
   assert.ok(!a.text.includes('dragon') && !a.text.includes('[picture'));
+});
+
+test('a write-up reads as sections: heading, words, spoiler and picture', async () => {
+  const { parseWriteup, writeupText, paragraphs } = await import('./guides.ts');
+  const text = `Fabio is a mage first.\n## Early game\nTake Sage.\n\nIt pays off by chapter 5.\n[picture:${A}]\n## Late game\n[spoiler]\nHe becomes a Archsage.`;
+  const s = parseWriteup(text);
+  assert.deepEqual(s.map((x) => x.heading), ['', 'Early game', 'Late game']);
+  assert.equal(s[1].picture, A);
+  assert.deepEqual(paragraphs(s[1].text), ['Take Sage.', 'It pays off by chapter 5.']);
+  assert.equal(s[2].spoiler, true);
+  assert.equal(writeupText(s), text);
+  // A section with no heading after the first keeps its place with a bare "##".
+  assert.equal(writeupText([{ heading: 'A', text: 'one', spoiler: false }, { heading: '', text: 'two', spoiler: false }]), '## A\none\n##\ntwo');
+});
+
+test('a write-up only takes our own pictures, and words never turn into marks', async () => {
+  const { parseWriteup, writeupText } = await import('./guides.ts');
+  assert.equal(parseWriteup('## A\n[picture:https://example.com/x.webp]\nWords')[0].picture, undefined);
+  const tricky = [{ heading: 'A', text: '## not a heading\n[spoiler]', spoiler: false }];
+  const back = parseWriteup(writeupText(tricky));
+  assert.equal(back.length, 1);
+  assert.equal(back[0].spoiler, false);
+  assert.equal(back[0].text, '## not a heading\n[spoiler]');
+});
+
+test('switching versions keeps everything that was written', async () => {
+  const { stepsToWriteup, writeupToSteps, parseWriteup } = await import('./guides.ts');
+  const steps = `Buy the license\nTake the exam [picture:${A}]\n||You pass at 75%||\nCelebrate`;
+  const w = parseWriteup(stepsToWriteup(steps));
+  assert.deepEqual(w.map((x) => [x.text, x.spoiler, x.picture]), [
+    ['Buy the license', false, undefined], ['Take the exam', false, A], ['You pass at 75%', true, undefined], ['Celebrate', false, undefined],
+  ]);
+  assert.equal(writeupToSteps(stepsToWriteup(steps)), steps);
+  assert.equal(writeupToSteps('## Early game\nTake Sage.\n\nThen Archsage.'), 'Early game: Take Sage.\nThen Archsage.');
+});
+
+test('a write-up share card covers spoiler sections and never shows marks', async () => {
+  const { shareAnswer } = await import('../data/pages/links.ts');
+  const block = { id: 'how-to', type: 'guide' as const, title: 'How to', icon: 'BookOpen', entries: [] };
+  const entry = { id: 'y', name: 'Best classes for Fabio', description: 'Sage, then Archsage.', categories: {},
+    sections: [{ label: 'Write-up', text: `## Early game\nTake Sage.\n[picture:${A}]\n## The twist\n[spoiler]\nHe was the king all along.` }] };
+  const a = shareAnswer(block, entry);
+  assert.deepEqual(a.facts, [{ label: 'Early game', text: 'Take Sage.' }, { label: 'Spoiler', text: 'Open it in the app to read.' }]);
+  for (const bad of ['king', 'twist', '[picture', '##', '[spoiler]']) assert.ok(!a.text.includes(bad), bad);
 });

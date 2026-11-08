@@ -3,7 +3,7 @@
 // builder's preview fills in. See FieldDef in src/data/pages/types.ts.
 
 import type { Block, BlockType, EntryContent, FieldDef, FieldKind, Route, Section, StatDef } from '@/data/pages/types';
-import { STEPS, TIP, WATCH_OUT } from './guides.ts';
+import { STEPS, TIP, WATCH_OUT, WRITEUP } from './guides.ts';
 
 /** Fields whose values are the entry's own description and stats, not a section. */
 export const DESCRIPTION = '@description';
@@ -27,10 +27,11 @@ export const FIELD_KINDS: { kind: FieldKind; label: string; hint: string }[] = [
 /** The kinds as an Items Block offers them: links point at other items there. */
 const ITEM_KINDS = FIELD_KINDS.map((k) => (k.kind === 'links' ? { ...k, label: 'Other items', hint: 'Other items, one per line: "Iron Ore: 3" for how many' } : k));
 
-/** The kinds as a Guides Block offers them: no charts, links point at other guides, and Steps. */
+/** The kinds as a Guides Block offers them: no charts, links point at other guides, Steps and Write-up. */
 const GUIDE_KINDS = [
   ...FIELD_KINDS.filter((k) => k.kind !== 'chart').map((k) => (k.kind === 'links' ? { ...k, label: 'Other guides', hint: 'Other guides, one per line: "Name: why"' } : k)),
   { kind: 'steps' as const, label: 'Steps', hint: 'Numbered steps, one per line. Any step can be a spoiler or have a picture' },
+  { kind: 'writeup' as const, label: 'Write-up', hint: 'A short article: sections with a heading, a few paragraphs and a picture. Any section can be a spoiler' },
 ];
 
 export const kindsFor = (type?: BlockType) => (type === 'items' ? ITEM_KINDS : type === 'guide' ? GUIDE_KINDS : FIELD_KINDS);
@@ -99,8 +100,9 @@ export const ITEM_FIELDS: FieldDef[] = [
 ];
 
 /** The common fields every Guides Block starts with (docs/blocks/guides.md). The starter order is
- *  the guide's: the answer, the warning, the steps, the tip. The keys are the ones the guides
- *  already live use, so they keep their steps and tips. */
+ *  the guide's: the answer, the warning, the body, the tip. The body is Steps or Write-up (a
+ *  guide uses one; the writer picks it). The keys are the ones the guides already live use, so
+ *  they keep their steps and tips. */
 export const GUIDE_FIELDS: FieldDef[] = [
   { key: 'Kind', label: 'Kind', kind: 'tag', off: true },
   { key: 'Difficulty', label: 'Difficulty', kind: 'tag', off: true },
@@ -108,6 +110,7 @@ export const GUIDE_FIELDS: FieldDef[] = [
   { key: DESCRIPTION, label: 'In short', kind: 'longtext' },
   { key: WATCH_OUT, label: 'Watch out', kind: 'list' },
   { key: STEPS, label: 'Steps', kind: 'steps' },
+  { key: WRITEUP, label: 'Write-up', kind: 'writeup' },
   { key: TIP, label: 'Tip', kind: 'longtext' },
   { key: 'What you get', label: 'What you get', kind: 'list', off: true },
 ];
@@ -131,7 +134,7 @@ export const shownFields = (block: Pick<Block, 'fields'> & Partial<Pick<Block, '
 /** The most a tile holds, so tiles stay small and even. */
 export const TILE_MAX = 3;
 /** Kinds that fit on a tile: long text, lists and links don't. */
-export const canTile = (f: FieldDef) => !['longtext', 'list', 'links', 'steps'].includes(f.kind) && f.key !== DESCRIPTION;
+export const canTile = (f: FieldDef) => !['longtext', 'list', 'links', 'steps', 'writeup'].includes(f.kind) && f.key !== DESCRIPTION;
 /** What an item's tile shows, in the builders' order. */
 export const tileFields = (block: Pick<Block, 'fields'> & Partial<Pick<Block, 'type'>>) => shownFields(block).filter((f) => f.tile && canTile(f)).slice(0, TILE_MAX);
 
@@ -205,6 +208,7 @@ const SAMPLE: Record<FieldKind, string> = {
   text: 'Sample', number: '12', tag: 'Tag', place: 'Some town', when: 'Chapter 3', chart: '',
   list: 'Skill name: What it does.', links: 'Jane Doe: Friend', longtext: 'A sentence or two goes here.', yesno: 'Yes', playable: PLAYABLE.yes,
   steps: 'The first thing to do\nThe next thing to do\n||A step that gives something away||',
+  writeup: 'A few words to start.\n## A heading\nA paragraph or two under it.\n## Late game\n[spoiler]\nA part that gives something away.',
 };
 
 /** Made-up values for a Guides Block's sample, for its common fields. */
@@ -212,6 +216,8 @@ const GUIDE_SAMPLE: Partial<Record<string, string>> = {
   Kind: 'Beat a fight', Difficulty: 'Hard', When: 'Chapter 3', [WATCH_OUT]: "Keep your healer out of the archers' reach",
   [STEPS]: 'Move your fastest unit to the bridge\nKill the two archers on the walls first\n||The boss never leaves the throne, so heal up before you attack||',
   [TIP]: 'A tip that helps, in a sentence or two.', 'What you get': 'Silver Sword\n500 gold',
+  // A guide has one body; the sample shows Steps, and the Write-up example shows the other.
+  [WRITEUP]: '',
 };
 
 /**

@@ -53,3 +53,91 @@ export const stepCount = (text: string | undefined) => parseSteps(text).length;
 export function stepWords(s: Step) {
   return [s.spoiler ? `(spoiler) ${s.text}` : s.text, s.picture ? '(picture)' : ''].filter(Boolean).join(' ');
 }
+
+// ---------------------------------------------------------------- Write-up
+// The creative version of a guide (Matt, 2026-11-08): a short article of sections, kept as the
+// "Write-up" text. A section starts at a "## Heading" line ("##" alone for one without a
+// heading); the text before the first one is a section without a heading. Inside a section,
+// a "[spoiler]" line covers it until tapped and a "[picture:…]" line is its picture (the same
+// bucket and rules as a step's). Everything else is its words; a blank line starts a new
+// paragraph.
+
+export const WRITEUP = 'Write-up';
+
+export interface WriteSection { heading: string; text: string; spoiler: boolean; picture?: string }
+
+const HEADING = /^##(?:\s+(.*))?$/;
+const SPOILER_LINE = /^\[spoiler\]$/i;
+const PICTURE_LINE = /^\[picture:([^\]\s]*)\]$/;
+
+/** A guide's "Write-up" text as sections. Empty sections are skipped. */
+export function parseWriteup(text: string | undefined): WriteSection[] {
+  const out: WriteSection[] = [];
+  let cur: WriteSection & { lines: string[] } = { heading: '', text: '', spoiler: false, lines: [] };
+  const close = () => {
+    const words = cur.lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    if (cur.heading || words || cur.picture) out.push({ heading: cur.heading, text: words, spoiler: cur.spoiler, picture: cur.picture });
+  };
+  for (const raw of (text ?? '').split('\n')) {
+    // Marks count only at the very start of a line, so words nudged by a space stay words.
+    const line = raw.trimEnd();
+    const h = HEADING.exec(line);
+    if (h) { close(); cur = { heading: (h[1] ?? '').trim(), text: '', spoiler: false, lines: [] }; continue; }
+    if (SPOILER_LINE.test(line)) { cur.spoiler = true; continue; }
+    const pic = PICTURE_LINE.exec(line);
+    if (pic) { if (isPicturePath(pic[1])) cur.picture = pic[1]; continue; }
+    cur.lines.push(line.trim());
+  }
+  close();
+  return out;
+}
+
+/** Sections back as the "Write-up" text. Empty sections are dropped. */
+export function writeupText(sections: WriteSection[]): string {
+  const kept = sections.map((s) => ({ ...s, heading: s.heading.replace(/\s*\n\s*/g, ' ').trim(), text: s.text.replace(/\n{3,}/g, '\n\n').trim() }))
+    .filter((s) => s.heading || s.text || (s.picture && isPicturePath(s.picture)));
+  return kept.map((s, i) => [
+    s.heading ? `## ${s.heading}` : i > 0 ? '##' : '',
+    s.spoiler ? '[spoiler]' : '',
+    // A line of the words that looks like a mark would be read as one, so it's nudged.
+    s.text.split('\n').map((l) => (HEADING.test(l.trim()) || SPOILER_LINE.test(l.trim()) || PICTURE_LINE.test(l.trim()) ? ` ${l}` : l)).join('\n'),
+    s.picture && isPicturePath(s.picture) ? `[picture:${s.picture}]` : '',
+  ].filter(Boolean).join('\n')).join('\n');
+}
+
+/** A section's paragraphs. */
+export const paragraphs = (text: string) => text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+
+/** A section as plain words, for search, share cards and "What changes". */
+export function sectionWords(s: WriteSection) {
+  return [s.spoiler ? '(spoiler)' : '', s.heading && `${s.heading}:`, s.text.replace(/\s*\n\s*/g, ' '), s.picture ? '(picture)' : ''].filter(Boolean).join(' ');
+}
+
+/** Switching a guide to a write-up keeps every step: plain steps become paragraphs, and a
+ *  step with a picture or a spoiler becomes its own section, so it keeps them. */
+export function stepsToWriteup(text: string | undefined): string {
+  const out: WriteSection[] = [];
+  for (const s of parseSteps(text)) {
+    const last = out[out.length - 1];
+    if (!s.spoiler && !s.picture && last && !last.spoiler && !last.picture) last.text += `\n\n${s.text}`;
+    else out.push({ heading: '', text: s.text, spoiler: s.spoiler, picture: s.picture });
+  }
+  return writeupText(out);
+}
+
+/** Switching a write-up to steps keeps every paragraph: each becomes a step (the section's
+ *  heading leads its first one), the picture goes on the section's last step, and a spoiler
+ *  section's steps are spoilers. */
+export function writeupToSteps(text: string | undefined): string {
+  const steps: Step[] = [];
+  for (const s of parseWriteup(text)) {
+    const ps = paragraphs(s.text);
+    const lines = ps.length ? ps : [''];
+    lines.forEach((p, i) => steps.push({
+      text: i === 0 && s.heading ? (p ? `${s.heading}: ${p}` : s.heading) : p,
+      spoiler: s.spoiler,
+      picture: i === lines.length - 1 ? s.picture : undefined,
+    }));
+  }
+  return stepsText(steps);
+}

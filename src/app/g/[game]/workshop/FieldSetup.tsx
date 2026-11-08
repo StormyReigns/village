@@ -346,21 +346,23 @@ function StatSuggestions({ current, onPick, item = false }: { current: string; o
 /** A likely name for each kind, until the builder types one. */
 const EXAMPLE_NAMES: Record<FieldKind, string> = {
   text: 'Voice actor', number: 'Level', tag: 'Weapon', place: 'Hometown', when: 'Joins', chart: 'Growths',
-  list: 'Skills', links: 'Family', longtext: 'Backstory', yesno: 'Recruitable', playable: 'Playable or NPC', steps: 'Steps',
+  list: 'Skills', links: 'Family', longtext: 'Backstory', yesno: 'Recruitable', playable: 'Playable or NPC', steps: 'Steps', writeup: 'Write-up',
 };
 
 /** Likely names in a Guides Block, where they differ. */
 const GUIDE_EXAMPLE_NAMES: Partial<Record<FieldKind, string>> = {
   text: 'Time needed', number: 'Suggested level', tag: 'Difficulty', place: 'Where', when: 'When', list: 'What you get', links: 'See also',
-  longtext: 'Why it works', yesno: 'Missable', playable: 'Normal or Hard', steps: 'Steps',
+  longtext: 'Why it works', yesno: 'Missable', playable: 'Normal or Hard', steps: 'Steps', writeup: 'Strategy',
 };
 const GUIDE_EXAMPLE_VALUES: Partial<Record<FieldKind, string>> = {
   list: 'Silver Sword\n500 gold\nA new recruit',
   links: 'Recruit a unit\nChange class',
   steps: 'Talk to the guard at the gate\nGo up the east stairs\n||The key is behind the altar||',
+  writeup: 'Fabio is a mage first, so lean into it.\n## Early game\nTake Sage as soon as you can.\n\nHis magic grows fastest there.\n## Late game\n[spoiler]\nArchsage opens after chapter 12.',
 };
 const GUIDE_EXAMPLE_NOTES: Partial<Record<FieldKind, string>> = {
   steps: 'Numbered steps, one per line. In the form, any step can be a spoiler (covered until tapped) or have a picture.',
+  writeup: 'A short article in sections, each with a heading, paragraphs and a picture. Any section can be a spoiler. A guide uses Steps or a Write-up: the writer picks.',
   list: 'Each line is its own item, in a list with its own heading.',
   links: 'Other guides, one per line.',
 };
@@ -402,6 +404,7 @@ const EXAMPLE_NOTES: Record<FieldKind, string> = {
   yesno: "A pill with a tick when the answer is yes. When it's no, nothing shows.",
   playable: 'One of two choices, a green or red pill under the name. Name it "X or Y" and those become the choices.',
   steps: 'Numbered steps, one per line.',
+  writeup: 'A short article: sections with a heading, paragraphs and a picture.',
 };
 
 /**

@@ -1,10 +1,10 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, EyeOff, ImagePlus, Plus, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, EyeOff, FileText, ImagePlus, ListOrdered, Plus, X } from 'lucide-react';
 import type { Block, EntryContent, FieldDef } from '@/data/pages';
 import { DESCRIPTION, STATS, chartDefs, isCategory, listItems, shownFields, toggleOptions } from '@/lib/fields';
-import { parseSteps, stepsText, type Step } from '@/lib/guides';
+import { parseSteps, parseWriteup, stepsText, stepsToWriteup, writeupText, writeupToSteps, type Step, type WriteSection } from '@/lib/guides';
 import { pictureUrl } from '@/components/app/Guides';
 
 // The same boxes as the rest of the entry form.
@@ -46,9 +46,80 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
   const used = (f: FieldDef) => [...new Set(block.entries.map((e) => (isCategory(f) ? e.categories[f.key] : e.sections.find((s) => s.label === f.key)?.text)?.trim())
     .filter((v): v is string => Boolean(v) && v!.length <= 40))];
 
+  // Guides: one body, Quick steps or Write-up, which the writer picks (docs/blocks/guides.md).
+  const bodies = block.type === 'guide' ? shownFields(block).filter((f) => f.kind === 'steps' || f.kind === 'writeup') : [];
+  const stepsF = bodies.find((f) => f.kind === 'steps'), writeF = bodies.find((f) => f.kind === 'writeup');
+  const textOf = (f?: FieldDef) => (f ? content.sections.find((s) => s.label === f.key)?.text.trim() ?? '' : '');
+  const choosing = Boolean(stepsF && writeF);
+  const [version, setVersion] = useState<'steps' | 'writeup' | null>(() =>
+    !choosing ? null : textOf(writeF) && !textOf(stepsF) ? 'writeup' : textOf(stepsF) ? 'steps' : null);
+  // An old Draft (or a direct edit) can have both filled: then both show, as in the app.
+  const hasBoth = choosing && Boolean(textOf(stepsF) && textOf(writeF));
+  // Switching moves what's written into the other one and clears the old, so a guide never has both.
+  const switchTo = (to: 'steps' | 'writeup') => {
+    if (!stepsF || !writeF || to === version) return;
+    const [from, into] = to === 'writeup' ? [stepsF, writeF] : [writeF, stepsF];
+    const moved = to === 'writeup' ? stepsToWriteup(textOf(stepsF)) : writeupToSteps(textOf(writeF));
+    const rest = content.sections.filter((s) => s.label !== from.key && s.label !== into.key);
+    set({ sections: moved ? [...rest, { label: into.key, text: moved }] : rest });
+    setVersion(to);
+  };
+  const bodyInput = (f: FieldDef) => {
+    const part = `section:${f.key}`;
+    const v = content.sections.find((s) => s.label === f.key)?.text ?? '';
+    return (
+      <div key={f.key} role="group" aria-label={f.label} id={fid(part)} className={'grid gap-1.5' + hl(part)}>
+        <span className="text-sm font-bold">{f.label} <span className="font-normal text-muted">{f.kind === 'steps' ? '(Enter starts the next step)' : '(a heading, a few paragraphs and a picture per section)'}</span></span>
+        {f.kind === 'steps'
+          ? <StepRows key={`steps-${version}`} text={v} onChange={(t) => setField(f.key, t)} label={f.label} upload={upload} />
+          : <WriteupRows key={`writeup-${version}`} text={v} onChange={(t) => setField(f.key, t)} label={f.label} upload={upload} />}
+      </div>
+    );
+  };
+
   return (
     <>
       {shownFields(block).map((f) => {
+        if ((f.kind === 'steps' || f.kind === 'writeup') && choosing && !hasBoth) {
+          // The chooser and the chosen body sit where the first of the two is.
+          if (f !== bodies[0] || !show(`section:${stepsF!.key}`) && !show(`section:${writeF!.key}`)) return null;
+          const options = [
+            { v: 'steps' as const, label: 'Quick steps', Icon: ListOrdered, hint: 'Numbered steps for a simple task, like changing class.' },
+            { v: 'writeup' as const, label: 'Write-up', Icon: FileText, hint: 'Sections and paragraphs, for strategies and explainers, like the best classes for Fabio.' },
+          ];
+          if (!version) {
+            return (
+              <fieldset key="guide-version" className="grid gap-2">
+                <legend className="mb-1 text-sm font-bold">How do you want to write it?</legend>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {options.map(({ v, label, Icon, hint }) => (
+                    <button key={v} type="button" onClick={() => setVersion(v)}
+                      className="grid gap-1 rounded-2xl bg-card p-3 text-left ring-1 ring-line hover:ring-2 hover:ring-ink">
+                      <span className="flex items-center gap-2 font-bold"><Icon size={16} aria-hidden="true" /> {label}</span>
+                      <span className="text-sm text-muted">{hint}</span>
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            );
+          }
+          return (
+            <div key="guide-version" className="grid gap-2">
+              <div role="radiogroup" aria-label="Written as" className="flex items-center gap-2 text-sm">
+                <span className="font-bold">Written as</span>
+                <span className="flex rounded-full bg-card p-0.5 font-bold ring-1 ring-line">
+                  {options.map(({ v, label }) => (
+                    <button key={v} type="button" role="radio" aria-checked={version === v} onClick={() => switchTo(v)}
+                      title={version === v ? undefined : `Switch to ${label}. Everything written so far comes along`}
+                      className={'rounded-full px-3 py-1 ' + (version === v ? 'bg-ink text-paper' : 'text-muted hover:text-ink')}>{label}</button>
+                  ))}
+                </span>
+              </div>
+              {bodyInput(version === 'steps' ? stepsF! : writeF!)}
+            </div>
+          );
+        }
+        if (f.kind === 'writeup') return show(`section:${f.key}`) ? bodyInput(f) : null;
         if (f.kind === 'chart') {
           // Every chart (Base stats, Growths...) gets its own grid of numbers.
           const defs = chartDefs(block, f);
@@ -283,6 +354,88 @@ function StepRows({ text, onChange, label, upload }: { text: string; onChange: (
       <button type="button" onClick={() => addAfter(rows.length - 1)}
         className="inline-flex items-center gap-1 justify-self-start rounded-full px-2.5 py-1 text-xs font-bold text-muted ring-1 ring-line hover:text-ink hover:ring-ink">
         <Plus size={13} aria-hidden="true" /> Add a step
+      </button>
+    </div>
+  );
+}
+
+/**
+ * A guide's write-up, one box per section: a heading (optional), the words (a blank line
+ * starts a new paragraph), and small buttons to move the section, cover it as a spoiler,
+ * add or change its picture, and take it out. Written back as the "Write-up" text
+ * (src/lib/guides.ts), which is how the guide reads it.
+ */
+function WriteupRows({ text, onChange, label, upload }: { text: string; onChange: (t: string) => void; label: string; upload?: (file: File) => Promise<{ path: string } | string> }) {
+  const blank = (): WriteSection => ({ heading: '', text: '', spoiler: false });
+  const [rows, setRows] = useState<WriteSection[]>(() => {
+    const sections = parseWriteup(text);
+    return sections.length ? sections : [blank()];
+  });
+  const [busy, setBusy] = useState<number | null>(null);
+  const [note, setNote] = useState('');
+  const files = useRef<HTMLInputElement>(null);
+  const picking = useRef(0);
+  const box = (i: number) => `section-${label.replace(/\W+/g, '-')}-${i}`;
+  const write = (next: WriteSection[]) => { setRows(next); onChange(writeupText(next)); };
+  const edit = (i: number, p: Partial<WriteSection>) => write(rows.map((r, j) => (j === i ? { ...r, ...p } : r)));
+  const move = (i: number, by: -1 | 1) => {
+    const next = [...rows];
+    [next[i], next[i + by]] = [next[i + by], next[i]];
+    write(next);
+  };
+  const add = () => {
+    setRows([...rows, blank()]);
+    setTimeout(() => document.getElementById(box(rows.length))?.focus(), 0);
+  };
+  const pick = (i: number) => { picking.current = i; setNote(''); files.current?.click(); };
+  const got = async (file: File | undefined) => {
+    if (!file || !upload) return;
+    const i = picking.current;
+    setBusy(i);
+    const res = await upload(file);
+    setBusy(null);
+    if (typeof res === 'string') setNote(res);
+    else edit(i, { picture: res.path });
+  };
+  const small = 'grid size-8 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink disabled:opacity-30';
+  return (
+    <div className="grid gap-2">
+      {rows.map((r, i) => (
+        <div key={i} className="grid gap-1.5 rounded-2xl bg-card p-2 ring-1 ring-line">
+          <input id={box(i)} value={r.heading} onChange={(e) => edit(i, { heading: e.target.value })}
+            placeholder={i === 0 ? 'A heading (optional), like Early game' : 'A heading (optional)'} aria-label={`${label}: section ${i + 1} heading`}
+            className={input + ' py-1.5 font-display font-bold'} />
+          <textarea value={r.text} onChange={(e) => edit(i, { text: e.target.value })} rows={4}
+            placeholder={i === 0 ? 'Say it like you would to a friend. A blank line starts a new paragraph.' : 'A paragraph or two'}
+            aria-label={`${label}: section ${i + 1} words`} className={input + ' resize-y py-1.5' + (r.spoiler ? ' spoiler-cover' : '')} />
+          {r.picture && (
+            <div className="flex items-start gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element -- the writer's own upload, any size */}
+              <img src={pictureUrl(r.picture)} alt={`Picture for section ${i + 1}`} className={'max-h-28 w-auto max-w-[70%] rounded-xl object-contain ring-1 ring-line' + (r.spoiler ? ' blur-sm' : '')} />
+              <button type="button" onClick={() => edit(i, { picture: undefined })} className="rounded-full px-2 py-1 text-xs font-bold text-muted ring-1 ring-line hover:text-berry">Remove picture</button>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-0.5">
+            <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move section ${i + 1} up`} className={small}><ArrowUp size={15} aria-hidden="true" /></button>
+            <button type="button" onClick={() => move(i, 1)} disabled={i === rows.length - 1} aria-label={`Move section ${i + 1} down`} className={small}><ArrowDown size={15} aria-hidden="true" /></button>
+            <button type="button" onClick={() => edit(i, { spoiler: !r.spoiler })} aria-pressed={r.spoiler}
+              className={'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ' + (r.spoiler ? 'bg-ink text-paper' : 'text-muted hover:bg-card-2 hover:text-ink')}>
+              <EyeOff size={13} aria-hidden="true" /> Spoiler
+            </button>
+            <button type="button" onClick={() => pick(i)} disabled={!upload || busy !== null} title={upload ? undefined : 'Sign in to add pictures'}
+              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold text-muted hover:bg-card-2 hover:text-ink disabled:opacity-40">
+              <ImagePlus size={13} aria-hidden="true" /> {busy === i ? 'Adding…' : r.picture ? 'Change picture' : upload ? 'Picture' : 'Picture (sign in)'}
+            </button>
+            <button type="button" onClick={() => write(rows.length > 1 ? rows.filter((_, j) => j !== i) : [blank()])} aria-label={`Remove section ${i + 1}`}
+              className={small + ' ml-auto hover:text-berry'}><X size={15} aria-hidden="true" /></button>
+          </div>
+        </div>
+      ))}
+      <input ref={files} type="file" accept="image/*" hidden onChange={(e) => { void got(e.target.files?.[0]); e.target.value = ''; }} />
+      {note && <p role="status" className="text-sm text-berry">{note}</p>}
+      <button type="button" onClick={add}
+        className="inline-flex items-center gap-1 justify-self-start rounded-full px-2.5 py-1 text-xs font-bold text-muted ring-1 ring-line hover:text-ink hover:ring-ink">
+        <Plus size={13} aria-hidden="true" /> Add a section
       </button>
     </div>
   );

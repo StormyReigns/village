@@ -12,7 +12,7 @@ import { ScrollRow } from '@/components/ScrollRow';
 import { browserClient } from '@/lib/supabase/browser';
 import { closest, rank } from '@/lib/search';
 import { DESCRIPTION, besideText, hasValue, isCategory, listItems, shownFields, spotOf, valueOf, type FieldValue } from '@/lib/fields';
-import { GUIDE_PICTURES, STEPS, TIP, WATCH_OUT, parseSteps, stepCount, type Step } from '@/lib/guides';
+import { GUIDE_PICTURES, STEPS, TIP, WATCH_OUT, WRITEUP, paragraphs, parseSteps, parseWriteup, stepCount, type Step, type WriteSection } from '@/lib/guides';
 import type { RouteOption } from './EntryPanel';
 import { symbolFor } from './symbols';
 import { entryText, onRoute, rememberEntry, useOpenEntry } from './entries';
@@ -33,7 +33,10 @@ const forRoute = (v: FieldValue, route: Route | 'all') => (route !== 'all' ? v.b
 /** The first line of a guide's answer, for its row in the list. */
 function gist(e: EntryContent) {
   const first = (t?: string) => t?.split('\n').find((l) => l.trim())?.trim();
-  return first(e.description) ?? (() => { const s = parseSteps(e.sections.find((x) => x.label === STEPS)?.text).find((x) => !x.spoiler); return s?.text; })();
+  const section = (label: string) => e.sections.find((x) => x.label === label)?.text;
+  return first(e.description)
+    ?? parseSteps(section(STEPS)).find((x) => !x.spoiler)?.text
+    ?? first(parseWriteup(section(WRITEUP)).find((x) => !x.spoiler && x.text)?.text);
 }
 
 /**
@@ -79,7 +82,8 @@ export function Guides({ block, ctx }: { block: Block; ctx: BlockContext }) {
             <ArrowLeft size={16} aria-hidden="true" /> All guides
           </button>
           <span className="ml-auto text-xs font-bold text-muted">{along.length > 1 && `${at + 1} of ${along.length}`}</span>
-          <ShareButton path={sharePath(ctx.gameId, ctx.page, block, entry)} title={entry.name} what="guide" tint={ctx.tint} quiet />
+          {/* This guide's own link, always in view: it's what gets pasted in Discord or attached elsewhere. */}
+          <ShareButton path={sharePath(ctx.gameId, ctx.page, block, entry)} title={entry.name} what="guide" tint={ctx.tint} />
           <button type="button" onClick={() => prev && go(prev)} disabled={!prev} aria-label={prev ? `Previous: ${prev.name}` : 'Previous'}
             className="grid size-10 place-items-center rounded-full hover:bg-card-2 disabled:opacity-30"><ChevronLeft size={20} aria-hidden="true" /></button>
           <button type="button" onClick={() => next && go(next)} disabled={!next} aria-label={next ? `Next: ${next.name}` : 'Next'}
@@ -155,7 +159,8 @@ function GuideRow({ entry, block, color, onOpen }: { entry: Entry; block: Block;
   const symbol = symbolFor(entry, block) ?? block.icon;
   const when = shownFields(block).find((f) => f.kind === 'when');
   const steps = stepCount(entry.sections.find((s) => s.label === STEPS)?.text);
-  const meta = [when && valueOf(entry, when).text, steps ? `${steps} step${steps === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
+  const writeup = parseWriteup(entry.sections.find((s) => s.label === WRITEUP)?.text).length > 0;
+  const meta = [when && valueOf(entry, when).text, steps ? `${steps} step${steps === 1 ? '' : 's'}` : writeup ? 'Write-up' : ''].filter(Boolean).join(' · ');
   const line = gist(entry);
   return (
     <li>
@@ -245,6 +250,7 @@ function GuidePart({ f, v, route, routeName, name, color, spoilers }: {
     );
   }
   if (f.kind === 'steps') return <Steps f={f} label={label} text={text} color={color} spoilers={spoilers} name={name} extra={extra} />;
+  if (f.kind === 'writeup') return <Writeup f={f} text={text} spoilers={spoilers} name={name} extra={extra} />;
   if (f.key === TIP) {
     return (
       <div className="flex -rotate-[0.6deg] gap-2 rounded-xl bg-sun-soft px-3 py-2.5 text-sm">
@@ -323,6 +329,59 @@ function StepBody({ step, spoilers, name, onPicture }: { step: Step; spoilers: b
         </button>
       )}
     </>
+  );
+}
+
+/**
+ * A write-up: sections, each with its heading, paragraphs and picture, read like a short
+ * article. A spoiler section is covered, heading and all, until tapped.
+ */
+function Writeup({ f, text, spoilers, name, extra }: { f: FieldDef; text: string; spoilers: boolean; name: string; extra: React.ReactNode }) {
+  const sections = parseWriteup(text);
+  const [big, setBig] = useState<string | null>(null);
+  return (
+    <section>
+      <h4 className="sr-only">{f.label}</h4>
+      <Covered f={f} on={spoilers}>
+        <div className="grid gap-4">
+          {sections.map((s, i) => <WriteBody key={i} section={s} spoilers={spoilers} name={name} onPicture={setBig} />)}
+        </div>
+      </Covered>
+      {extra}
+      {big && <Picture src={big} onClose={() => setBig(null)} />}
+    </section>
+  );
+}
+
+function WriteBody({ section: s, spoilers, name, onPicture }: { section: WriteSection; spoilers: boolean; name: string; onPicture: (src: string) => void }) {
+  const [shown, setShown] = useState(false);
+  const heading = s.heading && <h4 className="font-display text-lg leading-tight">{s.heading}</h4>;
+  if (s.spoiler && !spoilers && !shown) {
+    return (
+      <div className="grid justify-items-start gap-1.5">
+        <button type="button" onClick={() => setShown(true)} aria-label={`Show ${s.heading || 'this part'} (spoiler)`}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-ink/80 px-3 py-1 text-sm font-bold text-paper hover:bg-ink">
+          <EyeOff size={14} aria-hidden="true" /> Spoiler · tap to show
+        </button>
+      </div>
+    );
+  }
+  const src = s.picture ? pictureUrl(s.picture) : '';
+  return (
+    <div className="grid gap-2">
+      {heading}
+      {paragraphs(s.text).map((p, i) => (
+        <p key={i} className="leading-relaxed">
+          {p.split('\n').map((line, j) => <span key={j}>{j > 0 && <br />}<RichText text={line} skip={name} /></span>)}
+        </p>
+      ))}
+      {src && (
+        <button type="button" onClick={() => onPicture(src)} aria-label="See the picture bigger" className="block justify-self-start overflow-hidden rounded-xl ring-1 ring-line hover:ring-ink">
+          {/* eslint-disable-next-line @next/next/no-img-element -- a builder's picture from our own storage, any size */}
+          <img src={src} alt={s.heading ? `For ${s.heading}` : 'A picture for this part'} loading="lazy" className="max-h-80 w-auto max-w-full object-contain" />
+        </button>
+      )}
+    </div>
   );
 }
 

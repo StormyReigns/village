@@ -91,13 +91,18 @@ their "Steps" and "Tip" sections are these fields.
 | When | `When` | when ("Chapter 9", "Part II") | no | under the name with a clock, and on the row |
 | In short | the entry's description | long text | yes | first, in a box |
 | Watch out | `Watch out` | list | yes | a red box, before the steps |
-| Steps | `Steps` | steps | yes | numbered down a line |
+| Steps | `Steps` | steps | yes | numbered down a line (Quick steps) |
+| Write-up | `Write-up` | write-up | yes | sections with headings, paragraphs and pictures |
 | Tip | `Tip` | long text | yes | the sticky note after the steps |
 | What you get | `What you get` | list | no | its own heading |
 
+A guide has one body: Steps or Write-up. When both fields are switched on, the form asks the
+writer which, and switching moves the text into the other and clears the old, so a saved guide
+never has both. If one ever does (an old Draft, a direct edit), both show, Steps first.
+
 Builders can add their own fields of these kinds: short text, number, tag, place, when, list,
-other guides, long text, yes or no, toggle, or **Steps**. Charts aren't offered in Guides,
-and Steps is offered in Guides only. A Guides Block with no setup of its own uses these
+other guides, long text, yes or no, toggle, **Steps** or **Write-up**. Charts aren't offered
+in Guides, and Steps and Write-up are offered in Guides only. A Guides Block with no setup of its own uses these
 fields, so Ocarina of Time's empty Block is ready too.
 
 How steps are kept (`src/lib/guides.ts`): one step per line of the `Steps` text. A spoiler
@@ -105,6 +110,14 @@ step is wrapped in `||`; a picture is a `[picture:game/person/file]` mark at the
 line. A picture mark only counts when it names a file in the `guide-pictures` bucket in that
 exact shape (no web addresses, no `..`); anything else is dropped. "What changes" in the
 Workshop spells the marks out ("2. (spoiler) Behind the altar (picture)").
+
+How a write-up is kept: the `Write-up` text, one section per `## Heading` line (`##` alone
+for a section without one; the words before the first heading are a section without one).
+A `[spoiler]` line covers the section, heading, words and picture, in the app, in share
+cards and in "What changes" (which still lists the section as "(changed)" when only covered
+words changed, so the fix can be sent). A `[picture:…]` line is its picture, with the same
+rules as a step's. A blank line starts a new paragraph. Marks count only at the very start
+of a line, so words that happen to look like one are kept as words.
 
 ## Builders
 
@@ -114,7 +127,12 @@ Workshop spells the marks out ("2. (spoiler) Behind the altar (picture)").
   guide-like names (What you get, Missable, See also). Moderators save setups for now.
 - **Writing or fixing a guide** uses the same form as characters and items: fields in the
   guide's order, "In short" with the hint "What would you tell a friend, in two lines?",
-  Watch out as one box per row, and the steps as rows. Each step has up and down, a Spoiler
+  Watch out as one box per row, then "How do you want to write it?" with two choices, Quick
+  steps ("numbered steps for a simple task, like changing class") and Write-up ("sections and
+  paragraphs, for strategies and explainers, like the best classes for Fabio"). Once picked,
+  a "Written as" switch above it changes version, bringing everything along. A write-up is a
+  box per section: a heading, the words, and up and down, Spoiler, Picture and remove, with
+  "Add a section". The steps are rows. Each step has up and down, a Spoiler
   switch, a Picture button (signed in; photos are redrawn and stripped of location data, as in
   the chat, 5 MB at most), and remove. Enter starts the next step. The live preview beside it
   (a sheet on phones) is the guide exactly as players see it.
@@ -158,12 +176,29 @@ empty for now.
   steps but say "A spoiler: open it in the app to read" for a spoiler step, and never show a
   picture mark. Why: a link shouldn't spoil what the guide itself covers.
 
+- 2026-11-08: guides come in two versions (Matt). **Quick steps** (what's live) suits simple
+  tasks. **Write-up** is the creative one: a short article of sections, each with an optional
+  heading, paragraphs and a picture, for strategies, explainers and "best way" guides. Both
+  open with "In short". Why: not every guide is a sequence of steps; "best classes for Fabio"
+  is an argument, not a list.
+- 2026-11-08: the writer picks the version when starting a guide ("Quick steps" or
+  "Write-up", each with a one-line example), and can switch later without losing what's
+  written: steps become paragraphs of a write-up, and paragraphs become steps (Matt).
+- 2026-11-08: every guide has its own link, always in view on the open guide (on computers
+  the share button was hidden until pointed at; fixed). Why: Matt wants guides attached to
+  other Blocks later (Esmeralda's recruitment guide on her profile), and a guide's own link
+  is what gets pasted or attached.
+
 ## Open questions
 
 - None open with Matt right now.
 
 ## Later
 
+- **Guides attached to other Blocks** (Matt, 2026-11-08): a guide shows on the entry it's
+  about, like Esmeralda's recruitment guide on her profile card. Likely a field kind that
+  links to guides in another Block, and a "Guides" part on character and item cards. It
+  touches the shared card and fields, so it goes through the hub.
 - Ticking off steps as you go, with the next step standing out (kept on the device).
 - "You'll need": the characters and items a guide needs, as pieces linking across Blocks.
 - Kinds (Beat a fight, How to, Best way, Basics) as symbols and chips.

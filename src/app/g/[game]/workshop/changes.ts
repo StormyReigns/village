@@ -1,7 +1,7 @@
 import type { Block, EntryContent, Route } from '@/data/pages';
 import type { RouteOption } from '@/components/app/EntryPanel';
 import { DESCRIPTION, allStatDefs, fieldsOf } from '@/lib/fields';
-import { parseSteps, stepWords } from '@/lib/guides';
+import { parseSteps, parseWriteup, sectionWords, stepWords } from '@/lib/guides';
 
 // What a Draft changes compared with the entry on Stable, field by field, in words.
 
@@ -22,14 +22,25 @@ export function changesBetween(before: EntryContent | undefined, after: EntryCon
   add('Order', before?.order?.toString(), after.order?.toString());
   const fields = block.type === 'characters' || block.type === 'items' || block.type === 'guide' ? fieldsOf(block) : block.fields ?? [];
   add(fields.find((f) => f.key === DESCRIPTION)?.label ?? 'Description', before?.description, after.description);
-  // A guide's steps in words, numbered, with their spoiler and picture marks spelled out.
-  const words = (label: string, t?: string) => (fields.find((f) => f.key === label)?.kind === 'steps' && t
-    ? parseSteps(t).map((x, i) => `${i + 1}. ${stepWords(x)}`).join('\n') : t);
+  // A guide's steps in words, numbered, with their spoiler and picture marks spelled out. A
+  // write-up's sections in words, with a spoiler section's words and picture kept out.
+  const words = (label: string, t?: string) => {
+    const kind = fields.find((f) => f.key === label)?.kind;
+    if (!t) return t;
+    if (kind === 'steps') return parseSteps(t).map((x, i) => `${i + 1}. ${stepWords(x)}`).join('\n');
+    if (kind === 'writeup') return parseWriteup(t).map((s) => (s.spoiler ? `(spoiler) ${s.heading || 'A section'}: covered here, tap it in the preview to read` : sectionWords(s))).join('\n');
+    return t;
+  };
   for (const k of new Set([...Object.keys(before?.categories ?? {}), ...Object.keys(after.categories)])) {
     add(k, before?.categories?.[k], after.categories[k]);
   }
   for (const label of new Set([...(before?.sections ?? []).map((s) => s.label), ...after.sections.map((s) => s.label)])) {
-    add(fields.find((f) => f.key === label)?.label ?? label, words(label, before?.sections.find((s) => s.label === label)?.text), words(label, after.sections.find((s) => s.label === label)?.text));
+    const name = fields.find((f) => f.key === label)?.label ?? label;
+    const was = before?.sections.find((s) => s.label === label)?.text, now = after.sections.find((s) => s.label === label)?.text;
+    const [wb, wa] = [words(label, was), words(label, now)];
+    // Only covered words changed: still a change (so it can be sent), without showing them.
+    if ((was ?? '').trim() !== (now ?? '').trim() && (wb ?? '').trim() === (wa ?? '').trim()) out.push({ label: name, before: wb, after: `${wa} (changed)` });
+    else add(name, wb, wa);
   }
   if (routeNames(before?.routes) !== routeNames(after.routes)) out.push({ label: 'Appears on', before: before ? routeNames(before.routes) : undefined, after: routeNames(after.routes) });
   for (const r of routes) {

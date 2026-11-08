@@ -30,9 +30,10 @@ export type BlockType = 'collection' | 'guide' | 'checklist' | 'timeline' | 'cha
  * short text, a number, a tag (a pill, and something to filter by), a place or a time
  * (the line under the name), a stats chart, a list (one item per line, "Name: what it
  * does"), links to other entries in the Block, long text, yes/no, or a guide's steps (one per
- * line, each can be a spoiler or carry a picture; Guides Blocks only).
+ * line, each can be a spoiler or carry a picture) or a write-up (sections with a heading, words and
+ * a picture). The last two are offered in Guides Blocks only.
  */
-export type FieldKind = 'text' | 'number' | 'tag' | 'place' | 'when' | 'chart' | 'list' | 'links' | 'longtext' | 'yesno' | 'playable' | 'steps';
+export type FieldKind = 'text' | 'number' | 'tag' | 'place' | 'when' | 'chart' | 'list' | 'links' | 'longtext' | 'yesno' | 'playable' | 'steps' | 'writeup';
 
 /**
  * One field of a Characters, Items or Guides Block, as its builders set it up. Every field is optional on

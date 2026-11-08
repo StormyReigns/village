@@ -1,6 +1,6 @@
 import type { Block, Entry, Page } from './types';
 import { placeText, statFacts } from '../../lib/stats.ts';
-import { STEPS, TIP, parseSteps } from '../../lib/guides.ts';
+import { STEPS, TIP, WRITEUP, parseSteps, parseWriteup } from '../../lib/guides.ts';
 
 // Clean, shareable addresses for a Block or an entry:
 //   /g/fortunes-weave/items/items           the Items Block
@@ -86,6 +86,16 @@ export function shareAnswer(block: Block, entry: Entry, routeNames: Record<strin
     const tip = entry.sections.find((s) => s.label === TIP)?.text;
     const text = [entry.description && flat(entry.description), steps.map((s, i) => `${i + 1}. ${s.replace(/[.!]$/, '')}.`).join(' '), tip && `Tip: ${flat(tip)}`];
     return { facts: [], steps, tip, text: clip(text.filter(Boolean).join(' '), 300) };
+  }
+  const writeup = block.type === 'guide' ? entry.sections.find((s) => s.label === WRITEUP) : undefined;
+  if (writeup) {
+    // A write-up: its sections as facts, a spoiler section covered (heading, words and picture).
+    const facts = parseWriteup(writeup.text).slice(0, 4).map((s) => (s.spoiler
+      ? { label: 'Spoiler', text: 'Open it in the app to read.' }
+      : { label: s.heading || 'Guide', text: flat(s.text) || 'See the picture in the app.' }));
+    const tip = entry.sections.find((s) => s.label === TIP)?.text;
+    const text = [entry.description && flat(entry.description), ...facts.map((f) => (f.label === 'Guide' ? f.text : `${f.label}: ${f.text}`)), tip && `Tip: ${flat(tip)}`];
+    return { facts, steps: [], tip, wide: true, text: clip(text.filter(Boolean).join(' '), 300) };
   }
   const all = summarize(block, entry, routeNames);
   const types = Object.values(entry.categories);
