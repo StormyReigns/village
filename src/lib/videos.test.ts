@@ -70,3 +70,12 @@ test('totals stay hidden until 5 votes', () => {
   assert.equal(tallyText({ helped: 23, notHelped: 2 }), 'Helped 23 players');
   assert.equal(tallyText({ helped: 0, notHelped: 6 }), 'Hasn’t helped yet');
 });
+
+test('whoever added a video can delete it for its first hour', async () => {
+  const { deleteMinutesLeft } = await import('./videos.ts');
+  const added = '2026-11-08T12:00:00Z', t = Date.parse(added);
+  assert.equal(deleteMinutesLeft(added, t), 60);
+  assert.equal(deleteMinutesLeft(added, t + 59.5 * 60000), 1);
+  assert.equal(deleteMinutesLeft(added, t + 60 * 60000), 0);
+  assert.equal(deleteMinutesLeft(added, t + 3 * 3600000), 0);
+});

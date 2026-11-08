@@ -74,6 +74,14 @@ appropriate depending on when and where"):
 - **Under the card**: "This helped" and "Didn't help" (signed in, one vote each, changeable;
   your choice shows in yellow), a report flag, and "2 more videos", which opens the rest, best
   first. Then "Add a video".
+- **Removing** (Matt, 2026-11-08):
+  - **Players** report a video with the flag ("Wrong or out of date", "Unmarked spoiler", "Spam or
+    off topic", "Rude or hurtful", "Something else"); it then says "Reported".
+  - **Whoever added it** sees "Delete · 42 min left" for its first hour and can delete it
+    themselves. After the hour it's "Request removal", which asks the moderators (a report with
+    a note saying who's asking), then "Removal requested".
+  - **Moderators** take any video down at any time, from the video (the bin) or from the Notice
+    Board ("Take video down"). Taking it down closes its reports.
 - **In the guide list** (later): a small play mark with the count on guides that have videos.
 - **A video that's gone** (taken down, made private, or only allowed on YouTube) isn't shown, so
   the next one moves up. If YouTube can't be reached, the video says so, with "Watch on YouTube".
@@ -101,8 +109,9 @@ on one guide. So it's its own record, like a question:
 - **video_votes**: one per player per video, +1 "This helped" or -1 "Didn't help". Who voted
   how stays private; only totals are shared (`video_tallies`). Nobody votes on a video they
   added, like authors and their own Drafts (the hub); their own video says "You added this".
-- Taking a video down (`remove_video`): whoever added it, or a moderator. It also closes any
-  reports about it.
+- Taking a video down (`remove_video`): a moderator at any time, or whoever added it in its
+  first hour (`20261108200000_video_removal_window.sql`). It also closes any reports about it.
+  A removal request is an ordinary report (reason "other", with `REMOVAL_NOTE`).
 - Ranking uses the Standouts maths (`src/lib/standouts.ts`, `public.wilson_lower` in SQL):
   net "helped" votes against everyone who voted, at the believable low end, with one of the top
   five places kept for the newest video so a new one gets seen. Totals stay hidden until 5 votes.
@@ -164,6 +173,11 @@ Go-ahead for all of these from the hub, 2026-11-08.
 - 2026-11-08: nobody votes on a video they added (the hub; Matt kept it after trying it). Their own
   video says "You added this" where the buttons would be. Why: no one can push their own video
   to the top, like authors and their own Drafts.
+
+- 2026-11-08: moderators can take any video down, and players can report one (Matt). Whoever added
+  a video can delete it themselves for its first hour; after that it's "Request removal", which
+  asks the moderators. Why: a fresh mistake is easy to undo, but once players may rely on a video,
+  a moderator decides. The hour is enforced by the database, not just the button.
 
 ## Open questions (for Matt)
 

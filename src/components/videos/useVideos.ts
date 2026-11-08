@@ -39,6 +39,8 @@ const missing = (e: { message?: string; code?: string } | null) =>
 export function useVideos(cardId: string | undefined, meId: string | null | undefined) {
   const [videos, setVideos] = useState<LiveVideo[]>([]);
   const [state, setState] = useState<'loading' | 'ready' | 'missing' | 'offline'>('loading');
+  /** Videos you've reported or asked to have removed, so the button says so. */
+  const [reported, setReported] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     const db = browserClient();
@@ -51,8 +53,13 @@ export function useVideos(cardId: string | undefined, meId: string | null | unde
     const counts = new Map(((tallies.data ?? []) as Row[]).map((t) => [t.video_id as string, t]));
     let votes = new Map<string, number>();
     if (meId && rows.length) {
-      const mine = await db.from('video_votes').select('video_id, value').eq('voter_id', meId).in('video_id', rows.map((r) => r.id as string));
+      const ids = rows.map((r) => r.id as string);
+      const [mine, flagged] = await Promise.all([
+        db.from('video_votes').select('video_id, value').eq('voter_id', meId).in('video_id', ids),
+        db.from('flags').select('video_id').eq('reporter_id', meId).in('video_id', ids),
+      ]);
       votes = new Map(((mine.data ?? []) as Row[]).map((v) => [v.video_id as string, v.value as number]));
+      setReported(new Set(((flagged.data ?? []) as Row[]).map((f) => f.video_id as string)));
     }
     setVideos(rows.map((r) => {
       const c = counts.get(r.id as string);
@@ -67,6 +74,7 @@ export function useVideos(cardId: string | undefined, meId: string | null | unde
 
   useEffect(() => {
     if (!cardId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading this entry's videos from the database
     load().catch(() => setState('offline'));
   }, [cardId, load]);
 
@@ -104,15 +112,18 @@ export function useVideos(cardId: string | undefined, meId: string | null | unde
     return null;
   }, [meId, videos]);
 
-  /** Reports a video to the game's moderators. */
-  const report = useCallback(async (id: string, reason: string): Promise<string | null> => {
+  /** Reports a video to the game's moderators. A removal request from whoever added it is a
+   *  report too ("Something else", with a note saying who's asking). */
+  const report = useCallback(async (id: string, reason: string, note?: string): Promise<string | null> => {
     const db = browserClient();
     if (!db || !meId) return 'Sign in to report.';
-    const { error } = await db.from('flags').insert({ video_id: id, reason, reporter_id: meId });
-    return error ? (/duplicate key|unique/i.test(error.message) ? 'You already reported it. A moderator will take a look.' : videoError(error.message)) : null;
+    const { error } = await db.from('flags').insert({ video_id: id, reason, reporter_id: meId, note: note ?? null });
+    const already = Boolean(error && /duplicate key|unique/i.test(error.message));
+    if (!error || already) setReported((s) => new Set(s).add(id));
+    return error ? (already ? 'You already sent this one. A moderator will take a look.' : videoError(error.message)) : null;
   }, [meId]);
 
-  /** Takes a video down: whoever added it, or a moderator. */
+  /** Takes a video down: a moderator, or whoever added it in its first hour. */
   const remove = useCallback(async (id: string): Promise<string | null> => {
     const db = browserClient();
     if (!db) return "Couldn't reach the village.";
@@ -122,7 +133,7 @@ export function useVideos(cardId: string | undefined, meId: string | null | unde
     return null;
   }, []);
 
-  return { videos: rankVideos(videos), state, add, vote, report, remove };
+  return { videos: rankVideos(videos), state, reported, add, vote, report, remove };
 }
 
 // What YouTube says about each video, asked once per video per visit.

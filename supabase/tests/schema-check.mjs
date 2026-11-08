@@ -260,3 +260,12 @@ const vr = await db.query(`select (select status from public.videos where id = '
 vr.rows[0].st === 'removed' && vr.rows[0].fl === 'resolved' ? ok('taking it down closes its reports') : bad('remove video ' + JSON.stringify(vr.rows));
 const vh = await asUser(C, `select count(*)::int as n from public.videos where id = '${V1}'`);
 vh.rows[0].n === 0 ? ok('a removed video is hidden from players') : bad('removed video seen ' + JSON.stringify(vh.rows));
+// Whoever added a video deletes it only in its first hour; after that they ask for removal (a report).
+const V2 = 'aaaaaaaa-0000-0000-0000-000000000002', V3 = 'aaaaaaaa-0000-0000-0000-000000000003';
+await expectOk(B, `insert into public.videos (id, card_id, youtube_id, added_by) values ('${V2}', '${CARD}', 'abcdefghij2', '${B}')`, 'villager adds another video');
+await expectOk(B, `select public.remove_video('${V2}')`, 'whoever added it can delete it in the first hour');
+await expectOk(B, `insert into public.videos (id, card_id, youtube_id, added_by) values ('${V3}', '${CARD}', 'abcdefghij3', '${B}')`, 'villager adds a third video');
+await db.exec(`update public.videos set created_at = now() - interval '2 hours' where id = '${V3}'`);
+await expectFail(B, `select public.remove_video('${V3}')`, 'after an hour, whoever added it cannot delete it');
+await expectOk(B, `insert into public.flags (video_id, reason, note, reporter_id) values ('${V3}', 'other', 'Removal requested by whoever added it', '${B}')`, 'after an hour, they can ask for removal');
+await expectOk(A, `select public.remove_video('${V3}')`, 'a moderator can take any video down, any time');

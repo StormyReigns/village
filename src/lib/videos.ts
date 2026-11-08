@@ -129,3 +129,18 @@ export function tallyText(t: Pick<VideoTally, 'helped' | 'notHelped'>): string {
   if (t.helped === 0) return 'Hasn’t helped yet';
   return `Helped ${t.helped} ${t.helped === 1 ? 'player' : 'players'}`;
 }
+
+// ---------------------------------------------------------------- Removing
+
+/** Whoever added a video can delete it for its first hour (Matt, 2026-11-08); after that they
+ *  ask the moderators. Matches remove_video() in the database. */
+export const DELETE_WINDOW_MS = 60 * 60 * 1000;
+
+/** Whole minutes left to delete your own video, or 0 when the hour is up. */
+export function deleteMinutesLeft(createdAt: string, now: number): number {
+  const left = Date.parse(createdAt) + DELETE_WINDOW_MS - now;
+  return left > 0 ? Math.ceil(left / 60000) : 0;
+}
+
+/** The note on a removal request, so moderators know it's from whoever added the video. */
+export const REMOVAL_NOTE = 'Removal requested by whoever added it.';

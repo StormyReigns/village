@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ExternalLink, Flag, Play, Plus, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react';
 import { useVillager } from '@/components/useVillager';
-import { embedUrl, formatTime, parseTime, parseVideoLink, tallyText, thumbUrl, watchUrl, type VideoInfo, type VideoLink } from '@/lib/videos';
+import { REMOVAL_NOTE, deleteMinutesLeft, embedUrl, formatTime, parseTime, parseVideoLink, tallyText, thumbUrl, watchUrl, type VideoInfo, type VideoLink } from '@/lib/videos';
 import { fetchVideoInfo, useVideoInfo, useVideoInfos, useVideos, type LiveVideo } from './useVideos';
 
 // Videos on an entry (docs/blocks/videos.md). They play in YouTube's own privacy-enhanced
@@ -53,7 +54,8 @@ export function Videos({ cardId, size, name, label, color, className = '' }: {
   if (data.state === 'loading') return null;
 
   const heading = label ?? (size === 'big' ? 'See it done' : 'Videos');
-  const canRemove = (v: LiveVideo) => Boolean(me && (v.addedBy === me.id || (me.isModerator && (me.modGames.includes(null) || me.modGames.includes(v.gameId)))));
+  // Moderators take any video down; whoever added it gets their first hour (VideoCard).
+  const canRemove = (v: LiveVideo) => Boolean(me && me.isModerator && (me.modGames.includes(null) || me.modGames.includes(v.gameId)));
   const shared = { me, data, canRemove };
 
   const top = videos[0];
@@ -149,6 +151,7 @@ function VideoCard({ v, me, data, canRemove, autoplay = false, onClose }: Shared
   const title = ok?.title ?? 'A video';
   const tally = tallyText(v);
   const own = Boolean(me && v.addedBy === me.id);
+  const minutesLeft = useMinutesLeft(own ? v.createdAt : null);
   if (gone(info)) return null;
 
   return (
@@ -182,15 +185,37 @@ function VideoCard({ v, me, data, canRemove, autoplay = false, onClose }: Shared
           className="ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-bold text-muted hover:text-ink">
           Watch on YouTube <ExternalLink size={13} aria-hidden="true" />
         </a>
-        {me && !own && (
-          <button type="button" onClick={() => setReporting(!reporting)} aria-label="Report this video" aria-expanded={reporting}
-            className="grid size-8 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink"><Flag size={14} aria-hidden="true" /></button>
-        )}
-        {canRemove(v) && (
+        {me && !own && (data.reported.has(v.id)
+          ? <span className="px-1 text-xs font-bold text-muted">Reported</span>
+          : (
+            <button type="button" onClick={() => setReporting(!reporting)} aria-label="Report this video" aria-expanded={reporting}
+              className="grid size-8 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink"><Flag size={14} aria-hidden="true" /></button>
+          ))}
+        {canRemove(v) ? (
+          // Moderators: any video, any time.
           <button type="button" aria-label="Take this video down" title="Take it down"
             onClick={async () => { if (window.confirm('Take this video down? It leaves this entry for everyone.')) setNote((await data.remove(v.id)) ?? ''); }}
             className="grid size-8 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink"><Trash2 size={14} aria-hidden="true" /></button>
-        )}
+        ) : own && minutesLeft > 0 ? (
+          // Whoever added it: their own call for the first hour.
+          <button type="button"
+            onClick={async () => { if (window.confirm(`Delete this video? You can delete it yourself for ${minutesLeft} more ${minutesLeft === 1 ? 'minute' : 'minutes'}.`)) setNote((await data.remove(v.id)) ?? ''); }}
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold text-muted hover:bg-card-2 hover:text-ink">
+            <Trash2 size={13} aria-hidden="true" /> Delete · {minutesLeft} min left
+          </button>
+        ) : own && (data.reported.has(v.id) ? (
+          <span className="px-1 text-xs font-bold text-muted">Removal requested</span>
+        ) : (
+          // After the hour, others may rely on it: a moderator decides.
+          <button type="button"
+            onClick={async () => {
+              if (!window.confirm('Ask the moderators to take this video down?')) return;
+              setNote((await data.report(v.id, 'other', REMOVAL_NOTE)) ?? 'Sent. A moderator will take a look.');
+            }}
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold text-muted hover:bg-card-2 hover:text-ink">
+            <Flag size={13} aria-hidden="true" /> Request removal
+          </button>
+        ))}
       </div>
       {reporting && (
         <div className="flex flex-wrap gap-1.5 text-xs">
@@ -208,6 +233,19 @@ function VideoCard({ v, me, data, canRemove, autoplay = false, onClose }: Shared
   );
 }
 
+/** Minutes left to delete your own video, counted down while the card is open (0 for others). */
+function useMinutesLeft(createdAt: string | null): number {
+  const [left, setLeft] = useState(0);
+  useEffect(() => {
+    if (!createdAt) return;
+    const tick = () => setLeft(deleteMinutesLeft(createdAt, Date.now()));
+    tick();
+    const timer = setInterval(tick, 15000);
+    return () => clearInterval(timer);
+  }, [createdAt]);
+  return createdAt ? left : 0;
+}
+
 function Vote({ on, signedIn, label, icon, onClick }: { on: boolean; signedIn: boolean; label: string; icon: React.ReactNode; onClick: () => void }) {
   const cls = 'inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-bold ' + (on ? 'bg-signal text-ink' : 'btn-quiet');
   if (!signedIn) {
@@ -218,9 +256,13 @@ function Vote({ on, signedIn, label, icon, onClick }: { on: boolean; signedIn: b
 
 /** "Sign in" that comes back to this exact spot (the open entry is in the address). */
 function SignInLink({ className, what, children }: { className: string; what: string; children: React.ReactNode }) {
-  const [here, setHere] = useState('/');
-  useEffect(() => { setHere(window.location.pathname + window.location.search); }, []);
-  return <Link href={`/signin?next=${encodeURIComponent(here)}&for=${encodeURIComponent(what)}`} className={className}>{children}</Link>;
+  const router = useRouter();
+  const go = (e: React.MouseEvent) => {
+    // Read where we are at the tap, so the open entry (?e=…) comes back after signing in.
+    e.preventDefault();
+    router.push(`/signin?next=${encodeURIComponent(window.location.pathname + window.location.search)}&for=${encodeURIComponent(what)}`);
+  };
+  return <Link href="/signin" onClick={go} className={className}>{children}</Link>;
 }
 
 /** A video as a small row: a thumbnail, the title and who made it. Tapping plays it. */
