@@ -1,6 +1,6 @@
 # Questions (replaces the Mysteries Block)
 
-**Status:** Building, steps 1 to 4 of 6 done (2026-11-08) · **Chat:** `Village · Block: Questions`
+**Status:** Building, steps 1 to 5 of 6 done (2026-11-08) · **Chat:** `Village · Block: Questions`
 (designed in `Village · Block: Guides`) · **Mockup:** none yet · **Replaces:** the Mysteries
 Block (a "rows" Collection) on every game's Guides Page · **Code today:** Mysteries is a
 Collection with a Status filter; its panel has "I know the answer" and "Share a theory"
@@ -125,7 +125,10 @@ Built in `Village · Block: Questions`, one shippable step at a time (2026-11-08
    new one) with the question in a card at the top and "Reply to the asker" under it; the Draft
    carries both (`question_id`, `reply`), and Draft cards show "Answers: …". "It's already
    there" picks the entry, takes the reply and closes the question at once.
-5. **Inbox bell** (`src/components/Inbox.tsx`), shown from `AccountButton.tsx`.
+5. **Inbox bell** (done, `src/components/Inbox.tsx`, shown from `AccountButton.tsx`): a bell beside
+   your avatar with a yellow dot while anything is unread; opening it marks everything read, and
+   each reply links to the entry. On phones the avatar button drops your name (it's in its menu)
+   so the bar keeps its room.
 6. **Mysteries move in**: their 6 entries become open questions (what was known goes along as a
    note), and the Block leaves the Guides Page with its history kept.
 

@@ -9,6 +9,7 @@ import { useViewAsSetting } from './viewAs';
 import { ModPowers, ViewAsReminder } from './ModPowers';
 import { SignInForm } from './SignInForm';
 import { Avatar } from './Avatar';
+import { InboxBell } from './Inbox';
 
 /**
  * "Sign in" when signed out; your avatar with a small menu when signed in. Moderators
@@ -69,14 +70,17 @@ function Account({ villager, quiet, dark }: { villager: Villager | null | undefi
   // A new account still has its placeholder name (villager_1a2b3c4d) until they pick one.
   const fresh = villager.username.startsWith('villager_');
   return (
-    <div ref={box} className="relative">
+    <div ref={box} className="relative flex items-center gap-1">
+      {/* Replies to your questions, and other news for you (src/components/Inbox.tsx). */}
+      <InboxBell dark={dark} />
       <button onClick={() => setMenu(!menu)} aria-expanded={menu} aria-label={`Signed in as ${villager.displayName}`}
-        className="btn-quiet flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm font-bold">
+        className="btn-quiet flex items-center gap-2 rounded-full p-1 text-sm font-bold sm:pr-3">
         <span className="relative">
           <Avatar name={villager.displayName} url={villager.avatarUrl} />
           {fresh && <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-berry ring-2 ring-card" aria-hidden="true" />}
         </span>
-        <span className="max-w-28 truncate">{villager.displayName}</span>
+        {/* On phones just the avatar, so the bar has room for the bell; the name is in the menu. */}
+        <span className="hidden max-w-28 truncate sm:inline">{villager.displayName}</span>
       </button>
       {menu && (
         <div className="surface pop absolute right-0 z-40 mt-2 w-56 rounded-2xl p-2 text-sm">
