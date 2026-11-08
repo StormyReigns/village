@@ -9,6 +9,9 @@ export interface Unsent {
   entryId?: string;
   content: EntryContent;
   source: string;
+  /** The question it answers, and the reply for the asker (docs/blocks/questions.md). */
+  question?: { id: string; body: string };
+  reply?: string;
   savedAt: number;
 }
 

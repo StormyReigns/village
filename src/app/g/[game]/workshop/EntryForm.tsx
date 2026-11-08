@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Search, Trash2 } from 'lucide-react';
+import { CircleHelp, Plus, Search, Trash2 } from 'lucide-react';
 import type { Block, Entry, EntryContent, Page, Route, Section } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
 import { SignInPrompt } from '@/components/SignInPrompt';
@@ -22,7 +22,11 @@ import { uploadPicture, type NewDraft } from './useWorkshop';
 
 /** Where the form opens: a Block to add to, optionally the entry being fixed, and the one
  *  part of it to fix ("description", "routes", "section:Where to get it") from an app pencil. */
-export interface FormStart { blockId: string; entryId?: string; field?: string; theory?: boolean }
+export interface FormStart {
+  blockId: string; entryId?: string; field?: string; theory?: boolean;
+  /** Answering a player's question (docs/blocks/questions.md): it closes when this Draft ships. */
+  question?: { id: string; body: string };
+}
 
 /** What happened when a Draft was sent, for the Workshop's thank-you note. */
 export interface Posted { pageId: string; blockId: string; entryId?: string; draftId?: string; name: string }
@@ -101,6 +105,9 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
     return c;
   });
   const [source, setSource] = useState(restore?.source ?? '');
+  // The question this Draft answers, and the short reply the asker gets when it ships.
+  const question = start.question ?? restore?.question;
+  const [reply, setReply] = useState(() => restore?.reply ?? (fixing ? `Updated ${fixing.name} for you` : ''));
   // From an app pencil: show just that part, with the rest folded under "Edit other parts".
   const [showAll, setShowAll] = useState(!start.field || !fixing);
   const [focusSection] = useState(() => start.field?.startsWith('section:') ? content.sections.findIndex((s) => s.label === start.field!.slice(8)) : -1);
@@ -128,8 +135,8 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
     const worth = fixing
       ? Boolean(source.trim()) || JSON.stringify(clean(content)) !== JSON.stringify(clean(contentOf(fixing)))
       : hasWriting(content, source);
-    if (worth) saveUnsent(gameId, { blockId, entryId: fixing?.id, content, source });
-  }, [gameId, blockId, fixing, content, source]);
+    if (worth) saveUnsent(gameId, { blockId, entryId: fixing?.id, content, source, ...(question ? { question, reply } : {}) });
+  }, [gameId, blockId, fixing, content, source, question, reply]);
   const [find, setFind] = useState('');
   const wide = useWide();
   const [note, setNote] = useState('');
@@ -189,6 +196,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
     const res = await postDraft({
       blockKey: block.id, kind: 'fact', title: cleaned.name, content: cleaned, source: source.trim(),
       theory: cleaned.flag === 'unconfirmed', cardId: fixing?.ref?.card, baseRevision: fixing?.ref?.revision,
+      ...(question ? { question: { id: question.id, reply: reply.trim() || `${fixing ? 'Updated' : 'Added'} ${cleaned.name} for you` } } : {}),
     });
     setBusy(false);
     if (res.error) setNote(res.error);
@@ -209,6 +217,20 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
   // phone the preview below keeps its room.
   const intro = (
     <>
+        {question && (
+          <div className="mt-2 grid gap-2 rounded-2xl bg-card p-3 ring-1 ring-ink">
+            <p className="flex items-start gap-2 text-sm">
+              <CircleHelp size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+              <span><span className="font-bold">Answering:</span> {question.body}</span>
+            </p>
+            <label className="grid gap-1">
+              <span className="text-sm font-bold">Reply to the asker</span>
+              <input value={reply} maxLength={500} onChange={(e) => setReply(e.target.value)}
+                placeholder={`${fixing ? 'Updated' : 'Added'} ${cleaned.name || 'it'} for you`} className={input} />
+              <span className="text-xs text-muted">They get it in their inbox when this Draft is published, and the question closes.</span>
+            </label>
+          </div>
+        )}
         {me === null && !restore && (
               <p className="mt-2 rounded-2xl bg-sky-soft px-3 py-2 text-sm">
                 Write as much as you like. You&apos;ll sign in when you submit, and nothing you write here is lost.

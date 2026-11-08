@@ -1,6 +1,6 @@
 # Questions (replaces the Mysteries Block)
 
-**Status:** Building, steps 1 and 2 of 6 done (2026-11-08) · **Chat:** `Village · Block: Questions`
+**Status:** Building, steps 1 to 4 of 6 done (2026-11-08) · **Chat:** `Village · Block: Questions`
 (designed in `Village · Block: Guides`) · **Mockup:** none yet · **Replaces:** the Mysteries
 Block (a "rows" Collection) on every game's Guides Page · **Code today:** Mysteries is a
 Collection with a Status filter; its panel has "I know the answer" and "Share a theory"
@@ -118,9 +118,13 @@ Built in `Village · Block: Questions`, one shippable step at a time (2026-11-08
 2. **The bar and Ask** (done, `src/components/questions/`): the bar under every Page's title, the
    Page's questions sheet, the Ask sheet (also from a search that found nothing), every open
    question on the first Page with a guide Block, and "Help answer" on the app's front page.
-3. **Workshop tab** (`workshop/Questions.tsx`), and question reports on the Notice Board.
-4. **The two ways to answer**: a Draft carrying the question and reply (`EntryForm.tsx`,
-   `useWorkshop.ts`), and linking an entry.
+3. **Workshop tab** (done, `workshop/Questions.tsx`): a third tab beside Drafts and "In the app",
+   oldest first, with each question's open Drafts and how long each has been open; `?tab=questions`
+   opens it. Question reports go on the Notice Board with the others (a "Reported" mark here).
+4. **The two ways to answer** (done): "Update the app" opens the editor on the right entry (or a
+   new one) with the question in a card at the top and "Reply to the asker" under it; the Draft
+   carries both (`question_id`, `reply`), and Draft cards show "Answers: …". "It's already
+   there" picks the entry, takes the reply and closes the question at once.
 5. **Inbox bell** (`src/components/Inbox.tsx`), shown from `AccountButton.tsx`.
 6. **Mysteries move in**: their 6 entries become open questions (what was known goes along as a
    note), and the Block leaves the Guides Page with its history kept.
@@ -160,6 +164,9 @@ Built in `Village · Block: Questions`, one shippable step at a time (2026-11-08
   and shows back and next arrows instead; spoiler questions read "Spoiler · tap to show". The
   list of every open question goes on the first Page with a guide Block, never a fixed id, so
   every game gets one.
+
+- 2026-11-08 (building, the hub): question reports are handled on the Notice Board with every
+  other report, so moderators have one place to look; the Questions tab only marks them.
 
 ## Open questions
 

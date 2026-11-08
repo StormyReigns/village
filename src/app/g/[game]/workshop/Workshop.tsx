@@ -1,9 +1,9 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, EyeOff, FileText, Flag, Hammer, MessageCircle, PanelLeftOpen, Plus,
+  ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, CircleHelp, EyeOff, FileText, Flag, Hammer, MessageCircle, PanelLeftOpen, Plus,
   RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import type { Page } from '@/data/pages';
@@ -39,6 +39,8 @@ import { useBeside } from './split';
 import { sharePath } from '@/data/pages/links';
 import { changesBetween } from './changes';
 import { clearUnsent, readUnsent, saveUnsent, type Unsent } from './unsent';
+import { QuestionsTab } from './Questions';
+import { useQuestions } from '@/components/questions/useQuestions';
 
 type Sort = 'standouts' | 'new' | 'needs' | 'shipped';
 const SORTS: { key: Sort; label: string }[] = [
@@ -76,7 +78,9 @@ export function Workshop({ game, pages, routes }: {
   const [setup, setSetup] = useState<string | null>(null);
   // The work column shows Drafts or what's in the app. Until you pick, it opens on Drafts
   // when something waits on you.
-  const [tab, setTab] = useState<'drafts' | 'app' | null>(linked ? 'app' : null);
+  // ?tab=questions (from the app's "Answer in the Workshop") opens the Questions tab.
+  const tabParam = (): 'questions' | null => (params.get('tab') === 'questions' ? 'questions' : null);
+  const [tab, setTab] = useState<'drafts' | 'app' | 'questions' | null>(linked ? 'app' : tabParam());
   // ?draft=… (from the app's "A fix is waiting" note) opens that Draft.
   const [detail, setDetail] = useState<string | null>(params.get('draft'));
   // ?msg=42 (a link to one chat message) jumps to it once the chat has loaded.
@@ -130,7 +134,7 @@ export function Workshop({ game, pages, routes }: {
     const u = readUnsent(game.id);
     if (!u || !blocks.some((b) => b.id === u.blockId)) return;
     setRestore(u);
-    setForm({ blockId: u.blockId, entryId: u.entryId });
+    setForm({ blockId: u.blockId, entryId: u.entryId, question: u.question });
     setChip(blocks.find((b) => b.id === u.blockId)!.page.id);
   };
   useEffect(() => {
@@ -152,6 +156,20 @@ export function Workshop({ game, pages, routes }: {
     if (params.get('draft')) setDetail(params.get('draft'));
     if (Number(params.get('msg'))) setPendingMsg(Number(params.get('msg')));
   }
+  // ?tab= is followed on its own, only when a link brings it; once read it's dropped from the
+  // address, so a later re-render can never snap the tab back.
+  const tabP = params.get('tab');
+  const [followedTab, setFollowedTab] = useState(tabP);
+  if (tabP !== followedTab) {
+    setFollowedTab(tabP);
+    if (tabParam()) setTab(tabParam());
+  }
+  useEffect(() => {
+    if (!tabP) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('tab');
+    window.history.replaceState({}, '', url); // a fresh state, so Next notices the change
+  }, [tabP]);
   // ?page= is followed on its own: the Workshop also writes it (below), and that mustn't
   // reopen whatever a link once opened.
   const pageParam = params.get('page');
@@ -189,6 +207,11 @@ export function Workshop({ game, pages, routes }: {
   // phone chat leaves room for it, so it never covers the message box.
   const viewingAs = useViewAsSetting() !== 'self';
   const live = useWorkshop(game.id, me);
+  const questions = useQuestions(game.id, me?.id);
+  const questionBody = useMemo(() => {
+    const bodies = new Map(questions.questions.map((q) => [q.id, q.body]));
+    return (id: string) => bodies.get(id);
+  }, [questions.questions]);
 
   /** The app address of the entry a Draft fixed, for "Back to …". */
   const backTo = (p: Posted) => {
@@ -285,7 +308,9 @@ export function Workshop({ game, pages, routes }: {
   const matches = (d: LiveDraft) => !query || d.title.toLowerCase().includes(query.toLowerCase());
   const rest = visible.filter((d) => !waitingIds.has(d.id) && matches(d));
   const view = tab ?? (live.state === 'loading' || waiting.length > 0 ? 'drafts' : 'app');
-  const workSubtitle = view === 'drafts' ? (waiting.length ? `Drafts · ${waiting.length} waiting on you` : 'Drafts') : 'In the app';
+  const openQuestions = questions.state === 'ready' ? questions.questions.filter((q) => q.status === 'open' && (!current || q.pageKey === current.id)).length : 0;
+  const workSubtitle = view === 'drafts' ? (waiting.length ? `Drafts · ${waiting.length} waiting on you` : 'Drafts')
+    : view === 'questions' ? (openQuestions ? `Questions · ${openQuestions} open, oldest first` : 'Questions') : 'In the app';
   const tint = current ? `var(--${current.tint}-soft)` : 'var(--card)';
 
   // An editor opens in the work column, so on wide screens the chat stays beside it.
@@ -382,6 +407,7 @@ export function Workshop({ game, pages, routes }: {
 
   return (
     <ChatLinks.Provider value={{ gameId: game.id, threads, open: openThread, routes, me: myId, jump }}>
+    <AnsweringQuestion.Provider value={questionBody}>
     {/* On phones the Chat tab fills the screen like the wide layout: messages scroll inside it
         and the message box stays at the bottom (page.tsx sizes the screen from data-phone-chat). */}
     <main data-phone-chat={phoneTab === 'chat' || undefined}
@@ -520,7 +546,7 @@ export function Workshop({ game, pages, routes }: {
                       <label className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-card-2 px-3 py-1.5 text-sm ring-2 ring-sky">
                         <Search size={15} className="text-muted" aria-hidden="true" />
                         <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); setSearching(false); } }}
-                          placeholder={view === 'drafts' ? 'Find a Draft' : current ? `Find something in ${current.title}` : 'Find anything in the app'} aria-label="Search"
+                          placeholder={view === 'drafts' ? 'Find a Draft' : view === 'questions' ? 'Find a question' : current ? `Find something in ${current.title}` : 'Find anything in the app'} aria-label="Search"
                           className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted" />
                         <button type="button" onClick={() => { setQuery(''); setSearching(false); }} aria-label="Close search" className="grid size-6 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
                           <X size={14} aria-hidden="true" />
@@ -540,7 +566,7 @@ export function Workshop({ game, pages, routes }: {
                     {!searching && (
                       <>
                         <p className="min-w-0 flex-1 truncate text-xs font-bold text-muted lg:hidden">{workSubtitle}</p>
-                        <Tip text={view === 'drafts' ? 'Search these Drafts' : "Search this Page's entries"} tint="sky" className="shrink-0">
+                        <Tip text={view === 'drafts' ? 'Search these Drafts' : view === 'questions' ? 'Search these questions' : "Search this Page's entries"} tint="sky" className="shrink-0">
                           <button onClick={() => setSearching(true)} aria-label="Search"
                             className="grid size-9 place-items-center rounded-full bg-card ring-1 ring-line hover:ring-ink">
                             <Search size={16} aria-hidden="true" />
@@ -564,6 +590,15 @@ export function Workshop({ game, pages, routes }: {
                         <button role="tab" aria-selected={view === 'app'} onClick={() => setTab('app')} aria-label="In the app"
                           className={'grid size-8 place-items-center rounded-full ' + (view === 'app' ? 'bg-ink text-paper' : 'text-muted hover:text-ink')}>
                           <Hammer size={16} aria-hidden="true" />
+                        </button>
+                      </Tip>
+                      <Tip text={openQuestions ? `Questions: ${openQuestions} players are waiting on` : 'Questions players have asked'}>
+                        <button role="tab" aria-selected={view === 'questions'} onClick={() => setTab('questions')} aria-label="Questions"
+                          className={'relative grid size-8 place-items-center rounded-full ' + (view === 'questions' ? 'bg-ink text-paper' : 'text-muted hover:text-ink')}>
+                          <CircleHelp size={16} aria-hidden="true" />
+                          {openQuestions > 0 && (
+                            <span aria-hidden="true" className="absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-card px-1 text-[10px] font-bold leading-4 text-ink ring-1 ring-line">{openQuestions}</span>
+                          )}
                         </button>
                       </Tip>
                     </div>
@@ -688,6 +723,10 @@ export function Workshop({ game, pages, routes }: {
                       )}
                     </>
                   )
+                ) : view === 'questions' ? (
+                  <QuestionsTab data={questions} pages={pages} blocks={blocks} page={current} drafts={drafts} me={me} mod={live.mod} query={query}
+                    reported={new Set(live.reports.flatMap((r) => ('questionId' in r.target ? [r.target.questionId] : [])))}
+                    onAnswer={(a) => setForm({ blockId: a.blockId, entryId: a.entryId, question: a.question })} onOpenDraft={setDetail} />
                 ) : (
                   <AppContents pages={current ? [current] : pages} drafts={drafts} query={query} focus={form?.entryId ? `${form.blockId}.${form.entryId}` : undefined}
                     onFix={(blockId, entryId) => setForm({ blockId, entryId })} onAdd={(blockId) => setForm({ blockId })} onSetup={setSetup}
@@ -734,6 +773,7 @@ export function Workshop({ game, pages, routes }: {
         </Sheet>
       )}
     </main>
+    </AnsweringQuestion.Provider>
     </ChatLinks.Provider>
   );
 }
@@ -844,12 +884,16 @@ function DraftModTools({ draft, live }: { draft: LiveDraft; live: WorkshopData }
   );
 }
 
+/** The question a Draft answers, from the Workshop's questions (none before the SQL is run). */
+const AnsweringQuestion = createContext<(id: string) => string | undefined>(() => undefined);
+
 function DraftCard({ draft, place, routes, me, chatCount, onChat, live, startOpen = false }: {
   draft: LiveDraft; place?: Placed; routes: RouteOption[]; me: Villager | null | undefined;
   /** Messages in the thread this Draft belongs to (its entry's, or its own for a new entry). */
   chatCount: number; onChat: () => void;
   live: WorkshopData; startOpen?: boolean;
 }) {
+  const answering = useContext(AnsweringQuestion);
   const [open, setOpen] = useState(startOpen);
   const [reporting, setReporting] = useState(false);
   const [error, setError] = useState('');
@@ -899,6 +943,12 @@ function DraftCard({ draft, place, routes, me, chatCount, onChat, live, startOpe
             <Avatar name={draft.author.name} url={draft.author.avatarUrl} size={18} />
             {block.page.title === block.title ? block.title : `${block.page.title} · ${block.title}`} · {draft.author.name} · {ago(draft.createdAt)} · {STATUS[draft.status] ?? draft.status}
           </span>
+          {draft.questionId && (
+            <span className="mt-1 flex items-start gap-1.5 text-sm">
+              <CircleHelp size={14} className="mt-0.5 shrink-0 text-muted" aria-hidden="true" />
+              <span><span className="font-bold">Answers:</span> {answering(draft.questionId) ?? 'a question'}{draft.reply && <span className="text-muted"> · reply: “{draft.reply}”</span>}</span>
+            </span>
+          )}
         </span>
       </button>
       {draft.status === 'declined' && draft.declineReason && (
@@ -955,7 +1005,7 @@ function VoteButton({ on, onClick, icon, label, children }: { on: boolean; onCli
 /** Moderators' Notice Board: open reports, one card per reported thing. */
 function ReportQueue({ live, blocks }: { live: WorkshopData; blocks: Placed[] }) {
   if (live.reports.length === 0) {
-    return <Empty title="No reports waiting" body="When a villager reports a message or a Draft, it waits here. Only moderators see reports." />;
+    return <Empty title="No reports waiting" body="When a villager reports a message, a Draft or a question, it waits here. Only moderators see reports." />;
   }
   return (
     <ul className="mt-3 grid gap-3">
@@ -968,6 +1018,7 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
   const { run, busy, error } = useAction();
   const reasons = r.reasons.map((k) => REASONS.find((x) => x.key === k)?.label ?? k);
   const block = r.draft ? blocks.find((b) => b.id === r.draft!.blockKey) : undefined;
+  const questionPage = r.question ? blocks.find((b) => b.page.id === r.question!.pageKey)?.page : undefined;
   return (
     <li className="rise rounded-3xl bg-card-2 p-3 ring-1 ring-line">
       <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -989,6 +1040,11 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
         <p className="mt-2 rounded-2xl bg-card p-2.5 text-sm ring-1 ring-line">
           <span className="font-bold">Draft:</span> {r.draft.title}{block && <span className="text-muted"> · {block.page.title === block.title ? block.title : `${block.page.title} · ${block.title}`}</span>}
         </p>
+      ) : r.question ? (
+        <p className="mt-2 rounded-2xl bg-card p-2.5 text-sm ring-1 ring-line">
+          <span className="font-bold">Question:</span> {r.question.body}
+          <span className="text-muted">{questionPage ? ` · ${questionPage.title}` : ''}{r.question.spoiler ? ' · spoiler' : ''}{r.question.status === 'removed' ? ' · removed' : ''}</span>
+        </p>
       ) : null}
       {r.notes.length > 0 && (
         <ul className="mt-2 grid gap-1 text-sm text-muted">
@@ -1007,6 +1063,9 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
                 icon={<EyeOff size={13} aria-hidden="true" />}>Mark as spoiler</SmallButton>
             )}
           </>
+        ) : 'questionId' in r.target ? r.question?.status !== 'removed' && (
+          <SmallButton tone="bad" disabled={busy} onClick={() => run(() => live.moderate.removeQuestion((r.target as { questionId: string }).questionId))}
+            icon={<Trash2 size={13} aria-hidden="true" />}>Remove question</SmallButton>
         ) : r.draft?.status !== 'removed' && (
           <SmallButton tone="bad" disabled={busy} onClick={() => run(() => live.moderate.decide((r.target as { draftId: string }).draftId, 'removed'))}
             icon={<Trash2 size={13} aria-hidden="true" />}>Remove Draft</SmallButton>

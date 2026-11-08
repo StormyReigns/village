@@ -63,6 +63,9 @@ export interface LiveDraft extends DraftStats {
   theory: boolean;
   status: string;
   declineReason: string | null;
+  /** The question it answers (docs/blocks/questions.md), and the reply the asker gets when it ships. */
+  questionId: string | null;
+  reply: string | null;
   author: Author;
   myVote: 0 | 1 | -1;
   /** A practice vote on your own Draft, kept on this device only (see "see the site as"). */
@@ -78,6 +81,8 @@ export interface NewDraft {
   theory: boolean;
   cardId?: string;
   baseRevision?: number;
+  /** Answers a question: shipping it closes the question and sends the reply. */
+  question?: { id: string; reply: string };
 }
 
 export type ReportReason = 'spam' | 'rude' | 'spoiler' | 'wrong' | 'other';
@@ -89,9 +94,12 @@ export const REASONS: { key: ReportReason; label: string }[] = [
   { key: 'other', label: 'Something else' },
 ];
 
-/** What's being reported: a chat message or a Draft. */
-export type Target = { messageId: number } | { draftId: string };
-export const targetKey = (t: Target) => ('messageId' in t ? `m:${t.messageId}` : `d:${t.draftId}`);
+/** What's being reported: a chat message, a Draft or a question. */
+export type Target = { messageId: number } | { draftId: string } | { questionId: string };
+export const targetKey = (t: Target) => ('messageId' in t ? `m:${t.messageId}` : 'draftId' in t ? `d:${t.draftId}` : `q:${t.questionId}`);
+/** The database column that names a report's target. */
+const targetColumn = (t: Target) => ('messageId' in t ? { message_id: t.messageId } : 'draftId' in t ? { draft_id: t.draftId } : { question_id: t.questionId });
+const targetOf = (r: Row): Target | null => (r.message_id ? { messageId: r.message_id as number } : r.draft_id ? { draftId: r.draft_id as string } : r.question_id ? { questionId: r.question_id as string } : null);
 
 /** Open reports about one thing, gathered for the Notice Board. */
 export interface ReportGroup {
@@ -103,6 +111,7 @@ export interface ReportGroup {
   firstAt: string;
   message?: { body: string; author: Author; removed: boolean; spoiler: boolean };
   draft?: { title: string; status: string; blockKey: string };
+  question?: { body: string; pageKey: string | null; status: string; spoiler: boolean };
 }
 
 type Row = Record<string, unknown>;
@@ -111,6 +120,7 @@ const MESSAGE_COLUMNS = 'id, body, block_key, linked_draft_id, thread_key, spoil
 const MESSAGE = `${MESSAGE_COLUMNS}, kind, event, attachments, reply_to, author:profiles!chat_messages_author_id_fkey(${PROFILE})`;
 // Until the system-notes SQL (20261101120000_chat_reactions_system.sql) is run, the database
 // has no kind or event, so the chat reads without them rather than going dark.
+const DRAFT_COLUMNS = `id, block_key, kind, title, content, card_id, base_revision_id, source, theory, status, decline_reason, created_at, author_id, author:profiles!drafts_author_id_fkey(${PROFILE})`;
 const OLD_MESSAGE = MESSAGE.replace('kind, event, attachments, reply_to, ', '');
 const missingColumn = (e: { message?: string } | null) => Boolean(e && /(kind|event|thread_key|attachments|reply_to)\b.*does not exist|does not exist.*(kind|event|attachments|reply_to)/.test(e.message ?? ''));
 
@@ -300,25 +310,31 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
   const loadDrafts = useCallback(async () => {
     const db = browserClient();
     if (!db) return;
-    let q = db.from('drafts')
-      .select(`id, block_key, kind, title, content, card_id, base_revision_id, source, theory, status, decline_reason, created_at, author_id, author:profiles!drafts_author_id_fkey(${PROFILE})`)
-      .eq('game_id', gameId).order('created_at', { ascending: false }).limit(200);
-    if (!mod) q = q.neq('status', 'removed');
+    const drafts = (columns: string) => {
+      const q = db.from('drafts').select(columns).eq('game_id', gameId).order('created_at', { ascending: false }).limit(200);
+      return mod ? q : q.neq('status', 'removed');
+    };
+    // Before the Questions SQL is run Drafts have no question_id or reply: read without them.
+    const read = async () => {
+      const first = await drafts(`${DRAFT_COLUMNS}, question_id, reply`);
+      return first.error && /question_id|reply/.test(first.error.message) ? drafts(DRAFT_COLUMNS) : first;
+    };
     const [d, s, v] = await Promise.all([
-      q,
+      read(),
       db.from('draft_scores').select('draft_id, ups, downs, viewers').eq('game_id', gameId),
       meId ? db.from('draft_votes').select('draft_id, value').eq('voter_id', meId) : Promise.resolve({ data: [] as Row[] }),
     ]);
     if (d.error) throw d.error;
     const scores = new Map((s.data ?? []).map((r: Row) => [r.draft_id as string, r]));
     const mine = new Map((v.data ?? []).map((r: Row) => [r.draft_id as string, r.value as number]));
-    setDrafts((d.data ?? []).map((r: Row) => {
+    setDrafts(((d.data ?? []) as unknown as Row[]).map((r: Row) => {
       const sc = scores.get(r.id as string);
       return {
         id: r.id as string, blockKey: r.block_key as string, kind: r.kind === 'opinion' ? 'opinion' : 'fact',
         title: r.title as string, content: ((c: Partial<EntryContent>) => ({ ...c, name: c.name ?? (r.title as string), sections: c.sections ?? [], categories: c.categories ?? {} }))(r.content as Partial<EntryContent>), source: (r.source as string) ?? null,
         cardId: (r.card_id as string) ?? null, baseRevision: (r.base_revision_id as number) ?? null,
         theory: Boolean(r.theory), status: r.status as string, declineReason: (r.decline_reason as string) ?? null,
+        questionId: (r.question_id as string) ?? null, reply: (r.reply as string) ?? null,
         createdAt: r.created_at as string, author: toAuthor(r.author as Row, r.author_id as string),
         ups: Number(sc?.ups ?? 0), downs: Number(sc?.downs ?? 0), viewers: Number(sc?.viewers ?? 0),
         myVote: ((mine.get(r.id as string) ?? 0) as 0 | 1 | -1),
@@ -330,27 +346,32 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
   const loadReports = useCallback(async () => {
     const db = browserClient();
     if (!db || !meId) { setMyReports(new Set()); setReports([]); return; }
-    const mine = await db.from('flags').select('message_id, draft_id').eq('reporter_id', meId);
-    setMyReports(new Set((mine.data ?? []).map((r: Row) =>
-      targetKey(r.message_id ? { messageId: r.message_id as number } : { draftId: r.draft_id as string }))));
+    // Questions can be reported once the Questions SQL is run; until then, read without them.
+    const mineOf = (cols: string) => db.from('flags').select(cols).eq('reporter_id', meId);
+    let mine = await mineOf('message_id, draft_id, question_id');
+    if (mine.error) mine = await mineOf('message_id, draft_id');
+    setMyReports(new Set(((mine.data ?? []) as unknown as Row[]).map(targetOf).filter((t): t is Target => Boolean(t)).map(targetKey)));
     if (!mod) { setReports([]); return; }
-    const { data } = await db.from('flags')
-      .select(`id, reason, note, created_at, message_id, draft_id,
+    const columns = `id, reason, note, created_at, message_id, draft_id,
         reporter:profiles!flags_reporter_id_fkey(${PROFILE}),
         message:chat_messages!flags_message_id_fkey(body, spoiler, removed_at, author_id, author:profiles!chat_messages_author_id_fkey(${PROFILE})),
-        draft:drafts!flags_draft_id_fkey(title, status, block_key)`)
-      .eq('game_id', gameId).eq('status', 'open').order('created_at');
+        draft:drafts!flags_draft_id_fkey(title, status, block_key)`;
+    const open = (cols: string) => db.from('flags').select(cols).eq('game_id', gameId).eq('status', 'open').order('created_at');
+    let { data, error } = await open(`${columns}, question_id, question:questions!flags_question_id_fkey(body, page_key, status, spoiler)`);
+    if (error) ({ data, error } = await open(columns));
     const groups = new Map<string, ReportGroup>();
-    for (const r of (data ?? []) as Row[]) {
-      const target: Target = r.message_id ? { messageId: r.message_id as number } : { draftId: r.draft_id as string };
+    for (const r of (data ?? []) as unknown as Row[]) {
+      const target = targetOf(r);
+      if (!target) continue;
       const key = targetKey(target);
       let g = groups.get(key);
       if (!g) {
-        const m = r.message as Row | null, d = r.draft as Row | null;
+        const m = r.message as Row | null, d = r.draft as Row | null, q = r.question as Row | null;
         g = {
           key, target, reasons: [], notes: [], count: 0, firstAt: r.created_at as string,
           message: m ? { body: m.body as string, spoiler: Boolean(m.spoiler), removed: Boolean(m.removed_at), author: toAuthor(m.author as Row, m.author_id as string) } : undefined,
           draft: d ? { title: d.title as string, status: d.status as string, blockKey: d.block_key as string } : undefined,
+          question: q ? { body: q.body as string, pageKey: (q.page_key as string) ?? null, status: q.status as string, spoiler: Boolean(q.spoiler) } : undefined,
         };
         groups.set(key, g);
       }
@@ -483,6 +504,8 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
       .insert({
         game_id: gameId, block_key: d.blockKey, kind: d.kind, title: d.title, content: d.content, source: d.source || null, theory: d.theory,
         card_id: d.cardId ?? null, base_revision_id: d.baseRevision ?? null, author_id: meId, status: 'open',
+        // Only sent when it answers a question, so Drafts work before the Questions SQL is run.
+        ...(d.question ? { question_id: d.question.id, reply: d.question.reply.trim() || null } : {}),
       })
       .select('id').single();
     if (error) return { error: plainError(error.message) };
@@ -546,7 +569,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     const db = browserClient();
     if (!db || !meId) return 'Sign in to report.';
     const { error } = await db.from('flags').insert({
-      ...('messageId' in t ? { message_id: t.messageId } : { draft_id: t.draftId }),
+      ...targetColumn(t),
       reason, note: note.trim() || null, reporter_id: meId,
     });
     if (error) return plainError(error.message);
@@ -563,7 +586,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     const db = browserClient();
     if (!db || !meId) return;
     const q = db.from('flags').update({ status, handled_by: meId, handled_at: new Date().toISOString() }).eq('status', 'open');
-    await ('messageId' in t ? q.eq('message_id', t.messageId) : q.eq('draft_id', t.draftId));
+    await ('messageId' in t ? q.eq('message_id', t.messageId) : 'draftId' in t ? q.eq('draft_id', t.draftId) : q.eq('question_id', t.questionId));
   }, [meId]);
 
   const finish = useCallback(async (error: { message: string } | null) => {
@@ -625,6 +648,15 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     return finish(error);
   }, [meId, closeReports, finish]);
 
+  /** Removes a reported question, from the Notice Board. */
+  const removeQuestion = useCallback(async (questionId: string) => {
+    const db = browserClient();
+    if (!db || !meId) return 'Sign in first.';
+    const { error } = await db.from('questions').update({ status: 'removed' }).eq('id', questionId);
+    if (!error) await closeReports({ questionId }, 'resolved');
+    return finish(error);
+  }, [meId, closeReports, finish]);
+
   const dismissReports = useCallback(async (t: Target) => {
     await closeReports(t, 'dismissed');
     return finish(null);
@@ -633,7 +665,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
   return {
     state, messages, reactions, drafts: shownDrafts, reports, myReports, mod,
     send, loadThread, loadMessage, react, postDraft, vote, view, report,
-    moderate: { removeMessage, markSpoiler, publish, decide, dismissReports },
+    moderate: { removeMessage, markSpoiler, publish, decide, dismissReports, removeQuestion },
   };
 }
 
