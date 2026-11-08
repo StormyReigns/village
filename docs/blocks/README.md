@@ -32,7 +32,7 @@ designed properly), **Idea** (not built).
 | 1 | Characters | Refined, still being polished | Fortune's Weave · Units | [characters.md](characters.md) |
 | 2 | Items | Live, first version | Fortune's Weave · Items, Weapons and magic | [items.md](items.md) |
 | 3 | Guides | Live, first version (designed with Matt) | Fortune's Weave · Guides · How to | [guides.md](guides.md) |
-| 4 | Questions (replaces Mysteries) | Built (live once the SQL is run) | Every Page's top bar; Workshop | [questions.md](questions.md) |
+| 4 | Questions (replaces Mysteries) | Live, first version (designed with Matt) | Every Page's top bar; Workshop | [questions.md](questions.md) |
 | – | Collection: map | Live, first version | Fortune's Weave · Dungeons and places | |
 | – | Collection: slots and rows | Live, first version | Classes, Foes | |
 | – | Checklist | Live, first version | Last chances | |

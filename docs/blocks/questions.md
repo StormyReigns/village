@@ -1,6 +1,6 @@
 # Questions (replaces the Mysteries Block)
 
-**Status:** Built (2026-11-08); live once Matt runs the two SQL files · **Chat:** `Village · Block: Questions`
+**Status:** Live (2026-11-08): both SQL files applied, the 6 Mysteries are open questions · **Chat:** `Village · Block: Questions`
 (designed in `Village · Block: Guides`) · **Mockup:** none yet · **Replaces:** the Mysteries
 Block (a "rows" Collection) on every game's Guides Page · **Code:** `src/components/questions/`
 (the bar, Ask, the lists), `workshop/Questions.tsx` (the Workshop tab), `src/components/Inbox.tsx`
