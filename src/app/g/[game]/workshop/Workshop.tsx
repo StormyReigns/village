@@ -1022,6 +1022,7 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
   const questionPage = r.question ? blocks.find((b) => b.page.id === r.question!.pageKey)?.page : undefined;
   const videoBlock = r.video ? blocks.find((b) => b.id === r.video!.blockKey) : undefined;
   const videoEntry = videoBlock?.entries.find((e) => e.id === r.video!.slug);
+  const reasonEntry = r.tierReason ? blocks.find((b) => b.id === r.tierReason!.blockKey)?.entries.find((e) => e.id === r.tierReason!.slug) : undefined;
   return (
     <li className="rise rounded-3xl bg-card-2 p-3 ring-1 ring-line">
       <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -1058,6 +1059,11 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
             <a href={watchUrl(r.video.youtubeId, r.video.start)} target="_blank" rel="noopener noreferrer" className="font-bold underline">Watch on YouTube</a>
           </p>
         </div>
+      ) : r.tierReason ? (
+        <p className="mt-2 rounded-2xl bg-card p-2.5 text-sm ring-1 ring-line">
+          <span className="font-bold">Tier list reason{reasonEntry ? ` for ${reasonEntry.name}` : ''}:</span>{' '}
+          {r.tierReason.text ?? <span className="text-muted">taken down</span>}
+        </p>
       ) : null}
       {r.notes.length > 0 && (
         <ul className="mt-2 grid gap-1 text-sm text-muted">
@@ -1079,6 +1085,9 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
         ) : 'videoId' in r.target ? r.video?.status !== 'removed' && (
           <SmallButton tone="bad" disabled={busy} onClick={() => run(() => live.moderate.removeVideo((r.target as { videoId: string }).videoId))}
             icon={<Trash2 size={13} aria-hidden="true" />}>Take video down</SmallButton>
+        ) : 'tierReasonId' in r.target ? r.tierReason?.text != null && (
+          <SmallButton tone="bad" disabled={busy} onClick={() => run(() => live.moderate.removeTierReason((r.target as { tierReasonId: string }).tierReasonId))}
+            icon={<Trash2 size={13} aria-hidden="true" />}>Remove reason</SmallButton>
         ) : 'questionId' in r.target ? r.question?.status !== 'removed' && (
           <SmallButton tone="bad" disabled={busy} onClick={() => run(() => live.moderate.removeQuestion((r.target as { questionId: string }).questionId))}
             icon={<Trash2 size={13} aria-hidden="true" />}>Remove question</SmallButton>

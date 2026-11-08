@@ -30,7 +30,7 @@ export function initials(name: string) {
 }
 
 /** Blend a hex color toward white (amount > 0) or black (amount < 0). */
-function shade(hex: string, amount: number) {
+export function shade(hex: string, amount: number) {
   const n = parseInt(hex.slice(1), 16);
   const to = amount > 0 ? 255 : 0;
   const a = Math.abs(amount);
@@ -44,15 +44,15 @@ const wclip = (t: string, n: number) => (t.length <= n ? t : t.slice(0, Math.max
 // The site's own fonts, kept in the project (src/lib/og-fonts, from Google Fonts, free to
 // use) so drawing a picture never waits on a download. If one is missing, the picture
 // still draws in the default font.
-const fontFile = (name: string) => readFile(join(process.cwd(), 'src/lib/og-fonts', name)).catch(() => null);
+export const fontFile = (name: string) => readFile(join(process.cwd(), 'src/lib/og-fonts', name)).catch(() => null);
 
 // The Village logo for the corner of every picture, kept beside the fonts the same way.
-const logoFile = () => readFile(join(process.cwd(), 'src/lib/og-art', 'logo.png'))
+export const logoFile = () => readFile(join(process.cwd(), 'src/lib/og-art', 'logo.png'))
   .then((b) => `data:image/png;base64,${b.toString('base64')}`).catch(() => null);
 
 // Vercel keeps each picture for a day and hands out the saved copy instantly. Discord
 // gives up on slow pictures, and keeps its own copy anyway.
-const CACHE = 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800';
+export const CACHE = 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800';
 
 export interface Row { name: string; tint: Tint }
 
@@ -80,7 +80,7 @@ export interface CardContent {
 const VIEWBOX = `${V.x} ${V.y} ${V.width} ${V.height}`;
 
 /** The brand's piece for pictures: next/og draws plain SVG paths. */
-function OgPiece({ width, fill, label, labelColor, fontSize = 24 }: { width: number; fill: string; label?: string; labelColor?: string; fontSize?: number }) {
+export function OgPiece({ width, fill, label, labelColor, fontSize = 24 }: { width: number; fill: string; label?: string; labelColor?: string; fontSize?: number }) {
   const height = Math.round(width * V.height / V.width);
   return (
     <div style={{ display: 'flex', position: 'relative', flexShrink: 0, width, height }}>

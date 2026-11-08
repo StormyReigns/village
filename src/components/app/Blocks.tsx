@@ -21,13 +21,14 @@ import { StatTable, statSort } from './StatTable';
 import { Characters } from './Characters';
 import { Items } from './Items';
 import { Guides } from './Guides';
+import { TierList } from '@/components/tiers/TierList';
 import { FilterChip, HiddenNote, OpenPanel, useVisible, type BlockContext } from './blockParts';
 
 export type { BlockContext } from './blockParts';
 import { byStat } from '@/lib/stats';
 
 export function BlockView({ block, ctx: page }: { block: Block; ctx: BlockContext }) {
-  const Cmp = { collection: Collection, timeline: Timeline, checklist: Checklist, guide: Guides, characters: Characters, items: Items }[block.type];
+  const Cmp = { collection: Collection, timeline: Timeline, checklist: Checklist, guide: Guides, characters: Characters, items: Items, tierlist: TierList }[block.type];
   const t = TINT[page.tint];
   // "Show them" under a Block reveals that Block's spoilers only; the Page's switch does them all.
   const [revealed, setRevealed] = useState(false);
@@ -54,7 +55,8 @@ export function BlockView({ block, ctx: page }: { block: Block; ctx: BlockContex
           </Tip>
         )}
       </div>
-      {block.entries.length === 0 ? (
+      {/* A Tier list has no entries of its own: it ranks another Block's. */}
+      {block.entries.length === 0 && block.type !== 'tierlist' ? (
         <div className="mt-4 grid justify-items-center gap-2 rounded-2xl bg-card-2 px-4 py-8 text-center">
           <span className={`grid size-12 place-items-center rounded-full ${t.soft} ${t.text}`}><Sparkles size={20} aria-hidden="true" /></span>
           <p className="font-display text-lg">Nothing here yet</p>

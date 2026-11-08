@@ -6,6 +6,7 @@ import type { Block, Entry, Page, Section } from './types.ts';
 import { WEAPON_STATS, weapons } from './fortunes-weave-weapons.ts';
 import { GROWTH_STATS, GROWTHS } from './fortunes-weave-growths.ts';
 import { COMMON_FIELDS, ITEM_FIELDS, STATS, withCommon } from '../../lib/fields.ts';
+import { DEFAULT_TIERS } from '../../lib/tiers.ts';
 
 const ROUTE_NAMES: Record<string, Route> = { Cai: 'cai', Dietrich: 'dietrich', Theodora: 'theodora', Leda: 'leda' };
 
@@ -208,6 +209,9 @@ export const PAGES: Page[] = [
     blocks: [
       block({ type: 'characters', title: 'Units', icon: 'Users', filters: ['Group'], byRoute: true, entries: units(), symbols: FACTIONS, fields: UNIT_FIELDS, stats: GROWTH_STATS,
         intro: 'Pick your Flame Lord to see who can join you and what it takes.' }),
+      // A Tier list ranks the Units above (docs/blocks/tier-lists.md). Builders can rename the tiers later.
+      block({ type: 'tierlist', title: 'Unit tiers', icon: 'Trophy', entries: [], tierSetup: { ranks: 'units', tiers: DEFAULT_TIERS },
+        intro: "Who's worth a spot in your army, across the whole game. Make your own list in Mine: once you sign in, it counts." }),
       block({ type: 'collection', look: 'slots', title: 'Classes', icon: 'Shield', filters: ['Tier'], entries: classes() }),
     ],
   },

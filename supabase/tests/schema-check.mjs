@@ -45,7 +45,7 @@ if (process.argv[3]) {
     entries: await n(`select count(*)::int as n from public.cards c join public.card_pointers p on p.card_id = c.id and p.channel = 'stable'`),
     loose: await n(`select count(*)::int as n from public.game_blocks where page_key is null`),
   };
-  counts.games === 2 && counts.pages === 11 && counts.blocks === 15 && counts.entries === 180 && counts.loose === 0
+  counts.games === 2 && counts.pages === 11 && counts.blocks === 16 && counts.entries === 180 && counts.loose === 0
     ? ok(`seeds applied (${counts.games} games, ${counts.pages} pages, ${counts.blocks} blocks, ${counts.entries} entries on Stable) and safe to re-run`)
     : bad('seeds ' + JSON.stringify(counts));
   const st = await db.query(`select b.stats->0->>'label' as stat, r.content->'stats'->>'might' as might from public.game_blocks b join public.cards c on c.block_key = b.block_key and c.game_id = b.game_id join public.card_pointers p on p.card_id = c.id and p.channel = 'stable' join public.card_revisions r on r.id = p.revision_id where b.block_key = 'weapons-and-magic' and r.content->>'name' = 'Thoron'`);
@@ -269,3 +269,58 @@ await db.exec(`update public.videos set created_at = now() - interval '2 hours' 
 await expectFail(B, `select public.remove_video('${V3}')`, 'after an hour, whoever added it cannot delete it');
 await expectOk(B, `insert into public.flags (video_id, reason, note, reporter_id) values ('${V3}', 'other', 'Removal requested by whoever added it', '${B}')`, 'after an hour, they can ask for removal');
 await expectOk(A, `select public.remove_video('${V3}')`, 'a moderator can take any video down, any time');
+
+// Tier lists (docs/blocks/tier-lists.md): one list per player per Tier list Block, saved whole
+// through save_tier_list; only the ranked Block's pieces and the Block's tiers; totals from
+// tier_tallies; lists private unless shared; reasons shown without names and reportable.
+const CARD2 = 'bbbbbbbb-0000-0000-0000-000000000002';
+await db.exec(`
+  insert into public.cards (id, game_id, block_key, slug) values ('${CARD2}', 'fortunes-weave', 'people', 'second-unit');
+  insert into public.game_blocks (game_id, block_key, title, type, page_key, tier_setup) values ('fortunes-weave', 'unit-tiers', 'Unit tiers', 'tierlist', 'units-and-classes',
+    '{"ranks":"people","tiers":[{"key":"s","label":"S"},{"key":"a","label":"A"},{"key":"b","label":"B"}]}');
+`);
+const pieces = (arr) => `'${JSON.stringify(arr)}'::jsonb`;
+try {
+  await db.exec('set role anon');
+  await db.query(`select public.save_tier_list('fortunes-weave', 'unit-tiers', ${pieces([{ card: CARD, tier: 's' }])})`);
+  bad('a guest cannot save a list to the village');
+} catch { ok('a guest cannot save a list to the village (refused)'); } finally { await db.exec('reset role'); }
+await expectOk(B, `select public.save_tier_list('fortunes-weave', 'unit-tiers', ${pieces([{ card: CARD, tier: 's', reason: 'Carries the early maps' }, { card: CARD2, tier: 'a' }])})`, 'villager saves a tier list');
+await expectOk(C, `select public.save_tier_list('fortunes-weave', 'unit-tiers', ${pieces([{ card: CARD, tier: 'a' }])})`, 'another villager saves theirs');
+await expectOk(B, `select public.save_tier_list('fortunes-weave', 'unit-tiers', ${pieces([{ card: CARD, tier: 's', reason: 'Carries the early maps' }, { card: CARD2, tier: 'b' }])})`, 'saving again replaces the list');
+await expectFail(B, `select public.save_tier_list('fortunes-weave', 'unit-tiers', ${pieces([{ card: CARD, tier: 'z' }])})`, 'only the Block\'s own tiers');
+await expectFail(B, `select public.save_tier_list('fortunes-weave', 'unit-tiers', ${pieces([{ card: CARD, tier: 's' }, { card: CARD, tier: 'a' }])})`, 'a piece cannot be placed twice');
+await expectFail(B, `select public.save_tier_list('fortunes-weave', 'people', ${pieces([{ card: CARD, tier: 's' }])})`, 'only a Tier list Block takes lists');
+await expectFail(B, `insert into public.tier_lists (game_id, block_key, profile_id) values ('fortunes-weave', 'unit-tiers', '${C}')`, 'nobody writes a list row directly');
+const tl = await db.query(`select count(*)::int as n from public.tier_lists`);
+tl.rows[0].n === 2 ? ok('one list per player per Tier list Block') : bad('tier lists ' + JSON.stringify(tl.rows));
+const tt = await asUser(C, `select card_id, tier_key, lists from public.tier_tallies('fortunes-weave', 'unit-tiers') order by card_id, tier_key`);
+JSON.stringify(tt.rows) === JSON.stringify([{ card_id: CARD, tier_key: 'a', lists: 1 }, { card_id: CARD, tier_key: 's', lists: 1 }, { card_id: CARD2, tier_key: 'b', lists: 1 }])
+  ? ok('tier totals are shared') : bad('tier tallies ' + JSON.stringify(tt.rows));
+const et = await asUser(C, `select block_key, tier_key, lists from public.entry_tiers('${CARD}') order by tier_key`);
+et.rows.length === 2 && et.rows.every((r) => r.block_key === 'unit-tiers') ? ok('an entry finds the tier lists that rank it') : bad('entry tiers ' + JSON.stringify(et.rows));
+const seen = await asUser(C, `select count(*)::int as n from public.tier_placements`);
+seen.rows[0].n === 1 ? ok('a list is private until it is shared') : bad('tier privacy ' + JSON.stringify(seen.rows));
+await expectOk(B, `select public.share_tier_list('fortunes-weave', 'unit-tiers', true)`, 'villager shares their list');
+const shared = await asUser(C, `select count(*)::int as n from public.tier_placements`);
+shared.rows[0].n === 3 ? ok('a shared list can be read by its link') : bad('shared list ' + JSON.stringify(shared.rows));
+const why = await asUser(C, `select id, reason, mine from public.tier_reasons('fortunes-weave', 'unit-tiers', '${CARD}')`);
+why.rows.length === 1 && why.rows[0].reason === 'Carries the early maps' && why.rows[0].mine === false ? ok('reasons show without names') : bad('tier reasons ' + JSON.stringify(why.rows));
+const reasonId = why.rows[0]?.id;
+await expectOk(C, `insert into public.flags (tier_placement_id, reason, reporter_id) values ('${reasonId}', 'rude', '${C}')`, 'villager can report a reason');
+const tf = await db.query(`select game_id from public.flags where tier_placement_id = '${reasonId}'`);
+tf.rows[0]?.game_id === 'fortunes-weave' ? ok('reason reports reach that game') : bad('reason flag ' + JSON.stringify(tf.rows));
+await expectFail(C, `select public.remove_tier_reason('${reasonId}')`, 'a villager cannot take a reason down');
+await expectOk(A, `select public.remove_tier_reason('${reasonId}')`, 'a moderator takes a reason down');
+const rr = await db.query(`select (select reason from public.tier_placements where id = '${reasonId}') as reason, (select tier_key from public.tier_placements where id = '${reasonId}') as tier, (select status from public.flags where tier_placement_id = '${reasonId}') as fl`);
+rr.rows[0].reason === null && rr.rows[0].tier === 's' && rr.rows[0].fl === 'resolved' ? ok('the reason goes, the placement stays, its reports close') : bad('remove reason ' + JSON.stringify(rr.rows));
+await expectOk(B, `select public.save_tier_list('fortunes-weave', 'unit-tiers', ${pieces([{ card: CARD, tier: 's', reason: 'Carries the early maps' }, { card: CARD2, tier: 'b' }])})`, 'the device sends the removed reason again');
+const back = await db.query(`select reason from public.tier_placements where id = '${reasonId}'`);
+back.rows[0]?.reason === null ? ok('a removed reason does not come back with the next save') : bad('reason came back ' + JSON.stringify(back.rows));
+await expectOk(B, `select public.save_tier_list('fortunes-weave', 'unit-tiers', ${pieces([{ card: CARD, tier: 's', reason: 'Best mover early on' }, { card: CARD2, tier: 'b' }])})`, 'a new reason saves');
+const fresh = await db.query(`select reason from public.tier_placements where id = '${reasonId}'`);
+fresh.rows[0]?.reason === 'Best mover early on' ? ok('new words after a removal are kept') : bad('new reason ' + JSON.stringify(fresh.rows));
+for (const [label, arg] of [['a card that is not an id', pieces([{ card: 'not-a-uuid', tier: 's' }])], ['a list that is not a list', `'{"card":"x"}'::jsonb`]]) {
+  try { await asUser(B, `select public.save_tier_list('fortunes-weave', 'unit-tiers', ${arg})`); bad(label + ' is refused'); }
+  catch (e) { /isn't (in this tier list|a list)/.test(e.message) ? ok(label + ' is refused in plain words') : bad(label + ': ' + e.message); }
+}

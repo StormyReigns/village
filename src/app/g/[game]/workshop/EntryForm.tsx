@@ -40,6 +40,7 @@ const DEFAULT_LABELS: Record<Block['type'], string[]> = {
   timeline: [],
   characters: [],
   items: [],
+  tierlist: [],
 };
 
 const DESCRIPTION_LABEL: Record<Block['type'], string> = {
@@ -49,6 +50,7 @@ const DESCRIPTION_LABEL: Record<Block['type'], string> = {
   timeline: 'What happens (spoiler-light)',
   characters: 'Description',
   items: 'Description',
+  tierlist: 'Description',
 };
 
 // Blocks whose entries are pieces a picture can fill: people, classes, items and the like.

@@ -15,6 +15,7 @@ import { MADE_FROM, STATS, UPGRADES_TO, amountText, besideText, toggleOptions, c
 import { byStat, heatFill, placeText, rangeOf, statFacts } from '@/lib/stats';
 import { StatTable, statSort } from './StatTable';
 import { Videos, cardIdOf } from '@/components/videos/Videos';
+import { CommunityTier } from '@/components/tiers/CommunityTier';
 
 /**
  * Set by the Characters Block: tapping a tag on a card (a group, a class, Playable or NPC)
@@ -101,6 +102,7 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
             </div>
           )}
         </div>
+        {!sample && 'id' in entry && <CommunityTier cardId={cardIdOf(entry)} entryId={String(entry.id)} color={color} />}
         {(at('tags').length > 0 || entry.routes?.length) ? (
           <div className="flex flex-wrap gap-1.5">
             {at('tags').map((f) => {

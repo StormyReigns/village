@@ -34,7 +34,8 @@ export default function WorkshopPage({ params }: PageProps<'/g/[game]/workshop'>
 async function LoadedWorkshop({ params }: { params: PageProps<'/g/[game]/workshop'>['params'] }) {
   const game = getGame((await params).game);
   if (!game) notFound();
-  const pages = await getApp(game.id);
+  // A Tier list Block has no entries of its own to add or fix, so the Workshop leaves it out.
+  const pages = (await getApp(game.id)).map((p) => ({ ...p, blocks: p.blocks.filter((b) => b.type !== 'tierlist') }));
   const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
   return (
     // Everything in the Workshop takes the game's genre shade. On wide screens it fills the

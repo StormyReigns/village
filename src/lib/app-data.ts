@@ -61,6 +61,7 @@ export async function getApp(gameId: string): Promise<Page[]> {
       stats: (r.stats as Block['stats']) ?? undefined,
       symbols: (r.symbols as Block['symbols']) ?? undefined,
       fields: (r.fields as Block['fields']) ?? undefined,
+      tierSetup: (r.tier_setup as Block['tierSetup']) ?? undefined,
       entries: (entries.get(r.block_key as string) ?? []).sort((x, y) => x.position - y.position).map((x) => { const entry: Entry & { position?: number } = { ...x }; delete entry.position; return entry; }),
     });
     blocks.set(r.page_key as string, list);
