@@ -1,6 +1,6 @@
 # Videos (the first integration)
 
-**Status:** Live, first version (2026-11-08): SQL applied; no videos added yet · **Chat:** `Village · Block: Videos` · **Mockup:** none yet ·
+**Status:** Live, first version (2026-11-08): SQL applied; first two videos on Fortune's Weave · Guides · Recruit a unit · **Chat:** `Village · Block: Videos` · **Mockup:** none yet ·
 **Code:** `src/lib/videos.ts` (reading YouTube links and start times,
 ranking; plain and tested), `src/components/videos/` (`Videos.tsx`: the part in two sizes, the card, the row, Add a video; `useVideos.ts`: loading, voting, adding),
 `src/app/api/video-info/[id]/route.ts` (asks YouTube who made a video, kept for a day) ·
