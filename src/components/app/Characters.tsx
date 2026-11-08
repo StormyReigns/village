@@ -282,7 +282,8 @@ function Profile({ block, ctx, e, prev, next, n, of, color, onGo, enter, recruit
       className={'touch-pan-y rounded-2xl bg-card p-4 ring-1 ring-line ' + (enter === 1 ? 'card-in-right' : enter === -1 ? 'card-in-left' : 'card-in')}>
       <div className="flex items-center gap-1">
         <p className="flex-1 text-xs font-bold uppercase tracking-wide text-muted">{n} of {of}</p>
-        <ShareButton path={sharePath(ctx.gameId, ctx.page, block, e)} title={e.name} what="character" tint={ctx.tint} quiet />
+        {/* Always shown: "quiet" hides it on computers until you point at a card, which suits lists, not one profile. */}
+        <ShareButton path={sharePath(ctx.gameId, ctx.page, block, e)} title={e.name} what="character" tint={ctx.tint} />
         <button type="button" onClick={() => onGo(prev!, -1)} disabled={!prev} aria-label={prev ? `Back to ${prev.name}` : 'Back'} className={arrow}><ChevronLeft size={18} aria-hidden="true" /></button>
         <button type="button" onClick={() => onGo(next!, 1)} disabled={!next} aria-label={next ? `On to ${next.name}` : 'Next'} className={arrow}><ChevronRight size={18} aria-hidden="true" /></button>
       </div>
