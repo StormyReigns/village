@@ -10,7 +10,7 @@ import { BlockIcon } from '@/components/Icon';
 import { symbolFor } from '@/components/app/symbols';
 import { NO_LIST, getSharedList } from '@/lib/tier-share';
 import { shadeHex } from '@/lib/shades';
-import { placedCount, titleOf } from '@/lib/tiers';
+import { placedCount } from '@/lib/tiers';
 import { BoardCard, BoardHead, TierRow } from '@/components/tiers/BoardParts';
 
 // A shared tier list: /g/fortunes-weave/tiers/<list id>. Someone's own
@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const game = getGame(gameId);
   const shared = game ? await getSharedList(gameId, list) : null;
   if (!game || !shared) return { title: 'Not found' };
-  const title = `${shared.maker}’s ${titleOf(shared.block.tierSetup)} list · ${game.shortTitle}`;
+  const title = `${shared.maker}’s ${shared.title} list · ${game.shortTitle}`;
   const top = shared.tiers.map((t) => ({ t, ids: shared.list.rows[t.key] ?? [] })).find((r) => r.ids.length);
   const description = top
     ? `${top.t.label}: ${top.ids.slice(0, 6).map((id) => shared.entries.get(id)?.name).filter(Boolean).join(', ')}. See the whole list, and what the community thinks, on Village.`
@@ -64,7 +64,7 @@ async function Loaded({ params }: { params: Params }) {
   const shared = game ? await getSharedList(gameId, listId) : null;
   if (!game || !shared) notFound();
   const { page, block, ranked, tiers, list, entries } = shared;
-  const title = titleOf(block.tierSetup);
+  const title = shared.title;
   const color = `var(--${page.tint})`;
   return (
     <div className="app-block rounded-[1.25rem] p-4 sm:p-5" style={{ '--tint': color } as React.CSSProperties}>

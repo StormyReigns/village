@@ -11,8 +11,8 @@ export function BoardCard({ children, className = '' }: { children: ReactNode; c
   return <div className={'overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-line ' + className}>{children}</div>;
 }
 
-/** The ink header: a trophy, the list's title ("MVP"), a line under it, and a chip on the right. */
-export function BoardHead({ title, sub, chip }: { title: string; sub?: ReactNode; chip?: ReactNode }) {
+/** The ink header: a trophy, the list's title ("MVP"), a line under it, a chip and an action (Share) on the right. */
+export function BoardHead({ title, sub, chip, action }: { title: string; sub?: ReactNode; chip?: ReactNode; action?: ReactNode }) {
   return (
     <div className="flex items-center gap-3 bg-ink px-3 py-2.5 text-white">
       <span className="grid size-10 shrink-0 -rotate-6 place-items-center rounded-xl bg-signal text-ink shadow-sm">
@@ -23,6 +23,7 @@ export function BoardHead({ title, sub, chip }: { title: string; sub?: ReactNode
         {sub && <p className="line-clamp-2 text-xs leading-snug text-white/70">{sub}</p>}
       </div>
       {chip && <span className="shrink-0 rounded-full bg-white/10 px-2.5 py-1 text-xs font-bold">{chip}</span>}
+      {action}
     </div>
   );
 }

@@ -270,9 +270,10 @@ await expectFail(B, `select public.remove_video('${V3}')`, 'after an hour, whoev
 await expectOk(B, `insert into public.flags (video_id, reason, note, reporter_id) values ('${V3}', 'other', 'Removal requested by whoever added it', '${B}')`, 'after an hour, they can ask for removal');
 await expectOk(A, `select public.remove_video('${V3}')`, 'a moderator can take any video down, any time');
 
-// Tier lists (docs/blocks/tier-lists.md): one list per player per Tier list Block, saved whole
-// through save_tier_list; only the ranked Block's pieces and the Block's tiers; totals from
-// tier_tallies; lists private unless shared; reasons shown without names and reportable.
+// Tier lists (docs/blocks/tier-lists.md): your main list is saved whole through save_tier_list and
+// counts only once submitted (a copy, updated by submitting again); unique lists of your own never
+// count; only the ranked Block's pieces and the Block's tiers; totals from tier_tallies; lists
+// private unless shared; reasons (from submitted copies) shown without names and reportable.
 const CARD2 = 'bbbbbbbb-0000-0000-0000-000000000002';
 await db.exec(`
   insert into public.cards (id, game_id, block_key, slug) values ('${CARD2}', 'fortunes-weave', 'people', 'second-unit');
@@ -280,30 +281,68 @@ await db.exec(`
     '{"ranks":"people","tiers":[{"key":"s","label":"S"},{"key":"a","label":"A"},{"key":"b","label":"B"}]}');
 `);
 const pieces = (arr) => `'${JSON.stringify(arr)}'::jsonb`;
+const save = (arr, list) => `select public.save_tier_list('fortunes-weave', 'unit-tiers', ${pieces(arr)}${list ? `, '${list}'` : ''})`;
+const tallies = async () => (await asUser(C, `select card_id, tier_key, lists from public.tier_tallies('fortunes-weave', 'unit-tiers') order by card_id, tier_key`)).rows;
 try {
   await db.exec('set role anon');
-  await db.query(`select public.save_tier_list('fortunes-weave', 'unit-tiers', ${pieces([{ card: CARD, tier: 's' }])})`);
+  await db.query(save([{ card: CARD, tier: 's' }]));
   bad('a guest cannot save a list to the village');
 } catch { ok('a guest cannot save a list to the village (refused)'); } finally { await db.exec('reset role'); }
-await expectOk(B, `select public.save_tier_list('fortunes-weave', 'unit-tiers', ${pieces([{ card: CARD, tier: 's', reason: 'Carries the early maps' }, { card: CARD2, tier: 'a' }])})`, 'villager saves a tier list');
-await expectOk(C, `select public.save_tier_list('fortunes-weave', 'unit-tiers', ${pieces([{ card: CARD, tier: 'a' }])})`, 'another villager saves theirs');
-await expectOk(B, `select public.save_tier_list('fortunes-weave', 'unit-tiers', ${pieces([{ card: CARD, tier: 's', reason: 'Carries the early maps' }, { card: CARD2, tier: 'b' }])})`, 'saving again replaces the list');
-await expectFail(B, `select public.save_tier_list('fortunes-weave', 'unit-tiers', ${pieces([{ card: CARD, tier: 'z' }])})`, 'only the Block\'s own tiers');
-await expectFail(B, `select public.save_tier_list('fortunes-weave', 'unit-tiers', ${pieces([{ card: CARD, tier: 's' }, { card: CARD, tier: 'a' }])})`, 'a piece cannot be placed twice');
+await expectOk(B, save([{ card: CARD, tier: 's', reason: 'Carries the early maps' }, { card: CARD2, tier: 'a' }]), 'villager saves a tier list');
+await expectOk(C, save([{ card: CARD, tier: 'a' }]), 'another villager saves theirs');
+await expectOk(B, save([{ card: CARD, tier: 's', reason: 'Carries the early maps' }, { card: CARD2, tier: 'b' }]), 'saving again replaces the list');
+await expectFail(B, save([{ card: CARD, tier: 'z' }]), 'only the Block\'s own tiers');
+await expectFail(B, save([{ card: CARD, tier: 's' }, { card: CARD, tier: 'a' }]), 'a piece cannot be placed twice');
 await expectFail(B, `select public.save_tier_list('fortunes-weave', 'people', ${pieces([{ card: CARD, tier: 's' }])})`, 'only a Tier list Block takes lists');
 await expectFail(B, `insert into public.tier_lists (game_id, block_key, profile_id) values ('fortunes-weave', 'unit-tiers', '${C}')`, 'nobody writes a list row directly');
-const tl = await db.query(`select count(*)::int as n from public.tier_lists`);
-tl.rows[0].n === 2 ? ok('one list per player per Tier list Block') : bad('tier lists ' + JSON.stringify(tl.rows));
-const tt = await asUser(C, `select card_id, tier_key, lists from public.tier_tallies('fortunes-weave', 'unit-tiers') order by card_id, tier_key`);
-JSON.stringify(tt.rows) === JSON.stringify([{ card_id: CARD, tier_key: 'a', lists: 1 }, { card_id: CARD, tier_key: 's', lists: 1 }, { card_id: CARD2, tier_key: 'b', lists: 1 }])
-  ? ok('tier totals are shared') : bad('tier tallies ' + JSON.stringify(tt.rows));
+await expectFail(B, `select public.tier_write((select id from public.tier_lists where profile_id = '${C}' limit 1), ${pieces([])})`, 'the inner write step cannot be called directly');
+const tl = await db.query(`select count(*)::int as n from public.tier_lists where kind = 'main'`);
+tl.rows[0].n === 2 ? ok('one main list per player per Tier list Block') : bad('tier lists ' + JSON.stringify(tl.rows));
+(await tallies()).length === 0 ? ok('a saved list does not count until it is submitted') : bad('counted before submitting');
+
+// Submitting: a copy counts; later edits count once submitted again; withdrawing stops it counting.
+await expectOk(B, `select public.submit_tier_list('fortunes-weave', 'unit-tiers')`, 'villager submits their list');
+await expectOk(C, `select public.submit_tier_list('fortunes-weave', 'unit-tiers')`, 'another villager submits theirs');
+JSON.stringify(await tallies()) === JSON.stringify([{ card_id: CARD, tier_key: 'a', lists: 1 }, { card_id: CARD, tier_key: 's', lists: 1 }, { card_id: CARD2, tier_key: 'b', lists: 1 }])
+  ? ok('submitted lists make the totals') : bad('tier tallies ' + JSON.stringify(await tallies()));
+const cnt = await asUser(C, `select public.tier_list_count('fortunes-weave', 'unit-tiers') as n`);
+cnt.rows[0].n === 2 ? ok('"From 2 lists" counts submitted lists') : bad('list count ' + JSON.stringify(cnt.rows));
+await expectOk(C, save([{ card: CARD, tier: 'b' }]), 'villager edits their list after submitting');
+JSON.stringify((await tallies()).filter((r) => r.card_id === CARD).map((r) => r.tier_key)) === JSON.stringify(['a', 's'])
+  ? ok('an edit counts only once submitted again') : bad('edit counted early ' + JSON.stringify(await tallies()));
+await expectOk(C, `select public.submit_tier_list('fortunes-weave', 'unit-tiers')`, 'villager submits again');
+JSON.stringify((await tallies()).filter((r) => r.card_id === CARD).map((r) => r.tier_key)) === JSON.stringify(['b', 's'])
+  ? ok('submitting again updates the community copy') : bad('resubmit ' + JSON.stringify(await tallies()));
+await expectOk(C, `select public.withdraw_tier_list('fortunes-weave', 'unit-tiers')`, 'villager withdraws their list');
+JSON.stringify((await tallies()).filter((r) => r.card_id === CARD).map((r) => r.tier_key)) === JSON.stringify(['s'])
+  ? ok('a withdrawn list stops counting') : bad('withdraw ' + JSON.stringify(await tallies()));
+const keptMain = await db.query(`select count(*)::int as n from public.tier_lists where profile_id = '${C}' and kind = 'main'`);
+keptMain.rows[0].n === 1 ? ok('withdrawing keeps your own list') : bad('main gone ' + JSON.stringify(keptMain.rows));
+await expectFail(A, `select public.submit_tier_list('fortunes-weave', 'unit-tiers')`, 'an empty list cannot be submitted');
+
+// Unique lists: your own title, built from scratch, never counted, shareable.
+const U = (await asUser(B, `select public.create_unique_tier_list('fortunes-weave', 'unit-tiers', '  Hottest   units ') as id`)).rows[0]?.id;
+const uq = await db.query(`select kind, title from public.tier_lists where id = '${U}'`);
+uq.rows[0]?.kind === 'unique' && uq.rows[0].title === 'Hottest units' ? ok('villager starts a unique list with its own title') : bad('unique ' + JSON.stringify(uq.rows));
+await expectOk(B, save([{ card: CARD2, tier: 's' }], U), 'villager fills their unique list');
+await expectFail(C, save([{ card: CARD2, tier: 'b' }], U), "nobody saves into someone else's unique list");
+JSON.stringify((await tallies()).filter((r) => r.card_id === CARD2).map((r) => r.tier_key)) === JSON.stringify(['b'])
+  ? ok('a unique list never counts') : bad('unique counted ' + JSON.stringify(await tallies()));
+await expectOk(B, `select public.rename_unique_tier_list('${U}', 'Most interesting')`, 'villager renames their unique list');
+await expectFail(B, `select public.create_unique_tier_list('fortunes-weave', 'unit-tiers', '   ')`, 'a unique list needs a title');
+
+// Privacy and sharing, by list.
+const seen = await asUser(C, `select count(*)::int as n from public.tier_placements tp join public.tier_lists l on l.id = tp.list_id where l.profile_id = '${B}'`);
+seen.rows[0].n === 0 ? ok('a list is private until it is shared') : bad('tier privacy ' + JSON.stringify(seen.rows));
+await expectOk(B, `select public.share_tier_list('${U}', true)`, 'villager shares their unique list');
+const shared = await asUser(C, `select count(*)::int as n from public.tier_placements where list_id = '${U}'`);
+shared.rows[0].n === 1 ? ok('a shared list can be read by its link') : bad('shared list ' + JSON.stringify(shared.rows));
+const subId = (await db.query(`select id from public.tier_lists where profile_id = '${B}' and kind = 'submitted'`)).rows[0]?.id;
+await expectFail(B, `select public.share_tier_list('${subId}', true)`, 'the community copy is not a link of its own');
 const et = await asUser(C, `select block_key, tier_key, lists from public.entry_tiers('${CARD}') order by tier_key`);
-et.rows.length === 2 && et.rows.every((r) => r.block_key === 'unit-tiers') ? ok('an entry finds the tier lists that rank it') : bad('entry tiers ' + JSON.stringify(et.rows));
-const seen = await asUser(C, `select count(*)::int as n from public.tier_placements`);
-seen.rows[0].n === 1 ? ok('a list is private until it is shared') : bad('tier privacy ' + JSON.stringify(seen.rows));
-await expectOk(B, `select public.share_tier_list('fortunes-weave', 'unit-tiers', true)`, 'villager shares their list');
-const shared = await asUser(C, `select count(*)::int as n from public.tier_placements`);
-shared.rows[0].n === 3 ? ok('a shared list can be read by its link') : bad('shared list ' + JSON.stringify(shared.rows));
+et.rows.length === 1 && et.rows[0].block_key === 'unit-tiers' && et.rows[0].tier_key === 's' ? ok('an entry finds the tier lists that rank it (submitted only)') : bad('entry tiers ' + JSON.stringify(et.rows));
+
+// Reasons come from submitted copies, without names; moderators remove them for good.
 const why = await asUser(C, `select id, reason, mine from public.tier_reasons('fortunes-weave', 'unit-tiers', '${CARD}')`);
 why.rows.length === 1 && why.rows[0].reason === 'Carries the early maps' && why.rows[0].mine === false ? ok('reasons show without names') : bad('tier reasons ' + JSON.stringify(why.rows));
 const reasonId = why.rows[0]?.id;
@@ -314,13 +353,39 @@ await expectFail(C, `select public.remove_tier_reason('${reasonId}')`, 'a villag
 await expectOk(A, `select public.remove_tier_reason('${reasonId}')`, 'a moderator takes a reason down');
 const rr = await db.query(`select (select reason from public.tier_placements where id = '${reasonId}') as reason, (select tier_key from public.tier_placements where id = '${reasonId}') as tier, (select status from public.flags where tier_placement_id = '${reasonId}') as fl`);
 rr.rows[0].reason === null && rr.rows[0].tier === 's' && rr.rows[0].fl === 'resolved' ? ok('the reason goes, the placement stays, its reports close') : bad('remove reason ' + JSON.stringify(rr.rows));
-await expectOk(B, `select public.save_tier_list('fortunes-weave', 'unit-tiers', ${pieces([{ card: CARD, tier: 's', reason: 'Carries the early maps' }, { card: CARD2, tier: 'b' }])})`, 'the device sends the removed reason again');
+await expectOk(B, `select public.submit_tier_list('fortunes-weave', 'unit-tiers')`, 'villager submits again with the removed words still in their list');
 const back = await db.query(`select reason from public.tier_placements where id = '${reasonId}'`);
-back.rows[0]?.reason === null ? ok('a removed reason does not come back with the next save') : bad('reason came back ' + JSON.stringify(back.rows));
-await expectOk(B, `select public.save_tier_list('fortunes-weave', 'unit-tiers', ${pieces([{ card: CARD, tier: 's', reason: 'Best mover early on' }, { card: CARD2, tier: 'b' }])})`, 'a new reason saves');
+back.rows[0]?.reason === null ? ok('a removed reason does not come back with the next submit') : bad('reason came back ' + JSON.stringify(back.rows));
+await expectOk(B, save([{ card: CARD, tier: 's', reason: 'Best mover early on' }, { card: CARD2, tier: 'b' }]), 'villager writes a new reason');
+await expectOk(B, `select public.submit_tier_list('fortunes-weave', 'unit-tiers')`, 'and submits it');
 const fresh = await db.query(`select reason from public.tier_placements where id = '${reasonId}'`);
 fresh.rows[0]?.reason === 'Best mover early on' ? ok('new words after a removal are kept') : bad('new reason ' + JSON.stringify(fresh.rows));
 for (const [label, arg] of [['a card that is not an id', pieces([{ card: 'not-a-uuid', tier: 's' }])], ['a list that is not a list', `'{"card":"x"}'::jsonb`]]) {
   try { await asUser(B, `select public.save_tier_list('fortunes-weave', 'unit-tiers', ${arg})`); bad(label + ' is refused'); }
   catch (e) { /isn't (in this tier list|a list)/.test(e.message) ? ok(label + ' is refused in plain words') : bad(label + ': ' + e.message); }
 }
+// A removed reason is remembered per player and piece, so it can't come back any other way (the hub).
+const reasonOn = async (kind, list) => (await db.query(`select tp.reason from public.tier_placements tp join public.tier_lists l on l.id = tp.list_id where l.profile_id = '${B}' and tp.card_id = '${CARD}' and ${list ? `l.id = '${list}'` : `l.kind = '${kind}'`}`)).rows[0]?.reason ?? null;
+const reasonNow = (await asUser(C, `select id from public.tier_reasons('fortunes-weave', 'unit-tiers', '${CARD}')`)).rows[0]?.id;
+await expectOk(A, `select public.remove_tier_reason('${reasonNow}')`, 'a moderator takes down the new reason too');
+await expectOk(B, save([{ card: CARD, tier: 's', reason: 'Best mover early on' }, { card: CARD2, tier: 'b' }]), 'the device sends those words again');
+await expectOk(B, `select public.withdraw_tier_list('fortunes-weave', 'unit-tiers')`, 'villager withdraws');
+await expectOk(B, `select public.submit_tier_list('fortunes-weave', 'unit-tiers')`, 'and resubmits');
+(await reasonOn('submitted')) === null ? ok('withdrawing and resubmitting does not bring a removed reason back') : bad('came back after resubmit: ' + await reasonOn('submitted'));
+await expectOk(B, save([{ card: CARD2, tier: 'b' }]), 'villager takes the piece off their list');
+await expectOk(B, save([{ card: CARD, tier: 's', reason: 'Best mover early on' }, { card: CARD2, tier: 'b' }]), 'puts it back with the same words');
+await expectOk(B, `select public.submit_tier_list('fortunes-weave', 'unit-tiers')`, 'and submits');
+(await reasonOn('submitted')) === null && (await reasonOn('main')) === null ? ok('taking a piece off and putting it back does not bring it back') : bad('came back after re-adding');
+await expectOk(B, save([{ card: CARD, tier: 'a', reason: 'Best mover early on' }], U), 'villager puts the same words on their shared unique list');
+(await reasonOn(null, U)) === null ? ok('a unique list does not bring a removed reason back') : bad('came back on a unique list');
+await expectOk(B, save([{ card: CARD, tier: 'a', reason: 'Fast, and hits hard' }], U), 'different words still save');
+(await reasonOn(null, U)) === 'Fast, and hits hard' ? ok('new words for the same piece are kept') : bad('new words lost');
+const peek = await asUser(B, `select count(*)::int as n from public.tier_removed_reasons`).catch(() => null);
+!peek ? ok('nobody reads the removed reasons directly (refused)') : bad('removed reasons readable');
+await expectOk(B, `select public.share_tier_list('fortunes-weave', 'unit-tiers', true)`, 'the old way of sharing still shares the main list');
+await expectOk(B, save([{ card: CARD, tier: 's', reason: 'Nobody else comes close' }, { card: CARD2, tier: 'b' }]), 'villager writes fresh words on their shared main list');
+await expectOk(B, `select public.submit_tier_list('fortunes-weave', 'unit-tiers')`, 'and submits them');
+const fresh2 = (await asUser(C, `select id from public.tier_reasons('fortunes-weave', 'unit-tiers', '${CARD}') where reason = 'Nobody else comes close'`)).rows[0]?.id;
+await expectOk(A, `select public.remove_tier_reason('${fresh2}')`, 'a moderator takes them down');
+const mainNow = await asUser(C, `select tp.reason from public.tier_placements tp join public.tier_lists l on l.id = tp.list_id where l.profile_id = '${B}' and l.kind = 'main' and tp.card_id = '${CARD}'`);
+mainNow.rows.length === 1 && mainNow.rows[0].reason === null ? ok('a shared main list loses removed words straight away') : bad('shared main still shows ' + JSON.stringify(mainNow.rows));

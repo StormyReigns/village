@@ -102,7 +102,7 @@ export function tierFill(i: number, n: number, color: string) {
     background: `color-mix(in srgb, ${color} ${pct}%, var(--card-2))`,
     white: pct >= 70,
     /** A light wash of the same color behind the tier's row. */
-    wash: `color-mix(in srgb, ${color} ${Math.round(4 + 9 * g)}%, var(--card))`,
+    wash: `color-mix(in srgb, ${color} ${Math.round(10 + 22 * g)}%, var(--card))`,
   };
 }
 

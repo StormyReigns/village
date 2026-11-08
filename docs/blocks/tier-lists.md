@@ -5,7 +5,8 @@
 (`TierList.tsx` the Block, `CommunityTier.tsx` the card pill, `useTierList.ts` loading and saving),
 `src/app/g/[game]/(app)/tiers/[list]/` (a shared list at `/g/<game>/tiers/<id>` and its picture, `src/lib/og-tiers.tsx`,
 `src/lib/tier-share.ts`) · **Database:** `supabase/migrations/20261109000000_tier_lists.sql` (reviewed by the hub
-2026-11-08), then `seed-app.sql` (adds Fortune's Weave · Unit tiers)
+2026-11-08), then `seed-app.sql` (adds Fortune's Weave · Unit tiers), then
+`20261109120000_tier_lists_submit.sql` (submitting, unique lists, sharing by list, removed reasons per player; reviewed by the hub, run by Matt 2026-11-08)
 
 A Block of its own (Matt, 2026-11-08): a **Tier list** Block sits on a Page and ranks the pieces of
 another Block on that Page, like "Unit tiers" ranking Units. A builder can limit it to some routes
@@ -80,26 +81,37 @@ Its title and intro line, then two tabs, yellow on the one you're on:
   Tapping a piece opens a small sheet: the piece and name, "Community tier: A · 23 lists", the
   spread as a bar ("S 4 · A 12 · B 6 · C 1"), reasons people gave (newest first, no names, each
   with a report flag), "Open <name>" (its card) and "Place it in my list".
-- **My list** (was "Mine"): your own list, the same rows, with a tray of "Not placed" pieces
-  under them. Pieces in the tray show their uploaded picture inside the split outline.
+- **My list** (was "Mine"): above the board, your lists as chips: your list for the Block's reason
+  ("MVP", the one that can count), any unique lists of yours, and "Create a unique list". The board's
+  header has the list's title, where it stands, "4 of 55" and a Share button.
 
-### Making your list (Mine)
+### Making your list (My list)
 
+- **The tray** (Matt, 2026-11-08): the pieces not placed yet sit in a sheet that slides up from the
+  bottom of the screen while the board is in view (above the phone's tab bar; on a computer, lined
+  up with the board's column), with a handle to make it bigger. Pieces show their uploaded picture
+  inside the split outline.
 - **Tap to place** (the main way, made for phones): tap a piece and it lifts with a yellow ring,
-  the tier rows light up as targets, and a small bar pinned to the bottom of the screen shows the
-  piece's name, its tier buttons (S A B C D) and "Add a reason". Tap a row or a tier button to drop
-  it at the end of that row. Tap a placed piece to pick it up again; "Not placed" sends it back to
-  the tray.
-- **Drag** (also works): press and drag a piece onto a row, on a computer with the mouse, on a
-  phone after a short press (so scrolling the page still works).
+  the tier rows light up as targets, and the top of the tray shows the piece's name, its tier
+  buttons (S A B C D) and "Add a reason". Tap a row or a tier button to drop it at the end of that
+  row. Tap a placed piece to pick it up again; "Not placed" sends it back to the tray.
+- **Drag** (also works): press and drag a piece onto a row or back to the tray, on a computer with
+  the mouse, on a phone after a short press (so scrolling the page still works).
 - Within a row, order matters only to you (left is better); the community tier uses the row.
 - **Start from the community's**: one tap fills an empty list with the community tiers, so you
   only move the ones you disagree with.
-- **Saved as you go.** On this device always. Signed in, also in your account (a moment after
-  your last change), where it counts toward the community tier. Not signed in: "Sign in to count
-  your list and share it", and signing in sends up the list you made.
-- **Share** (signed in): marks your list as shared and copies a link that opens it in Village,
-  with your name on it and a share picture of your tiers for Discord or Reddit.
+- **Saved as you go.** Your MVP list: on this device always, and in your account when signed in.
+  Unique lists: in your account (signing in is needed to make one).
+- **Submit to community** (Matt, 2026-11-08): under your MVP list. Saving doesn't make it count;
+  submitting does, as the list is at that moment. Change it afterwards and the box says "You've
+  changed your list since you submitted it" with "Submit changes"; "Withdraw" takes it back out.
+  Not signed in: "Sign in to submit".
+- **Create a unique list** (Matt, 2026-11-08): a list of your own with its own title ("Hottest"),
+  built from scratch. It never counts toward Community; rename it, delete it, or share it.
+- **Share** (the header's button, separate from submitting; Matt, 2026-11-08): makes the list's
+  link readable and opens the phone's share menu, or copies the link. The link opens the list in
+  Village with your name and a share picture of your tiers. Under the board, "Its link is shared ·
+  make it private". On the Community tab, the header's Share sends the community board.
 
 ### On an entry's card
 
@@ -115,8 +127,8 @@ list ranks the entry or nobody has placed it.
 - **Only placed pieces count.** Leaving a piece in the tray means "no opinion", not the last tier.
 - **5 lists before it's settled**, like every other opinion vote: under 5, the piece is "Still
   deciding" and its card says "Leaning A" with no count.
-- **One list per player per Tier list Block.** Editing it changes your contribution. Nobody sees
-  who ranked what, only totals, unless you share your list.
+- **One counted list per player per Tier list Block**: the copy you submitted. Submitting again
+  replaces it. Nobody sees who ranked what, only totals, unless you share your list.
 
 ## Builders
 
@@ -130,17 +142,21 @@ comes in slice 2; until then the starter data sets them (Fortune's Weave · Unit
 ## Data
 
 - **game_blocks.tier_setup** (jsonb): `{ ranks, tiers: [{ key, label }], routes?, tag?: { key, values } }`.
-- **tier_lists**: one per player per Tier list Block: who, whether it's shared, the game patch
-  (filled later), when it changed. Readable only by its maker, or by anyone once shared.
+- **tier_lists**: a player's lists for a Tier list Block, by kind: `main` (your MVP list, one),
+  `submitted` (the copy the community counts, one, written only by submitting), `unique` (your own
+  titled lists, up to 20). Who, whether its link is shared, the game patch (filled later), when it
+  changed. Readable only by its maker, or by anyone once shared.
 - **tier_placements**: one per placed piece: the entry (card), its tier key, its place in the
   row, an optional reason (up to 140 characters).
-- **save_tier_list(game, block, pieces)**: saves the whole list at once; only the ranked Block's
-  pieces and the Block's own tiers. About 600 saves an hour at most. **share_tier_list** turns
-  sharing on or off.
-- **tier_tallies(game, block)**: how many lists put each piece in each tier. The median and the
-  5-list rule are worked out in `src/lib/tiers.ts`, tested.
+- **save_tier_list(game, block, pieces, list?)**: saves your main list, or one of your unique lists,
+  whole; only the ranked Block's pieces and its own tiers. About 600 saves an hour at most.
+  **submit_tier_list** copies your main list into the submitted copy; **withdraw_tier_list** deletes
+  it. **create_unique_tier_list** / **rename_unique_tier_list**. **share_tier_list(list, on)**.
+- **tier_tallies(game, block)**: how many submitted lists put each piece in each tier. The median
+  and the 5-list rule are worked out in `src/lib/tiers.ts`, tested.
 - **entry_tiers(card)**: every Tier list ranking that entry, with counts, for the card's pill.
-- **tier_reasons(game, block, card)**: reasons for one piece, newest first, no names.
+- **tier_reasons(game, block, card)**: reasons for one piece from submitted lists, newest first, no names.
+
 - **Reports**: a flag can point at a reason (`flags.tier_placement_id`); a moderator removes the
   reason (`remove_tier_reason`), the placement stays, and its reports close. The removed words are
   kept (`removed_reason`) so the player's next autosave can't put them back; new words still save.
@@ -188,6 +204,14 @@ and a reported reason on the Notice Board. Touch drag needs a real phone (the em
 mouse).
 
 ## Decisions
+
+- 2026-11-08: a list counts only once submitted, and later changes count when submitted again
+  (Matt). Why: players choose when their opinion goes in; trying things out stays private.
+- 2026-11-08: each Tier list keeps one reason set by its builder (MVP); players can also make
+  unique lists with their own titles, built from scratch, that never count (Matt).
+- 2026-11-08: Share is its own button in the board's header, separate from submitting (Matt).
+- 2026-11-08: the Not placed tray is a slide-up sheet on phones and computers (Matt).
+- 2026-11-08: the row tints are stronger (Matt: "so subtle that I almost didn't notice it").
 
 - 2026-11-08: each tier list has a title, "MVP" by default (Matt): `tier_setup.title`, set by
   builders (in Set up, slice 2). Shown in the board's header and on shared lists ("Matt's MVP list").

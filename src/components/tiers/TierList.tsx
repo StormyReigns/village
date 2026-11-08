@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Check, Flag, MessageSquareText, Share2, Sparkles, Undo2, Users, UserRound, X } from 'lucide-react';
+import { Check, Flag, MessageSquareText, Plus, Send, Share2, Sparkles, Undo2, Users, UserRound, X } from 'lucide-react';
 import type { Block, Entry } from '@/data/pages';
 import { sharePath } from '@/data/pages/links';
 import { Piece } from '@/components/Piece';
@@ -83,7 +83,7 @@ function Board({ block, ranked, ctx }: { block: Block; ranked: Block; ctx: Block
       </div>
 
       {tab === 'community'
-        ? <CommunityView title={title} tiers={tiers} shown={shown} community={community} data={data} color={color} ranked={ranked} onOpen={setSheet} onMine={toMine} />
+        ? <CommunityView title={title} shareUrl={sharePath(ctx.gameId, ctx.page, block)} tiers={tiers} shown={shown} community={community} data={data} color={color} ranked={ranked} onOpen={setSheet} onMine={toMine} />
         : <MineView title={title} tiers={tiers} shown={shown} data={data} community={community} color={color} ranked={ranked} block={block} ctx={ctx} />}
 
       {sheetEntry && (
@@ -133,8 +133,8 @@ function PieceButton({ e, block, color, outline = false, picked = false, snap = 
 
 // --------------------------------------------------------------------------- Community
 
-function CommunityView({ title, tiers, shown, community, data, color, ranked, onOpen, onMine }: {
-  title: string; tiers: Tier[]; shown: Entry[]; community: Map<string, Community>; data: Data; color: string; ranked: Block;
+function CommunityView({ title, tiers, shown, community, data, color, ranked, shareUrl, onOpen, onMine }: {
+  title: string; shareUrl: string; tiers: Tier[]; shown: Entry[]; community: Map<string, Community>; data: Data; color: string; ranked: Block;
   onOpen: (id: string) => void; onMine: () => void;
 }) {
   const { state, total } = data;
@@ -146,7 +146,8 @@ function CommunityView({ title, tiers, shown, community, data, color, ranked, on
   return (
     <div className="mt-3 grid gap-3">
       <BoardCard>
-        <BoardHead title={title} sub={`${ranked.title}, ranked by everyone’s lists`} chip={chip} />
+        <BoardHead title={title} sub={`${ranked.title}, ranked by everyone’s lists`} chip={chip}
+          action={<HeaderShare label={`Share the community’s ${title} list`} getUrl={async () => window.location.origin + shareUrl} />} />
         {tiers.map((t, i) => (
           // Before anyone has ranked, the rows stay short so the empty board doesn't fill a phone.
           <TierRow key={t.key} t={t} i={i} n={tiers.length} color={color} compact={!any}>
@@ -298,12 +299,114 @@ function ReasonRow({ r, label, meId }: { r: { id: string; text: string; mine: bo
 
 type Data = ReturnType<typeof useTierList>;
 
-/** Where your list stands, for the board's header. */
+/** Where the list you're looking at stands, for the board's header. */
 function saveText(data: Data, placed: number): string {
   if (data.error) return data.error;
-  if (!data.me) return placed ? 'Kept on this device. Sign in so it counts' : 'Sign in so your list counts';
+  if (data.unique) return data.save === 'saving' ? 'Saving…' : 'Your own list. It doesn’t count toward Community';
+  if (!data.me) return placed ? 'Kept on this device' : 'Your list for the community’s';
   if (data.save === 'saving') return 'Saving…';
-  return placed ? 'Saved. It counts toward Community' : 'It counts toward Community once you place a piece';
+  if (!data.submitted) return placed ? 'Saved. Submit it below so it counts' : 'Your list for the community’s';
+  return data.changed ? 'Changed since you submitted it' : 'Submitted. It counts toward Community';
+}
+
+/** Shares a link from the ink header: the phone's share menu, else copied. */
+function HeaderShare({ label, getUrl }: { label: string; getUrl: () => Promise<string | null> }) {
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    if (!note) return;
+    const t = setTimeout(() => setNote(null), 2600);
+    return () => clearTimeout(t);
+  }, [note]);
+  const go = async () => {
+    const url = await getUrl();
+    if (!url) return;
+    if (window.matchMedia('(pointer: coarse)').matches && navigator.share) {
+      try { await navigator.share({ title: label, url }); } catch { /* closed the share menu */ }
+      return;
+    }
+    try { await navigator.clipboard.writeText(url); setNote('Link copied'); } catch { window.prompt('Copy this link:', url); }
+  };
+  return (
+    <span className="relative shrink-0">
+      <button type="button" onClick={go} aria-label={label} title={label}
+        className={'grid size-9 place-items-center rounded-full transition ' + (note ? 'bg-leaf text-white' : 'bg-white/10 text-white hover:bg-white/20')}>
+        {note ? <Check size={16} aria-hidden="true" /> : <Share2 size={16} aria-hidden="true" />}
+      </button>
+      {note && <span role="status" className="absolute right-0 top-full z-10 mt-1 whitespace-nowrap rounded-full bg-ink px-2.5 py-1 text-xs font-bold text-white shadow-soft">{note}</span>}
+    </span>
+  );
+}
+
+/**
+ * Where the tray sits: above the phone's tab bar (however tall it is), full width; on a computer at
+ * the bottom, lined up with the board's column. Measured whenever the tray appears (the tab bar may
+ * only arrive after the page has loaded) and when the window changes size.
+ */
+function useTrayPlace(board: React.RefObject<HTMLDivElement | null>, showing: boolean) {
+  const [place, setPlace] = useState<React.CSSProperties>({ bottom: 0 });
+  useEffect(() => {
+    if (!showing) return;
+    const measure = () => {
+      const bar = [...document.querySelectorAll<HTMLElement>('nav')].find((n) => getComputedStyle(n).position === 'fixed' && n.offsetHeight > 0);
+      const bottom = bar ? Math.max(0, Math.round(window.innerHeight - bar.getBoundingClientRect().top)) : 0;
+      const r = board.current?.getBoundingClientRect();
+      setPlace(window.innerWidth >= 1024 && r ? { bottom, left: Math.round(r.left), width: Math.round(r.width), right: 'auto' } : { bottom });
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [board, showing]);
+  return place;
+}
+
+function useSignIn(blockId: string) {
+  const router = useRouter();
+  return (what: string) => router.push(`/signin?next=${encodeURIComponent(window.location.pathname + window.location.search + '#' + blockId)}&for=${encodeURIComponent(what)}`);
+}
+
+/** Your lists: the main one for the Block's reason (it can count), your unique ones, and "New list". */
+function ListPicker({ data, title, block }: { data: Data; title: string; block: Block }) {
+  const [making, setMaking] = useState(false);
+  const [name, setName] = useState('');
+  const [note, setNote] = useState<string | null>(null);
+  const signIn = useSignIn(block.id);
+  const chip = (on: boolean) => 'inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (on ? 'bg-ink text-white ring-ink' : 'bg-card ring-line hover:ring-ink');
+  const create = async () => {
+    const err = await data.createUnique(name);
+    if (err) { setNote(err); return; }
+    setMaking(false); setName(''); setNote(null);
+  };
+  return (
+    <div className="mt-3">
+      <div role="group" aria-label="Your lists" className="flex flex-wrap items-center gap-1.5">
+        <button type="button" onClick={() => data.choose('main')} aria-pressed={data.active === 'main'} className={chip(data.active === 'main')}>
+          <Users size={14} aria-hidden="true" /> {title}
+        </button>
+        {data.uniques.map((u) => (
+          <button key={u.id} type="button" onClick={() => data.choose(u.id)} aria-pressed={data.active === u.id} className={chip(data.active === u.id)}>{u.title}</button>
+        ))}
+        {!making && (
+          <button type="button" onClick={() => (data.me ? setMaking(true) : signIn('make a list of your own'))}
+            className="inline-flex shrink-0 items-center gap-1 rounded-full border-2 border-dashed border-line px-3 py-1 text-sm font-bold text-muted hover:border-ink hover:text-ink">
+            <Plus size={14} aria-hidden="true" /> Create a unique list
+          </button>
+        )}
+      </div>
+      {making && (
+        <form onSubmit={(ev) => { ev.preventDefault(); create(); }} className="mt-2 flex flex-wrap items-center gap-2 rounded-2xl bg-card-2 p-2.5">
+          <label className="min-w-48 flex-1">
+            <span className="sr-only">Title</span>
+            <input autoFocus value={name} onChange={(ev) => setName(ev.target.value)} maxLength={40} placeholder="Its title, like “Hottest” or “Most interesting”"
+              className="w-full rounded-xl bg-card px-3 py-2 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-signal" />
+          </label>
+          <button type="submit" disabled={!name.trim()} className="btn-primary rounded-full px-4 py-2 text-sm font-bold disabled:opacity-40">Start it</button>
+          <button type="button" onClick={() => { setMaking(false); setName(''); setNote(null); }} className="rounded-full px-3 py-2 text-sm font-bold text-muted hover:text-ink">Cancel</button>
+          <p className="w-full text-xs text-muted">A list of your own, from scratch. It’s yours to share; it doesn’t count toward the community’s {title} list.</p>
+          {note && <p role="status" className="w-full text-xs font-bold text-berry">{note}</p>}
+        </form>
+      )}
+    </div>
+  );
 }
 
 function MineView({ title, tiers, shown, data, community, color, ranked, block, ctx }: {
@@ -311,6 +414,7 @@ function MineView({ title, tiers, shown, data, community, color, ranked, block, 
 }) {
   const [picked, setPicked] = useState<string | null>(null);
   const [reasonOpen, setReasonOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   // The piece just placed snaps solid (the brand's one motion), once.
   const [fresh, setFresh] = useState<string | null>(null);
   useEffect(() => {
@@ -324,6 +428,12 @@ function MineView({ title, tiers, shown, data, community, color, ranked, block, 
   const pickedEntry = picked ? byId.get(picked) : undefined;
   const pickedTier = picked ? tierOf(list, picked) : null;
   const placed = placedCount(list);
+  const listTitle = data.unique?.title ?? title;
+  const signIn = useSignIn(block.id);
+
+  // A different list: nothing stays picked.
+  const [seenList, setSeenList] = useState(data.active);
+  if (seenList !== data.active) { setSeenList(data.active); setPicked(null); }
 
   const pick = (id: string) => { setReasonOpen(false); setPicked(picked === id ? null : id); };
   const drop = (tier: string | null, before?: string) => {
@@ -346,17 +456,38 @@ function MineView({ title, tiers, shown, data, community, color, ranked, block, 
     setPicked(null);
   });
 
+  // The tray slides up from the bottom while the board is on screen.
+  const [inView, setInView] = useState(false);
+  const board = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = board.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setInView(e.isIntersecting), { rootMargin: '-72px 0px -140px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  const trayPlace = useTrayPlace(board, inView || Boolean(pickedEntry));
+
   const communityFill = () => setList(fromCommunity(shown.map((e) => e.id), (id) => community.get(id)?.tier ?? null));
-  const hasCommunity = shown.some((e) => community.get(e.id)?.tier);
+  const hasCommunity = data.active === 'main' && shown.some((e) => community.get(e.id)?.tier);
+  const shareUrl = async () => {
+    if (!data.me) { signIn('share your tier list'); return null; }
+    const r = await data.share();
+    return r.id ? window.location.origin + listPath(ctx.gameId, r.id) : null;
+  };
 
   return (
-    // Room at the bottom while a piece is picked, so its bar never hides the last row.
-    <div className={'mt-3' + (pickedEntry ? ' pb-40' : '')} ref={root}>
-      <BoardCard>
-        <BoardHead title={title} sub={saveText(data, placed)} chip={`${placed} of ${shown.length}`} />
+    // Room at the bottom for the tray, so the last tier can scroll above it.
+    <div className="pb-48" ref={root}>
+      <ListPicker data={data} title={title} block={block} />
+      <div ref={board}>
+      <BoardCard className="mt-3">
+        <BoardHead title={listTitle} sub={saveText(data, placed)} chip={`${placed} of ${shown.length}`}
+          action={<HeaderShare label={`Share my ${listTitle} list`} getUrl={shareUrl} />} />
         {placed === 0 && (
           <div className="flex flex-wrap items-center gap-2 border-t border-line/70 bg-card-2 px-3 py-2 text-sm">
-            <p className="min-w-0 flex-1 text-muted">Tap a piece below, then tap a tier. Or press and drag it.</p>
+            <p className="w-full text-muted sm:w-auto sm:min-w-0 sm:flex-1">Tap a piece in the tray below, then tap a tier. Or press and drag it.</p>
             {hasCommunity && (
               <button type="button" onClick={communityFill} className="inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 font-bold ring-1 ring-line hover:ring-ink">
                 <Sparkles size={14} aria-hidden="true" /> Start from the community’s
@@ -382,54 +513,67 @@ function MineView({ title, tiers, shown, data, community, color, ranked, block, 
           );
         })}
       </BoardCard>
-
-      <div data-tier="" onClick={(ev) => { if (picked && pickedTier && !(ev.target as HTMLElement).closest('[data-id]')) drop(null); }}
-        className={'mt-3 rounded-2xl border-2 border-dashed p-1.5 transition-colors ' + (over === '' ? 'border-signal bg-signal/10' : picked && pickedTier ? 'cursor-pointer border-signal/70' : 'border-line')}>
-        <p className="px-1.5 pt-0.5 text-xs font-bold uppercase tracking-wide text-muted">Not placed · {tray.length}</p>
-        {tray.length ? (
-          <ul className="mt-0.5 flex flex-wrap gap-x-1">
-            {tray.map((e) => <li key={e.id}><PieceButton e={e} block={ranked} color={color} outline picked={picked === e.id} data-id={e.id} onClick={() => pick(e.id)} {...handlers(e.id)} /></li>)}
-          </ul>
-        ) : <p className="px-1.5 pb-1 text-sm text-muted">Every piece is placed.</p>}
       </div>
 
-      <MineFooter data={data} ctx={ctx} block={block} title={title} placed={placed} onClear={() => { setList({ rows: {}, reasons: {} }); setPicked(null); }} />
+      {data.active === 'main'
+        ? <SubmitBar data={data} title={title} placed={placed} onSignIn={() => signIn('submit your tier list')} />
+        : <UniqueBar data={data} />}
+      <ListFooter data={data} ctx={ctx} placed={placed} onClear={() => { setList({ rows: {}, reasons: {} }); setPicked(null); }} />
 
-      {/* The picked piece's bar, pinned above the phone's tab bar: its tiers and its reason. */}
-      {pickedEntry && (
-        <div className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom))] z-40 px-3 lg:bottom-6">
-          <div role="toolbar" aria-label={`Place ${pickedEntry.name}`} className="rise mx-auto max-w-lg rounded-3xl bg-ink p-3 text-white shadow-soft">
-            <div className="flex items-center gap-2">
-              <p className="min-w-0 flex-1 truncate text-sm font-bold">{pickedEntry.name}{pickedTier ? ` · ${tiers.find((t) => t.key === pickedTier)?.label}` : ''}</p>
-              {pickedTier && (
-                <button type="button" onClick={() => setReasonOpen(!reasonOpen)} aria-expanded={reasonOpen}
-                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-white/30 hover:ring-white">
-                  <MessageSquareText size={13} aria-hidden="true" /> {list.reasons[pickedEntry.id] ? 'Reason' : 'Add a reason'}
-                </button>
-              )}
-              <button type="button" onClick={() => setPicked(null)} aria-label="Done" className="grid size-8 place-items-center rounded-full bg-white/10 hover:bg-white/20"><Check size={16} aria-hidden="true" /></button>
-            </div>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {tiers.map((t) => (
-                <button key={t.key} type="button" onClick={() => drop(t.key)} aria-pressed={pickedTier === t.key}
-                  className={'min-w-11 flex-1 rounded-full px-2 py-2 text-sm font-extrabold ' + (pickedTier === t.key ? 'bg-signal text-ink' : 'bg-white/10 hover:bg-white/20')}>{t.label}</button>
-              ))}
-              {pickedTier && (
-                <button type="button" onClick={() => drop(null)} className="inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-2 text-xs font-bold hover:bg-white/20">
-                  <Undo2 size={13} aria-hidden="true" /> Not placed
-                </button>
-              )}
-            </div>
-            {reasonOpen && pickedTier && (
-              <label className="mt-2 block">
-                <span className="sr-only">Why {pickedEntry.name} is here</span>
-                <input autoFocus value={list.reasons[pickedEntry.id] ?? ''} maxLength={REASON_MAX} placeholder={`Why ${pickedEntry.name} is here, in a line`}
-                  onChange={(ev) => setList(setReason(list, pickedEntry.id, ev.target.value))}
-                  onKeyDown={(ev) => { if (ev.key === 'Enter') setReasonOpen(false); }}
-                  className="w-full rounded-xl bg-white px-3 py-2 text-sm text-ink outline-none ring-2 ring-transparent focus:ring-signal" />
-                <span className="mt-1 block text-[11px] text-white/70">Shown to others without your name. {REASON_MAX - (list.reasons[pickedEntry.id]?.length ?? 0)} left.</span>
-              </label>
+      {/* The tray: a sheet that slides up from the bottom (above the phone's tab bar) while the
+          board is on screen. A picked piece's tiers and reason sit at its top. */}
+      {(inView || pickedEntry) && (
+        <div data-tier="" className="fixed inset-x-0 z-40 px-2 lg:px-0" style={trayPlace}
+          onClick={(ev) => { if (picked && pickedTier && !(ev.target as HTMLElement).closest('[data-id],button,input')) drop(null); }}>
+          <div className={'rise mx-auto max-w-2xl overflow-hidden lg:max-w-none rounded-t-3xl bg-card shadow-[0_-10px_30px_rgba(21,23,28,0.18)] ring-1 transition-colors lg:rounded-b-none ' + (over === '' ? 'ring-2 ring-signal' : 'ring-line')}>
+            <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={open ? 'Make the tray smaller' : 'Make the tray bigger'} className="block w-full pb-1 pt-2">
+              <span className="mx-auto block h-1.5 w-10 rounded-full bg-line" />
+            </button>
+            {pickedEntry ? (
+              <div role="toolbar" aria-label={`Place ${pickedEntry.name}`} className="mx-2 mb-2 rounded-2xl bg-ink p-2.5 text-white">
+                <div className="flex items-center gap-2">
+                  <p className="min-w-0 flex-1 truncate text-sm font-bold">{pickedEntry.name}{pickedTier ? ` · ${tiers.find((t) => t.key === pickedTier)?.label}` : ''}</p>
+                  {pickedTier && (
+                    <button type="button" onClick={() => setReasonOpen(!reasonOpen)} aria-expanded={reasonOpen}
+                      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ring-1 ring-white/30 hover:ring-white">
+                      <MessageSquareText size={13} aria-hidden="true" /> {list.reasons[pickedEntry.id] ? 'Reason' : 'Add a reason'}
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setPicked(null)} aria-label="Done" className="grid size-8 place-items-center rounded-full bg-white/10 hover:bg-white/20"><Check size={16} aria-hidden="true" /></button>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {tiers.map((t) => (
+                    <button key={t.key} type="button" onClick={() => drop(t.key)} aria-pressed={pickedTier === t.key}
+                      className={'min-w-11 flex-1 rounded-full px-2 py-2 text-sm font-extrabold ' + (pickedTier === t.key ? 'bg-signal text-ink' : 'bg-white/10 hover:bg-white/20')}>{t.label}</button>
+                  ))}
+                  {pickedTier && (
+                    <button type="button" onClick={() => drop(null)} className="inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-2 text-xs font-bold hover:bg-white/20">
+                      <Undo2 size={13} aria-hidden="true" /> Not placed
+                    </button>
+                  )}
+                </div>
+                {reasonOpen && pickedTier && (
+                  <label className="mt-2 block">
+                    <span className="sr-only">Why {pickedEntry.name} is here</span>
+                    <input autoFocus value={list.reasons[pickedEntry.id] ?? ''} maxLength={REASON_MAX} placeholder={`Why ${pickedEntry.name} is here, in a line`}
+                      onChange={(ev) => setList(setReason(list, pickedEntry.id, ev.target.value))}
+                      onKeyDown={(ev) => { if (ev.key === 'Enter') setReasonOpen(false); }}
+                      className="w-full rounded-xl bg-white px-3 py-2 text-sm text-ink outline-none ring-2 ring-transparent focus:ring-signal" />
+                    <span className="mt-1 block text-[11px] text-white/70">{data.active === 'main' ? 'Shown to others without your name once you submit. ' : ''}{REASON_MAX - (list.reasons[pickedEntry.id]?.length ?? 0)} left.</span>
+                  </label>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-3 pb-1">
+                <p className="text-xs font-bold uppercase tracking-wide text-muted">Not placed · {tray.length}</p>
+                <p className="min-w-0 flex-1 truncate text-right text-xs text-muted">{tray.length ? 'Tap one, then a tier' : ''}</p>
+              </div>
             )}
+            {tray.length ? (
+              <ul className={'flex flex-wrap gap-x-1 overflow-y-auto overscroll-contain px-2 pb-2 transition-[max-height] ' + (open ? 'max-h-[42dvh]' : pickedEntry ? 'max-h-[4.6rem]' : 'max-h-[9.4rem]')}>
+                {tray.map((e) => <li key={e.id}><PieceButton e={e} block={ranked} color={color} outline picked={picked === e.id} data-id={e.id} onClick={() => pick(e.id)} {...handlers(e.id)} /></li>)}
+              </ul>
+            ) : <p className="px-3 pb-3 text-sm text-muted">Every piece is placed.</p>}
           </div>
         </div>
       )}
@@ -438,40 +582,106 @@ function MineView({ title, tiers, shown, data, community, color, ranked, block, 
   );
 }
 
-function MineFooter({ data, ctx, block, title, placed, onClear }: { data: Data; ctx: BlockContext; block: Block; title: string; placed: number; onClear: () => void }) {
-  const router = useRouter();
-  const [note, setNote] = useState('');
-  const [sure, setSure] = useState(false);
-  const shareIt = async () => {
-    const r = await data.share();
-    if (!r.id) { setNote(r.error ?? 'Couldn’t share it.'); return; }
-    const url = window.location.origin + listPath(ctx.gameId, r.id);
-    if (window.matchMedia('(pointer: coarse)').matches && navigator.share) {
-      try { await navigator.share({ title: `My ${title} list`, url }); } catch { /* closed the share menu */ }
-      return;
-    }
-    try { await navigator.clipboard.writeText(url); setNote('Link copied. Paste it in Discord or Reddit: it shows a picture of your tiers.'); }
-    catch { window.prompt('Copy this link:', url); }
+/**
+ * Submitting your main list: it counts toward the community's list as it is when you submit;
+ * changes after that count when you submit again. Withdrawing takes it back.
+ */
+function SubmitBar({ data, title, placed, onSignIn }: { data: Data; title: string; placed: number; onSignIn: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const run = async (fn: () => Promise<string | null>, done: string) => {
+    setBusy(true);
+    const err = await fn();
+    setBusy(false);
+    setNote(err ?? done);
   };
-  const signIn = () => router.push(`/signin?next=${encodeURIComponent(window.location.pathname + window.location.search + '#' + block.id)}&for=${encodeURIComponent('save your tier list')}`);
-  return (
-    <div className="mt-3 grid gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        {data.me ? (
-          <button type="button" onClick={shareIt} disabled={!placed} className="btn-primary inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold disabled:opacity-40">
-            <Share2 size={15} aria-hidden="true" /> Share my list
+  let body: React.ReactNode;
+  if (data.me === undefined) return null;
+  if (!data.me) {
+    body = (
+      <>
+        <p className="min-w-0 flex-1 text-sm text-muted">Sign in to submit your list. Then it counts toward the community’s {title} list.</p>
+        <button type="button" onClick={onSignIn} className="btn-primary shrink-0 rounded-full px-4 py-2 text-sm font-bold">Sign in to submit</button>
+      </>
+    );
+  } else if (!data.submitted) {
+    body = (
+      <>
+        <p className="min-w-0 flex-1 text-sm text-muted">Happy with it? Submit it and it counts toward the community’s {title} list. Changes after that count when you submit again.</p>
+        <button type="button" disabled={!placed || busy} onClick={() => run(data.submit, 'Submitted. Thanks! It counts toward the community’s list now.')}
+          className="btn-primary inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-bold disabled:opacity-40">
+          <Send size={15} aria-hidden="true" /> Submit to community
+        </button>
+      </>
+    );
+  } else {
+    body = (
+      <>
+        <p className="flex min-w-0 flex-1 items-center gap-2 text-sm">
+          <span className="grid size-6 shrink-0 place-items-center rounded-full bg-leaf text-white"><Check size={14} strokeWidth={3} aria-hidden="true" /></span>
+          <span className="text-muted">{data.changed ? 'You’ve changed your list since you submitted it. The community still counts the old one.' : 'Submitted. It counts toward the community’s list.'}</span>
+        </p>
+        {data.changed && (
+          <button type="button" disabled={busy} onClick={() => run(data.submit, 'Changes submitted.')} className="btn-primary inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-bold disabled:opacity-40">
+            <Send size={15} aria-hidden="true" /> Submit changes
           </button>
-        ) : data.me === null && (
-          <button type="button" onClick={signIn} className="btn-primary inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold">Sign in so it counts</button>
         )}
-        {data.shared && data.listId && (
-          <span className="text-xs text-muted">Shared · <Link href={listPath(ctx.gameId, data.listId)} className="font-bold text-ink underline underline-offset-2">see it</Link> · <button type="button" onClick={() => { data.unshare(); setNote('Your list is private again.'); }} className="font-bold text-ink underline underline-offset-2">make it private</button></span>
-        )}
-        {placed > 0 && (sure
-          ? <span className="ml-auto text-xs font-bold">Clear your whole list? <button type="button" onClick={() => { onClear(); setSure(false); }} className="text-berry underline underline-offset-2">Clear it</button> · <button type="button" onClick={() => setSure(false)} className="underline underline-offset-2">Keep it</button></span>
-          : <button type="button" onClick={() => setSure(true)} className="ml-auto text-xs font-bold text-muted underline underline-offset-2 hover:text-ink">Start over</button>)}
-      </div>
-      {note && <p role="status" className="text-xs font-bold text-muted">{note}</p>}
+        <button type="button" disabled={busy} onClick={() => run(data.withdraw, 'Withdrawn. Your list no longer counts; it’s still here.')} className="shrink-0 text-xs font-bold text-muted underline underline-offset-2 hover:text-ink">Withdraw</button>
+      </>
+    );
+  }
+  return (
+    <div className="mt-3 rounded-2xl bg-card-2 p-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">{body}</div>
+      {note && <p role="status" className="mt-2 text-xs font-bold text-muted">{note}</p>}
+    </div>
+  );
+}
+
+/** A unique list: rename or delete it. */
+function UniqueBar({ data }: { data: Data }) {
+  const u = data.unique!;
+  const [renaming, setRenaming] = useState(false);
+  const [name, setName] = useState(u.title);
+  const [sure, setSure] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  return (
+    <div className="mt-3 rounded-2xl bg-card-2 p-3 text-sm">
+      {renaming ? (
+        <form onSubmit={async (ev) => { ev.preventDefault(); const err = await data.renameUnique(u.id, name); setNote(err); if (!err) setRenaming(false); }} className="flex flex-wrap items-center gap-2">
+          <input autoFocus value={name} onChange={(ev) => setName(ev.target.value)} maxLength={40} aria-label="Title"
+            className="min-w-48 flex-1 rounded-xl bg-card px-3 py-2 ring-1 ring-line outline-none focus:ring-2 focus:ring-signal" />
+          <button type="submit" disabled={!name.trim()} className="btn-primary rounded-full px-4 py-2 font-bold disabled:opacity-40">Save</button>
+          <button type="button" onClick={() => { setRenaming(false); setName(u.title); }} className="rounded-full px-3 py-2 font-bold text-muted hover:text-ink">Cancel</button>
+        </form>
+      ) : (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <p className="min-w-0 flex-1 text-muted">A list of your own. Share it from the top; it doesn’t count toward Community.</p>
+          <button type="button" onClick={() => setRenaming(true)} className="font-bold underline underline-offset-2">Rename</button>
+          {sure
+            ? <span className="font-bold">Delete “{u.title}”? <button type="button" onClick={async () => setNote(await data.deleteUnique(u.id))} className="text-berry underline underline-offset-2">Delete it</button> · <button type="button" onClick={() => setSure(false)} className="underline underline-offset-2">Keep it</button></span>
+            : <button type="button" onClick={() => setSure(true)} className="font-bold text-muted underline underline-offset-2 hover:text-ink">Delete list</button>}
+        </div>
+      )}
+      {note && <p role="status" className="mt-2 text-xs font-bold text-berry">{note}</p>}
+    </div>
+  );
+}
+
+/** Below the list: whether its link is shared, and starting over. */
+function ListFooter({ data, ctx, placed, onClear }: { data: Data; ctx: BlockContext; placed: number; onClear: () => void }) {
+  const [sure, setSure] = useState(false);
+  const [note, setNote] = useState('');
+  if (!placed && !data.shared) return null;
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 px-1 text-xs">
+      {data.shared && data.listId && (
+        <span className="text-muted">Its link is shared · <Link href={listPath(ctx.gameId, data.listId)} className="font-bold text-ink underline underline-offset-2">see it</Link> · <button type="button" onClick={() => { data.unshare(); setNote('The link is private again.'); }} className="font-bold text-ink underline underline-offset-2">make it private</button></span>
+      )}
+      {note && <span role="status" className="font-bold text-muted">{note}</span>}
+      {placed > 0 && (sure
+        ? <span className="ml-auto font-bold">Clear this whole list? <button type="button" onClick={() => { onClear(); setSure(false); }} className="text-berry underline underline-offset-2">Clear it</button> · <button type="button" onClick={() => setSure(false)} className="underline underline-offset-2">Keep it</button></span>
+        : <button type="button" onClick={() => setSure(true)} className="ml-auto font-bold text-muted underline underline-offset-2 hover:text-ink">Start over</button>)}
     </div>
   );
 }
