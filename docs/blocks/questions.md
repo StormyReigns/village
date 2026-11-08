@@ -179,6 +179,11 @@ Built in `Village · Block: Questions`, one shippable step at a time (2026-11-08
 - 2026-11-08 (building, the hub): question reports are handled on the Notice Board with every
   other report, so moderators have one place to look; the Questions tab only marks them.
 
+- 2026-11-08 (Matt, after trying it): in the bar the question is italic and in quotes; the "?" sits in
+  a ring that fills like a timer, and when it's full the next question shows (it pauses while held).
+  "+1 me too" says what it does: "I want to know too" (then "You'll get the answer"). The Ask
+  sheet's spoiler tick reads "Question may be a spoiler".
+
 ## Open questions
 
 - None open with Matt right now.

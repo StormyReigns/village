@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, CircleHelp, EyeOff, Flag, Inbox, X } from 'lucide-react';
 import type { Page, Tint } from '@/data/pages';
 import { useVillager } from '@/components/useVillager';
@@ -112,11 +112,11 @@ export function QuestionRow({ q, gameId, data, names, pageTitle }: {
             <button type="button" aria-pressed={waiting}
               onClick={async () => { setNote((await data.meToo(q.id, !waiting)) ?? ''); }}
               className={'ml-auto rounded-full px-3 py-1 text-xs font-bold ring-1 ' + (waiting ? 'bg-ink text-paper ring-ink' : 'bg-card ring-line hover:ring-ink')}>
-              {waiting ? 'You want to know too' : '+1 me too'}
+              {waiting ? '✓ You’ll get the answer' : 'I want to know too'}
             </button>
           ) : (
             <Link href={`/signin?next=${encodeURIComponent(path)}&for=${encodeURIComponent('say “me too”')}`}
-              className="ml-auto rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">+1 me too</Link>
+              className="ml-auto rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">I want to know too</Link>
           )}
           {me && !mine && (
             <button type="button" onClick={() => setReporting(!reporting)} aria-label="Report this question" aria-expanded={reporting}
@@ -179,7 +179,7 @@ export function AskSheet({ gameId, pages, startPage, start, links, data, onClose
 
   if (done) {
     return (
-      <Sheet label={done === 'asked' ? 'Asked' : 'Added your “me too”'} onClose={onClose}>
+      <Sheet label={done === 'asked' ? 'Asked' : 'You’ll get the answer too'} onClose={onClose}>
         <p className="flex items-start gap-2 rounded-2xl bg-leaf-soft px-3 py-2.5 text-sm text-leaf">
           <Inbox size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
           <span>When a Builder answers it, the reply lands in your inbox: the bell at the top of the screen.</span>
@@ -213,7 +213,7 @@ export function AskSheet({ gameId, pages, startPage, start, links, data, onClose
                 {me ? (
                   waitingOn(q, me.id)
                     ? <span className="text-xs font-bold text-muted">You&apos;re waiting on it</span>
-                    : <button type="button" onClick={() => join(q.id)} className="shrink-0 rounded-full bg-ink px-3 py-1 text-xs font-bold text-paper">Me too</button>
+                    : <button type="button" onClick={() => join(q.id)} className="shrink-0 rounded-full bg-ink px-3 py-1 text-xs font-bold text-paper">I want to know too</button>
                 ) : null}
               </div>
             ))}
@@ -229,7 +229,7 @@ export function AskSheet({ gameId, pages, startPage, start, links, data, onClose
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={spoiler} onChange={(e) => setSpoiler(e.target.checked)} className="size-4 accent-[var(--ink)]" />
-            It gives away the story
+            Question may be a spoiler
           </label>
         </div>
 
@@ -287,6 +287,45 @@ function namesOf(pages: Page[]): Record<string, string> {
 }
 
 const SLIDE_MS = 5000;
+const RING = 2 * Math.PI * 10;
+
+/**
+ * The bar's "?" in a ring that fills like a timer: when it's full, the next question shows. It
+ * pauses while the bar is held, and stays a plain full ring when nothing slides (one question,
+ * or reduced motion).
+ */
+function TimerRing({ slide, animate, running, onDone, className }: {
+  slide: string; animate: boolean; running: boolean; onDone: () => void; className: string;
+}) {
+  const arc = useRef<SVGCircleElement>(null);
+  const anim = useRef<Animation | null>(null);
+  const done = useRef(onDone);
+  useEffect(() => { done.current = onDone; }, [onDone]);
+  // A fresh fill for each question.
+  useEffect(() => {
+    const el = arc.current;
+    if (!el || !animate || typeof el.animate !== 'function') return;
+    const a = el.animate([{ strokeDashoffset: RING }, { strokeDashoffset: 0 }], { duration: SLIDE_MS, fill: 'forwards' });
+    a.onfinish = () => done.current();
+    anim.current = a;
+    return () => { a.cancel(); anim.current = null; };
+  }, [slide, animate]);
+  useEffect(() => {
+    const a = anim.current;
+    if (!a) return;
+    if (running) a.play(); else a.pause();
+  }, [running, slide, animate]);
+  return (
+    <span className={'relative grid size-6 shrink-0 place-items-center ' + className} aria-hidden="true">
+      <svg viewBox="0 0 24 24" className="absolute inset-0 size-6">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeOpacity={0.22} strokeWidth="2.4" />
+        <circle ref={arc} cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"
+          strokeDasharray={RING} strokeDashoffset={animate ? RING : 0} transform="rotate(-90 12 12)" />
+      </svg>
+      <span className="text-[13px] font-extrabold leading-none">?</span>
+    </span>
+  );
+}
 
 /**
  * The slim bar under a Page's title: its open questions one at a time, sliding to the next
@@ -318,11 +357,8 @@ export function QuestionBarView({ gameId, page, pages, links, data }: { gameId: 
     m.addEventListener('change', on);
     return () => m.removeEventListener('change', on);
   }, []);
-  useEffect(() => {
-    if (still || held || sheet || open.length < 2) return;
-    const id = setInterval(() => setAt((n) => n + 1), SLIDE_MS);
-    return () => clearInterval(id);
-  }, [still, held, sheet, open.length]);
+  // The next question comes when the ring around the "?" fills (TimerRing).
+  const next = useCallback(() => setAt((n) => n + 1), []);
 
   // Back from signing in (?ask=1): the Ask sheet opens again with what they typed.
   useEffect(() => {
@@ -352,12 +388,12 @@ export function QuestionBarView({ gameId, page, pages, links, data }: { gameId: 
         onTouchStart={() => setHeld(true)} onTouchEnd={() => setTimeout(() => setHeld(false), 2500)}>
         <button type="button" onClick={() => setSheet('list')} aria-label={q ? `Open questions about ${page.title}` : `Questions about ${page.title}`}
           className="flex min-w-0 flex-1 items-center gap-2 rounded-full py-1.5 pl-2 pr-1 text-left hover:bg-card-2">
-          <CircleHelp size={18} className={'shrink-0 ' + t.text} strokeWidth={2.4} aria-hidden="true" />
+          <TimerRing slide={`${at}:${q?.id ?? ''}`} animate={!still && open.length > 1} running={!held && !sheet} onDone={next} className={t.text} />
           {q ? (
             <>
               {/* No live announcement: a screen reader would read every slide. */}
-              <span key={q.id} className="rise min-w-0 flex-1 truncate font-bold">
-                {q.spoiler ? <span className="italic text-muted">Spoiler · tap to show</span> : q.body}
+              <span key={q.id} className="rise min-w-0 flex-1 truncate font-bold italic">
+                {q.spoiler ? <span className="text-muted">Spoiler · tap to show</span> : <>“{q.body}”</>}
               </span>
               <span className="shrink-0 text-xs font-bold text-muted">
                 <span className="sm:hidden">{(at % open.length) + 1}/{open.length}</span>
