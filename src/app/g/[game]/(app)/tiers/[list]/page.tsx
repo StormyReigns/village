@@ -10,8 +10,7 @@ import { BlockIcon } from '@/components/Icon';
 import { symbolFor } from '@/components/app/symbols';
 import { NO_LIST, getSharedList } from '@/lib/tier-share';
 import { shadeHex } from '@/lib/shades';
-import { heatFill } from '@/lib/stats';
-import { tierGoodness } from '@/lib/tiers';
+import { tierFill } from '@/lib/tiers';
 
 // A shared tier list: /g/fortunes-weave/tiers/<list id>. Someone's own
 // list with their name on it, a share picture for Discord or Reddit (opengraph-image), and a way
@@ -72,12 +71,12 @@ async function Loaded({ params }: { params: Params }) {
       {block.intro && <p className="mt-1 text-sm text-muted">{block.intro}</p>}
       <div className="mt-4 grid gap-2">
         {tiers.map((t, i) => {
-          const g = tierGoodness(i, tiers.length);
+          const f = tierFill(i, tiers.length, color);
           const row = (list.rows[t.key] ?? []).map((id) => entries.get(id)).filter(Boolean) as Entry[];
           return (
             <div key={t.key} className="flex min-h-[5.25rem] gap-2 rounded-2xl bg-card p-1.5 ring-1 ring-line">
               <span className="grid w-12 shrink-0 place-items-center self-stretch rounded-xl px-1 text-center font-extrabold leading-tight sm:w-14"
-                style={{ background: heatFill(g / 0.55, color), color: g > 0.5 ? '#fff' : 'var(--ink)', fontSize: t.label.length <= 2 ? '1.5rem' : '0.75rem' }}>{t.label}</span>
+                style={{ background: f.background, color: f.white ? '#fff' : 'var(--ink)', fontSize: t.label.length <= 2 ? '1.5rem' : '0.75rem' }}>{t.label}</span>
               <ul className="flex min-w-0 flex-1 flex-wrap content-start gap-1">
                 {row.map((e) => (
                   <li key={e.id} className="flex w-16 flex-col items-center gap-1 p-1" title={list.reasons[e.id] ?? undefined}>

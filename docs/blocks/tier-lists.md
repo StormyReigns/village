@@ -1,6 +1,6 @@
 # Block: Tier lists
 
-**Status:** First slice built (2026-11-08); waiting for Matt's SQL · **Chat:** `Village · Block: Tier lists` · **Mockup:** none yet ·
+**Status:** Live, first version (2026-11-08): SQL applied; Fortune's Weave · Units and classes · Unit tiers · **Chat:** `Village · Block: Tier lists` · **Mockup:** none yet ·
 **Code:** `src/lib/tiers.ts` (tiers, your list, the community tier; plain and tested), `src/components/tiers/`
 (`TierList.tsx` the Block, `CommunityTier.tsx` the card pill, `useTierList.ts` loading and saving),
 `src/app/g/[game]/(app)/tiers/[list]/` (a shared list at `/g/<game>/tiers/<id>` and its picture, `src/lib/og-tiers.tsx`,
@@ -159,6 +159,18 @@ A creator's tier-list video or a TierMaker link can be added to the Tier list Bl
 its maker and voted "This helped", the same way Videos do it. YouTube videos already fit: the
 videos table has room for a video about a whole Block (`block_key`). TierMaker and other sites
 need the videos table to take other links too, a hub change.
+
+## Checked (2026-11-08)
+
+On the production build, desktop and phone (375 px): the Block shows under Units; Community with
+no lists yet (short rows and an invitation); Mine as a guest: tap a piece, then a tier button or a
+row; the bar sits above the phone's tab bar; a reason (140 characters) moves with its piece; mouse
+drag between rows and from the tray; the list is kept on the device across reloads; `?mine=` opens
+Mine; bad shared-list links show Not found; no sideways scroll; no console errors.
+Not yet checked, as they need a signed-in villager: saving to the account, the Community tab with
+real lists, a piece's sheet with its spread and reasons, the card pill, sharing and its picture,
+and a reported reason on the Notice Board. Touch drag needs a real phone (the emulator taps as a
+mouse).
 
 ## Decisions
 

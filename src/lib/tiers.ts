@@ -86,6 +86,12 @@ export function communityText(c: Community, tiers: Tier[]): string | null {
 /** How dark a tier's letter is: the best tier in the full Page color, fading down the list. */
 export const tierGoodness = (i: number, n: number) => (n <= 1 ? 1 : 1 - (i / (n - 1)) * 0.8);
 
+/** A tier's box color (CSS) and whether its letter reads white on it. */
+export function tierFill(i: number, n: number, color: string) {
+  const pct = Math.round(30 + 70 * tierGoodness(i, n));
+  return { background: `color-mix(in srgb, ${color} ${pct}%, var(--card-2))`, white: pct >= 70 };
+}
+
 // ------------------------------------------------------------------------------- your own list
 
 /** A player's list: the pieces in each tier, in order (left is better), and their reasons. */

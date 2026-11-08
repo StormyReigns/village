@@ -8,9 +8,8 @@ import type { Block, Entry } from '@/data/pages';
 import { sharePath } from '@/data/pages/links';
 import { Piece } from '@/components/Piece';
 import { BlockIcon } from '@/components/Icon';
-import { heatFill } from '@/lib/stats';
 import {
-  REASON_MAX, communityText, communityTier, fromCommunity, inLimits, place, placedCount, setReason, tierGoodness, tierOf, tiersOf,
+  REASON_MAX, communityText, communityTier, fromCommunity, inLimits, place, placedCount, setReason, tierFill, tierOf, tiersOf,
   type Community, type Counts, type Tier,
 } from '@/lib/tiers';
 import { EntryPanel } from '@/components/app/EntryPanel';
@@ -122,10 +121,10 @@ function Mark({ e, block, px }: { e: Entry; block: Block; px: number }) {
 
 /** The tier's letter in a box: the best tier in the full Page color, fading down the list. */
 function TierLabel({ t, i, n, color }: { t: Tier; i: number; n: number; color: string }) {
-  const g = tierGoodness(i, n);
+  const f = tierFill(i, n, color);
   return (
     <span className="grid w-12 shrink-0 place-items-center self-stretch rounded-xl px-1 text-center font-extrabold leading-tight sm:w-14"
-      style={{ background: heatFill(g / 0.55, color), color: g > 0.5 ? '#fff' : 'var(--ink)', fontSize: t.label.length <= 2 ? '1.5rem' : '0.75rem' }}>
+      style={{ background: f.background, color: f.white ? '#fff' : 'var(--ink)', fontSize: t.label.length <= 2 ? '1.5rem' : '0.75rem' }}>
       {t.label}
     </span>
   );
@@ -165,7 +164,8 @@ function CommunityView({ tiers, shown, community, state, color, ranked, onOpen, 
       {tiers.map((t, i) => {
         const here = shown.filter((e) => settled(e) && community.get(e.id)?.tier === t.key);
         return (
-          <div key={t.key} className="flex min-h-[5.25rem] gap-2 rounded-2xl bg-card p-1.5 ring-1 ring-line">
+          // Before anyone has ranked, the rows stay short so the empty board doesn't fill a phone.
+          <div key={t.key} className={'flex gap-2 rounded-2xl bg-card p-1.5 ring-1 ring-line ' + (any ? 'min-h-[5.25rem]' : 'min-h-12')}>
             <TierLabel t={t} i={i} n={tiers.length} color={color} />
             <ul className="flex min-w-0 flex-1 flex-wrap content-start gap-1">
               {here.map((e) => <li key={e.id}><PieceButton e={e} block={ranked} color={color} onClick={() => onOpen(e.id)} /></li>)}
@@ -243,7 +243,7 @@ function Spread({ tiers, counts, color }: { tiers: Tier[]; counts: Counts; color
   return (
     <div>
       <div className="flex h-3 overflow-hidden rounded-full bg-card-2" aria-hidden="true">
-        {tiers.map((t, i) => (counts[t.key] ? <span key={t.key} style={{ width: `${(counts[t.key] / n) * 100}%`, background: heatFill(tierGoodness(i, tiers.length) / 0.55, color) }} /> : null))}
+        {tiers.map((t, i) => (counts[t.key] ? <span key={t.key} style={{ width: `${(counts[t.key] / n) * 100}%`, background: tierFill(i, tiers.length, color).background }} /> : null))}
       </div>
       <p className="mt-1 text-xs font-bold text-muted">{tiers.filter((t) => counts[t.key]).map((t) => `${t.label} ${counts[t.key]}`).join(' · ')}</p>
     </div>
@@ -316,7 +316,8 @@ function MineView({ tiers, shown, data, community, color, ranked, block, ctx }: 
   const hasCommunity = shown.some((e) => community.get(e.id)?.tier);
 
   return (
-    <div className="mt-3" ref={root}>
+    // Room at the bottom while a piece is picked, so its bar never hides the last row.
+    <div className={'mt-3' + (pickedEntry ? ' pb-40' : '')} ref={root}>
       {placedCount(list) === 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl bg-card-2 p-3 text-sm">
           <p className="min-w-0 flex-1 text-muted">Tap a piece, then tap a tier. Or press and drag it.</p>
@@ -339,10 +340,11 @@ function MineView({ tiers, shown, data, community, color, ranked, block, ctx }: 
                 {row.map((e) => (
                   <li key={e.id} className="relative">
                     <PieceButton e={e} block={ranked} color={color} picked={picked === e.id} data-id={e.id} onClick={() => tapPiece(e.id)} {...handlers(e.id)} />
-                    {list.reasons[e.id] && <MessageSquareText size={12} className="pointer-events-none absolute right-1 top-1 text-muted" aria-label="Has a reason" />}
+                    {list.reasons[e.id] && <MessageSquareText size={11} className="pointer-events-none absolute -right-0.5 -top-0.5 rounded-full bg-card p-px text-muted" aria-label="Has a reason" />}
                   </li>
                 ))}
-                {target && <li className="grid h-[4.6rem] place-items-center px-2 text-xs font-bold text-muted">Tap to put {pickedEntry?.name} here</li>}
+                {/* Only in an empty row: in a full one the yellow edge says it, and the row doesn't jump. */}
+                {target && !row.length && <li className="grid h-[4.6rem] place-items-center px-2 text-xs font-bold text-muted">Tap to put {pickedEntry?.name} here</li>}
               </ul>
             </div>
           );
@@ -478,6 +480,58 @@ function useDrag(root: React.RefObject<HTMLDivElement | null>, onDrop: (id: stri
     navigator.vibrate?.(10);
   };
 
+  // Moves and the drop are followed on the whole window, so a fast drag that leaves the piece
+  // behind (or a finger that slides off it) still lands.
+  const follow = (pointerId: number) => {
+    const move = (ev: PointerEvent) => {
+      const st = s.current;
+      if (!st || ev.pointerId !== pointerId) return;
+      const far = Math.hypot(ev.clientX - st.x, ev.clientY - st.y) > 8;
+      if (!st.on) {
+        if (!far) return;
+        if (ev.pointerType === 'mouse') start(st.id, ev.clientX, ev.clientY, st.el!);
+        else { clearTimeout(st.timer); s.current = null; stop(); return; } // a swipe: let the page scroll
+      }
+      st.moved = true;
+      setGhost((g) => (g ? { ...g, x: ev.clientX, y: ev.clientY } : g));
+      const t = targetAt(ev.clientX, ev.clientY);
+      setOver(t ? t.tier : null);
+    };
+    const up = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return;
+      const st = s.current;
+      s.current = null;
+      stop();
+      setGhost(null);
+      setOver(null);
+      if (!st) return;
+      clearTimeout(st.timer);
+      if (!st.on || !st.moved) return; // a tap: the button's click handles it
+      const t = targetAt(ev.clientX, ev.clientY);
+      if (t) drop.current(st.id, t.tier || null, t.before !== st.id ? t.before : undefined);
+      // The click that follows a drag isn't a tap.
+      const swallow = (c: MouseEvent) => { c.stopPropagation(); c.preventDefault(); };
+      window.addEventListener('click', swallow, { capture: true, once: true });
+      setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 50);
+    };
+    const cancel = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return;
+      if (s.current) clearTimeout(s.current.timer);
+      s.current = null;
+      stop();
+      setGhost(null);
+      setOver(null);
+    };
+    const stop = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
+  };
+
   const handlers = (id: string) => ({
     onPointerDown: (ev: React.PointerEvent<HTMLButtonElement>) => {
       if (ev.button !== 0) return;
@@ -487,38 +541,8 @@ function useDrag(root: React.RefObject<HTMLDivElement | null>, onDrop: (id: stri
         const { clientX, clientY } = ev;
         s.current.timer = setTimeout(() => start(id, clientX, clientY, el), 280);
       }
+      follow(ev.pointerId);
     },
-    onPointerMove: (ev: React.PointerEvent<HTMLButtonElement>) => {
-      const st = s.current;
-      if (!st || st.id !== id) return;
-      const far = Math.hypot(ev.clientX - st.x, ev.clientY - st.y) > 8;
-      if (!st.on) {
-        if (!far) return;
-        if (ev.pointerType === 'mouse') { start(id, ev.clientX, ev.clientY, ev.currentTarget); }
-        else { clearTimeout(st.timer); s.current = null; return; } // a swipe: let the page scroll
-      }
-      try { ev.currentTarget.setPointerCapture(ev.pointerId); } catch { /* already ended */ }
-      st.moved = true;
-      setGhost((g) => (g ? { ...g, x: ev.clientX, y: ev.clientY } : g));
-      const t = targetAt(ev.clientX, ev.clientY);
-      setOver(t ? t.tier : null);
-    },
-    onPointerUp: (ev: React.PointerEvent<HTMLButtonElement>) => {
-      const st = s.current;
-      s.current = null;
-      if (!st) return;
-      clearTimeout(st.timer);
-      setGhost(null);
-      setOver(null);
-      if (!st.on || !st.moved) return; // a tap: the button's click handles it
-      const t = targetAt(ev.clientX, ev.clientY);
-      if (t) drop.current(st.id, t.tier || null, t.before !== st.id ? t.before : undefined);
-      // The click that follows a drag isn't a tap.
-      const swallow = (c: MouseEvent) => { c.stopPropagation(); c.preventDefault(); };
-      window.addEventListener('click', swallow, { capture: true, once: true });
-      setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 50);
-    },
-    onPointerCancel: () => { if (s.current) clearTimeout(s.current.timer); s.current = null; setGhost(null); setOver(null); },
     onContextMenu: (ev: React.MouseEvent) => { if (s.current) ev.preventDefault(); },
   });
 
