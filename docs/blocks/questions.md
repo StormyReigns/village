@@ -1,7 +1,7 @@
 # Questions (replaces the Mysteries Block)
 
-**Status:** Designing (2026-11-08) · **Chat:** `Village · Block: Guides`, where it came up
-(it may get its own chat for the build) · **Mockup:** none yet · **Replaces:** the Mysteries
+**Status:** Designed, ready to build (2026-11-08) · **Chat:** `Village · Block: Questions` (designed in `Village · Block: Guides`)
+· **Mockup:** none yet · **Replaces:** the Mysteries
 Block (a "rows" Collection) on every game's Guides Page · **Code today:** Mysteries is a
 Collection with a Status filter; its panel has "I know the answer" and "Share a theory"
 (`EntryPanel.tsx`), and the app's home shows "Help solve" (`HomeHooks.tsx`).
@@ -80,6 +80,22 @@ SQL for it. The six Mysteries of Fortune's Weave move into it with their status 
 Theory) and what's known so far kept as the first message in each question's thread; then
 the Mysteries Block is removed from the Guides Page.
 
+## Shared parts
+
+Built in its own chat, `Village · Block: Questions` (the hub, 2026-11-08). Everything below
+is shared, so that chat asks the hub before each file, and Village · Chat for the thread part:
+- **The app shell**: the bar under every Page's title (`PageView.tsx`), and the Guides Page's
+  list of every open question (where the Mysteries Block was).
+- **The Workshop**: a Questions tab in `Workshop.tsx`, and loading, asking, "me too", "I'm
+  on it" and closing in `useWorkshop.ts`.
+- **The entry form**: a Draft that carries the question it answers (`EntryForm.tsx`), so
+  shipping it closes the question.
+- **The database**: new tables (questions, "me too"s, who's on it), rules for who can do
+  what, and moving Fortune's Weave's six Mysteries in before removing the Block. Matt runs
+  the SQL.
+- **The chat**: a thread key per question, for theories and talk (`src/lib/threads.ts`,
+  owned with Village · Chat).
+
 ## Decisions
 
 - 2026-11-08: questions replace the Mysteries Block; one way to ask, not two (Matt).
@@ -92,12 +108,19 @@ the Mysteries Block is removed from the Guides Page.
 - 2026-11-08: answers go into the app as normal Drafts (a fix or a new entry); the question
   closes and points there (Matt). Why: the app stays the one place answers live.
 
+- 2026-11-08: anyone can type a question; posting it needs signing in, and nothing typed is
+  lost on the way (Matt). Why: rate limits and the spam check need an account, but the
+  question shouldn't be lost to a sign-in wall.
+- 2026-11-08: "I'm on it" opens the question up again if no Draft comes within 3 days (Matt).
+  Why: a claim shouldn't block a question forever.
+- 2026-11-08: theories and talk about a question live in its chat thread, like any entry's;
+  a Draft marked "A theory" sets the question to Theory until a confirmed answer ships
+  (Matt). Why: one place to talk, and the chat already does it.
+- 2026-11-08: built in its own chat, `Village · Block: Questions` (the hub).
+
 ## Open questions
 
-- Matt to confirm my calls: signing in to ask; "I'm on it" opening up again after 3 days;
-  theories in the question's chat thread.
-- Whether the build gets its own chat ("Village · Questions"), since it touches the top of
-  every Page, the Workshop and the database (all hub territory).
+- None open with Matt right now.
 
 ## Later
 
