@@ -36,6 +36,11 @@ Community-built companion apps for games, with a village theme. Two layers:
   (`src/components/app/Items.tsx`, 2026-11-02): tiles with basic stats, grouped by Type, plus
   List and Compare; builders pick what's "On the tile" in Set up; "Made from" works out
   "Used to make"; a "Got it" tick. Its full view is the Characters card. Spec: `docs/blocks/items.md`.
+  Block 3 is **Guides** (`src/components/app/Guides.tsx`): Quick steps or a Write-up, "In
+  short", spoiler steps, pictures. #4 is **Questions** (2026-11-08, replaces the Mysteries
+  Block): a bar on every Page to ask, a Questions tab in the Workshop, answered by a Draft or
+  by linking an entry, with the reply sent to an inbox (the bell beside the account button).
+  Specs: `docs/blocks/guides.md`, `docs/blocks/questions.md`.
 - **Block specs** (`docs/blocks/`, from 2026-10-31): one file per Block, the source of truth
   for its purpose, fields, layout, decisions and open questions; the roadmap and how we
   work are in `docs/blocks/README.md`. Each Block gets its own chat ("Village · Block:
