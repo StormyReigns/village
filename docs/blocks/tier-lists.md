@@ -62,7 +62,7 @@ under it and a chip on the right (how many lists; in My list, "4 of 55"). Then t
 card of rows with no gaps between them, each a letter tab in the Page color (fading from S down;
 S wears a small crown) on a light wash of that color. On a phone, 4 pieces fit a row at full size
 (48 px pictures). Pieces snap solid as they're placed (the brand's one motion). The look lives
-in , shared with a shared list's page.
+in `src/components/tiers/BoardParts.tsx`, shared with a shared list's page.
 
 Its title and intro line, then two tabs, yellow on the one you're on:
 
@@ -189,7 +189,7 @@ mouse).
 
 ## Decisions
 
-- 2026-11-08: each tier list has a title, "MVP" by default (Matt): , set by
+- 2026-11-08: each tier list has a title, "MVP" by default (Matt): `tier_setup.title`, set by
   builders (in Set up, slice 2). Shown in the board's header and on shared lists ("Matt's MVP list").
 - 2026-11-08: the board got more character and less air (Matt): ink header with the title, joined
   rows on tinted washes, a crowned top tier, 4 pieces a row on phones without smaller pictures.
