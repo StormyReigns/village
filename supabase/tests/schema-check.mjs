@@ -165,3 +165,70 @@ const rg = await db.query(`select game_id from public.chat_reactions where messa
 rg.rows[0]?.game_id === 'fortunes-weave' ? ok('reactions are filed under the right game') : bad('reaction game ' + JSON.stringify(rg.rows));
 await expectFail(B, `delete from public.chat_reactions where profile_id = '${C}'`, "villager cannot take back someone else's reaction");
 await expectOk(C, `delete from public.chat_reactions where message_id = ${noteId} and profile_id = '${C}'`, 'villager can take back a reaction');
+
+// Questions (docs/blocks/questions.md): ask as yourself, "me too", answer by Draft or by link.
+const Q1 = '77777777-7777-7777-7777-777777777771', Q2 = '77777777-7777-7777-7777-777777777772', Q3 = '77777777-7777-7777-7777-777777777773';
+const CARD = '33333333-3333-3333-3333-333333333333';
+await expectOk(B, `insert into public.questions (id, game_id, page_key, body, asked_by) values ('${Q1}', 'fortunes-weave', 'units-and-classes', 'How does Long join?', '${B}'), ('${Q2}', 'fortunes-weave', 'guides', 'Does Cai have good STR?', '${B}')`, 'villager can ask a question');
+await expectFail(B, `insert into public.questions (game_id, body, asked_by) values ('fortunes-weave', 'Pretending', '${A}')`, 'villager cannot ask as someone else');
+await expectFail(B, `insert into public.questions (game_id, body, asked_by, status, reply) values ('fortunes-weave', 'Self-answered', '${B}', 'answered', 'Yes')`, 'a new question cannot arrive answered');
+await expectOk(C, `insert into public.question_askers (question_id, profile_id) values ('${Q1}', '${C}'), ('${Q2}', '${C}')`, 'another villager can say "me too"');
+await expectFail(B, `insert into public.question_askers (question_id, profile_id) values ('${Q1}', '${B}')`, 'the asker cannot "me too" their own question');
+await expectFail(C, `insert into public.question_askers (question_id, profile_id) values ('${Q1}', '${B}')`, 'villager cannot "me too" for someone else');
+const qg = await db.query(`select game_id from public.question_askers where question_id = '${Q1}'`);
+qg.rows[0]?.game_id === 'fortunes-weave' ? ok('"me too"s are filed under the right game') : bad('me too game ' + JSON.stringify(qg.rows));
+await expectFail(C, `update public.questions set status = 'removed' where id = '${Q1}'`, 'villager cannot remove a question');
+await expectFail(B, `update public.questions set status = 'answered', reply = 'Mine' where id = '${Q1}'`, 'the asker cannot close it by hand');
+
+// Answer 1: a Draft that carries the question ships.
+const D3 = '88888888-8888-8888-8888-888888888888';
+await expectOk(A, `insert into public.drafts (id, game_id, block_key, kind, title, content, author_id, card_id, question_id, reply) values ('${D3}', 'fortunes-weave', 'people', 'fact', 'Example joins in chapter 4', '{"name":"Example","sections":[],"categories":{}}', '${A}', '${CARD}', '${Q1}', 'Added how Long joins: see Example')`, 'a Draft can name the question it answers, with a reply');
+await expectOk(A, `select public.ship_draft('${D3}')`, 'moderator publishes the answering Draft');
+const a1 = await db.query(`select status, reply, answer_card_id, answer_draft_id, answered_by from public.questions where id = '${Q1}'`);
+a1.rows[0]?.status === 'answered' && a1.rows[0].answer_card_id === CARD && a1.rows[0].answer_draft_id === D3 && a1.rows[0].reply === 'Added how Long joins: see Example'
+  ? ok('shipping it closes the question and points it at the entry') : bad('answer by draft ' + JSON.stringify(a1.rows));
+const in1 = await db.query(`select profile_id, type, payload->>'reply' as reply, payload->>'slug' as slug, payload ? 'body' as body from public.inbox where payload->>'question' = '${Q1}' order by profile_id`);
+in1.rows.length === 2 && in1.rows.every((r) => r.type === 'question_answered' && r.reply === 'Added how Long joins: see Example' && r.slug === 'example-unit' && !r.body)
+  ? ok('the reply reaches the asker and everyone who said "me too"') : bad('inbox ' + JSON.stringify(in1.rows));
+
+// Answer 2: "It's already there". Only an entry that's in the app (on Stable, in a Block on a Page) counts.
+await expectFail(B, `select public.answer_question('${Q2}', '${CARD}', 'Not in the app yet')`, 'an entry outside the app cannot answer');
+await db.exec(`insert into public.app_pages (game_id, page_key, title, short) values ('fortunes-weave', 'units-and-classes', 'Units and classes', 'Units'); update public.game_blocks set page_key = 'units-and-classes' where block_key = 'people';`);
+await expectFail(B, `select public.answer_question('${Q2}', '${CARD}', '')`, 'an answer needs a reply');
+await expectOk(B, `select public.answer_question('${Q2}', '${CARD}', 'Cai''s STR growth is 45%: see his profile')`, 'villager can link the entry that answers it');
+await expectFail(C, `select public.answer_question('${Q2}', '${CARD}', 'Again')`, 'an answered question cannot be answered twice');
+const in2 = await db.query(`select profile_id from public.inbox where payload->>'question' = '${Q2}'`);
+in2.rows.length === 1 && in2.rows[0].profile_id === C ? ok('linking sends the reply too, but not to whoever answered') : bad('inbox 2 ' + JSON.stringify(in2.rows));
+
+// The inbox is private and written only by the database.
+const mine = await asUser(C, `select count(*)::int as n from public.inbox`);
+const theirs = await asUser(B, `select count(*)::int as n from public.inbox`);
+mine.rows[0].n === 2 && theirs.rows[0].n === 1 ? ok('each villager sees only their own inbox') : bad('inbox privacy ' + JSON.stringify([mine.rows, theirs.rows]));
+await expectFail(B, `insert into public.inbox (profile_id, type, payload) values ('${C}', 'question_answered', '{}')`, 'nobody can write to an inbox by hand');
+await expectFail(B, `select public.send_question_reply('${Q1}')`, 'villagers cannot resend replies');
+await expectOk(C, `update public.inbox set read_at = now() where profile_id = '${C}'`, 'villager can mark their inbox read');
+await expectFail(C, `update public.inbox set payload = '{}' where profile_id = '${C}'`, 'villager cannot change what an inbox item says');
+await expectFail(B, `update public.inbox set read_at = now() where profile_id = '${C}'`, "villager cannot touch someone else's inbox");
+
+// 'That didn't answer it': the asker or a moderator reopens; nobody else can.
+await expectFail(C, `select public.reopen_question('${Q2}')`, 'another villager cannot reopen a question');
+await expectOk(B, `select public.reopen_question('${Q2}')`, 'the asker can reopen an answer that missed');
+const ro = await db.query(`select status, reply, answer_card_id from public.questions where id = '${Q2}'`);
+ro.rows[0]?.status === 'open' && ro.rows[0].reply === null && ro.rows[0].answer_card_id === null ? ok('reopening clears the answer') : bad('reopen ' + JSON.stringify(ro.rows));
+// A declined Draft leaves its question open.
+const D4 = '99999999-9999-9999-9999-999999999999';
+await expectOk(C, `insert into public.drafts (id, game_id, block_key, kind, title, content, author_id, question_id) values ('${D4}', 'fortunes-weave', 'people', 'fact', 'A wrong answer', '{"name":"Wrong","sections":[],"categories":{}}', '${C}', '${Q2}')`, 'another Draft answers the reopened question');
+await expectOk(A, `update public.drafts set status = 'declined', decided_by = '${A}', decided_at = now() where id = '${D4}'`, 'moderator declines it');
+const dq = await db.query(`select status from public.questions where id = '${Q2}'`);
+dq.rows[0]?.status === 'open' ? ok('a declined Draft leaves the question open') : bad('declined closed it ' + JSON.stringify(dq.rows));
+
+// Moderators: merge a duplicate, so its asker hears the answer too. Reports cover questions.
+await expectOk(C, `insert into public.questions (id, game_id, body, asked_by) values ('${Q3}', 'fortunes-weave', 'How do I get Long?', '${C}')`, 'a duplicate gets asked');
+await expectFail(B, `select public.merge_question('${Q3}', '${Q1}')`, 'villager cannot merge questions');
+await expectOk(A, `select public.merge_question('${Q3}', '${Q1}')`, 'moderator merges a duplicate');
+const mg = await db.query(`select (select status from public.questions where id = '${Q3}') as st, (select count(*)::int from public.question_askers where question_id = '${Q1}' and profile_id = '${C}') as n`);
+mg.rows[0].st === 'removed' && mg.rows[0].n === 1 ? ok('the duplicate is folded in, its asker kept') : bad('merge ' + JSON.stringify(mg.rows));
+await expectOk(C, `insert into public.flags (question_id, reason, reporter_id) values ('${Q2}', 'spam', '${C}')`, 'villager can report a question');
+const qf = await db.query(`select game_id from public.flags where question_id = '${Q2}'`);
+qf.rows[0]?.game_id === 'fortunes-weave' ? ok('question reports reach that game') : bad('question flag ' + JSON.stringify(qf.rows));
+await expectFail(C, `insert into public.flags (reason, reporter_id) values ('spam', '${C}')`, 'a report must name what it is about');

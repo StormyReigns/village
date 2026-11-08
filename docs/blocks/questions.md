@@ -1,6 +1,6 @@
 # Questions (replaces the Mysteries Block)
 
-**Status:** Designed, ready to build (2026-11-08) · **Chat:** `Village · Block: Questions`
+**Status:** Building, step 1 of 6 done (2026-11-08) · **Chat:** `Village · Block: Questions`
 (designed in `Village · Block: Guides`) · **Mockup:** none yet · **Replaces:** the Mysteries
 Block (a "rows" Collection) on every game's Guides Page · **Code today:** Mysteries is a
 Collection with a Status filter; its panel has "I know the answer" and "Share a theory"
@@ -104,6 +104,26 @@ is shared, so that chat asks the hub before each file:
   who can do what, and moving Fortune's Weave's six Mysteries in before removing the Block.
   Matt runs the SQL.
 
+## Build plan
+
+Built in `Village · Block: Questions`, one shippable step at a time (2026-11-08):
+
+1. **Database** (done): `supabase/migrations/20261108000000_questions.sql`. Tables `questions`,
+   `question_askers` (the "me too"s) and `inbox` (a type plus a small payload, written only by the
+   database, so later news like "your Draft shipped" can use it). Drafts gain `question_id` and
+   `reply`; the trigger `drafts_answer_question` closes the question when such a Draft ships
+   (`ship_draft` is unchanged). RPCs: `answer_question` ("it's already there"), `reopen_question`,
+   `merge_question`. Flags can point at a question. Own rate limits: 10 questions an hour, 60
+   "me too"s an hour, 20 answers an hour. Plain helpers in `src/lib/questions.ts`.
+2. **The bar and Ask** (`src/components/questions/`): the bar under every Page's title, the Page's
+   questions sheet, the Ask sheet, every open question on the Guides Page.
+3. **Workshop tab** (`workshop/Questions.tsx`), and question reports on the Notice Board.
+4. **The two ways to answer**: a Draft carrying the question and reply (`EntryForm.tsx`,
+   `useWorkshop.ts`), and linking an entry.
+5. **Inbox bell** (`src/components/Inbox.tsx`), shown from `AccountButton.tsx`.
+6. **Mysteries move in**: their 6 entries become open questions (what was known goes along as a
+   note), and the Block leaves the Guides Page with its history kept.
+
 ## Decisions
 
 - 2026-11-08: questions replace the Mysteries Block; one way to ask, not two (Matt).
@@ -125,6 +145,14 @@ is shared, so that chat asks the hub before each file:
   many and how long open, sorted by how long the question has been open, oldest first.
   Answers land in the asker's inbox with an alert. Why: simpler for everyone, and Builders
   can see for themselves where a question is stuck.
+- 2026-11-08 (building): anyone signed in can answer with "it's already there"; the entry must be
+  in the app, and it's rate-limited. The asker (or a moderator) can say "that didn't answer it",
+  which opens the question again and clears the answer (the hub). Why: answering should be easy,
+  and a wrong answer is one tap to undo.
+- 2026-11-08 (building): inbox items carry ids and a short excerpt only; the question's words are
+  read from the question, so a removed one doesn't linger in anyone's inbox (the hub).
+- 2026-11-08 (building): the AI spam check isn't built anywhere yet; questions get it when chat
+  and Drafts do. Until then: reports, spoiler tags and rate limits.
 
 ## Open questions
 
