@@ -16,6 +16,7 @@ import type { Mention } from '@/data/pages/links';
 import { heatFill, placeText, statFacts } from '@/lib/stats';
 import { CharacterCard } from './CharacterCard';
 import { GuideCard } from './Guides';
+import { Videos, cardIdOf } from '@/components/videos/Videos';
 
 interface OpenFix { id: string; theory: boolean; text: string; who: string }
 type Profile = { display_name?: string; username?: string } | null;
@@ -358,6 +359,9 @@ export function EntryDetails({ entry, block, route, routes, fixHref, invite, col
       ))}
 
       {fixHref && invite?.sections.map((l) => <Invite key={l} label={l} href={fixHref(`section:${l}`)} />)}
+
+      {/* Videos (docs/blocks/videos.md): small rows, as on character and item cards. */}
+      <Videos cardId={cardIdOf(entry)} size="small" name={entry.name} className="mt-4" />
     </>
   );
 }

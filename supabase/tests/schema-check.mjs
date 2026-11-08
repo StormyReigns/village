@@ -232,3 +232,31 @@ await expectOk(C, `insert into public.flags (question_id, reason, reporter_id) v
 const qf = await db.query(`select game_id from public.flags where question_id = '${Q2}'`);
 qf.rows[0]?.game_id === 'fortunes-weave' ? ok('question reports reach that game') : bad('question flag ' + JSON.stringify(qf.rows));
 await expectFail(C, `insert into public.flags (reason, reporter_id) values ('spam', '${C}')`, 'a report must name what it is about');
+
+// Videos (docs/blocks/videos.md): anyone signed in adds one to an entry; nobody votes on their own;
+// totals come from video_tallies; whoever added it or a moderator takes it down, closing its reports.
+const V1 = 'aaaaaaaa-0000-0000-0000-000000000001';
+await expectOk(B, `insert into public.videos (id, card_id, youtube_id, start_seconds, added_by) values ('${V1}', '${CARD}', 'dQw4w9WgXcQ', 272, '${B}')`, 'villager adds a video to an entry');
+const vg = await db.query(`select game_id, status from public.videos where id = '${V1}'`);
+vg.rows[0]?.game_id === 'fortunes-weave' && vg.rows[0].status === 'live' ? ok('a video takes its game from the entry and starts live') : bad('video game ' + JSON.stringify(vg.rows));
+await expectFail(B, `insert into public.videos (card_id, youtube_id, added_by) values ('${CARD}', 'dQw4w9WgXcQ', '${B}')`, 'the same video cannot go on an entry twice');
+await expectFail(B, `insert into public.videos (card_id, youtube_id, added_by) values ('${CARD}', 'not-a-video-id-at-all', '${B}')`, 'only a YouTube video id is kept');
+await expectFail(C, `insert into public.videos (card_id, youtube_id, added_by) values ('${CARD}', 'abcdefghijk', '${B}')`, 'nobody adds a video in someone else\'s name');
+await expectFail(B, `insert into public.videos (game_id, page_key, youtube_id, added_by) values ('fortunes-weave', 'no-such-page', 'abcdefghijk', '${B}')`, 'a Page video needs a Page in the app');
+await expectFail(B, `insert into public.video_votes (video_id, voter_id, value) values ('${V1}', '${B}', 1)`, 'nobody votes on a video they added');
+await expectOk(C, `insert into public.video_votes (video_id, voter_id, value) values ('${V1}', '${C}', 1)`, 'another villager says it helped');
+await expectOk(A, `insert into public.video_votes (video_id, voter_id, value) values ('${V1}', '${A}', -1)`, 'a moderator says it didn\'t help');
+const vt = await asUser(C, `select helped, not_helped from public.video_tallies(array['${V1}']::uuid[])`);
+vt.rows[0]?.helped === 1 && vt.rows[0].not_helped === 1 ? ok('totals are shared') : bad('tallies ' + JSON.stringify(vt.rows));
+const vv = await asUser(C, `select count(*)::int as n from public.video_votes`);
+vv.rows[0].n === 1 ? ok('who voted how stays private') : bad('vote privacy ' + JSON.stringify(vv.rows));
+await expectOk(C, `insert into public.flags (video_id, reason, reporter_id) values ('${V1}', 'wrong', '${C}')`, 'villager can report a video');
+const vf = await db.query(`select game_id from public.flags where video_id = '${V1}'`);
+vf.rows[0]?.game_id === 'fortunes-weave' ? ok('video reports reach that game') : bad('video flag ' + JSON.stringify(vf.rows));
+await expectFail(C, `select public.remove_video('${V1}')`, 'another villager cannot take a video down');
+await expectFail(C, `update public.videos set status = 'removed' where id = '${V1}'`, 'nobody edits a video row directly');
+await expectOk(A, `select public.remove_video('${V1}')`, 'a moderator takes a video down');
+const vr = await db.query(`select (select status from public.videos where id = '${V1}') as st, (select status from public.flags where video_id = '${V1}') as fl`);
+vr.rows[0].st === 'removed' && vr.rows[0].fl === 'resolved' ? ok('taking it down closes its reports') : bad('remove video ' + JSON.stringify(vr.rows));
+const vh = await asUser(C, `select count(*)::int as n from public.videos where id = '${V1}'`);
+vh.rows[0].n === 0 ? ok('a removed video is hidden from players') : bad('removed video seen ' + JSON.stringify(vh.rows));

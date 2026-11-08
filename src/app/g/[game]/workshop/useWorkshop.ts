@@ -94,12 +94,12 @@ export const REASONS: { key: ReportReason; label: string }[] = [
   { key: 'other', label: 'Something else' },
 ];
 
-/** What's being reported: a chat message, a Draft or a question. */
-export type Target = { messageId: number } | { draftId: string } | { questionId: string };
-export const targetKey = (t: Target) => ('messageId' in t ? `m:${t.messageId}` : 'draftId' in t ? `d:${t.draftId}` : `q:${t.questionId}`);
+/** What's being reported: a chat message, a Draft, a question or a video. */
+export type Target = { messageId: number } | { draftId: string } | { questionId: string } | { videoId: string };
+export const targetKey = (t: Target) => ('messageId' in t ? `m:${t.messageId}` : 'draftId' in t ? `d:${t.draftId}` : 'questionId' in t ? `q:${t.questionId}` : `v:${t.videoId}`);
 /** The database column that names a report's target. */
-const targetColumn = (t: Target) => ('messageId' in t ? { message_id: t.messageId } : 'draftId' in t ? { draft_id: t.draftId } : { question_id: t.questionId });
-const targetOf = (r: Row): Target | null => (r.message_id ? { messageId: r.message_id as number } : r.draft_id ? { draftId: r.draft_id as string } : r.question_id ? { questionId: r.question_id as string } : null);
+const targetColumn = (t: Target) => ('messageId' in t ? { message_id: t.messageId } : 'draftId' in t ? { draft_id: t.draftId } : 'questionId' in t ? { question_id: t.questionId } : { video_id: t.videoId });
+const targetOf = (r: Row): Target | null => (r.message_id ? { messageId: r.message_id as number } : r.draft_id ? { draftId: r.draft_id as string } : r.question_id ? { questionId: r.question_id as string } : r.video_id ? { videoId: r.video_id as string } : null);
 
 /** Open reports about one thing, gathered for the Notice Board. */
 export interface ReportGroup {
@@ -112,6 +112,8 @@ export interface ReportGroup {
   message?: { body: string; author: Author; removed: boolean; spoiler: boolean };
   draft?: { title: string; status: string; blockKey: string };
   question?: { body: string; pageKey: string | null; status: string; spoiler: boolean };
+  /** A reported video: YouTube's id, where it starts, and the entry it's on (docs/blocks/videos.md). */
+  video?: { youtubeId: string; start: number; status: string; slug: string | null; blockKey: string | null };
 }
 
 type Row = Record<string, unknown>;
@@ -348,7 +350,9 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     if (!db || !meId) { setMyReports(new Set()); setReports([]); return; }
     // Questions can be reported once the Questions SQL is run; until then, read without them.
     const mineOf = (cols: string) => db.from('flags').select(cols).eq('reporter_id', meId);
-    let mine = await mineOf('message_id, draft_id, question_id');
+    // Videos can be reported once the Videos SQL is run; until then, read without them.
+    let mine = await mineOf('message_id, draft_id, question_id, video_id');
+    if (mine.error) mine = await mineOf('message_id, draft_id, question_id');
     if (mine.error) mine = await mineOf('message_id, draft_id');
     setMyReports(new Set(((mine.data ?? []) as unknown as Row[]).map(targetOf).filter((t): t is Target => Boolean(t)).map(targetKey)));
     if (!mod) { setReports([]); return; }
@@ -357,7 +361,9 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
         message:chat_messages!flags_message_id_fkey(body, spoiler, removed_at, author_id, author:profiles!chat_messages_author_id_fkey(${PROFILE})),
         draft:drafts!flags_draft_id_fkey(title, status, block_key)`;
     const open = (cols: string) => db.from('flags').select(cols).eq('game_id', gameId).eq('status', 'open').order('created_at');
-    let { data, error } = await open(`${columns}, question_id, question:questions!flags_question_id_fkey(body, page_key, status, spoiler)`);
+    const withQuestions = `${columns}, question_id, question:questions!flags_question_id_fkey(body, page_key, status, spoiler)`;
+    let { data, error } = await open(`${withQuestions}, video_id, video:videos!flags_video_id_fkey(youtube_id, start_seconds, status, card:cards(slug, block_key))`);
+    if (error) ({ data, error } = await open(withQuestions));
     if (error) ({ data, error } = await open(columns));
     const groups = new Map<string, ReportGroup>();
     for (const r of (data ?? []) as unknown as Row[]) {
@@ -366,12 +372,14 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
       const key = targetKey(target);
       let g = groups.get(key);
       if (!g) {
-        const m = r.message as Row | null, d = r.draft as Row | null, q = r.question as Row | null;
+        const m = r.message as Row | null, d = r.draft as Row | null, q = r.question as Row | null, v = r.video as Row | null;
+        const vc = (Array.isArray(v?.card) ? v?.card[0] : v?.card) as Row | null | undefined;
         g = {
           key, target, reasons: [], notes: [], count: 0, firstAt: r.created_at as string,
           message: m ? { body: m.body as string, spoiler: Boolean(m.spoiler), removed: Boolean(m.removed_at), author: toAuthor(m.author as Row, m.author_id as string) } : undefined,
           draft: d ? { title: d.title as string, status: d.status as string, blockKey: d.block_key as string } : undefined,
           question: q ? { body: q.body as string, pageKey: (q.page_key as string) ?? null, status: q.status as string, spoiler: Boolean(q.spoiler) } : undefined,
+          video: v ? { youtubeId: v.youtube_id as string, start: (v.start_seconds as number) ?? 0, status: v.status as string, slug: (vc?.slug as string) ?? null, blockKey: (vc?.block_key as string) ?? null } : undefined,
         };
         groups.set(key, g);
       }
@@ -586,7 +594,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     const db = browserClient();
     if (!db || !meId) return;
     const q = db.from('flags').update({ status, handled_by: meId, handled_at: new Date().toISOString() }).eq('status', 'open');
-    await ('messageId' in t ? q.eq('message_id', t.messageId) : 'draftId' in t ? q.eq('draft_id', t.draftId) : q.eq('question_id', t.questionId));
+    await ('messageId' in t ? q.eq('message_id', t.messageId) : 'draftId' in t ? q.eq('draft_id', t.draftId) : 'questionId' in t ? q.eq('question_id', t.questionId) : q.eq('video_id', t.videoId));
   }, [meId]);
 
   const finish = useCallback(async (error: { message: string } | null) => {
@@ -657,6 +665,14 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     return finish(error);
   }, [meId, closeReports, finish]);
 
+  /** Takes a reported video down, from the Notice Board. The database closes its reports. */
+  const removeVideo = useCallback(async (videoId: string) => {
+    const db = browserClient();
+    if (!db || !meId) return 'Sign in first.';
+    const { error } = await db.rpc('remove_video', { v: videoId });
+    return finish(error);
+  }, [meId, finish]);
+
   const dismissReports = useCallback(async (t: Target) => {
     await closeReports(t, 'dismissed');
     return finish(null);
@@ -665,7 +681,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
   return {
     state, messages, reactions, drafts: shownDrafts, reports, myReports, mod,
     send, loadThread, loadMessage, react, postDraft, vote, view, report,
-    moderate: { removeMessage, markSpoiler, publish, decide, dismissReports, removeQuestion },
+    moderate: { removeMessage, markSpoiler, publish, decide, dismissReports, removeQuestion, removeVideo },
   };
 }
 

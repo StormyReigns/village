@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ChevronLeft, ChevronRight, Clock, EyeOff, MapPin, Pencil, Search, StickyNote, TriangleAlert, X } from 'lucide-react';
 import type { Block, Entry, EntryContent, FieldDef, Route } from '@/data/pages';
@@ -18,6 +18,7 @@ import { symbolFor } from './symbols';
 import { entryText, onRoute, rememberEntry, useOpenEntry } from './entries';
 import { RichText } from './TextLinks';
 import { FilterChip, HiddenNote, useVisible, type BlockContext } from './blockParts';
+import { Videos, cardIdOf } from '@/components/videos/Videos';
 
 /** What a guide card needs from its Block (a Workshop sample has no entries or id). */
 type GuideBlock = Pick<Block, 'title' | 'icon'> & Partial<Pick<Block, 'type' | 'fields' | 'symbols' | 'filters' | 'entries'>>;
@@ -193,6 +194,8 @@ export function GuideCard({ entry, block, route, routes, color = 'var(--ink)', s
   const fields = shownFields(block).filter((f) => hasValue(entry, f));
   const at = (...spots: ReturnType<typeof spotOf>[]) => fields.filter((f) => spots.includes(spotOf(f)));
   const routeName = (r: Route) => routes.find((o) => o.key === r)?.label ?? r;
+  const parts = at('body', 'section', 'chart');
+  const videos = <Videos cardId={sample ? undefined : cardIdOf(entry)} size="big" name={entry.name} />;
   return (
     <div className="grid gap-4">
       <header>
@@ -219,8 +222,13 @@ export function GuideCard({ entry, block, route, routes, color = 'var(--ink)', s
           </p>
         )}
       </header>
-      {at('body', 'section', 'chart').map((f) => (
-        <GuidePart key={f.key} f={f} v={valueOf(entry, f)} route={route} routeName={routeName} name={entry.name} color={color} spoilers={spoilers} />
+      {/* Videos (docs/blocks/videos.md): "See it done" right under "In short", or first if there's none. */}
+      {!parts.some((f) => f.key === DESCRIPTION) && videos}
+      {parts.map((f) => (
+        <Fragment key={f.key}>
+          <GuidePart f={f} v={valueOf(entry, f)} route={route} routeName={routeName} name={entry.name} color={color} spoilers={spoilers} />
+          {f.key === DESCRIPTION && videos}
+        </Fragment>
       ))}
     </div>
   );

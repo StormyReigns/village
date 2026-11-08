@@ -23,6 +23,7 @@ import { Avatar } from '@/components/Avatar';
 import { useVillager, type Villager } from '@/components/useVillager';
 import { useViewAsSetting } from '@/components/viewAs';
 import { sortStandouts } from '@/lib/standouts';
+import { thumbUrl, watchUrl } from '@/lib/videos';
 import {
   REASONS, targetKey, useWorkshop,
   type LiveDraft, type ReportGroup, type WorkshopData,
@@ -1005,7 +1006,7 @@ function VoteButton({ on, onClick, icon, label, children }: { on: boolean; onCli
 /** Moderators' Notice Board: open reports, one card per reported thing. */
 function ReportQueue({ live, blocks }: { live: WorkshopData; blocks: Placed[] }) {
   if (live.reports.length === 0) {
-    return <Empty title="No reports waiting" body="When a villager reports a message, a Draft or a question, it waits here. Only moderators see reports." />;
+    return <Empty title="No reports waiting" body="When a villager reports a message, a Draft, a question or a video, it waits here. Only moderators see reports." />;
   }
   return (
     <ul className="mt-3 grid gap-3">
@@ -1019,6 +1020,8 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
   const reasons = r.reasons.map((k) => REASONS.find((x) => x.key === k)?.label ?? k);
   const block = r.draft ? blocks.find((b) => b.id === r.draft!.blockKey) : undefined;
   const questionPage = r.question ? blocks.find((b) => b.page.id === r.question!.pageKey)?.page : undefined;
+  const videoBlock = r.video ? blocks.find((b) => b.id === r.video!.blockKey) : undefined;
+  const videoEntry = videoBlock?.entries.find((e) => e.id === r.video!.slug);
   return (
     <li className="rise rounded-3xl bg-card-2 p-3 ring-1 ring-line">
       <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -1045,6 +1048,16 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
           <span className="font-bold">Question:</span> {r.question.body}
           <span className="text-muted">{questionPage ? ` · ${questionPage.title}` : ''}{r.question.spoiler ? ' · spoiler' : ''}{r.question.status === 'removed' ? ' · removed' : ''}</span>
         </p>
+      ) : r.video ? (
+        <div className="mt-2 flex items-center gap-2.5 rounded-2xl bg-card p-2.5 text-sm ring-1 ring-line">
+          {/* eslint-disable-next-line @next/next/no-img-element -- YouTube's own thumbnail */}
+          <img src={thumbUrl(r.video.youtubeId)} alt="" className="aspect-video w-24 shrink-0 rounded-lg object-cover" />
+          <p className="min-w-0">
+            <span className="font-bold">Video</span>
+            <span className="text-muted">{videoEntry ? ` on ${videoEntry.name}` : ''}{r.video.status === 'removed' ? ' · taken down' : ''}</span>{' '}
+            <a href={watchUrl(r.video.youtubeId, r.video.start)} target="_blank" rel="noopener noreferrer" className="font-bold underline">Watch on YouTube</a>
+          </p>
+        </div>
       ) : null}
       {r.notes.length > 0 && (
         <ul className="mt-2 grid gap-1 text-sm text-muted">
@@ -1063,6 +1076,9 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
                 icon={<EyeOff size={13} aria-hidden="true" />}>Mark as spoiler</SmallButton>
             )}
           </>
+        ) : 'videoId' in r.target ? r.video?.status !== 'removed' && (
+          <SmallButton tone="bad" disabled={busy} onClick={() => run(() => live.moderate.removeVideo((r.target as { videoId: string }).videoId))}
+            icon={<Trash2 size={13} aria-hidden="true" />}>Take video down</SmallButton>
         ) : 'questionId' in r.target ? r.question?.status !== 'removed' && (
           <SmallButton tone="bad" disabled={busy} onClick={() => run(() => live.moderate.removeQuestion((r.target as { questionId: string }).questionId))}
             icon={<Trash2 size={13} aria-hidden="true" />}>Remove question</SmallButton>

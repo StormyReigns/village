@@ -14,6 +14,7 @@ import { symbolFor } from './symbols';
 import { MADE_FROM, STATS, UPGRADES_TO, amountText, besideText, toggleOptions, chartDefs, linkedFrom, listItems, shownFields, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
 import { byStat, heatFill, placeText, rangeOf, statFacts } from '@/lib/stats';
 import { StatTable, statSort } from './StatTable';
+import { Videos, cardIdOf } from '@/components/videos/Videos';
 
 /**
  * Set by the Characters Block: tapping a tag on a card (a group, a class, Playable or NPC)
@@ -203,6 +204,8 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
           </Fragment>
         );
       })}
+      {/* Videos (docs/blocks/videos.md): small rows after everything else. */}
+      <Videos cardId={sample ? undefined : cardIdOf(entry)} size="small" name={entry.name} color={color} className="mt-4" />
     </article>
   );
 }
