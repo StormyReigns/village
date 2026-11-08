@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, CircleHelp, FileText, Flag, Link2, Merge, Plus, RotateCcw, Search, Trash2, X } from 'lucide-react';
 import type { Page } from '@/data/pages';
 import type { Villager } from '@/components/useVillager';
@@ -59,8 +59,10 @@ function EntryPicker({ blocks, onPick, label }: { blocks: Placed[]; onPick: (b: 
 }
 
 /** One open question: who wants to know, how long it's waited, its Drafts, and the two ways to answer. */
-function QuestionCard({ q, pageTitle, blocks, drafts, data, me, mod, reported, others, onAnswer, onOpenDraft }: {
-  q: LiveQuestion; pageTitle?: string; reported?: boolean; blocks: Placed[]; drafts: QuestionDraft[]; data: QuestionsData; me: Villager | null | undefined; mod: boolean;
+function QuestionCard({ q, pageTitle, blocks, drafts, data, me, mod, reported, focused, others, onAnswer, onOpenDraft }: {
+  q: LiveQuestion; pageTitle?: string; reported?: boolean;
+  /** Arrived here from the app's "Answer it": brought into view and ringed in yellow. */
+  focused?: boolean; blocks: Placed[]; drafts: QuestionDraft[]; data: QuestionsData; me: Villager | null | undefined; mod: boolean;
   others: LiveQuestion[]; onAnswer: (a: AnswerStart) => void; onOpenDraft: (id: string) => void;
 }) {
   const [mode, setMode] = useState<'update' | 'new' | 'link' | 'merge' | null>(null);
@@ -71,9 +73,13 @@ function QuestionCard({ q, pageTitle, blocks, drafts, data, me, mod, reported, o
   const n = wantCount(q);
   const page = blocks.find((b) => b.page.id === q.pageKey)?.page;
   const linkedEntry = linked ? linked.b.entries.find((e) => e.id === linked.entryId) : undefined;
+  const card = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (focused) card.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [focused]);
 
   return (
-    <li className="rise rounded-3xl bg-card p-3 ring-1 ring-line">
+    <li ref={card} className={'rise rounded-3xl bg-card p-3 ' + (focused ? 'ring-2 ring-signal' : 'ring-1 ring-line')}>
       <div className="flex items-start gap-3">
         <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-full bg-card-2"><CircleHelp size={18} aria-hidden="true" /></span>
         <div className="min-w-0 flex-1">
@@ -205,6 +211,18 @@ export function QuestionsTab({ data, pages, blocks, page, drafts, me, mod, query
   onAnswer: (a: AnswerStart) => void; onOpenDraft: (id: string) => void;
 }) {
   const [showAnswered, setShowAnswered] = useState(false);
+  // ?q= (from the app's "Answer it"): which question to bring into view. Read once, then dropped
+  // from the address so a refresh or a later visit doesn't jump back to it.
+  const [focus, setFocus] = useState<string | null>(null);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const id = url.searchParams.get('q');
+    if (!id) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reading the address after hydration
+    setFocus(id);
+    url.searchParams.delete('q');
+    window.history.replaceState({}, '', url);
+  }, []);
   const act = useAction();
   const titleOf = (key: string | null) => pages.find((p) => p.id === key)?.title;
   const here = (q: LiveQuestion) => (!page || q.pageKey === page.id) && (!query.trim() || q.body.toLowerCase().includes(query.trim().toLowerCase()));
@@ -228,7 +246,7 @@ export function QuestionsTab({ data, pages, blocks, page, drafts, me, mod, query
       {open.length ? (
         <ul className="mt-2 grid gap-3">
           {open.map((q) => (
-            <QuestionCard key={q.id} q={q} pageTitle={page ? undefined : titleOf(q.pageKey)} blocks={blocks} drafts={drafts} data={data} me={me} mod={mod} reported={Boolean(reported?.has(q.id))}
+            <QuestionCard key={q.id} q={q} pageTitle={page ? undefined : titleOf(q.pageKey)} blocks={blocks} drafts={drafts} data={data} me={me} mod={mod} reported={Boolean(reported?.has(q.id))} focused={focus === q.id}
               others={open.filter((o) => o.id !== q.id)} onAnswer={onAnswer} onOpenDraft={onOpenDraft} />
           ))}
         </ul>

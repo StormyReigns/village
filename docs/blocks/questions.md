@@ -184,6 +184,10 @@ Built in `Village · Block: Questions`, one shippable step at a time (2026-11-08
   "+1 me too" says what it does: "I want to know too" (then "You'll get the answer"). The Ask
   sheet's spoiler tick reads "Question may be a spoiler".
 
+- 2026-11-08 (Matt): the bar's question isn't bold. Every open question in the app has "Answer it",
+  which opens the Workshop's Questions tab with that question brought into view and ringed in
+  yellow (`?tab=questions&q=<id>`).
+
 ## Open questions
 
 - None open with Matt right now.

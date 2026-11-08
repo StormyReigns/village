@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, CircleHelp, EyeOff, Flag, Inbox, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, CircleHelp, EyeOff, Flag, Hammer, Inbox, X } from 'lucide-react';
 import type { Page, Tint } from '@/data/pages';
 import { useVillager } from '@/components/useVillager';
 import { TINT } from '@/components/app/tint';
@@ -118,6 +118,11 @@ export function QuestionRow({ q, gameId, data, names, pageTitle }: {
             <Link href={`/signin?next=${encodeURIComponent(path)}&for=${encodeURIComponent('say “me too”')}`}
               className="ml-auto rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">I want to know too</Link>
           )}
+          {/* Know it? Straight to this question in the Workshop, ready to answer. */}
+          <Link href={`/g/${gameId}/workshop?tab=questions&q=${q.id}`}
+            className="inline-flex items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">
+            <Hammer size={12} aria-hidden="true" /> Answer it
+          </Link>
           {me && !mine && (
             <button type="button" onClick={() => setReporting(!reporting)} aria-label="Report this question" aria-expanded={reporting}
               className="grid size-7 place-items-center rounded-full text-muted hover:bg-card hover:text-ink">
@@ -392,7 +397,7 @@ export function QuestionBarView({ gameId, page, pages, links, data }: { gameId: 
           {q ? (
             <>
               {/* No live announcement: a screen reader would read every slide. */}
-              <span key={q.id} className="rise min-w-0 flex-1 truncate font-bold italic">
+              <span key={q.id} className="rise min-w-0 flex-1 truncate italic">
                 {q.spoiler ? <span className="text-muted">Spoiler · tap to show</span> : <>“{q.body}”</>}
               </span>
               <span className="shrink-0 text-xs font-bold text-muted">
