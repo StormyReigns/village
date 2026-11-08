@@ -175,13 +175,13 @@ export function imageUrl(path: string) {
  * back a much bigger PNG instead, so the result's real type decides. GIFs go as they are, to
  * keep them moving. A photo that can't be redrawn isn't sent.
  */
-export async function preparePicture(file: File): Promise<{ blob: Blob; type: string; ext: string; w: number; h: number } | string> {
+export async function preparePicture(file: File, max = 1600): Promise<{ blob: Blob; type: string; ext: string; w: number; h: number } | string> {
   if (!file.type.startsWith('image/')) return 'Only pictures can be shared here.';
   const gif = file.type === 'image/gif';
   try {
     const bitmap = await createImageBitmap(file);
     if (gif) return { blob: file, type: file.type, ext: 'gif', w: bitmap.width, h: bitmap.height };
-    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+    const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale);
     canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
@@ -199,10 +199,10 @@ export async function preparePicture(file: File): Promise<{ blob: Blob; type: st
  * Puts a picture in one of our public buckets (chat-images, guide-pictures), under game/you/,
  * after preparePicture has redrawn it. Returns where it went, or an error in plain words.
  */
-export async function uploadPicture(bucket: 'chat-images' | 'guide-pictures', gameId: string, meId: string, file: File): Promise<Attachment | string> {
+export async function uploadPicture(bucket: 'chat-images' | 'guide-pictures', gameId: string, meId: string, file: File, max?: number): Promise<Attachment | string> {
   const db = browserClient();
   if (!db) return "Couldn't reach the village.";
-  const p = await preparePicture(file);
+  const p = await preparePicture(file, max);
   if (typeof p === 'string') return p;
   if (p.blob.size > 5 * 1024 * 1024) return 'That picture is too big (5 MB at most).';
   const path = `${gameId}/${meId}/${crypto.randomUUID()}.${p.ext}`;

@@ -37,5 +37,5 @@ export function clearUnsent(gameId: string) {
 
 /** Anything worth keeping? An empty form isn't. */
 export function hasWriting(c: EntryContent, source: string) {
-  return Boolean(c.name.trim() || c.description?.trim() || c.sections.some((s) => s.text.trim()) || source.trim());
+  return Boolean(c.name.trim() || c.icon || c.description?.trim() || c.sections.some((s) => s.text.trim()) || source.trim());
 }

@@ -7,7 +7,7 @@ import { BlockIcon } from '@/components/Icon';
 import { SignInPrompt } from '@/components/SignInPrompt';
 import { ScrollRow } from '@/components/ScrollRow';
 import type { Villager } from '@/components/useVillager';
-import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
+import { EntryDetails, EntryIcon, symbolFor, type RouteOption } from '@/components/app/EntryPanel';
 import { CharacterCard } from '@/components/app/CharacterCard';
 import { GuideCard } from '@/components/app/Guides';
 import { entryText } from '@/components/app/entries';
@@ -19,6 +19,7 @@ import { EditorShell } from './EditorShell';
 import { changesBetween } from './changes';
 import { clearUnsent, hasWriting, saveUnsent, type Unsent } from './unsent';
 import { uploadPicture, type NewDraft } from './useWorkshop';
+import { PictureInput } from './PictureInput';
 
 /** Where the form opens: a Block to add to, optionally the entry being fixed, and the one
  *  part of it to fix ("description", "routes", "section:Where to get it") from an app pencil. */
@@ -50,6 +51,9 @@ const DESCRIPTION_LABEL: Record<Block['type'], string> = {
   items: 'Description',
 };
 
+// Blocks whose entries are pieces a picture can fill: people, classes, items and the like.
+const PICTURES = new Set<Block['type']>(['collection', 'characters', 'items']);
+
 const blank = (): EntryContent => ({ name: '', sections: [], categories: {} });
 
 /** Copies an entry's content so the form can change it freely. */
@@ -71,6 +75,7 @@ function clean(c: EntryContent): EntryContent {
   return {
     ...c,
     name: c.name.trim(),
+    icon: t(c.icon),
     description: t(c.description),
     stat: t(c.stat),
     stats: c.stats && Object.keys(c.stats).length ? c.stats : undefined,
@@ -292,6 +297,10 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
           <span className="text-sm font-bold">Name<span className="text-berry"> *</span></span>
           <input id="entry-name" value={content.name} onChange={(e) => set({ name: e.target.value })} maxLength={120} className={input} />
         </label>
+      )}
+      {PICTURES.has(block.type) && (show('name') || show('icon')) && (
+        <PictureInput value={content.icon} name={content.name} symbol={symbolFor(content, block)} color={`var(--${page.tint})`} onChange={(icon) => set({ icon })}
+          upload={me ? (file) => uploadPicture('guide-pictures', gameId, me.id, file, 512) : undefined} />
       )}
       {block.type === 'timeline' && show('order') && (
         <label className="grid gap-1">

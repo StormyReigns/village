@@ -16,6 +16,7 @@ export function changesBetween(before: EntryContent | undefined, after: EntryCon
   const routeNames = (rs?: Route[]) => (rs?.length ? rs.map((r) => routes.find((o) => o.key === r)?.label ?? r).join(', ') : 'Every route');
 
   add('Name', before?.name, after.name);
+  if ((before?.icon ?? '') !== (after.icon ?? '')) out.push({ label: 'Picture', before: before?.icon ? 'A picture' : undefined, after: after.icon ? (before?.icon ? 'A new picture' : 'A picture') : undefined });
   add(block.statName ?? 'Key fact', before?.stat, after.stat);
   // Characters and Items can have several charts (Base stats, Growths), each with its own stats.
   for (const d of block.type === 'characters' || block.type === 'items' ? allStatDefs(block) : block.stats ?? []) add(d.label, before?.stats?.[d.key]?.toString(), after.stats?.[d.key]?.toString());

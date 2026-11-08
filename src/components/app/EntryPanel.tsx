@@ -109,7 +109,7 @@ export function EntryIcon({ entry, block, size = 'md', color }: {
 }
 
 /**
- * An entry's details: a side panel on wide screens, a sheet from the bottom on phones.
+ * An entry's details: a popup in the middle on computers, a sheet from the bottom on phones.
  * Arrows (or ← →) step through the entries the player is looking at.
  */
 export function EntryPanel({ entry, block, list, route, routes, gameId, sharePath, place, color, onGo, onClose }: {
