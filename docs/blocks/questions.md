@@ -1,7 +1,7 @@
 # Questions (replaces the Mysteries Block)
 
-**Status:** Designed, ready to build (2026-11-08) · **Chat:** `Village · Block: Questions` (designed in `Village · Block: Guides`)
-· **Mockup:** none yet · **Replaces:** the Mysteries
+**Status:** Designed, ready to build (2026-11-08) · **Chat:** `Village · Block: Questions`
+(designed in `Village · Block: Guides`) · **Mockup:** none yet · **Replaces:** the Mysteries
 Block (a "rows" Collection) on every game's Guides Page · **Code today:** Mysteries is a
 Collection with a Status filter; its panel has "I know the answer" and "Share a theory"
 (`EntryPanel.tsx`), and the app's home shows "Help solve" (`HomeHooks.tsx`).
@@ -12,28 +12,29 @@ with the Blocks because it replaces one.
 ## What it's for
 
 The moment the app doesn't have the answer. A player searched, or looked where it should be,
-and it isn't there: "how does Long join?", "where's the Fire Gem?". Today they leave for a
-wiki or Discord. Questions keep them here: one tap to ask, and the question becomes a task
-for the people who know.
+and it isn't there: "how does Long join?", "does Cai have good STR?". Today they leave for a
+wiki or Discord. Questions keep them here: one tap to ask, the question becomes a task for
+the people who know, and the answer updates the app for everyone after them.
 
 ### The moments (from the intuitive-design steps)
 
-| | Stuck: "the app doesn't say" (primary) | Knows: "I can answer that" | Building: "what's worth doing?" |
+| | Stuck: "the app doesn't say" (primary) | Knows: "I can answer that" | Building: "what needs doing?" |
 |---|---|---|---|
 | **Who** | Any player | A player who's further along, or did the research | A Builder in the Workshop |
 | **Trigger** | Searched or looked, found nothing | Sees a question go by in the bar | Opens the Workshop with time to help |
 | **State** | Mildly stuck, a bit let down | Curious, a little proud | Ready to work, wants a clear task |
 | **What they know** | Their own words ("the elephant guy") | The answer, maybe a source | How the Workshop works |
-| **Done looks like** | Question posted in under 20 seconds; told when it's answered | Their answer is in the app, with their name on it | Picked a question, shipped the fix, the question closes |
+| **Done looks like** | Question posted in under 20 seconds; the answer arrives in their inbox | Their answer is in the app, with their name on it | Picked the oldest question, shipped the fix, the question closes |
 
 What this means for the design:
 - **Ask is always one tap away**, on every Page, and in the "nothing found" note of every
   search, already filled in with what they typed.
 - **Before posting, show what's already there**: matching entries in the app and questions
-  already asked, so a duplicate becomes "follow this one" instead.
-- **The answer goes into the app**, where the next player will look first; the question then
-  points there.
-- **Questions are tasks in the Workshop**, with someone able to say "I'm on it".
+  already asked, so a duplicate becomes a "me too" instead.
+- **The answer goes into the app**, where the next player will look first; the asker gets a
+  short reply that points there.
+- **Questions are tasks in the Workshop**: Builders see which are oldest and whether anyone
+  already has a Draft going.
 
 ## What a player sees
 
@@ -43,58 +44,65 @@ What this means for the design:
   mouse is on it or it has focus, and stays still when the device asks for less motion. On
   the right, a yellow **Ask** button (yellow = act on this). A Page with no open questions
   shows a quiet "Got a question about Units? Ask" instead.
-- **Tapping the bar** opens the Page's questions in a sheet: each with its status (Open,
-  Someone's on it, Theory, Answered), how many players want to know ("+1 me too"), and for
-  answered ones "Answered: see Long", linking to the entry.
+- **Tapping the bar** opens the Page's questions in a sheet: each open one with how many
+  players want to know ("+1 me too"), and answered ones with their reply and a link to the
+  entry ("Updated Cai's STR stat for you · see Cai").
 - **The Guides Page** also lists every open question in the game, grouped by Page (where the
   Mysteries Block used to be), so it's the place to go and help.
 - **Asking**: a short sheet. One line for the question, "Which Page is it about?" set to the
   one you're on, a spoiler tick. As they type, "Maybe it's already here" shows matching
   entries and questions; tapping a matching question adds their "me too" instead of a new
-  one. Signed-in players post; signing in comes at the end, nothing typed is lost (my call).
-- **When it's answered**, the asker gets a note (on the site, and in their profile's activity)
-  linking to the entry.
+  one. Posting needs signing in, so the answer can reach them; signing in comes at the end,
+  and nothing typed is lost.
+- **When it's answered**, the reply lands in the asker's **inbox** with an alert: a dot on a
+  bell in the top bar, and inside, the reply with its link ("Updated Cai's STR stat for you ·
+  see Cai"). Players who said "me too" get it as well.
 - Spoiler questions show as "A spoiler question" in the bar until tapped, like spoiler steps.
 
 ## In the Workshop
 
 - **Questions** is its own tab beside Drafts and "In the app" (Matt: "a unique part of the
-  Workshop"). Open questions first, sorted by how many players want to know, then newest.
-- **I'm on it**: a Builder picks one up; it shows "<name> is on it" to everyone, so two
-  people don't answer it twice. If no Draft comes within 3 days, it opens up again (my call).
-- **Answer it** opens the right form: a fix to the entry the question is about, or a new
-  entry (a guide, a character), with the question shown at the top. The Draft carries the
-  question, so when it ships the question closes as Answered and points to the entry.
-- **Theories** (from Mysteries): talk about a question happens in its chat thread, like any
-  entry's. A Builder who isn't sure yet can answer with a Draft marked "A theory"; the
-  question then shows Theory until a confirmed answer ships.
-- Moderators can merge duplicates, mark a question "Can't be answered yet", or remove one.
+  Workshop"). Open questions are sorted by how long they've been open, oldest first (Matt).
+  Each shows how long it's been open, how many players want to know, and the Drafts already
+  answering it: how many, and how long each has been open ("1 Draft, open 4 days"), so
+  Builders can see where help is needed and vote on or nudge a Draft that's stuck. Every
+  question stays open until it's answered.
+- **Two ways to answer** (Matt), each with a short reply the asker reads:
+  - **Update the app**: a fix to the right entry, or a new entry (a guide, a character), as a
+    normal Draft with the question shown at the top. The Draft carries the question and the
+    reply ("Updated Cai's STR stat for you"); when it ships, the question closes as answered,
+    points to the entry, and the reply goes to the inbox.
+  - **It's already there**: the Builder links the entry and writes the reply ("Cai's STR
+    growth is 45%, one of the best: see his profile"). Nothing in the app changes, so it
+    closes straight away and the reply goes to the inbox.
+- Moderators can merge duplicates, reopen an answer that missed, or remove a question.
   Reports and the AI spam check apply as everywhere else.
 
 ## Data
 
 A question isn't an entry: it has no Page content of its own. It's its own record: the
-words, the Page it's about (and the entry, when it's about one), who asked, "me too"s, who's
-on it, its status, and the entry that answered it. New tables in the database, so Matt runs
-SQL for it. The six Mysteries of Fortune's Weave move into it with their status (Open or
-Theory) and what's known so far kept as the first message in each question's thread; then
-the Mysteries Block is removed from the Guides Page.
+words, the Page it's about (and the entry, when it's about one), who asked and when, the "me
+too"s, whether it's answered, the reply, and the entry it points to. Drafts can name the
+question they answer. Each player gets an inbox of answers, with what's unread. New tables
+in the database, so Matt runs SQL for it. The six Mysteries of Fortune's Weave move in as open
+questions (what was known so far goes with them as a note for Builders); then the Mysteries
+Block is removed from the Guides Page.
 
 ## Shared parts
 
 Built in its own chat, `Village · Block: Questions` (the hub, 2026-11-08). Everything below
-is shared, so that chat asks the hub before each file, and Village · Chat for the thread part:
+is shared, so that chat asks the hub before each file:
 - **The app shell**: the bar under every Page's title (`PageView.tsx`), and the Guides Page's
   list of every open question (where the Mysteries Block was).
-- **The Workshop**: a Questions tab in `Workshop.tsx`, and loading, asking, "me too", "I'm
-  on it" and closing in `useWorkshop.ts`.
-- **The entry form**: a Draft that carries the question it answers (`EntryForm.tsx`), so
-  shipping it closes the question.
-- **The database**: new tables (questions, "me too"s, who's on it), rules for who can do
-  what, and moving Fortune's Weave's six Mysteries in before removing the Block. Matt runs
-  the SQL.
-- **The chat**: a thread key per question, for theories and talk (`src/lib/threads.ts`,
-  owned with Village · Chat).
+- **The top bar**: the inbox bell with its alert dot (`TopBar` in `Logo.tsx`), and the inbox.
+- **The Workshop**: a Questions tab in `Workshop.tsx`, and loading, asking, "me too",
+  answering and closing in `useWorkshop.ts`.
+- **The entry form**: a Draft that carries the question it answers and the reply
+  (`EntryForm.tsx`), so shipping it closes the question and sends the answer.
+- **The database**: new tables (questions, "me too"s, the inbox), a link from Drafts to the
+  question they answer, closing the question when such a Draft ships (`ship_draft`), rules for
+  who can do what, and moving Fortune's Weave's six Mysteries in before removing the Block.
+  Matt runs the SQL.
 
 ## Decisions
 
@@ -107,16 +115,16 @@ is shared, so that chat asks the hub before each file, and Village · Chat for t
   ticker is hard to read and pulls attention from the answer the player came for.
 - 2026-11-08: answers go into the app as normal Drafts (a fix or a new entry); the question
   closes and points there (Matt). Why: the app stays the one place answers live.
-
 - 2026-11-08: anyone can type a question; posting it needs signing in, and nothing typed is
-  lost on the way (Matt). Why: rate limits and the spam check need an account, but the
-  question shouldn't be lost to a sign-in wall.
-- 2026-11-08: "I'm on it" opens the question up again if no Draft comes within 3 days (Matt).
-  Why: a claim shouldn't block a question forever.
-- 2026-11-08: theories and talk about a question live in its chat thread, like any entry's;
-  a Draft marked "A theory" sets the question to Theory until a confirmed answer ships
-  (Matt). Why: one place to talk, and the chat already does it.
+  lost on the way (Matt). Why: the answer goes to the asker's inbox, so it needs an account.
 - 2026-11-08: built in its own chat, `Village · Block: Questions` (the hub).
+- 2026-11-08 (Matt, replacing three earlier calls): no theories, just questions and answers
+  that update the app. An answer either updates the app ("Updated Cai's STR stat for you") or
+  links what's already there with a reply. No "I'm on it" claim and no time limit: every
+  question stays open until answered. The Workshop shows each question's open Drafts, how
+  many and how long open, sorted by how long the question has been open, oldest first.
+  Answers land in the asker's inbox with an alert. Why: simpler for everyone, and Builders
+  can see for themselves where a question is stuck.
 
 ## Open questions
 
@@ -124,5 +132,6 @@ is shared, so that chat asks the hub before each file, and Village · Chat for t
 
 ## Later
 
-- Notifications outside the site (email, Discord) when your question is answered.
+- Alerts outside the site (email, Discord) when your question is answered.
 - Rewards: answering a question others asked counts toward titles and Market Day.
+- The inbox could carry other news later (your Draft shipped, someone replied to you).
