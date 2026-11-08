@@ -163,10 +163,10 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
   }, [prev, next, onGo, onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end overscroll-none bg-ink/30 backdrop-blur-[2px] lg:items-stretch lg:justify-end" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center overscroll-none bg-ink/30 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
       <div ref={box} tabIndex={-1} role="dialog" aria-modal="true" aria-label={entry.name} onClick={(e) => e.stopPropagation()}
-        className="rise flex max-h-[88vh] w-full flex-col rounded-t-[2rem] bg-card shadow-soft outline-none lg:max-h-none lg:w-[28rem] lg:rounded-none lg:rounded-l-[2rem]">
-        <div className="mx-auto mt-2 h-1.5 w-10 rounded-full bg-line lg:hidden" aria-hidden="true" />
+        className="rise flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-[2rem] bg-card shadow-soft outline-none sm:rounded-[2rem]">
+        <div className="mx-auto mt-2 h-1.5 w-10 rounded-full bg-line sm:hidden" aria-hidden="true" />
         <div className="flex items-center gap-1 px-4 pt-3">
           <p className="text-xs font-bold uppercase tracking-wide text-muted">{block.title}{at >= 0 && ` · ${at + 1} of ${list.length}`}</p>
           <span className="ml-auto" />
@@ -176,7 +176,7 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
           <button onClick={onClose} aria-label="Close" className="grid size-9 place-items-center rounded-full bg-card-2 ring-1 ring-line"><X size={18} aria-hidden="true" /></button>
         </div>
 
-        <div className="overflow-y-auto overscroll-contain px-5 pb-6 pt-3">
+        <div className="thin-scroll min-h-0 overflow-y-auto overscroll-contain px-5 pb-6 pt-3">
           {fixes.length > 0 && (
             <Link href={`/g/${gameId}/workshop?draft=${fixes[0].id}`} className="mb-4 flex items-center gap-2 rounded-2xl bg-sun-soft px-3 py-2 text-sm hover:ring-1 hover:ring-sun">
               <Hourglass size={15} className="shrink-0 text-sun" aria-hidden="true" />

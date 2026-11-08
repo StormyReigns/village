@@ -129,8 +129,9 @@ html { touch-action: manipulation; }
   .lift:hover { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 35%, var(--line)); }
 }
 
-/* The Workshop's columns and editors: a thin, quiet scrollbar, like the chat's. */
-.thin-scroll, .thin-scroll * {
+/* The Workshop and the game app: a thin, quiet scrollbar, like the chat's. The page's own
+   scrollbar belongs to <html>, so it takes the look whenever such a screen is showing. */
+html:has(.thin-scroll), .thin-scroll, .thin-scroll * {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--ink) 25%, transparent) transparent;
 }

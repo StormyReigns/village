@@ -114,10 +114,10 @@ export function RegionSheet({ region, block, ctx, onClose, onOpenPlace }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-ink/30 backdrop-blur-[2px] lg:items-stretch lg:justify-end" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
       <div ref={box} tabIndex={-1} role="dialog" aria-modal="true" aria-label={region.label} onClick={(e) => e.stopPropagation()}
-        className="rise flex max-h-[88vh] w-full flex-col rounded-t-[2rem] bg-card shadow-soft outline-none lg:max-h-none lg:w-[28rem] lg:rounded-none lg:rounded-l-[2rem]">
-        <div className="mx-auto mt-2 h-1.5 w-10 rounded-full bg-line lg:hidden" aria-hidden="true" />
+        className="rise flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-[2rem] bg-card shadow-soft outline-none sm:rounded-[2rem]">
+        <div className="mx-auto mt-2 h-1.5 w-10 rounded-full bg-line sm:hidden" aria-hidden="true" />
         <div className="flex items-start gap-3 px-5 pt-3">
           <span className={`mt-0.5 grid size-10 shrink-0 place-items-center rounded-2xl ${t.soft} ${t.text}`}><MapPin size={19} aria-hidden="true" /></span>
           <div className="min-w-0 flex-1">
@@ -127,7 +127,7 @@ export function RegionSheet({ region, block, ctx, onClose, onOpenPlace }: {
           <button onClick={onClose} aria-label="Close" className="grid size-9 shrink-0 place-items-center rounded-full bg-card-2 ring-1 ring-line"><X size={18} aria-hidden="true" /></button>
         </div>
 
-        <div className="overflow-y-auto px-5 pb-6 pt-4">
+        <div className="thin-scroll min-h-0 overflow-y-auto px-5 pb-6 pt-4">
           <h3 className="text-xs font-bold uppercase tracking-wide text-muted">Places</h3>
           <ul className="mt-2 grid gap-2">
             {region.places.map((e) => {

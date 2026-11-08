@@ -15,7 +15,7 @@ import { withCovers } from '@/lib/pictures';
 export default function AppLayout({ children, params }: LayoutProps<'/g/[game]'>) {
   return (
     // Everything in the game's app takes its genre shade.
-    <GameShade className="flex flex-1 flex-col">
+    <GameShade className="thin-scroll flex flex-1 flex-col">
       <Suspense fallback={<TopBar compact />}>
         <Bar params={params} />
       </Suspense>
