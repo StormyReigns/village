@@ -422,3 +422,78 @@ const fresh2 = (await asUser(C, `select id from public.tier_reasons('fortunes-we
 await expectOk(A, `select public.remove_tier_reason('${fresh2}')`, 'a moderator takes them down');
 const mainNow = await asUser(C, `select tp.reason from public.tier_placements tp join public.tier_lists l on l.id = tp.list_id where l.profile_id = '${B}' and l.kind = 'main' and tp.card_id = '${CARD}'`);
 mainNow.rows.length === 1 && mainNow.rows[0].reason === null ? ok('a shared main list loses removed words straight away') : bad('shared main still shows ' + JSON.stringify(mainNow.rows));
+
+// Discord posts (docs/blocks/discord.md): only moderators connect a channel; nobody, moderators
+// included, can read the webhook link back; a published Draft queues one escaped line; posts wait
+// until things go quiet and can't ping anyone; a deleted webhook is noticed; and nothing in here
+// can stop a Draft from publishing. pg_net is stubbed: requests are recorded, not sent.
+{
+await db.exec(`
+  create schema if not exists net;
+  create table net.sent (id bigint generated always as identity primary key, url text, body jsonb);
+  create table net._http_response (id bigint primary key, status_code int, error_msg text, timed_out boolean);
+  create function net.http_post(url text, body jsonb default '{}', params jsonb default '{}', headers jsonb default '{}', timeout_milliseconds int default 5000)
+  returns bigint language sql as $$ insert into net.sent (url, body) values (url, body) returning id $$;
+  update public.profiles set display_name = '@everyone [x](http://evil)' where id = '${C}';
+`);
+const HOOK_TOKEN = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-wxyz';
+const HOOK = `https://discordapp.com/api/v10/webhooks/123456789012345678/${HOOK_TOKEN}`;
+await expectFail(C, `select public.set_discord_hook('fortunes-weave', '${HOOK}')`, 'a villager cannot connect Discord');
+await expectFail(A, `select public.set_discord_hook('fortunes-weave', 'https://discord.com.evil.com/api/webhooks/123456789012345678/${HOOK_TOKEN}')`, 'only a real Discord webhook address is saved');
+const last4 = await asUser(A, `select public.set_discord_hook('fortunes-weave', '${HOOK}') as l`);
+const savedHook = await db.query(`select url from public.discord_hooks where game_id = 'fortunes-weave'`);
+last4.rows[0]?.l === 'wxyz' && savedHook.rows[0]?.url === `https://discord.com/api/webhooks/123456789012345678/${HOOK_TOKEN}`
+  ? ok('a moderator connects Discord, gets back only the last 4, and it is saved as discord.com') : bad('hook ' + JSON.stringify([last4.rows, savedHook.rows]));
+const peekHook = await asUser(A, `select url from public.discord_hooks`).catch(() => null);
+const peekOut = await asUser(C, `select line from public.discord_outbox`).catch(() => null);
+!peekHook && !peekOut ? ok('nobody reads the webhook link or the queue, moderators included (refused)') : bad('Discord tables readable');
+const hs = await asUser(A, `select last4, kinds, status from public.discord_hook_status('fortunes-weave')`);
+const hsC = await asUser(C, `select last4 from public.discord_hook_status('fortunes-weave')`);
+hs.rows[0]?.last4 === 'wxyz' && hsC.rows.length === 0 ? ok('moderators see the status, villagers nothing') : bad('status ' + JSON.stringify([hs.rows, hsC.rows]));
+await expectFail(C, `select public.discord_flush()`, 'a villager cannot run the sender');
+await expectOk(A, `select public.discord_send_test('fortunes-weave')`, 'a moderator sends a test');
+await expectFail(A, `select public.discord_send_test('fortunes-weave')`, 'one test a minute');
+await db.query(`select public.discord_flush()`);
+const testPost = await db.query(`select body from net.sent order by id`);
+testPost.rows.length === 1 && testPost.rows[0].body.embeds[0].title === 'Village is connected' && JSON.stringify(testPost.rows[0].body.allowed_mentions) === '{"parse":[]}'
+  ? ok('the test goes out at once, with no mentions allowed') : bad('test post ' + JSON.stringify(testPost.rows));
+
+const DD1 = 'dddddddd-0000-0000-0000-000000000001', DD2 = 'dddddddd-0000-0000-0000-000000000002', DD3 = 'dddddddd-0000-0000-0000-000000000003';
+await db.exec(`insert into public.drafts (id, game_id, block_key, kind, title, content, author_id) values
+  ('${DD1}', 'fortunes-weave', 'people', 'fact', 'Add Iron Lance', '{"name":"Iron *Lance* @here","sections":[],"categories":{}}', '${C}'),
+  ('${DD2}', 'fortunes-weave', 'people', 'fact', 'Secret ending', '{"name":"Secret","spoiler":true,"sections":[],"categories":{}}', '${C}'),
+  ('${DD3}', 'fortunes-weave', 'people', 'fact', 'Iron Lance', '{"name":"Iron Lance","sections":[],"categories":{}}', '${C}');`);
+await expectOk(A, `select public.ship_draft('${DD1}')`, 'a moderator publishes a new entry');
+await expectOk(A, `select public.ship_draft('${DD2}')`, 'and a spoiler');
+await db.exec(`update public.drafts set card_id = (select card_id from public.drafts where id = '${DD1}') where id = '${DD3}'`);
+await expectOk(A, `select public.ship_draft('${DD3}')`, 'and a fix to the first');
+const lines = (await db.query(`select line from public.discord_outbox where kind = 'published' order by id`)).rows.map((r) => r.line);
+lines.length === 3 && !/@here|@everyone/.test(lines.join('')) && lines[0].includes('\\*Lance\\*') && lines[0].includes('(new)') && lines[0].includes('\\[x\\]')
+  && lines[1].startsWith('• [A spoiler](') && lines[2].includes('(updated)') && !lines[2].includes(': Iron')
+  ? ok('published Drafts queue escaped lines: (new), (updated), spoilers hidden, no mentions') : bad('lines ' + JSON.stringify(lines));
+const early = (await db.query(`select public.discord_flush() as n`)).rows[0].n;
+await db.exec(`update public.discord_outbox set created_at = now() - interval '11 minutes' where kind = 'published'`);
+const quiet = (await db.query(`select public.discord_flush() as n`)).rows[0].n;
+const post = (await db.query(`select body from net.sent order by id desc limit 1`)).rows[0]?.body;
+early === 0 && quiet === 1 && post?.embeds[0].description.split('\n').length === 3 && JSON.stringify(post.allowed_mentions) === '{"parse":[]}'
+  ? ok('nothing posts while it is busy; once quiet, one post with every line') : bad('batching ' + JSON.stringify([early, quiet, post]));
+
+// Publishing never fails because of Discord, even when queueing a line goes wrong.
+await db.exec(`alter table public.discord_outbox add constraint discord_test_break check (false) not valid`);
+const DD4 = 'dddddddd-0000-0000-0000-000000000004';
+await db.exec(`insert into public.drafts (id, game_id, block_key, kind, title, content, author_id) values ('${DD4}', 'fortunes-weave', 'people', 'fact', 'Add Steel Lance', '{"name":"Steel Lance","sections":[],"categories":{}}', '${C}')`);
+await expectOk(A, `select public.ship_draft('${DD4}')`, 'a Draft still publishes when its Discord line cannot be queued');
+const shipped = await db.query(`select status from public.drafts where id = '${DD4}'`);
+shipped.rows[0]?.status === 'stable' ? ok('and it is on Stable') : bad('blocked publish ' + JSON.stringify(shipped.rows));
+await db.exec(`alter table public.discord_outbox drop constraint discord_test_break`);
+
+await db.exec(`insert into net._http_response (id, status_code) select request_id, 404 from public.discord_sends order by request_id desc limit 1`);
+await db.query(`select public.discord_flush()`);
+const brokenHook = await db.query(`select status, last_error from public.discord_hooks where game_id = 'fortunes-weave'`);
+brokenHook.rows[0]?.status === 'broken' && /no longer accepts/.test(brokenHook.rows[0].last_error ?? '') ? ok('a deleted webhook marks the link as not working') : bad('broken ' + JSON.stringify(brokenHook.rows));
+await expectFail(A, `select public.set_discord_kinds('fortunes-weave', array['everything'])`, 'unknown kinds of post are refused');
+await expectFail(C, `select public.remove_discord_hook('fortunes-weave')`, 'a villager cannot disconnect Discord');
+await expectOk(A, `select public.remove_discord_hook('fortunes-weave')`, 'a moderator disconnects');
+const hooksLeft = await db.query(`select count(*)::int as n from public.discord_hooks`);
+hooksLeft.rows[0].n === 0 ? ok('the link is forgotten') : bad('hook still there');
+}

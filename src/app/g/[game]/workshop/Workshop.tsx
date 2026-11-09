@@ -43,6 +43,7 @@ import { changesBetween } from './changes';
 import { clearUnsent, readUnsent, saveUnsent, type Unsent } from './unsent';
 import { QuestionsTab } from './Questions';
 import { useQuestions } from '@/components/questions/useQuestions';
+import { DiscordCard } from '@/components/discord/DiscordCard';
 
 type Sort = 'standouts' | 'new' | 'needs' | 'shipped';
 const SORTS: { key: Sort; label: string }[] = [
@@ -536,6 +537,7 @@ export function Workshop({ game, pages, routes }: {
             {chip === 'notice' ? (
               <>
                 <h2 className="pt-4 font-display text-xl">Notice Board</h2>
+                {live.mod && <DiscordCard gameId={game.id} gameName={game.shortTitle} />}
                 {live.mod ? <ReportQueue live={live} blocks={blocks} /> : (
                   <Empty title="No reports waiting" body="When players tap “not quite” in the app without signing in, their report waits here until a villager confirms it." />
                 )}
