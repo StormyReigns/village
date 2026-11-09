@@ -69,7 +69,7 @@ export function CommunityTier({ cardId, entryId, size }: { cardId?: string; entr
     <Tip text={tip} className="absolute -bottom-3 -left-3 z-10">
       <Link href={`/g/${found.gameId}/${found.page}?t=${found.block}.${entryId}#${found.block}`}
         aria-label={found.leaning ? `Community tier: leaning ${found.label}` : `Community tier: ${found.label}`}
-        className="block -rotate-6 select-none transition hover:-rotate-3 hover:scale-105" style={letterStyle(found.index, px, found.leaning)}>
+        className="block -rotate-6 select-none transition hover:-rotate-3 hover:scale-105" style={letterStyle(found.index, px)}>
         {found.label}
       </Link>
     </Tip>

@@ -117,8 +117,8 @@ Its title and intro line, then two tabs, yellow on the one you're on:
 
 (Matt, 2026-11-08, replacing the pill below.) A big tier letter over the portrait's bottom-left
 corner, partly off the piece (never inside it), about 40% of the portrait’s width and tilted a
-little: settled, in its tier's color with an ink outline; leaning (under 5 lists), white with the
-brand's pink and violet split. Its tip gives the numbers ("Unit tiers: A, from 23 lists (S 4 · A 12
+little, in its tier's color with an ink outline, the same as the board's letters, settled or
+leaning (Matt, 2026-11-08: one look; the tip says when it's still leaning). Its tip gives the numbers ("Unit tiers: A, from 23 lists (S 4 · A 12
 · B 6)"); tapping it opens the tier list with the piece's sheet, so phones get the numbers too.
 Nothing shows in Workshop previews or the sample card. Earlier version:
 
