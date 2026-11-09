@@ -23,7 +23,7 @@ export const PAGES: Page[] = [
     id: 'world', title: 'World', short: 'World', icon: 'MapPin', tint: 'teal',
     blurb: 'Places to explore, and the foes you will meet there.',
     blocks: [
-      { id: 'places', type: 'collection', look: 'rows', title: 'Places', icon: 'MapPin', filters: ['Region'], entries: [] },
+      { id: 'places', type: 'collection', look: 'map', title: 'Places', icon: 'MapPin', filters: ['Region', 'Group'], entries: [] },
       { id: 'foes', type: 'collection', look: 'rows', title: 'Foes', icon: 'Swords', entries: [] },
     ],
   },

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Maximize2, Minimize2, Minus, Plus, Scan } from 'lucide-react';
+import { Maximize2, Minus, Plus, Scan, X, ZoomIn } from 'lucide-react';
 import { Piece, pieceHeight } from '@/components/Piece';
 import { centerOn, clampView, fitView, frameToSpot, groupPins, spotToFrame, zoomAt, type Size, type View } from '@/lib/world-map';
 
@@ -28,8 +28,10 @@ export interface CanvasPin {
 
 const PIN = 30;
 const GAP = PIN + 6;
+/** How far past its edges the map can be dragged, so a pin under the tools can come out. */
+const PAD = 52;
 
-export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, credit, focus, bar, frameClass }: {
+export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, credit, focus, bar, overlay, frameClass }: {
   src: string;
   pic: Size;
   alt: string;
@@ -45,6 +47,8 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
   focus?: { x: number; y: number; key: string } | null;
   /** Over the bottom of the frame: the picked pin's card. */
   bar?: ReactNode;
+  /** Over the top left of the frame: what's filtered. */
+  overlay?: ReactNode;
   /** The frame's height when it isn't full screen. Without it, the picture's own shape (from the
    *  Block's width), at least 15rem so the pin's card fits, at most two thirds of the
    *  screen, so a wide map has few empty bands on a phone. */
@@ -55,6 +59,7 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
   const [view, setView] = useState<View | null>(null);
   const [full, setFull] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
+  const [tools, setTools] = useState(false);
   const viewRef = useRef<View | null>(null);
   viewRef.current = view;
   const sizeRef = useRef<Size | null>(null);
@@ -80,9 +85,10 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
       if (!next.w || !next.h) return;
       const was = sizeRef.current, v = viewRef.current;
       setSize(next);
-      if (!v || !was) { setView(fitView(next, pic)); return; }
+      // First time, or showing the whole map: show the whole map at the new size too.
+      if (!v || !was || Math.abs(v.scale - fitView(was, pic).scale) < 1e-6) { setView(fitView(next, pic)); return; }
       const mid = { x: ((was.w / 2 - v.x) / (pic.w * v.scale)) * 100, y: ((was.h / 2 - v.y) / (pic.h * v.scale)) * 100 };
-      setView(centerOn(mid, v.scale, next, pic));
+      setView(centerOn(mid, v.scale, next, pic, PAD));
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -99,7 +105,7 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
   const focusKey = focus?.key;
   useEffect(() => {
     if (!focus) return;
-    update((v, s) => centerOn(focus, Math.max(v.scale, fitView(s, pic).scale * 2), s, pic));
+    update((v, s) => centerOn(focus, Math.max(v.scale, fitView(s, pic).scale * 2), s, pic, PAD));
     // Only when the spot asked for changes.
   }, [focusKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -136,7 +142,7 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
       const now = read(e.touches);
       const factor = e.touches.length >= 2 && start.dist > 1 ? now.dist / start.dist : 1;
       const shifted = { ...start.v, x: start.v.x + now.mid.x - start.mid.x, y: start.v.y + now.mid.y - start.mid.y };
-      setView(zoomAt(shifted, factor, now.mid, s, pic));
+      setView(zoomAt(shifted, factor, now.mid, s, pic, PAD));
     };
     const end = (e: TouchEvent) => { if (e.touches.length) begin(e); else start = null; };
     el.addEventListener('touchstart', begin, { passive: true });
@@ -150,7 +156,7 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
       e.preventDefault();
       const r = el.getBoundingClientRect();
       const s = sizeRef.current, v = viewRef.current;
-      if (s && v) setView(zoomAt(v, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.002)), { x: e.clientX - r.left, y: e.clientY - r.top }, s, pic));
+      if (s && v) setView(zoomAt(v, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.002)), { x: e.clientX - r.left, y: e.clientY - r.top }, s, pic, PAD));
     };
     el.addEventListener('wheel', wheel, { passive: false });
     return () => {
@@ -167,6 +173,7 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.pointerType === 'touch' || e.button !== 0 || !view) return;
     if ((e.target as HTMLElement).closest('button, a, input, [data-map-ui]')) return;
+    setTools(false);
     drag.current = { x: e.clientX, y: e.clientY, v: view };
     moved.current = false;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -176,7 +183,7 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
     if (!d || !size) return;
     const dx = e.clientX - d.x, dy = e.clientY - d.y;
     if (Math.hypot(dx, dy) > 4) moved.current = true;
-    if (moved.current) setView(clampView({ ...d.v, x: d.v.x + dx, y: d.v.y + dy }, size, pic));
+    if (moved.current) setView(clampView({ ...d.v, x: d.v.x + dx, y: d.v.y + dy }, size, pic, PAD));
   };
   const onPointerUp = () => { drag.current = null; };
 
@@ -212,8 +219,9 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
     return () => { document.body.style.overflow = was; window.removeEventListener('keydown', onKey); window.removeEventListener('popstate', onPop); };
   }, [full, close]);
 
-  const zoomBy = (factor: number) => update((v, s) => zoomAt(v, factor, { x: s.w / 2, y: s.h / 2 }, s, pic));
-  const tool = 'grid size-10 shrink-0 place-items-center rounded-full bg-card text-ink ring-1 ring-line hover:ring-ink disabled:opacity-40';
+  const zoomBy = (factor: number) => update((v, s) => zoomAt(v, factor, { x: s.w / 2, y: s.h / 2 }, s, pic, PAD));
+  // White with an ink edge and a shadow, so a tool shows on any picture, light or dark.
+  const tool = 'grid size-10 shrink-0 place-items-center rounded-full bg-card text-ink shadow-[0_1px_4px_rgb(0_0_0/.35)] ring-1 ring-ink/20 hover:ring-ink disabled:opacity-40';
   const fitted = view && size ? Math.abs(view.scale - fitView(size, pic).scale) < 1e-6 : true;
 
   // Pins on screen, grouped where they'd touch. The picked one never hides in a group.
@@ -232,7 +240,7 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
       nearest = Math.min(nearest, Math.hypot(((ps[i].sx - ps[j].sx) / 100) * pic.w, ((ps[i].sy - ps[j].sy) / 100) * pic.h));
     }
     const apart = nearest > 0 && Number.isFinite(nearest) ? (GAP * 1.25) / nearest : v.scale * 4;
-    return centerOn(mid, Math.max(v.scale * 1.5, apart), s, pic);
+    return centerOn(mid, Math.max(v.scale * 1.5, apart), s, pic, PAD);
   });
 
   const pinButton = (p: (typeof onScreen)[number]) => (
@@ -272,21 +280,32 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
         ))}
         {picked && pinButton(picked)}
 
+        {overlay && <div data-map-ui className="absolute left-2 top-2 max-w-[calc(100%-4.5rem)]">{overlay}</div>}
+
+        {/* The tools, over the top right: a magnifier that opens zoom, Fit and full screen, so the
+            map stays clear. Full screen keeps its own close button in view. */}
+        <div data-map-ui className="absolute right-2 top-2 flex flex-col items-end gap-1.5">
+          <div className="flex gap-1.5">
+            {full && <button type="button" onClick={close} aria-label="Close full screen" title="Close full screen" className={tool}><X size={18} aria-hidden="true" /></button>}
+            <button type="button" onClick={() => setTools(!tools)} aria-expanded={tools} aria-label="Zoom and full screen" title="Zoom and full screen"
+              className={tool + (tools ? ' !bg-signal' : '')}><ZoomIn size={18} aria-hidden="true" /></button>
+          </div>
+          {tools && (
+            <div className="flex flex-col gap-1.5">
+              <button type="button" onClick={() => zoomBy(1.6)} aria-label="Zoom in" title="Zoom in" className={tool}><Plus size={18} aria-hidden="true" /></button>
+              <button type="button" onClick={() => zoomBy(1 / 1.6)} disabled={fitted} aria-label="Zoom out" title="Zoom out" className={tool}><Minus size={18} aria-hidden="true" /></button>
+              <button type="button" onClick={() => update((_, sz) => fitView(sz, pic))} disabled={fitted} aria-label="Show the whole map" title="Show the whole map" className={tool}><Scan size={17} aria-hidden="true" /></button>
+              {!full && <button type="button" onClick={() => { setTools(false); open(); }} aria-label="Full screen" title="Full screen" className={tool}><Maximize2 size={17} aria-hidden="true" /></button>}
+            </div>
+          )}
+        </div>
+
         {hint && (
           <p role="status" className="pointer-events-none absolute inset-x-0 top-1/2 mx-auto w-fit -translate-y-1/2 rounded-full bg-ink/85 px-4 py-2 text-sm font-bold text-white">{hint}</p>
         )}
         {bar && <div data-map-ui className="absolute inset-x-2 bottom-2">{bar}</div>}
       </div>
-      {/* The tools, under the map so they never cover a pin, big enough for a thumb. */}
-      <div className={'flex items-center gap-1.5 pt-1.5 ' + (full ? 'px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]' : '')}>
-        <p className={'min-w-0 flex-1 px-1 text-xs ' + (full ? 'text-white/70' : 'text-muted')}>{credit}</p>
-        <button type="button" onClick={() => zoomBy(1 / 1.6)} disabled={fitted} aria-label="Zoom out" title="Zoom out" className={tool}><Minus size={18} aria-hidden="true" /></button>
-        <button type="button" onClick={() => zoomBy(1.6)} aria-label="Zoom in" title="Zoom in" className={tool}><Plus size={18} aria-hidden="true" /></button>
-        <button type="button" onClick={() => update((_, sz) => fitView(sz, pic))} disabled={fitted} aria-label="Show the whole map" title="Show the whole map" className={tool}><Scan size={17} aria-hidden="true" /></button>
-        <button type="button" onClick={full ? close : open} aria-label={full ? 'Close full screen' : 'Full screen'} title={full ? 'Close full screen' : 'Full screen'} className={tool}>
-          {full ? <Minimize2 size={18} aria-hidden="true" /> : <Maximize2 size={17} aria-hidden="true" />}
-        </button>
-      </div>
+      {credit && <p className={'px-1 pt-1.5 text-xs ' + (full ? 'px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-white/70' : 'text-muted')}>{credit}</p>}
     </div>
   );
 }

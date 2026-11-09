@@ -109,6 +109,14 @@ function weaponItems(): Entry[] {
   }));
 }
 
+/** A place's Group (docs/blocks/world.md), read only from its name; none rather than a guess.
+ *  The live places got theirs from supabase/migrations/20261110120000_place_groups.sql. */
+function placeGroup(name: string) {
+  if (name === 'Dagsion') return 'Town';
+  return /Cave|Cavern/.test(name) ? 'Cave' : /Fort/.test(name) ? 'Fort' : /Mine/.test(name) ? 'Mine'
+    : /Forest|Woods|Woodlands/.test(name) ? 'Forest' : /Isle$/.test(name) ? 'Island' : /Shrine/.test(name) ? 'Shrine' : undefined;
+}
+
 function places(): Entry[] {
   return of('places').map((c) => {
     const unlock = c.content.unlock ?? '';
@@ -120,7 +128,7 @@ function places(): Entry[] {
       description: level ? rest.replace(level[0], '').trim() : rest,
       stat: level ? `Lv ${level[1]}` : undefined,
       sections: sections(["What's there", c.content.notable]),
-      categories: { Region: region ?? 'Hub' },
+      categories: { Region: region ?? 'Hub', ...(placeGroup(c.content.name) ? { Group: placeGroup(c.content.name)! } : {}) },
     };
   });
 }
@@ -239,7 +247,7 @@ export const PAGES: Page[] = [
     id: 'world', title: 'World', short: 'World', icon: 'MapPin', tint: 'teal',
     blurb: 'Dungeons and places worth visiting, and the foes waiting in them.',
     blocks: [
-      block({ type: 'collection', look: 'map', title: 'Dungeons and places', icon: 'MapPin', filters: ['Region'], statName: 'Level', entries: places() }),
+      block({ type: 'collection', look: 'map', title: 'Dungeons and places', icon: 'MapPin', filters: ['Region', 'Group'], statName: 'Level', entries: places() }),
       block({ type: 'collection', look: 'rows', title: 'Foes', icon: 'Swords', byRoute: true, entries: foes() }),
     ],
   },

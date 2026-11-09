@@ -277,6 +277,31 @@ await expectFail(C, `update public.game_blocks set map = null where game_id = 'f
 const mp = await db.query(`select map->>'credit' as credit from public.game_blocks where game_id = 'fortunes-weave' and block_key = 'people'`);
 mp.rows[0]?.credit === 'Map: test' ? ok('the map picture and its credit are kept') : bad('map ' + JSON.stringify(mp.rows));
 await db.exec(`update public.game_blocks set map = null where game_id = 'fortunes-weave' and block_key = 'people'`);
+// Place groups (20261110120000_place_groups.sql): a place without a Group gets one on a new Stable
+// revision, an open Draft on it gets it too, and running it again changes nothing.
+const PLACE = `(select id from public.cards where game_id = 'fortunes-weave' and block_key = 'dungeons-and-places' and slug = 'nemea-cavern')`;
+const placeRow = async () => (await db.query(`select (select count(*)::int from public.card_revisions where card_id = ${PLACE}) as revs,
+  (select v.content->'categories'->>'Group' from public.card_pointers p join public.card_revisions v on v.id = p.revision_id where p.card_id = ${PLACE} and p.channel = 'stable') as grp,
+  (select content->'categories'->>'Group' from public.drafts where id = '55555555-5555-5555-5555-555555555555') as draft_grp`)).rows[0];
+{
+  // The place as it was before groups: no Group yet (made here when the test seed has none).
+  await db.exec(`
+    insert into public.game_blocks (game_id, block_key, title) values ('fortunes-weave', 'dungeons-and-places', 'Dungeons and places') on conflict do nothing;
+    insert into public.cards (game_id, block_key, slug) select 'fortunes-weave', 'dungeons-and-places', 'nemea-cavern' where not exists (select 1 from public.cards where game_id = 'fortunes-weave' and block_key = 'dungeons-and-places' and slug = 'nemea-cavern');
+    insert into public.card_revisions (card_id, content) values (${PLACE}, '{"name":"Nemea Cavern","sections":[],"categories":{"Region":"Pasithea"}}');
+    insert into public.card_pointers (card_id, channel, revision_id) values (${PLACE}, 'stable', (select max(id) from public.card_revisions where card_id = ${PLACE}))
+      on conflict (card_id, channel) do update set revision_id = excluded.revision_id;
+    insert into public.drafts (id, game_id, block_key, kind, title, content, author_id, card_id, status) values ('55555555-5555-5555-5555-555555555555', 'fortunes-weave', 'dungeons-and-places', 'fact', 'Nemea Cavern',
+      (select v.content from public.card_pointers p join public.card_revisions v on v.id = p.revision_id where p.card_id = ${PLACE} and p.channel = 'stable') || '{"spot":{"x":40,"y":50}}', '${B}', ${PLACE}, 'open');`);
+  const before = await placeRow();
+  const groupsSql = readFileSync(join(process.argv[2], '20261110120000_place_groups.sql'), 'utf8');
+  await db.exec(groupsSql);
+  const once = await placeRow();
+  await db.exec(groupsSql);
+  const twice = await placeRow();
+  once.revs === before.revs + 1 && once.grp === 'Cave' && once.draft_grp === 'Cave' ? ok('a place without a Group gets one, and so does an open Draft on it') : bad('place groups ' + JSON.stringify({ before, once }));
+  twice.revs === once.revs && twice.grp === 'Cave' ? ok('running the place groups again changes nothing') : bad('place groups twice ' + JSON.stringify({ once, twice }));
+}
 
 // Tier lists (docs/blocks/tier-lists.md): your main list is saved whole through save_tier_list and
 // counts only once submitted (a copy, updated by submitting again); unique lists of your own never

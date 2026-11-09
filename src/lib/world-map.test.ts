@@ -1,7 +1,7 @@
 // Run with: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanSpot, clampView, fitView, frameToSpot, groupPins, mapOf, spotChange, spotOf, spotToFrame, zoomAt } from './world-map.ts';
+import { cleanSpot, clampView, fitView, frameToSpot, groupPins, groupSymbol, groupsOf, inGroups, mapOf, spotChange, spotOf, spotToFrame, zoomAt } from './world-map.ts';
 
 const U = '0b8d7c5e-1f2a-4b3c-9d4e-5f6a7b8c9d0e';
 const PATH = `fortunes-weave/${U}/${U}.webp`;
@@ -58,4 +58,23 @@ test('a tap lands on the spot under it, and spots show where they sit', () => {
 test('pins that would touch become one group at their middle', () => {
   const g = groupPins([{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 10, y: 0 }, { id: 'c', x: 100, y: 100 }], 30);
   assert.deepEqual(g, [{ ids: ['a', 'b'], x: 5, y: 0 }, { ids: ['c'], x: 100, y: 100 }]);
+});
+
+test('the map can be dragged a little past its edges, so pins under a button come out', () => {
+  const frame = { w: 400, h: 300 }, pic = { w: 2000, h: 1000 };
+  assert.deepEqual(clampView({ scale: 0.2, x: 999, y: 999 }, frame, pic, 50), { scale: 0.2, x: 50, y: 100 });
+  assert.deepEqual(clampView({ scale: 0.2, x: -999, y: -999 }, frame, pic, 50), { scale: 0.2, x: -50, y: 0 });
+});
+
+test('groups: most places first, "No group" last, symbols from the name or the Block', () => {
+  const p = (g?: string) => ({ categories: (g ? { Group: g } : {}) as Record<string, string> });
+  assert.deepEqual(groupsOf([p('Cave'), p('Fort'), p('Cave'), p()]), [{ name: 'Cave', count: 2 }, { name: 'Fort', count: 1 }, { name: '', count: 1 }]);
+  assert.deepEqual(groupsOf([p(), p()]), []);
+  assert.equal(groupSymbol('Cave'), 'Mountain');
+  assert.equal(groupSymbol('Hidden Grotto'), 'Mountain');
+  assert.equal(groupSymbol('Cave', { Cave: 'Gem' }), 'Gem');
+  assert.equal(groupSymbol('Something else'), undefined);
+  assert.equal(inGroups(p('Cave'), []), true);
+  assert.equal(inGroups(p('Cave'), ['Fort']), false);
+  assert.equal(inGroups(p(), ['']), true);
 });

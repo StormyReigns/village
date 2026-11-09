@@ -74,20 +74,24 @@ export function fitView(frame: Size, pic: Size): View {
 }
 
 /** Keeps the view sensible: zoomed between the fitted size and the most, and the picture never
- *  dragged out of the frame (centered on a side where it's smaller than the frame). */
-export function clampView(v: View, frame: Size, pic: Size): View {
+ *  dragged out of the frame (centered on a side where it's smaller than the frame), give or take
+ *  `pad` pixels, so a pin under a button at the edge can be dragged out from under it. */
+export function clampView(v: View, frame: Size, pic: Size, pad = 0): View {
   const scale = Math.min(maxScale(frame, pic), Math.max(fitScale(frame, pic), v.scale));
-  const along = (pos: number, frameLen: number, len: number) =>
-    len <= frameLen ? (frameLen - len) / 2 : Math.min(0, Math.max(frameLen - len, pos));
+  const along = (pos: number, frameLen: number, len: number) => {
+    const mid = (frameLen - len) / 2;
+    const lo = Math.min(frameLen - len, mid) - pad, hi = Math.max(0, mid) + pad;
+    return Math.min(hi, Math.max(lo, pos));
+  };
   return { scale, x: along(v.x, frame.w, pic.w * scale), y: along(v.y, frame.h, pic.h * scale) };
 }
 
 /** Zooms by `factor` around a point of the frame (a pinch's middle, the mouse), keeping that
  *  point of the picture under it. */
-export function zoomAt(v: View, factor: number, at: { x: number; y: number }, frame: Size, pic: Size): View {
+export function zoomAt(v: View, factor: number, at: { x: number; y: number }, frame: Size, pic: Size, pad = 0): View {
   const scale = Math.min(maxScale(frame, pic), Math.max(fitScale(frame, pic), v.scale * factor));
   const k = scale / v.scale;
-  return clampView({ scale, x: at.x - (at.x - v.x) * k, y: at.y - (at.y - v.y) * k }, frame, pic);
+  return clampView({ scale, x: at.x - (at.x - v.x) * k, y: at.y - (at.y - v.y) * k }, frame, pic, pad);
 }
 
 /** Where a spot shows in the frame, in pixels. */
@@ -101,8 +105,8 @@ export function frameToSpot(p: { x: number; y: number }, v: View, pic: Size) {
 }
 
 /** Centers the view on a spot at a given scale (a link to a pin, "show it on the map"). */
-export const centerOn = (s: { x: number; y: number }, scale: number, frame: Size, pic: Size): View =>
-  clampView({ scale, x: frame.w / 2 - (s.x / 100) * pic.w * scale, y: frame.h / 2 - (s.y / 100) * pic.h * scale }, frame, pic);
+export const centerOn = (s: { x: number; y: number }, scale: number, frame: Size, pic: Size, pad = 0): View =>
+  clampView({ scale, x: frame.w / 2 - (s.x / 100) * pic.w * scale, y: frame.h / 2 - (s.y / 100) * pic.h * scale }, frame, pic, pad);
 
 // ---------------------------------------------------------------- Pins that would touch
 // Pieces never touch, so pins closer than `gap` pixels on screen become one count ("3"), which
@@ -125,3 +129,51 @@ export function groupPins(pins: Pin[], gap: number): PinGroup[] {
   }
   return groups.map(({ ids, x, y }) => ({ ids, x, y }));
 }
+
+// ---------------------------------------------------------------- Groups
+// A place's group is a kind of place (Cave, Fort, Town, Shop...), one each, kept as its "Group"
+// category, separate from its Region (Matt, 2026-11-09). The map filters by groups, and a group's
+// symbol sits inside its pins.
+
+export const GROUP = 'Group';
+
+/** A symbol for a group by its name, for Blocks that haven't chosen one (icon names in Icon.tsx). */
+const GROUP_SYMBOLS: [RegExp, string][] = [
+  [/cave|cavern|grotto/i, 'Mountain'],
+  [/fort|castle|keep|citadel|palace/i, 'Castle'],
+  [/mine|quarry/i, 'Pickaxe'],
+  [/forest|wood|grove|jungle/i, 'Trees'],
+  [/isle|island|beach|coast/i, 'TreePalm'],
+  [/shrine|temple|church|chapel|sanctuary/i, 'Landmark'],
+  [/town|village|city|capital|hub|settlement/i, 'House'],
+  [/shop|store|market|merchant|vendor/i, 'Store'],
+  [/inn|tavern|rest/i, 'BedDouble'],
+  [/boss|duel|arena/i, 'Swords'],
+  [/dungeon|tomb|crypt|catacomb/i, 'Skull'],
+  [/camp/i, 'Tent'],
+  [/tower|ruin|building/i, 'Building2'],
+  [/lighthouse|port|harbou?r|dock/i, 'Lighthouse'],
+];
+
+/** The symbol for a group: the Block's own choice, else one from its name, else none. */
+export function groupSymbol(group: string | undefined, symbols?: Record<string, string>) {
+  if (!group) return undefined;
+  return symbols?.[group] ?? GROUP_SYMBOLS.find(([re]) => re.test(group))?.[1];
+}
+
+/** The groups among some places, most places first, with "No group" last when some have none. */
+export function groupsOf(places: Pick<EntryContent, 'categories'>[]): { name: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const e of places) {
+    const g = e.categories[GROUP]?.trim() || '';
+    counts.set(g, (counts.get(g) ?? 0) + 1);
+  }
+  const named = [...counts].filter(([g]) => g).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  if (!named.length) return [];
+  const none = counts.get('') ?? 0;
+  return [...named.map(([name, count]) => ({ name, count })), ...(none ? [{ name: '', count: none }] : [])];
+}
+
+/** Whether a place shows with these groups picked (none picked: every place). '' is "No group". */
+export const inGroups = (e: Pick<EntryContent, 'categories'>, picked: string[]) =>
+  !picked.length || picked.includes(e.categories[GROUP]?.trim() || '');

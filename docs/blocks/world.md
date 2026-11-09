@@ -141,6 +141,12 @@ Drafts, and the place form's "Where on the map".
   the game's, and a pin that can't lose its card can't go stale.
 - 2026-11-09: the build doesn't depend on what the picture is, game map or scribble (Matt).
   What matters is that it's usable inside the Block it's on.
+- 2026-11-09: tools as one magnifier over the map, not a row under it (Matt): less in the way.
+- 2026-11-09: Groups on places, one each, a kind of place separate from Region; the map filters by
+  several at once; a filter is loud and never remembered (Matt). Why: nobody should wonder where a
+  place went. Fortune's Weave's places got their Group from their names
+  (`20261110120000_place_groups.sql`, reviewed by the hub); Beast's Path and Dragonbone Tangle are
+  left for the community rather than guessed.
 - 2026-11-09: the map is the first slice (Matt). Each pin is a Draft (Matt), so the community
   can place and fix pins like any other fact.
 
@@ -186,7 +192,17 @@ separate page. So it has to work in that space on a computer and on a phone:
   unless Ctrl is held (or the +/- buttons are used).
 - **Full screen when wanted.** A button opens the map over the whole screen, where one finger
   moves it freely; X or back returns to the Page in the same spot.
-- **Zoom buttons and "Fit"** in a corner, big enough for a thumb; "Fit" shows the whole map again.
+- **The tools: one magnifier** over the top right (Matt, 2026-11-09), white with an ink edge and a
+  shadow so it shows on any picture. Tapping it opens zoom in, zoom out, "Show the whole map" and
+  full screen under it; dragging the map closes them. The map can be dragged a little past its
+  edges, so a pin under the magnifier can always come out. Full screen keeps an X beside it.
+- **Groups** (Matt, 2026-11-09): each place has one Group, a kind of place (Cave, Fort, Town,
+  Shop...), kept as its `Group` category, separate from its Region. Chips over the map (All,
+  then each group with its symbol and count) switch groups on and off, several at once. While a
+  filter is on, the map says so in yellow over its top left ("2 of 28 · only Cave, Fort", Show
+  all), and the line under it says "Showing 2 of 28: show all". The filter is never remembered:
+  every visit starts with every place. A group's symbol sits inside its pins, from the group's
+  name (`groupSymbol` in `src/lib/world-map.ts`; a Block's `symbols` stay for Region).
 - **Tap a pin** for a small card in the map (the piece, name, level, Cleared tick, "Open");
   "Open" brings up the full place card. The address holds the place, so a link opens the map
   on that pin.

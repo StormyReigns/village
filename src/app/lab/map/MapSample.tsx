@@ -5,8 +5,11 @@ import type { Block, Entry, Page } from '@/data/pages';
 import type { BlockContext } from '@/components/app/blockParts';
 import { PictureMap } from '@/components/world/PictureMap';
 
-const place = (id: string, name: string, region: string, lv: number, spot?: { x: number; y: number }, spoiler?: boolean): Entry =>
-  ({ id, name, sections: [], categories: { Region: region }, stat: `Lv ${lv}`, spot, spoiler });
+const place = (id: string, name: string, region: string, lv: number, spot?: { x: number; y: number }, spoiler?: boolean): Entry => {
+  const group = /Hollow|Camp/.test(name) ? 'Town' : /Cave/.test(name) ? 'Cave' : /Fort/.test(name) ? 'Fort' : /Mine/.test(name) ? 'Mine'
+    : /Shrine|Tomb/.test(name) ? 'Shrine' : /Lighthouse/.test(name) ? 'Island' : '';
+  return { id, name, sections: [], categories: { Region: region, ...(group ? { Group: group } : {}) }, stat: `Lv ${lv}`, spot, spoiler };
+};
 
 const PLACES: Entry[] = [
   place('reed-hollow', 'Reed Hollow', 'Greenmere', 3, { x: 22, y: 33 }),
@@ -23,7 +26,7 @@ const PLACES: Entry[] = [
 ];
 
 const PAGE: Page = { id: 'world', title: 'World', short: 'World', icon: 'MapPin', tint: 'teal', blurb: '', blocks: [] };
-const BLOCK: Block = { id: 'places', type: 'collection', look: 'map', title: 'Places', icon: 'MapPin', filters: ['Region'], statName: 'Level', entries: PLACES,
+const BLOCK: Block = { id: 'places', type: 'collection', look: 'map', title: 'Places', icon: 'MapPin', filters: ['Region', 'Group'], statName: 'Level', entries: PLACES,
   map: { picture: 'lab/sample.svg', w: 1600, h: 1100, credit: 'Map: a made-up world, drawn for this sample' } };
 
 export function MapSample() {
