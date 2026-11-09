@@ -547,3 +547,11 @@ const dated = await db.query(`select created_at > now() - interval '1 minute' as
 dated.rows[0]?.fresh === true ? ok('a listing cannot be backdated: it is dated now') : bad('backdated ' + JSON.stringify(dated.rows));
 await expectFail(C, `insert into public.communities (game_id, kind, invite, pitch, listed_by) values ('fortunes-weave', 'discord', 'spam9', 'Too many', '${C}')`, 'the 6th listing in a day is refused');
 }
+
+// Rate limits can't be dodged with a made-up date: a player's created_at is always now (the hub,
+// 20261111130000_created_at_now.sql).
+{
+await expectOk(C, `insert into public.chat_messages (game_id, author_id, body, created_at) values ('fortunes-weave', '${C}', 'From the past', '2000-01-01')`, 'a villager sends a chat message dated 2000');
+const when = await db.query(`select created_at > now() - interval '1 minute' as fresh from public.chat_messages where body = 'From the past'`);
+when.rows[0]?.fresh === true ? ok('it is dated now, not 2000') : bad('backdated chat ' + JSON.stringify(when.rows));
+}
