@@ -1,6 +1,6 @@
 # Discord (the second integration)
 
-**Status:** Slice 1 live (2026-11-09): "New in the app" posts; SQL run by Matt; waiting on his real-Discord test · **Chat:** `Village · Discord` · **Mockup:** none yet ·
+**Status:** Slice 1 live (2026-11-09): "New in the app" posts; SQL run by Matt; his test post arrived in his own server · **Chat:** `Village · Discord` · **Mockup:** none yet ·
 **Code (planned):** `src/lib/discord.ts` (checking webhook and invite links, building the
 message; plain and tested), `src/components/discord/` (the moderator's setup sheet, the
 Communities card and sheet), `src/app/api/discord-invite/[code]/route.ts` (asks Discord about
@@ -183,9 +183,11 @@ New tables, so Matt runs SQL (reviewed by the hub first). Checked in
 
 ## Build plan
 
-1. **Posts out, "New in the app" only**: the migration (hooks, outbox, the Draft trigger, the
-   flush), the Discord card on the Notice Board with paste, test and remove. Matt tests with
-   his own server.
+1. **Posts out, "New in the app" only** (done, live 2026-11-09):
+   `supabase/migrations/20261111000000_discord_posts.sql` (hooks, outbox, the Draft trigger, the
+   flush; reviewed by the hub, run by Matt) and the Discord card on the Notice Board
+   (`src/components/discord/DiscordCard.tsx`) with paste, test, kinds and disconnect. Matt's test
+   post arrived. To stop the timer: `select cron.unschedule('village-discord-flush');`
 2. New videos and help wanted, as ticks on the card.
 3. **Communities**: the invite lookup, the card on the home, listing and approval, votes.
 4. Rechecking invites and the "stopped working" path.
