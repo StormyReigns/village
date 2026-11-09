@@ -61,12 +61,12 @@ export function CommunityTier({ cardId, entryId, size }: { cardId?: string; entr
     return () => { live = false; };
   }, [cardId]);
   if (!found) return null;
-  const px = Math.round(size * (found.label.length <= 2 ? 0.62 : 0.24));
+  const px = Math.round(size * (found.label.length <= 2 ? 0.4 : 0.18));
   const tip = found.leaning
     ? `${found.title}: leaning ${found.label}. Fewer than ${MIN_LISTS} lists have placed them so far. Tap to see the tier list.`
     : `${found.title}: ${found.label}, from ${found.lists} lists (${found.spread}). Tap to see the tier list.`;
   return (
-    <Tip text={tip} className="absolute -bottom-4 -left-3 z-10">
+    <Tip text={tip} className="absolute -bottom-3 -left-3 z-10">
       <Link href={`/g/${found.gameId}/${found.page}?t=${found.block}.${entryId}#${found.block}`}
         aria-label={found.leaning ? `Community tier: leaning ${found.label}` : `Community tier: ${found.label}`}
         className="block -rotate-6 select-none transition hover:-rotate-3 hover:scale-105" style={letterStyle(found.index, px, found.leaning)}>
