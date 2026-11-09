@@ -34,7 +34,7 @@ export type BlockType = 'collection' | 'guide' | 'checklist' | 'timeline' | 'cha
  * line, each can be a spoiler or carry a picture) or a write-up (sections with a heading, words and
  * a picture). The last two are offered in Guides Blocks only.
  */
-export type FieldKind = 'text' | 'number' | 'tag' | 'place' | 'when' | 'chart' | 'list' | 'links' | 'longtext' | 'yesno' | 'playable' | 'steps' | 'writeup';
+export type FieldKind = 'text' | 'number' | 'tag' | 'place' | 'when' | 'chart' | 'list' | 'links' | 'longtext' | 'yesno' | 'playable' | 'steps' | 'writeup' | 'tier';
 
 /**
  * One field of a Characters, Items or Guides Block, as its builders set it up. Every field is optional on

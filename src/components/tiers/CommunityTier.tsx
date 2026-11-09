@@ -51,15 +51,25 @@ function lookUp(cardId: string): Promise<Found[]> {
   return p;
 }
 
-/** `size` is the portrait's width, so the letter can almost cover its corner. */
-export function CommunityTier({ cardId, entryId, size }: { cardId?: string; entryId: string; size: number }) {
+/** A made-up tier for the Workshop's sample card, so builders see what the switch does. */
+const DEMO: Found = { gameId: '', block: '', page: '', title: 'Sample', label: 'A', index: 1, leaning: false, lists: 0, spread: '' };
+
+/** `size` is the portrait's width; `demo` shows a made-up "A" (the Workshop's sample card). */
+export function CommunityTier({ cardId, entryId, size, demo = false }: { cardId?: string; entryId: string; size: number; demo?: boolean }) {
   const [found, setFound] = useState<Found | null>(null);
   useEffect(() => {
-    if (!cardId) return;
+    if (demo || !cardId) return;
     let live = true;
     lookUp(cardId).then((f) => { if (live) setFound(f[0] ?? null); });
     return () => { live = false; };
-  }, [cardId]);
+  }, [cardId, demo]);
+  if (demo) {
+    return (
+      <Tip text="The community's tier for this character, from the Page's tier list. Switch it off in Set up to hide it." className="absolute -bottom-3 -left-3 z-10">
+        <span aria-label="Community tier: sample" className="block -rotate-6 select-none" style={letterStyle(DEMO.index, Math.round(size * 0.4))}>{DEMO.label}</span>
+      </Tip>
+    );
+  }
   if (!found) return null;
   const px = Math.round(size * (found.label.length <= 2 ? 0.4 : 0.18));
   const tip = found.leaning

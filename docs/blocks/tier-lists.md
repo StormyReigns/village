@@ -212,6 +212,12 @@ mouse).
 
 ## Decisions
 
+- 2026-11-09: whether a Block's cards show the community tier is a Set up choice (Matt): a common
+  field, "Community tier" (`@tier`, kind 'tier'), with only its switch and name. On by default for
+  Characters (a setup saved before it existed counts as on), off for Items, so Fortune's Weave's Items
+  stay without it. Set up's John Doe shows a sample letter while it's on. (`showsTier` in
+  src/lib/fields.ts; go-ahead and snapshot review from the hub.)
+
 - 2026-11-08: every tier has its own color, outlined in ink (Matt): gold S, orange A, green B, blue
   C, violet D (then teal, slate). Letters, the tray's buttons, stats and the share picture use it;
   each row gets a light wash of its tier's color. (`TIER_COLORS`, `letterStyle` in src/lib/tiers.ts.)

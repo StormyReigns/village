@@ -11,7 +11,7 @@ import { RichText } from './TextLinks';
 import { initials } from './entries';
 import type { RouteOption } from './EntryPanel';
 import { symbolFor } from './symbols';
-import { MADE_FROM, STATS, UPGRADES_TO, amountText, besideText, toggleOptions, chartDefs, linkedFrom, listItems, shownFields, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
+import { MADE_FROM, STATS, UPGRADES_TO, amountText, besideText, toggleOptions, chartDefs, linkedFrom, listItems, shownFields, showsTier, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
 import { byStat, heatFill, placeText, rangeOf, statFacts } from '@/lib/stats';
 import { StatTable, statSort } from './StatTable';
 import { Videos, cardIdOf } from '@/components/videos/Videos';
@@ -80,8 +80,9 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
         <Piece size={size} color={portrait} image={entry.icon}>
           {entry.icon ? null : symbol ? <BlockIcon name={symbol} size={Math.round(size * 0.2)} strokeWidth={2.4} /> : initials(entry.name) || <BlockIcon name={block.icon} size={Math.round(size * 0.2)} />}
         </Piece>
-        {/* The community tier: a big letter on the portrait's corner (no real card in previews, so nothing there). */}
-        {!sample && 'id' in entry && <CommunityTier cardId={cardIdOf(entry)} entryId={String(entry.id)} size={size} />}
+        {/* The community tier: a big letter on the portrait's corner, when Set up has it on. The sample shows a
+            made-up "A" so builders see what the switch does; other previews have no real card, so nothing. */}
+        {showsTier(block) && (sample ? <CommunityTier demo entryId="" size={size} /> : 'id' in entry && <CommunityTier cardId={cardIdOf(entry)} entryId={String(entry.id)} size={size} />)}
       </div>
 
       <div className="mt-3 grid gap-1.5">

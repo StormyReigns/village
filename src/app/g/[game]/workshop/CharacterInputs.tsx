@@ -80,6 +80,8 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
   return (
     <>
       {shownFields(block).map((f) => {
+        // The community tier comes from the Tier list, not from the entry.
+        if (f.kind === 'tier') return null;
         if ((f.kind === 'steps' || f.kind === 'writeup') && choosing && !hasBoth) {
           // The chooser and the chosen body sit where the first of the two is.
           if (f !== bodies[0] || !show(`section:${stepsF!.key}`) && !show(`section:${writeF!.key}`)) return null;

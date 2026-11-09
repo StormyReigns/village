@@ -13,7 +13,7 @@ import { useWide } from './split';
 import { EditorShell } from './EditorShell';
 import { browserClient } from '@/lib/supabase/browser';
 import { appChanged } from '@/app/actions';
-import { DESCRIPTION, TILE_MAX, besideText, canTile, toggleOptions, STATS, chartDefs, fieldsOf, hasValue, withCommon, johnDoe, kindLabel, kindsFor, shownFields, spotOf, statKeyFor, valueOf } from '@/lib/fields';
+import { DESCRIPTION, TIER, TILE_MAX, besideText, canTile, toggleOptions, STATS, chartDefs, fieldsOf, hasValue, withCommon, johnDoe, kindLabel, kindsFor, shownFields, spotOf, statKeyFor, valueOf } from '@/lib/fields';
 import { ItemTile } from '@/components/app/Items';
 
 const input = 'w-full rounded-xl bg-card px-2.5 py-1.5 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-sky';
@@ -149,7 +149,7 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
                 <input value={f.label} onChange={(e) => patch(i, { label: e.target.value })} aria-label="Field name" className={input + ' min-w-0 flex-1 font-bold' + (f.off ? ' text-muted' : '')} />
                 <span className="hidden w-28 shrink-0 truncate rounded-md bg-card-2 px-1 py-0.5 text-center text-[11px] font-bold sm:inline">{kindLabel(f.kind, block.type)}</span>
                 {/* Items: whether it's on the tile too, for the kinds that fit there (three at most). */}
-                {item && (canTile(f) ? (
+                {item && f.kind !== 'tier' && (canTile(f) ? (
                   <button type="button" onClick={() => patch(i, { tile: !f.tile || undefined })} aria-pressed={Boolean(f.tile)} aria-label={`${f.label} on the tile`}
                     disabled={!f.tile && onTile >= TILE_MAX}
                     title={f.tile ? 'On the tile and in the full view' : onTile >= TILE_MAX ? `The tile is full (${TILE_MAX} things). Take one off to put this on` : 'Full view only. Tap to put it on the tile too'}
@@ -157,14 +157,14 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
                     <LayoutGrid size={15} aria-hidden="true" />
                   </button>
                 ) : <span className="size-8 shrink-0" title="Too long for the tile: full view only" />)}
-                <button type="button" onClick={() => patch(i, { spoiler: !f.spoiler || undefined })} aria-pressed={Boolean(f.spoiler)} aria-label={`${f.label} is a spoiler`}
+                {f.kind === 'tier' ? <span className={'size-8 shrink-0' + (item ? ' sm:w-16' : '')} /> : <button type="button" onClick={() => patch(i, { spoiler: !f.spoiler || undefined })} aria-pressed={Boolean(f.spoiler)} aria-label={`${f.label} is a spoiler`}
                   title={f.spoiler ? 'Spoiler: hidden until tapped' : 'Not a spoiler'}
                   className={'grid size-8 shrink-0 place-items-center rounded-full ' + (f.spoiler ? 'text-berry' : 'text-muted/60 hover:text-ink')}>
                   {f.spoiler ? <EyeOff size={15} aria-hidden="true" /> : <Eye size={15} aria-hidden="true" />}
-                </button>
+                </button>}
                 <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move ${f.label} up`} className="grid size-8 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink disabled:opacity-30"><ArrowUp size={15} aria-hidden="true" /></button>
                 <button type="button" onClick={() => move(i, 1)} disabled={i === fields.length - 1} aria-label={`Move ${f.label} down`} className="grid size-8 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink disabled:opacity-30"><ArrowDown size={15} aria-hidden="true" /></button>
-                {f.key !== DESCRIPTION && f.key !== STATS && !used(f) && (
+                {f.key !== DESCRIPTION && f.key !== STATS && f.kind !== 'tier' && !used(f) && (
                   <button type="button" onClick={() => setFields(fields.filter((_, j) => j !== i))} aria-label={`Remove ${f.label}`} className="grid size-8 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-berry"><Trash2 size={15} aria-hidden="true" /></button>
                 )}
               </div>
@@ -346,7 +346,7 @@ function StatSuggestions({ current, onPick, item = false }: { current: string; o
 /** A likely name for each kind, until the builder types one. */
 const EXAMPLE_NAMES: Record<FieldKind, string> = {
   text: 'Voice actor', number: 'Level', tag: 'Weapon', place: 'Hometown', when: 'Joins', chart: 'Growths',
-  list: 'Skills', links: 'Family', longtext: 'Backstory', yesno: 'Recruitable', playable: 'Playable or NPC', steps: 'Steps', writeup: 'Write-up',
+  list: 'Skills', links: 'Family', longtext: 'Backstory', yesno: 'Recruitable', playable: 'Playable or NPC', steps: 'Steps', writeup: 'Write-up', tier: 'Community tier',
 };
 
 /** Likely names in a Guides Block, where they differ. */
@@ -392,6 +392,7 @@ const ITEM_EXAMPLE_NOTES: Partial<Record<FieldKind, string>> = {
 
 /** One line under the example on how that kind behaves. */
 const EXAMPLE_NOTES: Record<FieldKind, string> = {
+  tier: "A big letter on the portrait: the tier the community gives them in the Page's tier list.",
   text: 'A few words, small beside the name, like Age.',
   number: 'A number, small beside the name, like a level.',
   tag: 'A pill under the name. Players can also filter the list by it.',
@@ -416,7 +417,7 @@ function KindExample({ label, kind, block, routes, color, className = '' }: { la
   const guide = block.type === 'guide';
   const name = label.trim() || (item ? ITEM_EXAMPLE_NAMES[kind] : guide ? GUIDE_EXAMPLE_NAMES[kind] : undefined) || EXAMPLE_NAMES[kind];
   const sampleStats = kind === 'chart' ? (item ? ['Might', 'Hit', 'Weight', 'Crit'] : ['HP', 'Str', 'Mag', 'Spd', 'Def']).map((l) => ({ key: `${name}.${l.toLowerCase()}`, label: l, better: 'high' as const })) : undefined;
-  const draft = { title: block.title, icon: block.icon, type: block.type, fields: [{ key: name, label: name, kind, stats: sampleStats, ...(item && kind === 'chart' ? { noWeb: true } : {}) }], stats: [] };
+  const draft = { title: block.title, icon: block.icon, type: block.type, fields: [{ key: name, label: name, kind, stats: sampleStats, ...(item && kind === 'chart' ? { noWeb: true } : {}) }, { key: TIER, label: 'Community tier', kind: 'tier' as const, off: true }], stats: [] };
   const entry = johnDoe(draft);
   const more = (item ? ITEM_EXAMPLE_VALUES[kind] : guide ? GUIDE_EXAMPLE_VALUES[kind] : undefined) ?? EXAMPLE_VALUES[kind];
   if (more) entry.sections = entry.sections.map((s) => ({ ...s, text: more }));

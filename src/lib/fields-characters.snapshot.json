@@ -7,6 +7,11 @@
    "off": true
   },
   {
+   "key": "@tier",
+   "label": "Community tier",
+   "kind": "tier"
+  },
+  {
    "key": "Age",
    "label": "Age",
    "kind": "text",
@@ -70,6 +75,11 @@
    "label": "Playable or NPC",
    "kind": "playable",
    "off": true
+  },
+  {
+   "key": "@tier",
+   "label": "Community tier",
+   "kind": "tier"
   },
   {
    "key": "Age",
@@ -137,6 +147,11 @@
    "off": true
   },
   {
+   "key": "@tier",
+   "label": "Community tier",
+   "kind": "tier"
+  },
+  {
    "key": "Age",
    "label": "Age",
    "kind": "text",
@@ -195,6 +210,11 @@
    "label": "Playable or NPC",
    "kind": "playable",
    "off": true
+  },
+  {
+   "key": "@tier",
+   "label": "Community tier",
+   "kind": "tier"
   },
   {
    "key": "Age",
@@ -345,6 +365,7 @@
  },
  "shownUnits": [
   "Group",
+  "@tier",
   "Age",
   "Role or class",
   "Location",

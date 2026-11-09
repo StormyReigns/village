@@ -8,6 +8,8 @@ import { STEPS, TIP, WATCH_OUT, WRITEUP } from './guides.ts';
 /** Fields whose values are the entry's own description and stats, not a section. */
 export const DESCRIPTION = '@description';
 export const STATS = '@stats';
+/** The community's tier from a Tier list, as a big letter on the portrait (docs/blocks/tier-lists.md). */
+export const TIER = '@tier';
 
 /** The kinds a builder can pick for a field of their own, with a word on each. */
 export const FIELD_KINDS: { kind: FieldKind; label: string; hint: string }[] = [
@@ -35,7 +37,7 @@ const GUIDE_KINDS = [
 ];
 
 export const kindsFor = (type?: BlockType) => (type === 'items' ? ITEM_KINDS : type === 'guide' ? GUIDE_KINDS : FIELD_KINDS);
-export const kindLabel = (k: FieldKind, type?: BlockType) => kindsFor(type).find((x) => x.kind === k)?.label ?? k;
+export const kindLabel = (k: FieldKind, type?: BlockType) => (k === 'tier' ? 'Community tier' : kindsFor(type).find((x) => x.kind === k)?.label ?? k);
 
 /** Blocks whose entries are laid out by their fields (Characters, Items, Guides), not a Collection's fixed parts. */
 export const byFields = (block: Pick<Block, 'type'>) => block.type === 'characters' || block.type === 'items' || block.type === 'guide';
@@ -67,6 +69,7 @@ export const statKeyFor = (f: FieldDef, slug: string) => (f.key === STATS ? slug
 /** The common fields every new Characters Block starts with. Builders switch, rename and reorder them. */
 export const COMMON_FIELDS: FieldDef[] = [
   { key: 'Playable', label: 'Playable or NPC', kind: 'playable', off: true },
+  { key: TIER, label: 'Community tier', kind: 'tier' },
   { key: 'Age', label: 'Age', kind: 'text', beside: true },
   { key: 'Role or class', label: 'Role or class', kind: 'tag' },
   { key: 'Location', label: 'Location', kind: 'place' },
@@ -87,6 +90,7 @@ export const UPGRADES_TO = 'Upgrades to';
 /** The common fields every new Items Block starts with. Stats show as number boxes, no web. */
 export const ITEM_FIELDS: FieldDef[] = [
   { key: 'Type', label: 'Type', kind: 'tag' },
+  { key: TIER, label: 'Community tier', kind: 'tier', off: true },
   { key: 'Rank', label: 'Rank or rarity', kind: 'tag', off: true, tile: true },
   { key: 'Price', label: 'Price', kind: 'number', off: true, tile: true },
   { key: 'Sell price', label: 'Sell price', kind: 'number', off: true },
@@ -119,8 +123,15 @@ export const GUIDE_FIELDS: FieldDef[] = [
 export const commonFor = (type?: BlockType) => (type === 'items' ? ITEM_FIELDS : type === 'guide' ? GUIDE_FIELDS : COMMON_FIELDS);
 
 /** A Block's own fields plus any common field it doesn't have yet (switched off), so a Block
- *  set up before a common field existed can still switch it on. */
-export const withCommon = (fields: FieldDef[], type?: BlockType) => [...fields, ...commonFor(type).filter((c) => !fields.some((f) => sameField(f, c))).map((c) => ({ ...c, off: true }))];
+ *  set up before a common field existed can still switch it on. The community tier is the one
+ *  exception: missing, it keeps its default (on for Characters, off for Items), as showsTier does. */
+export const withCommon = (fields: FieldDef[], type?: BlockType) => [...fields, ...commonFor(type).filter((c) => !fields.some((f) => sameField(f, c))).map((c) => ({ ...c, off: c.key === TIER ? c.off : true }))];
+
+/** Whether the Block's cards show the community tier: as set up, else on for Characters and off for Items. */
+export function showsTier(block: Pick<Block, 'fields'> & Partial<Pick<Block, 'type'>>) {
+  const f = fieldsOf(block).find((x) => x.key === TIER);
+  return f ? !f.off : block.type === 'characters';
+}
 
 /** The same common field, even if a Block keeps it under another key ('Recruit' for How to recruit). */
 const sameField = (f: FieldDef, c: FieldDef) => f.key === c.key || f.label.toLowerCase() === c.label.toLowerCase();
@@ -134,7 +145,7 @@ export const shownFields = (block: Pick<Block, 'fields'> & Partial<Pick<Block, '
 /** The most a tile holds, so tiles stay small and even. */
 export const TILE_MAX = 3;
 /** Kinds that fit on a tile: long text, lists and links don't. */
-export const canTile = (f: FieldDef) => !['longtext', 'list', 'links', 'steps', 'writeup'].includes(f.kind) && f.key !== DESCRIPTION;
+export const canTile = (f: FieldDef) => !['longtext', 'list', 'links', 'steps', 'writeup', 'tier'].includes(f.kind) && f.key !== DESCRIPTION;
 /** What an item's tile shows, in the builders' order. */
 export const tileFields = (block: Pick<Block, 'fields'> & Partial<Pick<Block, 'type'>>) => shownFields(block).filter((f) => f.tile && canTile(f)).slice(0, TILE_MAX);
 
@@ -153,11 +164,13 @@ export function linkedFrom(name: string, entries: EntryContent[], key: string) {
 export const amountText = (note: string) => (/^\d+$/.test(note.trim()) ? `× ${note.trim()}` : note);
 
 /** Where on the card a field goes. */
-export type Spot = 'beside' | 'tags' | 'meta' | 'chart' | 'body' | 'section';
+export type Spot = 'beside' | 'tags' | 'meta' | 'chart' | 'body' | 'section' | 'portrait';
 export function spotOf(f: FieldDef): Spot {
   // Short text and numbers sit small beside the name, like Age.
   if (f.beside || f.kind === 'text' || f.kind === 'number') return 'beside';
   if (f.key === DESCRIPTION) return 'body';
+  // The community tier sits on the portrait, drawn by the card itself (no value on the entry).
+  if (f.kind === 'tier') return 'portrait';
   return ({ tag: 'tags', yesno: 'tags', playable: 'tags', place: 'meta', when: 'meta', chart: 'chart' } as Partial<Record<FieldKind, Spot>>)[f.kind] ?? 'section';
 }
 
@@ -208,6 +221,7 @@ const SAMPLE: Record<FieldKind, string> = {
   text: 'Sample', number: '12', tag: 'Tag', place: 'Some town', when: 'Chapter 3', chart: '',
   list: 'Skill name: What it does.', links: 'Jane Doe: Friend', longtext: 'A sentence or two goes here.', yesno: 'Yes', playable: PLAYABLE.yes,
   steps: 'The first thing to do\nThe next thing to do\n||A step that gives something away||',
+  tier: '',
   writeup: 'A few words to start.\n## A heading\nA paragraph or two under it.\n## Late game\n[spoiler]\nA part that gives something away.',
 };
 
@@ -233,7 +247,7 @@ export function johnDoe(block: Pick<Block, 'fields' | 'stats'> & Partial<Pick<Bl
   // A Guides Block's sample is a guide.
   const guide = block.type === 'guide';
   for (const f of shownFields(block)) {
-    if (f.kind === 'chart') continue;
+    if (f.kind === 'chart' || f.kind === 'tier') continue;
     if (f.key === DESCRIPTION) {
       description = guide ? 'Bring two archers and take out the healers first. The boss never moves, so you can rest before the last push.'
         : item ? 'A line or two of flavor or extra notes goes here.' : 'A few lines about who they are and why you would bring them along go here.';
