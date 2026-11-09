@@ -11,6 +11,22 @@ const ASPECT = V.height / V.width;
 /** The split look for things not built yet (and loading). */
 export const GLITCH = { pink: '#ff2bd6', violet: '#8b3dff' } as const;
 
+// Pictures from our own storage are served shrunk to the piece by Next's optimizer, so they stay
+// sharp at small sizes (next.config.ts allows only that storage). Widths must be ones Next makes:
+// its default image and device sizes. Kept pure, so pieces render anywhere.
+const STORAGE = `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''}/storage/v1/object/public/`;
+const WIDTHS = [32, 48, 64, 96, 128, 256, 384, 640, 750, 828, 1080, 1200, 1920, 2048, 3840];
+const widthFor = (px: number) => WIDTHS.find((w) => w >= px) ?? WIDTHS[WIDTHS.length - 1];
+const optimized = (src: string, w: number) => `/_next/image?url=${encodeURIComponent(src)}&w=${w}&q=75`;
+
+/** The picture's sources at a piece's width: a shrunk copy (and a sharper one for 2x screens) for
+ *  our own storage, else the address as it is. A picture covers the piece, so it asks a little wider. */
+export function pieceImage(src: string, size: number | 'fill'): { src: string; srcSet?: string } {
+  if (size === 'fill' || !process.env.NEXT_PUBLIC_SUPABASE_URL || !src.startsWith(STORAGE)) return { src };
+  const one = widthFor(size * 1.25), two = widthFor(size * 2.5);
+  return { src: optimized(src, one), srcSet: `${optimized(src, one)} 1x, ${optimized(src, two)} 2x` };
+}
+
 /** How tall a piece of this width is. */
 export const pieceHeight = (size: number) => Math.round(size * ASPECT * 10) / 10;
 
@@ -77,7 +93,7 @@ export function Piece({ size, color = 'var(--ink)', outline = false, glitch = fa
       </svg>
       {image && (
         // eslint-disable-next-line @next/next/no-img-element -- community pictures, sized small
-        <img src={image} alt="" className="absolute inset-0 size-full object-cover"
+        <img {...pieceImage(image, size)} alt="" decoding="async" loading={size !== 'fill' && size <= 64 ? 'lazy' : undefined} className="absolute inset-0 size-full object-cover"
           style={{ maskImage: PIECE_MASK, WebkitMaskImage: PIECE_MASK, maskSize: '100% 100%', WebkitMaskSize: '100% 100%' }} />
       )}
       {children != null && (

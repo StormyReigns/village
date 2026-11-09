@@ -132,7 +132,7 @@ function PieceButton({ e, block, color, outline = false, picked = false, snap = 
         {outline ? <Piece size={PIECE} outline image={e.icon}><Mark e={e} block={block} px={PIECE} /></Piece>
           : <Piece size={PIECE} color={color} image={e.icon} snap={snap}><Mark e={e} block={block} px={PIECE} /></Piece>}
       </span>
-      <span className={'w-full truncate text-center text-[11px] leading-tight ' + (picked ? 'font-bold text-ink' : 'text-ink')}>{e.name}</span>
+      <span className={'w-full truncate text-center text-[11px] leading-tight ' + (picked ? 'font-extrabold text-ink' : 'font-bold text-ink')}>{e.name}</span>
     </button>
   );
 }

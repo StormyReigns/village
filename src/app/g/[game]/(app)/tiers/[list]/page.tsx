@@ -78,7 +78,7 @@ async function Loaded({ params }: { params: Params }) {
             {((list.rows[t.key] ?? []).map((id) => entries.get(id)).filter(Boolean) as Entry[]).map((e) => (
               <li key={e.id} className="flex w-[3.6rem] flex-col items-center gap-0.5 p-0.5 sm:w-16" title={list.reasons[e.id] ?? undefined}>
                 <Piece size={48} color={color} image={e.icon}><Mark e={e} block={ranked} px={48} /></Piece>
-                <span className="w-full truncate text-center text-[11px] leading-tight">{e.name}</span>
+                <span className="w-full truncate text-center text-[11px] font-bold leading-tight">{e.name}</span>
               </li>
             ))}
           </TierRow>
