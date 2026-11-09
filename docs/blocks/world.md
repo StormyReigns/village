@@ -1,6 +1,6 @@
 # Block: World (Places and Foes)
 
-**Status:** Building (2026-11-09): slice 1, the real map, built; the SQL waits for Matt · **Chat:** `Village · Block: World` ·
+**Status:** Building (2026-11-09): slice 1, the real map, live (6dd6e9e); SQL applied by Matt 2026-11-09 · **Chat:** `Village · Block: World` ·
 **Mockup:** none yet · **Code today:** `src/components/app/MapBlock.tsx` (the "map" look of a
 Collection), the "rows" look in `Blocks.tsx`, starter data in `src/data/pages/fortunes-weave.ts`
 (`places()`, `foes()`) · **Live on:** Fortune's Weave · World (Dungeons and places, 28; Foes, 6);
@@ -236,7 +236,7 @@ only as two numbers 0 to 100), `changes.ts` ("Put on the map", "Moved on the map
 
 ## Build plan (slice 1: the map)
 
-1. **Database** (`supabase/migrations/20261110000000_world_map.sql`, for the hub to review, Matt
+1. **Database** (`supabase/migrations/20261110000000_world_map.sql`, reviewed by the hub, run by Matt 2026-11-09;
    runs it): `game_blocks.map`, and the `map-pictures` bucket (moderators upload).
 2. `src/lib/world-map.ts` (plain, tested): reading and writing a spot, the picture's address,
    fitting and zooming maths, grouping close pins into a count.
