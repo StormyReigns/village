@@ -2,7 +2,8 @@
 
 **Status:** Live, first version (2026-11-08): SQL applied; first two videos on Fortune's Weave · Guides · Recruit a unit · **Chat:** `Village · Block: Videos` · **Mockup:** none yet ·
 **Code:** `src/lib/videos.ts` (reading YouTube links and start times,
-ranking; plain and tested), `src/components/videos/` (`Videos.tsx`: the part in two sizes, the card, the row, Add a video; `useVideos.ts`: loading, voting, adding),
+ranking; plain and tested), `src/components/videos/` (`Videos.tsx`: the part in two sizes, the card, the row, Add a video; `useVideos.ts`: loading, voting, adding;
+`VideoDock.tsx` and `dock.ts`: the one player that pops out to a corner),
 `src/app/api/video-info/[id]/route.ts` (asks YouTube who made a video, kept for a day) ·
 **Database:** `supabase/migrations/20261108180000_videos.sql` (reviewed by the hub, run by Matt 2026-11-08).
 
@@ -82,6 +83,13 @@ appropriate depending on when and where"):
     a note saying who's asking), then "Removal requested".
   - **Moderators** take any video down at any time, from the video (the bin) or from the Notice
     Board ("Take video down"). Taking it down closes its reports.
+- **Pop out** (Matt, 2026-11-08): one video plays at a time, and it keeps playing while you read
+  on. Scroll it off screen, open a dialog over it, close the entry panel or open another Page,
+  and it moves to a corner and carries on. Tap "Pop out" under a playing video to send it there
+  on purpose. The corner player has the title, Back (to its spot, or back to the Page it was on)
+  and X; drag its bar to another corner (remembered on the device). On a phone it's a band the
+  width of the screen, above the Pages bar or under the ink bar. Its spot on the entry says
+  "Playing in the corner" with "Bring it back". Never smaller than 200 × 200, YouTube's minimum.
 - **In the guide list** (later): a small play mark with the count on guides that have videos.
 - **A video that's gone** (taken down, made private, or only allowed on YouTube) isn't shown, so
   the next one moves up. If YouTube can't be reached, the video says so, with "Watch on YouTube".
@@ -121,6 +129,15 @@ on one guide. So it's its own record, like a question:
 New tables, so Matt runs SQL (reviewed by the hub, 2026-11-08). Checked in
 `supabase/tests/schema-check.mjs`.
 
+### How the pop-out works
+
+A YouTube player restarts if it's moved in the page, so there's only one, `VideoDock`, in the
+root layout, where it never unmounts. An entry's video shows an empty spot (a slot) and the
+player sits exactly over it, following it every frame as you scroll, cut off where the spot is
+(under the ink bar, inside the entry panel). Under half the spot showing, a dialog on top, or no
+spot at all, and it glides to the corner; when the spot is almost all back in view it glides back,
+unless you popped it out yourself. Where VideoDock isn't on the page, videos play in place as before.
+
 ## Shared parts
 
 Go-ahead for all of these from the hub, 2026-11-08.
@@ -132,6 +149,7 @@ Go-ahead for all of these from the hub, 2026-11-08.
   the entry they're handed (`cardIdOf`), so their callers didn't change.
 - **Moderation**: reported videos show on the Notice Board with every other report, with "Take
   video down" (`useWorkshop.ts`, `Workshop.tsx`).
+- **The root layout**: `<VideoDock />` in `src/app/layout.tsx`, for the pop-out (asked of the hub 2026-11-08).
 - Later: the play mark on tiles and the profile strip (`Characters.tsx`, `Items.tsx`).
 
 ## Build plan (first slice)
@@ -179,6 +197,11 @@ Go-ahead for all of these from the hub, 2026-11-08.
   asks the moderators. Why: a fresh mistake is easy to undo, but once players may rely on a video,
   a moderator decides. The hour is enforced by the database, not just the button.
 
+- 2026-11-08: videos pop out (Matt): one player for the site that floats in a corner while you
+  scroll or change Pages, by itself when its spot scrolls away and with a "Pop out" button. Why:
+  players read the steps while the video plays. Floating over other windows (Chrome's own
+  picture-in-picture window, for PC players with the game on the same screen) comes later.
+
 ## Open questions (for Matt)
 
 - None open right now.
@@ -191,3 +214,6 @@ Go-ahead for all of these from the hub, 2026-11-08.
 - **Creators claim their channel**: a creator badge, a page of their videos, a way to ask for
   removal.
 - **Twitch VODs** and other sites.
+- **Float over the game**: Chrome on a computer can put a page in its own always-on-top window
+  (Document Picture-in-Picture). The video would restart where it was popped out unless we read
+  its time with YouTube's player messages.

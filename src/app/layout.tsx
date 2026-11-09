@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Rubik } from "next/font/google";
 import "./globals.css";
+import { VideoDock } from "@/components/videos/VideoDock";
 
 // One family for everything (brand rules in CLAUDE.md): heavy for names, regular for reading.
 const rubik = Rubik({ variable: "--font-rubik", subsets: ["latin"] });
@@ -21,7 +22,11 @@ export const viewport: Viewport = { colorScheme: "light" };
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${rubik.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+      <body className="min-h-full flex flex-col font-sans">
+        {children}
+        {/* The one video player, so a video keeps playing while you scroll or change Pages. */}
+        <VideoDock />
+      </body>
     </html>
   );
 }

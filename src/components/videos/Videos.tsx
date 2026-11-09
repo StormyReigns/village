@@ -2,17 +2,20 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { ExternalLink, Flag, Play, Plus, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { ExternalLink, Flag, PictureInPicture2, Play, Plus, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react';
 import { useVillager } from '@/components/useVillager';
 import { REMOVAL_NOTE, deleteMinutesLeft, embedUrl, formatTime, parseTime, parseVideoLink, tallyText, thumbUrl, watchUrl, type VideoInfo, type VideoLink } from '@/lib/videos';
 import { fetchVideoInfo, useVideoInfo, useVideoInfos, useVideos, type LiveVideo } from './useVideos';
+import { addSlot, play, removeSlot, setMode, stop, useDock } from './dock';
 
 // Videos on an entry (docs/blocks/videos.md). They play in YouTube's own privacy-enhanced
 // player, only after a tap, and every one says who made it, as YouTube says. Two sizes:
 //   big    an open guide: the top video as a big card ("See it done"), then the rest
 //   small  a character's or item's card, or the entry panel: small rows; tapping one plays it
 //          full width in place
+// One video plays at a time, in the site's one player (VideoDock), which sits over the video's
+// spot and pops out to a corner when you scroll away or tap "Pop out".
 
 const REASONS = [
   { key: 'wrong', label: 'Wrong or out of date' },
@@ -43,7 +46,7 @@ export function Videos({ cardId, size, name, label, color, className = '' }: {
 }) {
   const me = useVillager();
   const data = useVideos(cardId, me?.id);
-  const [playing, setPlaying] = useState<string | null>(null);
+  const dock = useDock();
   const [more, setMore] = useState(false);
   const [adding, setAdding] = useState(false);
   const infos = useVideoInfos(data.videos.map((v) => v.youtubeId));
@@ -71,7 +74,7 @@ export function Videos({ cardId, size, name, label, color, className = '' }: {
         <ul className="grid gap-2">
           {shownRest.map((v) => (
             <li key={v.id}>
-              {playing === v.id ? <VideoCard v={v} {...shared} autoplay onClose={() => setPlaying(null)} /> : <VideoRow v={v} onPlay={() => setPlaying(v.id)} />}
+              {dock.now?.id === v.id ? <VideoCard v={v} {...shared} onClose={stop} /> : <VideoRow v={v} />}
             </li>
           ))}
         </ul>
@@ -94,23 +97,46 @@ export function Videos({ cardId, size, name, label, color, className = '' }: {
 
 type Shared = { me: ReturnType<typeof useVillager>; data: ReturnType<typeof useVideos>; canRemove: (v: LiveVideo) => boolean };
 
-/** The thumbnail with a play button; YouTube's player in its place once tapped. */
-function Player({ youtubeId, start, title, playing, onPlay }: { youtubeId: string; start: number; title: string; playing: boolean; onPlay: () => void }) {
+/** The thumbnail with a play button. Once tapped, the site's one player (VideoDock) sits over
+ *  this spot; while it's in the corner, the spot says so and can bring it back. */
+function Player({ v, title }: { v: LiveVideo; title: string }) {
+  const dock = useDock();
+  const playing = dock.now?.id === v.id;
+  // React 19 ref cleanup: the spot is handed to the player while it's on the page.
+  const slot = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    addSlot(el);
+    return () => removeSlot(el);
+  }, []);
   return (
     <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-ink">
-      {playing ? (
-        <iframe src={embedUrl(youtubeId, start)} title={title} className="absolute inset-0 size-full" loading="lazy"
+      {playing && !dock.host ? (
+        // No VideoDock on this page: play in place, as before.
+        <iframe src={embedUrl(v.youtubeId, v.start)} title={title} className="absolute inset-0 size-full" loading="lazy"
           allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />
+      ) : playing ? (
+        <div ref={slot} className="absolute inset-0">
+          {dock.mode !== 'inline' && (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element -- YouTube's own thumbnail, shown as YouTube serves it */}
+              <img src={thumbUrl(v.youtubeId)} alt="" className="size-full object-cover opacity-30" />
+              <span className="absolute inset-0 grid place-content-center justify-items-center gap-2 p-3 text-center text-paper">
+                <span className="inline-flex items-center gap-1.5 text-sm font-bold"><PictureInPicture2 size={16} aria-hidden="true" /> Playing in the corner</span>
+                <button type="button" onClick={() => setMode('inline')} className="btn-primary rounded-full px-3 py-1.5 text-sm font-bold">Bring it back</button>
+              </span>
+            </>
+          )}
+        </div>
       ) : (
-        <button type="button" onClick={onPlay} aria-label={`Play ${title}`} className="group absolute inset-0">
+        <button type="button" onClick={() => play({ id: v.id, youtubeId: v.youtubeId, start: v.start, title })} aria-label={`Play ${title}`} className="group absolute inset-0">
           {/* eslint-disable-next-line @next/next/no-img-element -- YouTube's own thumbnail, shown as YouTube serves it */}
-          <img src={thumbUrl(youtubeId)} alt="" className="size-full object-cover" loading="lazy" />
+          <img src={thumbUrl(v.youtubeId)} alt="" className="size-full object-cover" loading="lazy" />
           <span className="absolute inset-0 grid place-items-center">
             <span className="grid size-16 place-items-center rounded-full bg-signal text-ink shadow-soft transition group-hover:scale-105">
               <Play size={28} fill="currentColor" aria-hidden="true" className="translate-x-0.5" />
             </span>
           </span>
-          {start > 0 && <span className="absolute bottom-2 left-2 rounded-full bg-ink/80 px-2 py-0.5 text-xs font-bold text-paper">Starts at {formatTime(start)}</span>}
+          {v.start > 0 && <span className="absolute bottom-2 left-2 rounded-full bg-ink/80 px-2 py-0.5 text-xs font-bold text-paper">Starts at {formatTime(v.start)}</span>}
         </button>
       )}
     </div>
@@ -142,9 +168,10 @@ function Unreachable({ v }: { v: LiveVideo }) {
 const gone = (info: VideoInfo | null | undefined) => Boolean(info && !info.ok);
 
 /** A video as a big card: the player, the credit, the votes. */
-function VideoCard({ v, me, data, canRemove, autoplay = false, onClose }: Shared & { v: LiveVideo; autoplay?: boolean; onClose?: () => void }) {
+function VideoCard({ v, me, data, canRemove, onClose }: Shared & { v: LiveVideo; onClose?: () => void }) {
   const info = useVideoInfo(v.youtubeId);
-  const [playing, setPlaying] = useState(autoplay);
+  const dock = useDock();
+  const inPlace = dock.now?.id === v.id && dock.host && dock.mode === 'inline';
   const [reporting, setReporting] = useState(false);
   const [note, setNote] = useState('');
   const ok = info && info.ok ? info : null;
@@ -156,7 +183,7 @@ function VideoCard({ v, me, data, canRemove, autoplay = false, onClose }: Shared
 
   return (
     <div className="grid gap-2">
-      {info === null ? <Unreachable v={v} /> : <Player youtubeId={v.youtubeId} start={v.start} title={title} playing={playing} onPlay={() => setPlaying(true)} />}
+      {info === null ? <Unreachable v={v} /> : <Player v={v} title={title} />}
       {ok && (
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
@@ -167,6 +194,13 @@ function VideoCard({ v, me, data, canRemove, autoplay = false, onClose }: Shared
               {tally && <> · {tally}</>}
             </p>
           </div>
+          {inPlace && (
+            // Keeps playing in a corner while you scroll on, or open another Page.
+            <button type="button" onClick={() => setMode('pinned')} title="Keep it playing in the corner while you scroll"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-card-2 px-3 py-1.5 text-sm font-bold hover:bg-line">
+              <PictureInPicture2 size={15} aria-hidden="true" /> Pop out
+            </button>
+          )}
           {onClose && (
             <button type="button" onClick={onClose} aria-label="Close the video" className="grid size-8 shrink-0 place-items-center rounded-full bg-card-2 hover:bg-line"><X size={16} aria-hidden="true" /></button>
           )}
@@ -266,9 +300,10 @@ function SignInLink({ className, what, children }: { className: string; what: st
 }
 
 /** A video as a small row: a thumbnail, the title and who made it. Tapping plays it. */
-function VideoRow({ v, onPlay }: { v: LiveVideo; onPlay: () => void }) {
+function VideoRow({ v }: { v: LiveVideo }) {
   const info = useVideoInfo(v.youtubeId);
   const ok = info && info.ok ? info : null;
+  const onPlay = () => play({ id: v.id, youtubeId: v.youtubeId, start: v.start, title: ok?.title ?? 'A video' });
   if (gone(info)) return null;
   if (info === null) return <Unreachable v={v} />;
   const tally = tallyText(v);
