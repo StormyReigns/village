@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { CornerUpLeft, GripHorizontal, X } from 'lucide-react';
+import { CornerUpLeft, X } from 'lucide-react';
 import { embedUrl } from '@/lib/videos';
 import { activeSlot, dockState, setHost, setMode, setSeek, stop, useDock, type DockMode } from './dock';
 import { useVideoInfo } from './useVideos';
@@ -17,7 +17,9 @@ import { useVideoInfo } from './useVideos';
 const MIN_HEIGHT = 200;
 /** The width of the corner player on a computer; on a phone it's the screen less the gutters. */
 const DOCK_WIDTH = 400;
-const BAR = 40;
+/** A slim strip above the video: a handle to drag it, Back and X. No title: YouTube's player
+ *  shows it, and a second one was bulky (Matt, 2026-11-09). */
+const BAR = 28;
 const GAP = 16;
 /** Docks when less than this much of its spot shows; goes back when this much shows again. */
 const HIDE_BELOW = 0.5;
@@ -201,14 +203,14 @@ export function VideoDock() {
     <div ref={box} role="region" aria-label={`Video: ${title}`}
       className={'invisible fixed z-[55] flex flex-col overflow-hidden rounded-2xl bg-ink ' + (docked ? 'shadow-[0_12px_32px_-8px_rgba(21,23,28,0.55)] ring-1 ring-white/10' : '')}>
       {docked ? (
-        <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
-          className="flex shrink-0 cursor-grab touch-none select-none items-center gap-1 pl-2.5 pr-1 text-white active:cursor-grabbing" style={{ height: BAR }}>
-          <GripHorizontal size={16} aria-hidden="true" className="shrink-0 text-white/50" />
-          <p className="min-w-0 flex-1 truncate px-1 text-sm font-bold">{title}</p>
+        <div onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} title="Drag to move it"
+          className="relative flex shrink-0 cursor-grab touch-none select-none items-center justify-between px-0.5 text-white/75 active:cursor-grabbing" style={{ height: BAR }}>
           <button type="button" onClick={back} aria-label="Back to where it was" title="Back to where it was"
-            className="grid size-8 shrink-0 place-items-center rounded-full hover:bg-white/15"><CornerUpLeft size={16} aria-hidden="true" /></button>
+            className="grid size-6 place-items-center rounded-full hover:bg-white/15 hover:text-white"><CornerUpLeft size={14} aria-hidden="true" /></button>
+          {/* The handle, like a sheet's. */}
+          <span aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/2 h-1 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/30" />
           <button type="button" onClick={stop} aria-label="Close the video" title="Close"
-            className="grid size-8 shrink-0 place-items-center rounded-full hover:bg-white/15"><X size={16} aria-hidden="true" /></button>
+            className="grid size-6 place-items-center rounded-full hover:bg-white/15 hover:text-white"><X size={15} aria-hidden="true" /></button>
         </div>
       ) : null}
       <div className="relative min-h-0 flex-1">

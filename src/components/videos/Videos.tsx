@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
-import { ExternalLink, Flag, PictureInPicture2, Play, Plus, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react';
-import { useVillager } from '@/components/useVillager';
+import { ExternalLink, Flag, MoreHorizontal, PictureInPicture2, Play, Plus, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react';
+import { canModerate, useVillager } from '@/components/useVillager';
 import { REMOVAL_NOTE, deleteMinutesLeft, embedUrl, formatTime, parseTime, parseVideoLink, tallyText, thumbUrl, watchUrl, type VideoInfo, type VideoLink } from '@/lib/videos';
 import { fetchVideoInfo, useVideoInfo, useVideoInfos, useVideos, type LiveVideo } from './useVideos';
 import { addSlot, play, removeSlot, setMode, stop, useDock } from './dock';
@@ -58,7 +58,7 @@ export function Videos({ cardId, size, name, label, color, className = '' }: {
 
   const heading = label ?? (size === 'big' ? 'See it done' : 'Videos');
   // Moderators take any video down; whoever added it gets their first hour (VideoCard).
-  const canRemove = (v: LiveVideo) => Boolean(me && me.isModerator && (me.modGames.includes(null) || me.modGames.includes(v.gameId)));
+  const canRemove = (v: LiveVideo) => canModerate(me, v.gameId);
   const shared = { me, data, canRemove };
 
   const top = videos[0];
@@ -74,7 +74,7 @@ export function Videos({ cardId, size, name, label, color, className = '' }: {
         <ul className="grid gap-2">
           {shownRest.map((v) => (
             <li key={v.id}>
-              {dock.now?.id === v.id ? <VideoCard v={v} {...shared} onClose={stop} /> : <VideoRow v={v} />}
+              {dock.now?.id === v.id ? <VideoCard v={v} {...shared} onClose={stop} /> : <VideoRow v={v} {...shared} />}
             </li>
           ))}
         </ul>
@@ -143,14 +143,36 @@ function Player({ v, title }: { v: LiveVideo; title: string }) {
   );
 }
 
-/** "by Channel": the creator's name, linking to their channel. */
-function Credit({ info, className = '' }: { info: Extract<VideoInfo, { ok: true }>; className?: string }) {
-  const name = <span className="font-bold text-ink">{info.channel}</span>;
-  return (
-    <span className={className}>
-      by {info.channelUrl ? <a href={info.channelUrl} target="_blank" rel="noopener noreferrer" className="underline decoration-line underline-offset-2 hover:decoration-ink">{name}</a> : name}
-    </span>
+/** Who made it: the channel's name, heavy, after YouTube's mark, linking to their channel.
+ *  The creator is the point of the credit, so it stands on its own (Matt, 2026-11-09). */
+function Credit({ info, small = false }: { info: Extract<VideoInfo, { ok: true }>; small?: boolean }) {
+  const body = (
+    <>
+      <YouTubeMark small={small} />
+      <span className="truncate font-extrabold text-ink">{info.channel}</span>
+    </>
   );
+  const cls = 'inline-flex min-w-0 items-center gap-1.5 ' + (small ? 'text-[13px]' : 'text-[15px]');
+  return info.channelUrl ? (
+    <a href={info.channelUrl} target="_blank" rel="noopener noreferrer" title={`${info.channel} on YouTube`}
+      className={cls + ' underline-offset-2 hover:underline'}>{body}</a>
+  ) : <span className={cls}>{body}</span>;
+}
+
+/** YouTube's play mark, so it's clear the name is a YouTube channel. */
+function YouTubeMark({ small }: { small: boolean }) {
+  return (
+    <svg viewBox="0 0 20 14" aria-label="YouTube" role="img" className={'shrink-0 ' + (small ? 'h-2.5 w-3.5' : 'h-3 w-[17px]')}>
+      <rect width="20" height="14" rx="4" fill="#FF0033" />
+      <path d="M8 4l5.2 3L8 10z" fill="#fff" />
+    </svg>
+  );
+}
+
+/** "from 0:43 · Helped 23 players", quieter than the credit. */
+function Meta({ v }: { v: LiveVideo }) {
+  const parts = [v.start > 0 ? `from ${formatTime(v.start)}` : '', tallyText(v)].filter(Boolean);
+  return parts.length ? <span className="shrink-0 text-muted">· {parts.join(' · ')}</span> : null;
 }
 
 /** YouTube couldn't be reached: say so, with the link. A video YouTube says is gone or only
@@ -172,13 +194,9 @@ function VideoCard({ v, me, data, canRemove, onClose }: Shared & { v: LiveVideo;
   const info = useVideoInfo(v.youtubeId);
   const dock = useDock();
   const inPlace = dock.now?.id === v.id && dock.host && dock.mode === 'inline';
-  const [reporting, setReporting] = useState(false);
-  const [note, setNote] = useState('');
   const ok = info && info.ok ? info : null;
   const title = ok?.title ?? 'A video';
-  const tally = tallyText(v);
   const own = Boolean(me && v.addedBy === me.id);
-  const minutesLeft = useMinutesLeft(own ? v.createdAt : null);
   if (gone(info)) return null;
 
   return (
@@ -188,10 +206,9 @@ function VideoCard({ v, me, data, canRemove, onClose }: Shared & { v: LiveVideo;
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <p className="line-clamp-2 font-bold leading-snug">{ok.title}</p>
-            <p className="text-sm text-muted">
+            <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-sm">
               <Credit info={ok} />
-              {v.start > 0 && <> · from {formatTime(v.start)}</>}
-              {tally && <> · {tally}</>}
+              <Meta v={v} />
             </p>
           </div>
           {inPlace && (
@@ -206,30 +223,54 @@ function VideoCard({ v, me, data, canRemove, onClose }: Shared & { v: LiveVideo;
           )}
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-1.5 text-sm">
-        {own ? <span className="px-1 text-xs font-bold text-muted">You added this</span> : (
-          <>
-            <Vote on={v.mine === 1} signedIn={Boolean(me)} label="This helped" icon={<ThumbsUp size={14} aria-hidden="true" />}
-              onClick={async () => setNote((await data.vote(v.id, 1)) ?? '')} />
-            <Vote on={v.mine === -1} signedIn={Boolean(me)} label="Didn’t help" icon={<ThumbsDown size={14} aria-hidden="true" />}
-              onClick={async () => setNote((await data.vote(v.id, -1)) ?? '')} />
-          </>
-        )}
-        <a href={watchUrl(v.youtubeId, v.start)} target="_blank" rel="noopener noreferrer"
-          className="ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-bold text-muted hover:text-ink">
-          Watch on YouTube <ExternalLink size={13} aria-hidden="true" />
-        </a>
+      <Manage v={v} me={me} data={data} canRemove={canRemove} lead={(say) => (
+        <>
+          {own ? <span className="px-1 text-xs font-bold text-muted">You added this</span> : (
+            <>
+              <Vote on={v.mine === 1} signedIn={Boolean(me)} label="This helped" icon={<ThumbsUp size={14} aria-hidden="true" />}
+                onClick={async () => say((await data.vote(v.id, 1)) ?? '')} />
+              <Vote on={v.mine === -1} signedIn={Boolean(me)} label="Didn’t help" icon={<ThumbsDown size={14} aria-hidden="true" />}
+                onClick={async () => say((await data.vote(v.id, -1)) ?? '')} />
+            </>
+          )}
+          <a href={watchUrl(v.youtubeId, v.start)} target="_blank" rel="noopener noreferrer"
+            className="ml-auto inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-bold text-muted hover:text-ink">
+            Watch on YouTube <ExternalLink size={13} aria-hidden="true" />
+          </a>
+        </>
+      )} />
+    </div>
+  );
+}
+
+/** Reporting and taking a video down, on its card and behind "⋯" on its row: a report for
+ *  anyone else's, the bin for moderators, Delete for whoever added it in its first hour, then
+ *  Request removal. `lead` goes first in the same row (the votes on a card). */
+function Manage({ v, me, data, canRemove, lead }: Shared & { v: LiveVideo; lead?: (say: (note: string) => void) => React.ReactNode }) {
+  const [reporting, setReporting] = useState(false);
+  const [note, setNote] = useState('');
+  const own = Boolean(me && v.addedBy === me.id);
+  const minutesLeft = useMinutesLeft(own ? v.createdAt : null);
+  // On its own (behind a row's "⋯") the buttons say what they do; on a card they're icons.
+  const labelled = !lead;
+  const iconBtn = labelled
+    ? 'inline-flex items-center gap-1 rounded-full bg-card-2 px-2.5 py-1 text-xs font-bold hover:bg-line'
+    : 'grid size-8 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink';
+  return (
+    <>
+      <div className={'flex flex-wrap items-center gap-1.5 text-sm' + (labelled ? ' justify-end' : '')}>
+        {lead?.(setNote)}
         {me && !own && (data.reported.has(v.id)
           ? <span className="px-1 text-xs font-bold text-muted">Reported</span>
           : (
             <button type="button" onClick={() => setReporting(!reporting)} aria-label="Report this video" aria-expanded={reporting}
-              className="grid size-8 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink"><Flag size={14} aria-hidden="true" /></button>
+              className={iconBtn}><Flag size={14} aria-hidden="true" />{labelled && ' Report'}</button>
           ))}
         {canRemove(v) ? (
           // Moderators: any video, any time.
           <button type="button" aria-label="Take this video down" title="Take it down"
             onClick={async () => { if (window.confirm('Take this video down? It leaves this entry for everyone.')) setNote((await data.remove(v.id)) ?? ''); }}
-            className="grid size-8 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink"><Trash2 size={14} aria-hidden="true" /></button>
+            className={iconBtn}><Trash2 size={14} aria-hidden="true" />{labelled && ' Take it down'}</button>
         ) : own && minutesLeft > 0 ? (
           // Whoever added it: their own call for the first hour.
           <button type="button"
@@ -263,7 +304,7 @@ function VideoCard({ v, me, data, canRemove, onClose }: Shared & { v: LiveVideo;
         </div>
       )}
       {note && <p role="status" className="text-xs font-bold text-muted">{note}</p>}
-    </div>
+    </>
   );
 }
 
@@ -300,15 +341,18 @@ function SignInLink({ className, what, children }: { className: string; what: st
 }
 
 /** A video as a small row: a thumbnail, the title and who made it. Tapping plays it. */
-function VideoRow({ v }: { v: LiveVideo }) {
+function VideoRow({ v, ...shared }: Shared & { v: LiveVideo }) {
   const info = useVideoInfo(v.youtubeId);
+  const [managing, setManaging] = useState(false);
   const ok = info && info.ok ? info : null;
   const onPlay = () => play({ id: v.id, youtubeId: v.youtubeId, start: v.start, title: ok?.title ?? 'A video' });
   if (gone(info)) return null;
   if (info === null) return <Unreachable v={v} />;
-  const tally = tallyText(v);
+  // Signed in, there's always something to do: report someone else's, or take down your own.
+  const canManage = Boolean(shared.me);
   return (
-    <div className="flex items-center gap-3">
+    <div className="grid gap-1.5">
+      <div className="flex items-center gap-3">
       <button type="button" onClick={onPlay} aria-label={`Play ${ok?.title ?? 'the video'}`}
         className="group relative aspect-video w-[120px] shrink-0 overflow-hidden rounded-xl bg-ink">
         {/* eslint-disable-next-line @next/next/no-img-element -- YouTube's own thumbnail, shown as YouTube serves it */}
@@ -323,16 +367,23 @@ function VideoRow({ v }: { v: LiveVideo }) {
         {ok ? (
           <>
             <button type="button" onClick={onPlay} className="line-clamp-2 text-left text-sm font-bold leading-snug hover:underline">{ok.title}</button>
-            <p className="truncate text-xs text-muted">
-              <Credit info={ok} />
-              {v.start > 0 && <> · from {formatTime(v.start)}</>}
-              {tally && <> · {tally}</>}
+            <p className="mt-0.5 flex min-w-0 items-center gap-x-1.5 text-xs">
+              <Credit info={ok} small />
+              <Meta v={v} />
             </p>
           </>
         ) : (
           <div className="grid gap-1.5" aria-hidden="true"><div className="h-3.5 w-3/4 rounded bg-card-2" /><div className="h-3 w-1/2 rounded bg-card-2" /></div>
         )}
       </div>
+      {canManage && (
+        <button type="button" onClick={() => setManaging(!managing)} aria-label="Report or remove this video" aria-expanded={managing}
+          title="Report or remove" className={'grid size-8 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink ' + (managing ? 'bg-card-2 text-ink' : '')}>
+          <MoreHorizontal size={16} aria-hidden="true" />
+        </button>
+      )}
+    </div>
+    {managing && <Manage v={v} {...shared} />}
     </div>
   );
 }

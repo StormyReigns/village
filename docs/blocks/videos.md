@@ -202,6 +202,14 @@ Go-ahead for all of these from the hub, 2026-11-08.
   players read the steps while the video plays. Floating over other windows (Chrome's own
   picture-in-picture window, for PC players with the game on the same screen) comes later.
 
+- 2026-11-09: the creator stands out (Matt): YouTube's red play mark and the channel name in heavy type,
+  on its own line under the title; the start time and votes follow, quieter.
+- 2026-11-09: a small row has a "⋯" (signed in) that opens Report, Delete, Request removal or Take it
+  down without playing the video. Before, those only showed once a row was playing, so Matt couldn't
+  find how to remove one from a character.
+- 2026-11-09: the corner player's strip is slim (Matt found it bulky): Back, a drag handle and X, no
+  title (YouTube's player shows it).
+
 ## Open questions (for Matt)
 
 - None open right now.
