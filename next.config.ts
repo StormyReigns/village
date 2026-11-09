@@ -14,6 +14,14 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 2678400,
   },
   partialPrefetching: true,
+  // The phone app's service worker (public/sw.js) is always fetched fresh, so an update reaches
+  // everyone on their next visit.
+  async headers() {
+    return [{ source: '/sw.js', headers: [
+      { key: 'Content-Type', value: 'application/javascript; charset=utf-8' },
+      { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+    ] }];
+  },
   // The game app used to live at /g/<game>/p, and before that had block and card pages.
   async redirects() {
     return [

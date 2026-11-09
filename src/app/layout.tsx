@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Rubik } from "next/font/google";
 import "./globals.css";
 import { VideoDock } from "@/components/videos/VideoDock";
+import { ServiceWorker } from "@/components/ServiceWorker";
 
 // One family for everything (brand rules in CLAUDE.md): heavy for names, regular for reading.
 const rubik = Rubik({ variable: "--font-rubik", subsets: ["latin"] });
@@ -13,6 +14,8 @@ export const metadata: Metadata = {
   description: "Community-built companion apps for the games you love.",
   openGraph: { siteName: "Village", title: "Village", description: "Community-built companion apps for the games you love." },
   twitter: { card: "summary_large_image" },
+  // The phone app on iPhones: full screen from the home screen, with an ink status bar like the top bar.
+  appleWebApp: { capable: true, title: "Village", statusBarStyle: "black" },
 };
 
 // Always light, even when the device is in dark mode.
@@ -26,6 +29,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {children}
         {/* The one video player, so a video keeps playing while you scroll or change Pages. */}
         <VideoDock />
+        {/* Offline reading for the phone app (public/sw.js). */}
+        <ServiceWorker />
       </body>
     </html>
   );
