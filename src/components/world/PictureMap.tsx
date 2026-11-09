@@ -12,6 +12,7 @@ import type { BlockContext } from '@/components/app/blockParts';
 import { browserClient } from '@/lib/supabase/browser';
 import { GROUP, MAP_PICTURES, groupSymbol, groupsOf, inGroups, spotOf } from '@/lib/world-map';
 import { MapCanvas, type CanvasPin } from './MapCanvas';
+import { ScrollRow } from '@/components/ScrollRow';
 
 // A Places Block's real map (docs/blocks/world.md): the Builders' picture with a pin for every
 // place on it. Tap a pin for a small card (Cleared, Open); "Open" brings up the full place.
@@ -23,7 +24,7 @@ export const mapPictureUrl = (path: string) => browserClient()?.storage.from(MAP
  *  `symbols` are for its first filter, Region), else the Block's usual symbol, else initials. */
 export function pinMark(e: Entry, block: Block) {
   const symbol = drawable(groupSymbol(e.categories[GROUP])) ?? symbolFor(e, block);
-  return symbol ? <BlockIcon name={symbol} size={11} strokeWidth={2.6} /> : initials(e.name);
+  return symbol ? <BlockIcon name={symbol} size={13} strokeWidth={2.6} /> : initials(e.name);
 }
 
 /** A symbol only when we can draw it. */
@@ -100,7 +101,8 @@ export function PictureMap({ block, ctx, map, places, onOpenPlace, src: sample }
   return (
     <div className="mt-4">
       {groups.length > 0 && (
-        <div role="group" aria-label="Show on the map" className="-mx-1 mb-2 flex gap-1.5 overflow-x-auto px-1 pb-1 [contain:inline-size] [scrollbar-width:none]">
+        // The Profiles strip's scroller: arrows at whichever end has more, the wheel scrolls it, no bar.
+        <ScrollRow role="group" label="Show on the map" className="-mx-1 mb-1 flex gap-1.5 px-1 py-1 [contain:inline-size]">
           <button type="button" onClick={() => setOnly([])} aria-pressed={!only.length}
             className={'shrink-0 rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (!only.length ? 'bg-ink text-white ring-ink' : 'bg-card text-muted ring-line hover:text-ink')}>
             All · {places.length}
@@ -116,7 +118,7 @@ export function PictureMap({ block, ctx, map, places, onOpenPlace, src: sample }
               </button>
             );
           })}
-        </div>
+        </ScrollRow>
       )}
       <MapCanvas src={src} pic={map} alt={`Map of ${block.title}`} pins={pins} selected={picked} tint={ctx.tint}
         onPin={(id) => setPicked(id === picked ? null : id)} focus={focus} bar={bar} overlay={overlay} credit={map.credit} />

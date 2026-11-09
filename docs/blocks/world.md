@@ -145,6 +145,10 @@ Drafts, and the place form's "Where on the map".
 - 2026-11-09: full screen sits over everything, straight under the page's body (on phones the
   pin's card was hidden behind the page), and "Open" on a pin's card leaves full screen so the
   place opens in front (Matt found both).
+- 2026-11-09: pins are yellow pieces with an ink edge and an ink symbol; a cleared place is ink
+  with a white edge and a yellow tick; the picked one is bigger with a white glow (Matt: the white
+  split outline looked choppy and cheap on a map; this reads on any picture). The group chips use
+  the Profiles strip's scroller (arrows, wheel, no bar), with room so nothing is cut off.
 - 2026-11-09: placing pins in full screen (Matt: "select from list + pin efficiently"): a "Full
   screen" button over the Workshop's map; in full screen the places sit in a strip under the map,
   the picked one in yellow, those not on the map yet first. The editor starts on the first place

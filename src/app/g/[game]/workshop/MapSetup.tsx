@@ -61,7 +61,8 @@ export function MapSetup({ gameId, block, me, mod, drafts, postDraft, onClose }:
 
   const pins: CanvasPin[] = block.entries.flatMap((e) => {
     const s = moves[e.id] ?? live(e);
-    return s ? [{ id: e.id, ...s, name: e.name, mark: pinMark(e, block), done: !moves[e.id], ring: Boolean(moves[e.id]) }] : [];
+    // Every pin in its usual yellow here; one placed or moved and not sent yet glows.
+    return s ? [{ id: e.id, ...s, name: e.name, mark: pinMark(e, block), ring: Boolean(moves[e.id]) }] : [];
   });
   const pickSpot = pick ? moves[pick.id] ?? live(pick) : null;
 

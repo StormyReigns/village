@@ -2,16 +2,19 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Maximize2, Minus, Plus, Scan, X, ZoomIn } from 'lucide-react';
-import { Piece, pieceHeight } from '@/components/Piece';
+import { Check, Maximize2, Minus, Plus, Scan, X, ZoomIn } from 'lucide-react';
+import { pieceHeight } from '@/components/Piece';
+import { PIECE_PATH, PIECE_SPOT, PIECE_VIEWBOX } from '@/lib/piece';
 import { centerOn, clampView, fitView, frameToSpot, groupPins, spotToFrame, zoomAt, type Size, type View } from '@/lib/world-map';
 
 // A map picture in a frame that fits the Block it's in (docs/blocks/world.md, "Usable inside the
 // Block"): it opens showing the whole picture, never traps the page (on a phone one finger
 // scrolls the page and two fingers move the map; on a computer drag moves it and Ctrl + wheel
 // zooms), and has zoom buttons, Fit, and full screen, where one finger moves it freely.
-// Pins are pieces: the split outline until done, solid after. Pins that would touch become a
-// count that zooms in on them.
+// Pins are pieces in signal yellow with an ink edge and an ink symbol, which read on any map,
+// light or dark (Matt, 2026-11-09: the white split outline looked choppy on a picture). A cleared
+// place turns ink with a white edge and a yellow tick. Pins that would touch become a count that
+// zooms in on them.
 
 export interface CanvasPin {
   id: string;
@@ -21,13 +24,13 @@ export interface CanvasPin {
   name: string;
   /** Inside the piece: initials or a symbol. */
   mark?: ReactNode;
-  /** Solid (cleared, placed); else the split outline. */
+  /** Cleared: ink with a yellow tick; else yellow with its symbol. */
   done?: boolean;
   /** Ringed in yellow: your choice (picked, or an unsent move). */
   ring?: boolean;
 }
 
-const PIN = 30;
+const PIN = 32;
 const GAP = PIN + 6;
 /** How far past its edges the map can be dragged, so a pin under the tools can come out. */
 const PAD = 52;
@@ -247,7 +250,6 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
   const picked = onScreen.find((p) => p.id === selected);
   const groups = groupPins(onScreen.filter((p) => p.id !== selected), GAP);
   const byId = new Map(onScreen.map((p) => [p.id, p]));
-  const color = `var(--${tint})`;
   const zoomToGroup = (ids: string[]) => update((v, s) => {
     const ps = ids.map((id) => byId.get(id)!).filter(Boolean);
     const xs = ps.map((p) => p.sx), ys = ps.map((p) => p.sy);
@@ -265,13 +267,7 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
     <button key={p.id} type="button" data-map-ui onClick={() => onPin?.(p.id)} aria-label={p.name} aria-pressed={p.id === selected}
       className="absolute grid place-items-center outline-none focus-visible:[filter:drop-shadow(0_0_2px_var(--signal))_drop-shadow(0_0_2px_var(--signal))]"
       style={{ left: p.x, top: p.y, width: PIN + 12, height: pieceHeight(PIN) + 12, transform: 'translate(-50%, -50%)' }}>
-      <span className="relative block" style={{ width: PIN, height: pieceHeight(PIN), filter: p.ring || p.id === selected ? 'drop-shadow(0 0 1.5px var(--signal)) drop-shadow(0 0 1.5px var(--signal)) drop-shadow(0 0 1.5px var(--signal))' : 'drop-shadow(0 1px 1.5px rgb(0 0 0 / .45))' }}>
-        {/* An outline pin sits on a white piece, so it reads on any picture. */}
-        {!p.done && <Piece size={PIN} color="#fff" className="!absolute left-0 top-0">{''}</Piece>}
-        <Piece size={PIN} color={color} outline={!p.done} className="!absolute left-0 top-0">
-          <span className={'text-[9px] font-black leading-none ' + (p.done ? 'text-white' : 'text-ink')}>{p.mark}</span>
-        </Piece>
-      </span>
+      <MapPinShape done={p.done} big={p.id === selected} halo={p.ring || p.id === selected}>{p.done ? <Check size={13} strokeWidth={3.5} aria-hidden="true" /> : p.mark}</MapPinShape>
       {p.id === selected && (
         <span className="pointer-events-none absolute top-full mt-0.5 max-w-40 truncate rounded-full bg-card px-2 py-0.5 text-xs font-bold text-ink shadow-soft ring-1 ring-line">{p.name}</span>
       )}
@@ -285,7 +281,7 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
       <div ref={frame} role="application" aria-label={alt} aria-roledescription="map"
         style={full || frameClass ? undefined : { height: `clamp(15rem, calc(100cqw * ${pic.h / pic.w}), min(66dvh, 40rem))` }}
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onClick={onClick}
-        className={'relative select-none overflow-hidden bg-card-2 ' + (full ? 'min-h-0 flex-1 [touch-action:none]' : `${frameClass ?? 'w-full'} rounded-2xl ring-1 ring-line [touch-action:pan-x_pan-y]`)
+        className={'relative select-none overflow-hidden ' + (full ? 'min-h-0 flex-1 bg-ink [touch-action:none]' : `${frameClass ?? 'w-full'} rounded-2xl bg-card-2 ring-1 ring-line [touch-action:pan-x_pan-y]`)
           + (onSpot ? ' cursor-crosshair' : drag.current ? ' cursor-grabbing' : ' cursor-grab')}>
         {view && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -330,4 +326,24 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
     </div>
   );
   return full ? createPortal(content, document.body) : content;
+}
+
+/** A pin: the piece in yellow with an ink edge (cleared: ink with a white edge), its symbol in the
+ *  middle. The picked one is bigger with a white glow. Drawn here rather than with Piece, whose
+ *  outline is the split "not built yet" look, which doesn't read on a busy picture. */
+function MapPinShape({ done, big, halo, children }: { done?: boolean; big?: boolean; halo?: boolean; children?: ReactNode }) {
+  const w = big ? Math.round(PIN * 1.25) : PIN;
+  const h = pieceHeight(w);
+  // An edge about 2px wide at any size, outside the shape (the fill is drawn over its inner half).
+  const edge = (2.4 * PIECE_VIEWBOX.width) / w * 2;
+  return (
+    <span className="relative block transition-[width,height] duration-150" style={{ width: w, height: h,
+      filter: halo ? 'drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 1px 3px rgb(0 0 0 / .5))' : 'drop-shadow(0 1px 2px rgb(0 0 0 / .45))' }}>
+      <svg viewBox={`${-edge} ${-edge} ${PIECE_VIEWBOX.width + edge * 2} ${PIECE_VIEWBOX.height + edge * 2}`} className="absolute inset-0 size-full overflow-visible" aria-hidden="true">
+        <path d={PIECE_PATH} fill={done ? 'var(--ink)' : 'var(--signal)'} stroke={done ? '#fff' : 'var(--ink)'} strokeWidth={edge} strokeLinejoin="round" style={{ paintOrder: 'stroke' }} />
+      </svg>
+      <span className={'absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center text-[10px] font-black leading-none ' + (done ? 'text-signal' : 'text-ink')}
+        style={{ left: `${PIECE_SPOT.x * 100}%`, top: `${PIECE_SPOT.y * 100}%` }}>{children}</span>
+    </span>
+  );
 }
