@@ -270,6 +270,14 @@ await expectFail(B, `select public.remove_video('${V3}')`, 'after an hour, whoev
 await expectOk(B, `insert into public.flags (video_id, reason, note, reporter_id) values ('${V3}', 'other', 'Removal requested by whoever added it', '${B}')`, 'after an hour, they can ask for removal');
 await expectOk(A, `select public.remove_video('${V3}')`, 'a moderator can take any video down, any time');
 
+// World (docs/blocks/world.md): a Block's map picture is set by the game's moderators only.
+const MAP = `'{"picture":"fortunes-weave/x/y.webp","w":4096,"h":3000,"credit":"Map: test"}'::jsonb`;
+await expectOk(A, `update public.game_blocks set map = ${MAP} where game_id = 'fortunes-weave' and block_key = 'people'`, 'a moderator sets a map picture');
+await expectFail(C, `update public.game_blocks set map = null where game_id = 'fortunes-weave' and block_key = 'people'`, 'a villager cannot change the map picture');
+const mp = await db.query(`select map->>'credit' as credit from public.game_blocks where game_id = 'fortunes-weave' and block_key = 'people'`);
+mp.rows[0]?.credit === 'Map: test' ? ok('the map picture and its credit are kept') : bad('map ' + JSON.stringify(mp.rows));
+await db.exec(`update public.game_blocks set map = null where game_id = 'fortunes-weave' and block_key = 'people'`);
+
 // Tier lists (docs/blocks/tier-lists.md): your main list is saved whole through save_tier_list and
 // counts only once submitted (a copy, updated by submitting again); unique lists of your own never
 // count; only the ranked Block's pieces and the Block's tiers; totals from tier_tallies; lists

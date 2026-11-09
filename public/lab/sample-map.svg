@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1100" viewBox="0 0 1600 1100">
+  <!-- A made-up world for the map sample page (/lab/map). Our own drawing, not a game's map. -->
+  <rect width="1600" height="1100" fill="#a9d6e5"/>
+  <g stroke="#7fb3c4" stroke-width="2" fill="none" opacity=".6">
+    <path d="M0 120 Q400 90 800 130 T1600 110"/><path d="M0 980 Q400 1010 800 970 T1600 990"/>
+  </g>
+  <path d="M180 260 C260 140 520 120 700 180 C860 120 1080 110 1240 200 C1400 260 1470 420 1420 560 C1480 700 1380 880 1180 900 C980 980 760 930 600 960 C420 990 240 900 210 760 C120 640 100 400 180 260 Z" fill="#e8dcb5" stroke="#8a7a52" stroke-width="5"/>
+  <path d="M260 330 C340 260 480 250 560 300 C620 360 600 460 520 500 C430 540 300 520 260 450 Z" fill="#a8c98a"/>
+  <path d="M900 260 C1000 220 1150 240 1220 320 C1260 400 1200 470 1100 470 C1000 480 900 420 880 350 Z" fill="#c9b48a"/>
+  <path d="M980 300 l40 -60 l40 60 Z M1050 320 l50 -80 l50 80 Z M1120 300 l35 -55 l35 55 Z" fill="#8a7a52"/>
+  <path d="M640 560 C720 520 860 540 900 620 C930 700 860 780 760 780 C660 790 600 720 600 650 Z" fill="#7fb07a"/>
+  <path d="M700 180 C720 300 680 420 720 520 C760 640 700 760 760 900" stroke="#6aa7c4" stroke-width="14" fill="none" stroke-linecap="round"/>
+  <path d="M1180 640 C1260 600 1360 640 1360 720 C1350 800 1260 830 1190 790 C1140 750 1130 680 1180 640 Z" fill="#d9a77a"/>
+  <ellipse cx="1480" cy="900" rx="70" ry="40" fill="#e8dcb5" stroke="#8a7a52" stroke-width="4"/>
+  <g font-family="Georgia, serif" font-size="34" fill="#4a4030" text-anchor="middle" font-style="italic">
+    <text x="410" y="420">Greenmere</text><text x="1070" y="440">Ashpeaks</text>
+    <text x="760" y="690">Old Wood</text><text x="1260" y="730">Dunelands</text>
+    <text x="480" y="830">The Flats</text><text x="1480" y="965" font-size="24">Gull Isle</text>
+  </g>
+  <text x="800" y="70" font-family="Georgia, serif" font-size="40" fill="#3e6f82" text-anchor="middle">Sample world · not a real game</text>
+</svg>

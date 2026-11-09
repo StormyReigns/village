@@ -20,6 +20,9 @@ import { changesBetween } from './changes';
 import { clearUnsent, hasWriting, saveUnsent, type Unsent } from './unsent';
 import { uploadPicture, type NewDraft } from './useWorkshop';
 import { PictureInput } from './PictureInput';
+import { MapSpotInput } from '@/components/world/MapSpotInput';
+import { pinMark } from '@/components/world/PictureMap';
+import { cleanSpot, mapOf } from '@/lib/world-map';
 
 /** Where the form opens: a Block to add to, optionally the entry being fixed, and the one
  *  part of it to fix ("description", "routes", "section:Where to get it") from an app pencil. */
@@ -59,7 +62,7 @@ const PICTURES = new Set<Block['type']>(['collection', 'characters', 'items']);
 const blank = (): EntryContent => ({ name: '', sections: [], categories: {} });
 
 /** Copies an entry's content so the form can change it freely. */
-function contentOf(e: Entry): EntryContent {
+export function contentOf(e: Entry): EntryContent {
   const copy: Partial<Entry> = JSON.parse(JSON.stringify(e));
   delete copy.id;
   delete copy.ref;
@@ -87,6 +90,8 @@ function clean(c: EntryContent): EntryContent {
     routes: c.routes?.length ? c.routes : undefined,
     spoiler: c.spoiler || undefined,
     flag: c.flag || undefined,
+    // A place's pin: two numbers kept to the picture, or none (docs/blocks/world.md).
+    spot: cleanSpot(c.spot),
     source: undefined, // the Draft keeps its own source
   };
 }
@@ -162,6 +167,8 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
   const byRoute = block.byRoute && routes.length > 0;
 
   const cleaned = clean(content);
+  // A place on a Block with a map picture gets "Where on the map".
+  const blockMap = block.type === 'collection' && block.look === 'map' ? mapOf(block) : null;
   const changes = fixing ? changesBetween(contentOf(fixing), cleaned, block, routes) : [];
   const unchanged = Boolean(fixing) && changes.length === 0;
 
@@ -315,6 +322,10 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
           <span className="text-sm font-bold">{block.statName ?? 'Key fact'} <span className="font-normal text-muted">(shown on the list, short)</span></span>
           <input value={content.stat ?? ''} onChange={(e) => set({ stat: e.target.value })} maxLength={40} placeholder={block.statName === 'Level' ? 'Lv 12' : ''} className={input} />
         </label>
+      )}
+      {blockMap && show('spot') && (
+        <MapSpotInput map={blockMap} value={content.spot} name={content.name} tint={page.tint} onChange={(spot) => set({ spot })}
+          mark={content.name ? pinMark({ ...content, id: 'new' }, block) : undefined} />
       )}
       {!people && block.stats?.length && show('stats') ? (
         <div role="group" aria-labelledby="stats-label" id={fid('stats')} className={'grid gap-1.5' + hl('stats')}>

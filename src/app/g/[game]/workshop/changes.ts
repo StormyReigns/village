@@ -2,6 +2,7 @@ import type { Block, EntryContent, Route } from '@/data/pages';
 import type { RouteOption } from '@/components/app/EntryPanel';
 import { DESCRIPTION, allStatDefs, fieldsOf } from '@/lib/fields';
 import { parseSteps, parseWriteup, sectionWords, stepWords } from '@/lib/guides';
+import { spotChange } from '@/lib/world-map';
 
 // What a Draft changes compared with the entry on Stable, field by field, in words.
 
@@ -21,6 +22,9 @@ export function changesBetween(before: EntryContent | undefined, after: EntryCon
   // Characters and Items can have several charts (Base stats, Growths), each with its own stats.
   for (const d of block.type === 'characters' || block.type === 'items' ? allStatDefs(block) : block.stats ?? []) add(d.label, before?.stats?.[d.key]?.toString(), after.stats?.[d.key]?.toString());
   add('Order', before?.order?.toString(), after.order?.toString());
+  // A place's pin on the map, in words (docs/blocks/world.md).
+  const pin = spotChange(before?.spot, after.spot);
+  if (pin) out.push({ label: 'Pin', ...pin });
   const fields = block.type === 'characters' || block.type === 'items' || block.type === 'guide' ? fieldsOf(block) : block.fields ?? [];
   add(fields.find((f) => f.key === DESCRIPTION)?.label ?? 'Description', before?.description, after.description);
   // A guide's steps in words, numbered, with their spoiler and picture marks spelled out. A

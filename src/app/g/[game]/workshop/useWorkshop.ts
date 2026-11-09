@@ -203,7 +203,7 @@ export async function preparePicture(file: File, max = 1600): Promise<{ blob: Bl
  * Puts a picture in one of our public buckets (chat-images, guide-pictures), under game/you/,
  * after preparePicture has redrawn it. Returns where it went, or an error in plain words.
  */
-export async function uploadPicture(bucket: 'chat-images' | 'guide-pictures', gameId: string, meId: string, file: File, max?: number): Promise<Attachment | string> {
+export async function uploadPicture(bucket: 'chat-images' | 'guide-pictures' | 'map-pictures', gameId: string, meId: string, file: File, max?: number): Promise<Attachment | string> {
   const db = browserClient();
   if (!db) return "Couldn't reach the village.";
   const p = await preparePicture(file, max);

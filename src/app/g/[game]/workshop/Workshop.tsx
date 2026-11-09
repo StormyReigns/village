@@ -3,7 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, CircleHelp, EyeOff, FileText, Flag, Hammer, MessageCircle, PanelLeftOpen, Plus,
+  ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, CircleHelp, EyeOff, FileText, Flag, Hammer, MapPin, MessageCircle, PanelLeftOpen, Plus,
   RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import type { Page } from '@/data/pages';
@@ -34,6 +34,7 @@ import { blockThread, draftThread, entryThread, threadOf, type ThreadKey } from 
 import { mentionsIn } from '@/lib/refs';
 import { EntryForm, ChangeList, type FormStart, type Posted } from './EntryForm';
 import { FieldSetup } from './FieldSetup';
+import { MapSetup } from './MapSetup';
 import { EditorChat, EditSwap } from './EditorShell';
 import { Resizer } from './chat/Resizer';
 import { useBeside } from './split';
@@ -75,8 +76,9 @@ export function Workshop({ game, pages, routes }: {
   const [chip, setChip] = useState<string>(startPage && pages.some((p) => p.id === startPage) ? startPage : 'all');
   const [sort, setSort] = useState<Sort>('standouts');
   const [form, setForm] = useState<FormStart | null>(linked);
-  // A Characters Block whose fields are being set up.
-  const [setup, setSetup] = useState<string | null>(null);
+  // A Block being set up: a Characters (Items, Guides) Block's fields, or a Places Block's map
+  // (?pins=block, from "not on the map yet" in the app).
+  const [setup, setSetup] = useState<string | null>(() => { const b = params.get('pins'); return b && placeOf(b)?.look === 'map' ? b : null; });
   // The work column shows Drafts or what's in the app. Until you pick, it opens on Drafts
   // when something waits on you.
   // ?tab=questions (from the app's "Answer in the Workshop") opens the Questions tab.
@@ -320,7 +322,7 @@ export function Workshop({ game, pages, routes }: {
   const editing = form && blocks.length > 0 ? 'form' : setupBlock ? 'setup' : null;
   const editLabel = editing === 'form'
     ? (form?.entryId ? `Fix: ${editBlock?.entries.find((e) => e.id === form.entryId)?.name ?? 'an entry'}` : `New in ${editBlock?.title ?? 'the app'}`)
-    : setupBlock ? `Set up ${setupBlock.title}` : '';
+    : setupBlock ? (setupBlock.look === 'map' ? `Map: ${setupBlock.title}` : `Set up ${setupBlock.title}`) : '';
   const editKey = editing ? `${editing}:${form?.blockId}.${form?.entryId}:${setup}` : null;
 
   // Threads: what each is about, and the one open beside the chat.
@@ -520,6 +522,8 @@ export function Workshop({ game, pages, routes }: {
                     closeForm();
                     if (copy) setDiscarded(copy);
                   }} />
+              ) : setupBlock!.look === 'map' ? (
+                <MapSetup gameId={game.id} block={setupBlock!} me={me} mod={live.mod} drafts={drafts} postDraft={live.postDraft} onClose={() => setSetup(null)} />
               ) : (
                 <FieldSetup gameId={game.id} block={setupBlock!} routes={routes} canSave={live.mod} onClose={() => setSetup(null)} />
               )}
@@ -1111,7 +1115,7 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
 function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSetup }: {
   pages: Page[]; drafts: LiveDraft[]; query: string; focus?: string;
   onFix: (blockId: string, entryId: string) => void; onAdd: (blockId: string) => void; onDrafts: (cardId: string) => void;
-  /** Characters and Items Blocks: open their field setup. */
+  /** Characters and Items Blocks: open their field setup. Places Blocks: their map. */
   onSetup: (blockId: string) => void;
 }) {
   const [folded, setFolded] = useStored<string[]>('village:workshop:folded-blocks', []);
@@ -1149,6 +1153,13 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSe
                     <Tip text={b.type === 'items' ? `Choose what ${b.title} tiles and full views show, with a preview` : `Choose the fields ${b.title} cards show, with a preview`} tint={p.tint} className="shrink-0">
                       <button onClick={() => onSetup(b.id)} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">
                         <SlidersHorizontal size={13} aria-hidden="true" /> Set up
+                      </button>
+                    </Tip>
+                  )}
+                  {b.type === 'collection' && b.look === 'map' && (
+                    <Tip text={`The map picture, and a pin for each place in ${b.title}`} tint={p.tint} className="shrink-0">
+                      <button onClick={() => onSetup(b.id)} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">
+                        <MapPin size={13} aria-hidden="true" /> Map
                       </button>
                     </Tip>
                   )}

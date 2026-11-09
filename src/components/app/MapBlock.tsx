@@ -9,14 +9,16 @@ import { TINT } from './tint';
 import { Piece } from '@/components/Piece';
 import { useTicks } from './entries';
 import type { BlockContext } from './Blocks';
+import { PictureMap, clearKey } from '@/components/world/PictureMap';
+import { mapOf } from '@/lib/world-map';
 
 // The "map" look for a Collection: places grouped by region (the Block's first filter) and
 // drawn as a map of region tiles. Mark places cleared as you go, and the tiles fill in.
-// Our own layout from what players know, never the game's map art.
+// With a map picture (docs/blocks/world.md), the picture with a pin for each place instead.
 
 export interface Region { name: string; label: string; places: Entry[]; hub: boolean }
 
-export const clearKey = (block: Block, e: Entry) => `cleared:${block.id}.${e.id}`;
+export { clearKey };
 
 /** Places grouped into regions, in the order the Block lists them. The hub comes first. */
 export function regionsOf(block: Block, shown: Entry[]): Region[] {
@@ -42,11 +44,15 @@ function levels(places: Entry[]) {
   return lo === hi ? `Lv ${lo}` : `Lv ${lo}–${hi}`;
 }
 
-export function RegionMap({ block, ctx, regions, onOpen }: {
+export function RegionMap({ block, ctx, regions, onOpen, onOpenPlace }: {
   block: Block; ctx: BlockContext; regions: Region[]; onOpen: (r: Region) => void;
+  /** With a map picture: a pin's "Open". */
+  onOpenPlace?: (e: Entry) => void;
 }) {
   const [ticks] = useTicks(ctx.gameId);
   const t = TINT[ctx.tint];
+  const map = mapOf(block);
+  if (map && onOpenPlace) return <PictureMap block={block} ctx={ctx} map={map} places={regions.flatMap((r) => r.places)} onOpenPlace={onOpenPlace} />;
   return (
     // Map paper: a faint dot grid under the tiles.
     <div className="mt-4 rounded-2xl bg-card-2 p-3 ring-1 ring-line [background-image:radial-gradient(color-mix(in_srgb,var(--muted)_28%,transparent)_1px,transparent_1.5px)] [background-size:16px_16px]">

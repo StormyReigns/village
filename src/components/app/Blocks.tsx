@@ -194,7 +194,7 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
       )}
 
       {isMap && !asList && !query.trim() ? (
-        <RegionMap block={block} ctx={ctx} regions={regionsOf(block, shown)} onOpen={setRegion} />
+        <RegionMap block={block} ctx={ctx} regions={regionsOf(block, shown)} onOpen={setRegion} onOpenPlace={openIt} />
       ) : list.length === 0 ? (
         <NothingFound query={query} shown={shown} block={block} ctx={ctx} onOpen={openIt} />
       ) : groups.map(([g, es]) => (

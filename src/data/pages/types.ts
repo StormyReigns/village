@@ -88,12 +88,21 @@ export interface Entry {
   stats?: Record<string, number>;
   /** Timeline position. */
   order?: number;
+  /** A place on a Block with a map picture: where its pin sits, in percent across (x) and down
+   *  (y) the picture. Part of the content, so a pin is a Draft like any edit. The database
+   *  doesn't check it: read it with `spotOf` in src/lib/world-map.ts. */
+  spot?: { x: number; y: number };
   spoiler?: boolean;
   flag?: 'unconfirmed' | 'disputed';
   source?: string;
   /** Where it lives in the database: the entry and its Stable revision. Drafts edit these. */
   ref?: { card: string; revision: number };
 }
+
+/** A Block's map picture (docs/blocks/world.md): a path in the map-pictures bucket (never a web
+ *  address), its size in pixels, and who to credit ("Map: Game8"). Moderators write it directly,
+ *  so read it with `mapOf` in src/lib/world-map.ts, which checks it. */
+export interface BlockMap { picture: string; w: number; h: number; credit?: string }
 
 /** What a Draft proposes for an entry: everything except its address. */
 export type EntryContent = Omit<Entry, 'id' | 'ref'>;
@@ -124,6 +133,8 @@ export interface Block {
   /** Tier list only: which Block on this Page it ranks, its tiers, and optional limits
    *  (docs/blocks/tier-lists.md). A Tier list has no entries of its own. */
   tierSetup?: TierSetup;
+  /** Places (a "map" Collection): the picture its pins sit on, set by moderators. */
+  map?: BlockMap;
   entries: Entry[];
 }
 
