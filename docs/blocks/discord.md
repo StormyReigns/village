@@ -1,7 +1,7 @@
 # Discord (the second integration)
 
-**Status:** Posts live (2026-11-09; Matt's test post arrived). Communities built (2026-11-09),
-waiting on its SQL · **Chat:** `Village · Discord` · **Mockup:** none yet ·
+**Status:** Posts live (2026-11-09; Matt's test post arrived). Communities live (2026-11-09;
+SQL run by Matt) · **Chat:** `Village · Discord` · **Mockup:** none yet ·
 **Code:** `src/lib/discord.ts` (checking webhook links; tested), `src/components/discord/DiscordCard.tsx`
 (the moderator's setup card), `src/lib/communities.ts` (reading invites and links, Discord's
 answer, the order; tested), `src/components/communities/` (the home card, the sheets, the
