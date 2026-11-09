@@ -140,6 +140,9 @@ Community-built companion apps for games, with a village theme. Two layers:
 - Run `npm test` after changing the schema or Standouts; `npm run build` before committing.
   After an SQL data change, delete `.next/cache/fetch-cache` before a local build, or it reuses old
   database answers.
+- A Vercel deploy stuck on "pending" can finish later and replace newer ones on the live site
+  (2026-11-09). After a stuck deploy, check the live site has the newest code, not just the
+  latest commit's status; if it rolled back, push an empty commit.
 - The game app reads from the database (`src/lib/app-data.ts`, cached, refreshed when a
   moderator publishes). Starter Pages live in `src/data/pages/`; `npm run db:seed-app`
   turns them into `supabase/seed-app.sql`, which is safe to rerun and never overwrites
