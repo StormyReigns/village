@@ -149,6 +149,15 @@ Drafts, and the place form's "Where on the map".
   with a white edge and a yellow tick; the picked one is bigger with a white glow (Matt: the white
   split outline looked choppy and cheap on a map; this reads on any picture). The group chips use
   the Profiles strip's scroller (arrows, wheel, no bar), with room so nothing is cut off.
+- 2026-11-09: tapping a pin no longer zooms (Matt: "a little clunky"): the map glides only when the
+  pin is near an edge (or under the tray in full screen), keeping its zoom; every move (zoom
+  buttons, Fit, a count, a place opened from a link, which still zooms in) eases over a third of a
+  second instead of jumping.
+- 2026-11-09: the pin's card is now the place's tray (Matt): it slides up from the bottom of the
+  screen showing only its top (name, group, region, level, Cleared); drag it up, tap it, or tap
+  the pin again for the whole place (its details, videos, what's here), drag down to tuck it away
+  or further to close. The map stays usable while it peeks. "Share or fix this place" opens the
+  usual panel. Code: `src/components/world/PlaceSheet.tsx`.
 - 2026-11-09: placing pins in full screen (Matt: "select from list + pin efficiently"): a "Full
   screen" button over the Workshop's map; in full screen the places sit in a strip under the map,
   the picked one in yellow, those not on the map yet first. The editor starts on the first place

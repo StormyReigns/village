@@ -35,7 +35,7 @@ const GAP = PIN + 6;
 /** How far past its edges the map can be dragged, so a pin under the tools can come out. */
 const PAD = 52;
 
-export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, credit, focus, bar, overlay, tray, fullRequest, frameClass }: {
+export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, credit, focus, bar, overlay, tray, fullRequest, exitRequest, frameClass }: {
   src: string;
   pic: Size;
   alt: string;
@@ -44,11 +44,12 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
   onPin?: (id: string) => void;
   /** A tap on the picture itself (placing a pin), with the spot under it. */
   onSpot?: (spot: { x: number; y: number }) => void;
-  /** The Page's color name. */
-  tint: string;
+  /** The Page's color name (pins are yellow and ink on every Page, so the map itself doesn't use it). */
+  tint?: string;
   credit?: string;
-  /** Center on this spot when it changes (a pin opened from a link, a place picked in a list). */
-  focus?: { x: number; y: number; key: string } | null;
+  /** Bring this spot into view when it changes: a gentle pan only if it's near an edge (a tapped
+   *  pin), or centered and zoomed in when `zoom` (a place opened from a link). */
+  focus?: { x: number; y: number; key: string; zoom?: boolean } | null;
   /** Over the bottom of the frame: the picked pin's card. */
   bar?: ReactNode;
   /** Over the top left of the frame: what's filtered. */
@@ -57,6 +58,8 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
   tray?: ReactNode;
   /** Opens full screen each time it changes (a "Full screen" button outside the map). */
   fullRequest?: number;
+  /** Leaves full screen each time it changes (something opening over the page), without a step back. */
+  exitRequest?: number;
   /** The frame's height when it isn't full screen. Without it, the picture's own shape (from the
    *  Block's width), at least 15rem so the pin's card fits, at most two thirds of the
    *  screen, so a wide map has few empty bands on a phone. */
@@ -68,12 +71,11 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
   const [full, setFull] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const [tools, setTools] = useState(false);
+  // The latest view, size and full screen, for touch and wheel handlers and glides.
   const viewRef = useRef<View | null>(null);
-  viewRef.current = view;
   const sizeRef = useRef<Size | null>(null);
-  sizeRef.current = size;
   const fullRef = useRef(false);
-  fullRef.current = full;
+  useLayoutEffect(() => { viewRef.current = view; sizeRef.current = size; fullRef.current = full; });
   // A drag that moved isn't a tap.
   const moved = useRef(false);
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -104,16 +106,45 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
     return () => ro.disconnect();
   }, [pic, full]);
 
+  // Moves glide (zoom buttons, Fit, a count, bringing a pin into view): a quick ease-out, so the
+  // map never jumps. A finger or the mouse on the map stops a glide at once.
+  const glide = useRef<number | null>(null);
+  const stopGlide = () => { if (glide.current != null) { cancelAnimationFrame(glide.current); glide.current = null; } };
+  const glideTo = useCallback((to: View) => {
+    if (glide.current != null) cancelAnimationFrame(glide.current);
+    const from = viewRef.current;
+    if (!from || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setView(to); return; }
+    const start = performance.now(), ms = 320;
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / ms), e = 1 - Math.pow(1 - t, 3);
+      // Scale eases on a log curve, so zooming feels even; position follows.
+      const scale = Math.exp(Math.log(from.scale) + (Math.log(to.scale) - Math.log(from.scale)) * e);
+      setView({ scale, x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e });
+      glide.current = t < 1 ? requestAnimationFrame(step) : null;
+    };
+    glide.current = requestAnimationFrame(step);
+  }, []);
   const update = useCallback((f: (v: View, s: Size) => View) => {
     const v = viewRef.current, s = sizeRef.current;
-    if (v && s) setView(f(v, s));
-  }, []);
+    if (v && s) glideTo(f(v, s));
+  }, [glideTo]);
 
-  // Center on a spot when asked, zoomed in a little if the map is at its fitted size.
+  // Bring a spot into view when asked. A tapped pin moves only if it's near an edge (or, in full
+  // screen, under the place's tray), and never zooms; a place opened from a link is centered and
+  // zoomed in a little.
   const focusKey = focus?.key;
   useEffect(() => {
     if (!focus) return;
-    update((v, s) => centerOn(focus, Math.max(v.scale, fitView(s, pic).scale * 2), s, pic, PAD));
+    const v = viewRef.current, s = sizeRef.current;
+    if (!v || !s) return;
+    if (focus.zoom) { glideTo(centerOn(focus, Math.max(v.scale, fitView(s, pic).scale * 2), s, pic, PAD)); return; }
+    const at = spotToFrame(focus, v, pic);
+    const bottom = s.h - (fullRef.current ? 150 : 40);
+    if (at.x > 48 && at.x < s.w - 48 && at.y > 56 && at.y < bottom) return;
+    // Centered in the part of the map that's in view (above the tray in full screen).
+    const shift = fullRef.current ? 55 : 0;
+    const c = centerOn(focus, v.scale, s, pic, PAD);
+    glideTo(clampView({ ...c, y: c.y - shift }, s, pic, PAD));
     // Only when the spot asked for changes.
   }, [focusKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -132,6 +163,7 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
     const begin = (e: TouchEvent) => {
       const v = viewRef.current;
       if (!v) return;
+      if (e.touches.length >= 2 || fullRef.current) stopGlide();
       if (e.touches.length >= 2 || fullRef.current) { const r = read(e.touches); start = { v, ...r }; } else start = null;
       if (e.touches.length === 1) { moved.current = false; warned = false; }
     };
@@ -162,6 +194,7 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
     const wheel = (e: WheelEvent) => {
       if (!e.ctrlKey && !fullRef.current) { say('Hold Ctrl and scroll to zoom'); return; }
       e.preventDefault();
+      stopGlide();
       const r = el.getBoundingClientRect();
       const s = sizeRef.current, v = viewRef.current;
       if (s && v) setView(zoomAt(v, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.002)), { x: e.clientX - r.left, y: e.clientY - r.top }, s, pic, PAD));
@@ -182,9 +215,10 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
     if (e.pointerType === 'touch' || e.button !== 0 || !view) return;
     if ((e.target as HTMLElement).closest('button, a, input, [data-map-ui]')) return;
     setTools(false);
-    drag.current = { x: e.clientX, y: e.clientY, v: view };
+    stopGlide();
+    drag.current = { x: e.clientX, y: e.clientY, v: viewRef.current ?? view };
     moved.current = false;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* a pointer the browser no longer tracks */ }
   };
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current;
@@ -222,7 +256,13 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
     if (fullRequest === asked.current) return;
     asked.current = fullRequest;
     if (!fullRef.current) open();
-  }, [fullRequest]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fullRequest]);
+  const exited = useRef(exitRequest);
+  useEffect(() => {
+    if (exitRequest === exited.current) return;
+    exited.current = exitRequest;
+    if (fullRef.current) { pushed.current = false; setFull(false); }
+  }, [exitRequest]);
   // Leaving full screen for something that opens over the page (a place's card): close it
   // without stepping back, so what opens isn't undone by the step. A tick later, so the tapped
   // button still gets its own tap (closing at once would take it off the page first).
@@ -282,7 +322,7 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
         style={full || frameClass ? undefined : { height: `clamp(15rem, calc(100cqw * ${pic.h / pic.w}), min(66dvh, 40rem))` }}
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onClick={onClick}
         className={'relative select-none overflow-hidden ' + (full ? 'min-h-0 flex-1 bg-ink [touch-action:none]' : `${frameClass ?? 'w-full'} rounded-2xl bg-card-2 ring-1 ring-line [touch-action:pan-x_pan-y]`)
-          + (onSpot ? ' cursor-crosshair' : drag.current ? ' cursor-grabbing' : ' cursor-grab')}>
+          + (onSpot ? ' cursor-crosshair' : ' cursor-grab active:cursor-grabbing')}>
         {view && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={src} alt="" draggable={false} width={pic.w} height={pic.h}
