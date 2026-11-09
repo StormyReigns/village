@@ -236,8 +236,8 @@ only as two numbers 0 to 100), `changes.ts` ("Put on the map", "Moved on the map
 
 ## Build plan (slice 1: the map)
 
-1. **Database** (`supabase/migrations/20261110000000_world_map.sql`, reviewed by the hub, run by Matt 2026-11-09;
-   runs it): `game_blocks.map`, and the `map-pictures` bucket (moderators upload).
+1. **Database** (`supabase/migrations/20261110000000_world_map.sql`, reviewed by the hub, run by Matt 2026-11-09):
+   `game_blocks.map`, and the `map-pictures` bucket (moderators upload).
 2. `src/lib/world-map.ts` (plain, tested): reading and writing a spot, the picture's address,
    fitting and zooming maths, grouping close pins into a count.
 3. `src/components/world/PictureMap.tsx`: the map in the Block (fit, zoom buttons, two-finger
