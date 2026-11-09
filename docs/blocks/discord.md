@@ -1,6 +1,6 @@
 # Discord (the second integration)
 
-**Status:** Designed with Matt, building slice 1 (2026-11-09) · **Chat:** `Village · Discord` · **Mockup:** none yet ·
+**Status:** Slice 1 live (2026-11-09): "New in the app" posts; SQL run by Matt; waiting on his real-Discord test · **Chat:** `Village · Discord` · **Mockup:** none yet ·
 **Code (planned):** `src/lib/discord.ts` (checking webhook and invite links, building the
 message; plain and tested), `src/components/discord/` (the moderator's setup sheet, the
 Communities card and sheet), `src/app/api/discord-invite/[code]/route.ts` (asks Discord about
