@@ -75,7 +75,7 @@ export function PictureMap({ block, ctx, map, places, onOpenPlace, src: sample }
         <button type="button" onClick={() => { toggle(key); setSnapped(key); }} role="checkbox" aria-checked={on} aria-label={`Cleared: ${pick.name}`} className="shrink-0">
           <Piece size={40} color={`var(--${ctx.tint})`} outline={!on} snap={on && snapped === key}>{on ? <Check size={14} strokeWidth={3} aria-hidden="true" /> : null}</Piece>
         </button>
-        <button type="button" onClick={() => onOpenPlace(pick)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+        <button type="button" data-map-exit onClick={() => onOpenPlace(pick)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
           <span className="min-w-0 flex-1">
             <span className="block truncate font-bold leading-tight">{pick.name}</span>
             <span className="block truncate text-xs text-muted">{[region, pick.stat, on ? 'Cleared' : null].filter(Boolean).join(' · ')}</span>

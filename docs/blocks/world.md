@@ -142,6 +142,13 @@ Drafts, and the place form's "Where on the map".
 - 2026-11-09: the build doesn't depend on what the picture is, game map or scribble (Matt).
   What matters is that it's usable inside the Block it's on.
 - 2026-11-09: tools as one magnifier over the map, not a row under it (Matt): less in the way.
+- 2026-11-09: full screen sits over everything, straight under the page's body (on phones the
+  pin's card was hidden behind the page), and "Open" on a pin's card leaves full screen so the
+  place opens in front (Matt found both).
+- 2026-11-09: placing pins in full screen (Matt: "select from list + pin efficiently"): a "Full
+  screen" button over the Workshop's map; in full screen the places sit in a strip under the map,
+  the picked one in yellow, those not on the map yet first. The editor starts on the first place
+  not on the map, and placing a pin moves on to the next, so a whole map is a tap per place.
 - 2026-11-09: Groups on places, one each, a kind of place separate from Region; the map filters by
   several at once; a filter is loud and never remembered (Matt). Why: nobody should wonder where a
   place went. Fortune's Weave's places got their Group from their names

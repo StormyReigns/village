@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ImagePlus, Info, MapPin, Undo2 } from 'lucide-react';
+import { Check, ImagePlus, Info, MapPin, Maximize2, Undo2 } from 'lucide-react';
 import type { Block, BlockMap, Entry, Page } from '@/data/pages';
 import type { Villager } from '@/components/useVillager';
 import { Piece } from '@/components/Piece';
@@ -43,7 +43,8 @@ export function MapSetup({ gameId, block, me, mod, drafts, postDraft, onClose }:
   const movesKey = `village:pins:${gameId}:${block.id}`;
   const [moves, setMoves] = useState<Record<string, Spot>>(() => readMoves(movesKey));
   useEffect(() => { writeMoves(movesKey, moves); }, [movesKey, moves]);
-  const [picked, setPicked] = useState<string | null>(null);
+  // Starts on the first place not on the map yet, so placing begins with one tap on the map.
+  const [picked, setPicked] = useState<string | null>(() => block.entries.find((e) => !moves[e.id] && !spotOf(e))?.id ?? null);
 
   const pictureDirty = Boolean(picture) && (picture?.picture !== saved?.picture || credit.trim() !== (saved?.credit ?? ''));
   const live = (e: Entry) => spotOf(e);
@@ -86,12 +87,25 @@ export function MapSetup({ gameId, block, me, mod, drafts, postDraft, onClose }:
     setNote(error ? (/column/i.test(error.message) ? 'Maps are almost ready: the database needs one more update.' : `Couldn't save: ${error.message}`) : 'Saved. The app shows the map now.');
   };
 
+  // Placing a pin moves on to the next place that isn't on the map yet, so a whole map is just
+  // tap, tap, tap. Picking a place that's already on the map (to move it) doesn't move on.
   const place = (spot: Spot) => {
     if (!pick) { setNote('Pick a place in the list first, then tap where it is.'); return; }
     const s = cleanSpot(spot);
-    if (s) setMoves({ ...moves, [pick.id]: s });
+    if (!s) return;
+    const next = { ...moves, [pick.id]: s };
+    setMoves(next);
     setNote('');
+    if (!moves[pick.id] && !live(pick)) {
+      const after = block.entries.find((e) => e.id !== pick.id && !next[e.id] && !live(e));
+      if (after) setPicked(after.id);
+    }
   };
+  const [fullAsk, setFullAsk] = useState(0);
+  // Keep the picked place in view in the full screen list.
+  useEffect(() => {
+    if (picked) document.querySelector(`[data-place="${CSS.escape(picked)}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  }, [picked]);
   const undo = (id: string) => { const next = { ...moves }; delete next[id]; setMoves(next); };
 
   const send = async () => {
@@ -213,13 +227,50 @@ export function MapSetup({ gameId, block, me, mod, drafts, postDraft, onClose }:
       }
       preview={picture ? (
         <div className="grid gap-2">
-          <p className="flex items-center gap-1.5 text-sm font-bold">
-            <MapPin size={15} aria-hidden="true" />
-            {pick ? <>Tap the map to put <span className="rounded bg-signal px-1">{pick.name}</span> there</> : 'Pick a place, then tap the map'}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="flex min-w-0 flex-1 items-center gap-1.5 text-sm font-bold">
+              <MapPin size={15} className="shrink-0" aria-hidden="true" />
+              {pick ? <span className="min-w-0">Tap the map to put <span className="rounded bg-signal px-1">{pick.name}</span> there</span> : 'Pick a place, then tap the map'}
+            </p>
+            <button type="button" onClick={() => setFullAsk(fullAsk + 1)}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-xs font-bold ring-1 ring-line hover:ring-ink">
+              <Maximize2 size={13} aria-hidden="true" /> Full screen
+            </button>
+          </div>
           <MapCanvas src={src} pic={picture} alt={`Map of ${block.title}`} pins={pins} selected={picked} tint={block.page.tint}
-            onPin={(id) => setPicked(id)} onSpot={place} credit={credit.trim() || undefined}
-            focus={pick && pickSpot ? { ...pickSpot, key: pick.id } : null} frameClass="h-[min(70dvh,40rem)]" />
+            onPin={(id) => setPicked(id)} onSpot={place} credit={credit.trim() || undefined} fullRequest={fullAsk}
+            focus={pick && pickSpot ? { ...pickSpot, key: pick.id } : null} frameClass="h-[min(70dvh,40rem)]"
+            tray={
+              // Full screen: the places in a strip under the map, the picked one in yellow. Placing
+              // a pin moves on to the next place not on the map yet.
+              <div className="bg-card px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5">
+                <div className="flex items-center gap-2 text-sm">
+                  <MapPin size={15} className="shrink-0" aria-hidden="true" />
+                  <p className="min-w-0 flex-1 truncate font-bold">
+                    {pick ? <>Tap the map to put <span className="rounded bg-signal px-1">{pick.name}</span> there</> : 'Pick a place, then tap the map'}
+                  </p>
+                  <span className="shrink-0 text-xs text-muted">{unplaced ? `${unplaced} left` : 'All placed'}{pending.length ? ` · ${pending.length} to submit` : ''}</span>
+                </div>
+                <ul className="-mx-1 mt-2 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
+                  {places.map((e) => {
+                    const moved = pending.some((x) => x.id === e.id);
+                    const on = Boolean(live(e)) || moved;
+                    return (
+                      <li key={e.id} className="shrink-0">
+                        <button type="button" data-place={e.id} onClick={() => setPicked(e.id === picked ? null : e.id)} aria-pressed={e.id === picked}
+                          className={'flex items-center gap-1.5 rounded-full py-1 pl-1 pr-3 text-sm font-bold ring-1 ' + (e.id === picked ? 'bg-signal text-ink ring-ink' : on ? 'bg-card-2 text-muted ring-line' : 'bg-card text-ink ring-ink/40')}>
+                          <Piece size={24} color={`var(--${block.page.tint})`} outline={!on}>
+                            {on ? <Check size={10} strokeWidth={3} className="text-white" aria-hidden="true" /> : <span className="text-[8px] font-black text-ink">{pinMark(e, block)}</span>}
+                          </Piece>
+                          <span className="max-w-40 truncate">{e.name}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="mt-1 text-xs text-muted">Close the map (X) when you&apos;re done, then Submit sends the pins as Drafts.</p>
+              </div>
+            } />
         </div>
       ) : (
         <p className="rounded-2xl bg-card p-4 text-sm text-muted ring-1 ring-line">The map shows here once it has a picture. Until then players see the region tiles.</p>

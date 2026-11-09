@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Maximize2, Minus, Plus, Scan, X, ZoomIn } from 'lucide-react';
 import { Piece, pieceHeight } from '@/components/Piece';
 import { centerOn, clampView, fitView, frameToSpot, groupPins, spotToFrame, zoomAt, type Size, type View } from '@/lib/world-map';
@@ -31,7 +32,7 @@ const GAP = PIN + 6;
 /** How far past its edges the map can be dragged, so a pin under the tools can come out. */
 const PAD = 52;
 
-export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, credit, focus, bar, overlay, frameClass }: {
+export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, credit, focus, bar, overlay, tray, fullRequest, frameClass }: {
   src: string;
   pic: Size;
   alt: string;
@@ -49,6 +50,10 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
   bar?: ReactNode;
   /** Over the top left of the frame: what's filtered. */
   overlay?: ReactNode;
+  /** Full screen only, under the map: a Builder's list of places to pin. */
+  tray?: ReactNode;
+  /** Opens full screen each time it changes (a "Full screen" button outside the map). */
+  fullRequest?: number;
   /** The frame's height when it isn't full screen. Without it, the picture's own shape (from the
    *  Block's width), at least 15rem so the pin's card fits, at most two thirds of the
    *  screen, so a wide map has few empty bands on a phone. */
@@ -94,7 +99,7 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [pic]);
+  }, [pic, full]);
 
   const update = useCallback((f: (v: View, s: Size) => View) => {
     const v = viewRef.current, s = sizeRef.current;
@@ -166,7 +171,7 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
       el.removeEventListener('touchcancel', end);
       el.removeEventListener('wheel', wheel);
     };
-  }, [pic, say]);
+  }, [pic, say, full]);
 
   // Mouse (and pen): drag to move.
   const drag = useRef<{ x: number; y: number; v: View } | null>(null);
@@ -207,6 +212,19 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
     // A fresh state object, never Next's own (see useOpenEntry), so Back closes the map.
     window.history.pushState({ villageMap: true }, '', window.location.href);
     pushed.current = true;
+  };
+  // "Full screen" from outside the map.
+  const asked = useRef(fullRequest);
+  useEffect(() => {
+    if (fullRequest === asked.current) return;
+    asked.current = fullRequest;
+    if (!fullRef.current) open();
+  }, [fullRequest]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Leaving full screen for something that opens over the page (a place's card): close it
+  // without stepping back, so what opens isn't undone by the step. A tick later, so the tapped
+  // button still gets its own tap (closing at once would take it off the page first).
+  const leave = (e: React.MouseEvent) => {
+    if (fullRef.current && (e.target as HTMLElement).closest('[data-map-exit]')) { pushed.current = false; setTimeout(() => setFull(false), 0); }
   };
   useEffect(() => {
     if (!full) return;
@@ -260,8 +278,10 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
     </button>
   );
 
-  return (
-    <div className={full ? 'fixed inset-0 z-[60] flex flex-col bg-ink' : 'relative @container'}>
+  const content = (
+    // Full screen goes straight under <body>, so nothing on the page (a Block's animation, the
+    // phone's tab bar) can sit over it or trap it.
+    <div className={full ? 'fixed inset-0 z-[80] flex flex-col bg-ink' : 'relative @container'}>
       <div ref={frame} role="application" aria-label={alt} aria-roledescription="map"
         style={full || frameClass ? undefined : { height: `clamp(15rem, calc(100cqw * ${pic.h / pic.w}), min(66dvh, 40rem))` }}
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onClick={onClick}
@@ -303,9 +323,11 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, tint, 
         {hint && (
           <p role="status" className="pointer-events-none absolute inset-x-0 top-1/2 mx-auto w-fit -translate-y-1/2 rounded-full bg-ink/85 px-4 py-2 text-sm font-bold text-white">{hint}</p>
         )}
-        {bar && <div data-map-ui className="absolute inset-x-2 bottom-2">{bar}</div>}
+        {bar && <div data-map-ui onClickCapture={leave} className={'absolute inset-x-2 ' + (full && !tray ? 'bottom-[max(0.5rem,env(safe-area-inset-bottom))]' : 'bottom-2')}>{bar}</div>}
       </div>
+      {full && tray}
       {credit && <p className={'px-1 pt-1.5 text-xs ' + (full ? 'px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-white/70' : 'text-muted')}>{credit}</p>}
     </div>
   );
+  return full ? createPortal(content, document.body) : content;
 }
