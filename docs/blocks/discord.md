@@ -1,11 +1,13 @@
 # Discord (the second integration)
 
-**Status:** Slice 1 live (2026-11-09): "New in the app" posts; SQL run by Matt; his test post arrived in his own server · **Chat:** `Village · Discord` · **Mockup:** none yet ·
-**Code (planned):** `src/lib/discord.ts` (checking webhook and invite links, building the
-message; plain and tested), `src/components/discord/` (the moderator's setup sheet, the
-Communities card and sheet), `src/app/api/discord-invite/[code]/route.ts` (asks Discord about
-an invite, kept for a day) · **Database (planned):** one new migration, reviewed by the hub
-before Matt runs it.
+**Status:** Posts live (2026-11-09; Matt's test post arrived). Communities built (2026-11-09),
+waiting on its SQL · **Chat:** `Village · Discord` · **Mockup:** none yet ·
+**Code:** `src/lib/discord.ts` (checking webhook links; tested), `src/components/discord/DiscordCard.tsx`
+(the moderator's setup card), `src/lib/communities.ts` (reading invites and links, Discord's
+answer, the order; tested), `src/components/communities/` (the home card, the sheets, the
+moderators' queue), `src/app/api/discord-invite/[code]/route.ts` (asks Discord about an invite,
+kept for a day) · **Database:** `supabase/migrations/20261111000000_discord_posts.sql` (run) and
+`20261111120000_communities.sql`, both reviewed by the hub.
 
 Not a Block: two parts that connect a game's app to the Discord servers its players already
 use. Written up here with the Blocks because it's built like one.
@@ -189,8 +191,14 @@ New tables, so Matt runs SQL (reviewed by the hub first). Checked in
    (`src/components/discord/DiscordCard.tsx`) with paste, test, kinds and disconnect. Matt's test
    post arrived. To stop the timer: `select cron.unschedule('village-discord-flush');`
 2. New videos and help wanted, as ticks on the card.
-3. **Communities**: the invite lookup, the card on the home, listing and approval, votes.
-4. Rechecking invites and the "stopped working" path.
+3. **Communities** (built 2026-11-09): the invite lookup, the card on the home (after the
+   "reasons to come back" cards), "List your community" with "Is this the one?", Recommend and
+   Not for me, reports and taking down from the "⋯", and on the Notice Board, waiting listings
+   (Approve, Decline with a reason) and reported ones (Take it down, Dismiss). Approving or
+   declining goes to the lister's inbox. **SQL for Matt:** `20261111120000_communities.sql`.
+4. Rechecking invites and the "stopped working" path. For now a dead, expiring or
+   age-restricted invite is simply not shown (Discord's answer is kept for a day); moderators see
+   why on a waiting listing, but nobody is told when a live one stops working.
 
 ## Decisions
 
@@ -211,6 +219,14 @@ New tables, so Matt runs SQL (reviewed by the hub first). Checked in
   recommend the best, and the top three show on the home.
 - 2026-11-09 (Matt): no "home server" pin; votes decide the order. Only Discord's own
   "Verified" mark gets an Official tag. Why: fair to fan servers.
+
+- 2026-11-09 (building): Discord's name, icon and counts are never stored, only read from Discord
+  through our server; the name saved with a listing is just a label for moderators and the inbox.
+  Why: nobody can make a listing look like a different server.
+- 2026-11-09 (building, the hub): a new listing always starts waiting and dated now, whatever is
+  sent, so it can't skip approval or be backdated past the 5-a-day limit.
+- 2026-11-09 (building): listing reports are handled in the Communities part of the Notice Board,
+  not in the general report list. Why: no change to the shared report code.
 
 ## Open questions (for Matt)
 

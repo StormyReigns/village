@@ -18,6 +18,7 @@ import { colorFor, entryText, onRoute, useRecent, useTicks } from './entries';
 import { closest, rank } from '@/lib/search';
 import { TINT } from './tint';
 import { AllQuestions, AskFromSearch, QuestionBar, type QPage } from '@/components/questions/Questions';
+import { CommunitiesCard } from '@/components/communities/Communities';
 
 export interface AppGame {
   id: string;
@@ -270,6 +271,9 @@ export function AppHome({ game, pages }: { game: AppGame; pages: Page[] }) {
           )}
         <NewInVillage gameId={game.id} />
       </div>
+
+      {/* Where players hang out: Discord servers and other communities (docs/blocks/discord.md). */}
+      <CommunitiesCard gameId={game.id} gameName={game.shortTitle} />
 
       <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {pages.map((p) => {

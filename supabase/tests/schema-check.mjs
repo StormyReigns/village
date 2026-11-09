@@ -497,3 +497,53 @@ await expectOk(A, `select public.remove_discord_hook('fortunes-weave')`, 'a mode
 const hooksLeft = await db.query(`select count(*)::int as n from public.discord_hooks`);
 hooksLeft.rows[0].n === 0 ? ok('the link is forgotten') : bad('hook still there');
 }
+
+// Communities (docs/blocks/discord.md, part 2): players list a Discord server or a link, which
+// waits for a moderator; approving or declining tells the lister in their inbox; votes, never on
+// your own; reports reach the game and close when it's taken down; 5 listings a day.
+{
+const CM1 = 'cccccccc-0000-0000-0000-000000000001', CM2 = 'cccccccc-0000-0000-0000-000000000002', CM3 = 'cccccccc-0000-0000-0000-000000000003';
+await expectOk(C, `insert into public.communities (id, game_id, kind, invite, name, pitch, listed_by) values ('${CM1}', 'fortunes-weave', 'discord', 'WeaveFans', 'Weave Fans', 'Co-op every Friday', '${C}')`, 'a villager lists a Discord server');
+await expectOk(C, `insert into public.communities (id, game_id, kind, url, name, pitch, listed_by) values ('${CM2}', 'fortunes-weave', 'link', 'https://www.reddit.com/r/FortunesWeave', 'r/FortunesWeave', 'News and builds', '${C}')`, 'and a subreddit');
+await expectFail(C, `insert into public.communities (game_id, kind, invite, pitch, listed_by) values ('fortunes-weave', 'discord', 'weavefans', 'Again', '${C}')`, 'the same server cannot be listed twice for a game');
+await expectFail(C, `insert into public.communities (game_id, kind, url, name, pitch, listed_by) values ('fortunes-weave', 'link', 'https://bit.ly/abc', 'Short', 'Hidden link', '${C}')`, 'link shorteners are refused');
+await expectFail(C, `insert into public.communities (game_id, kind, url, name, pitch, listed_by) values ('fortunes-weave', 'link', 'javascript:alert(1)', 'X', 'Bad link', '${C}')`, 'only https links are kept');
+await expectFail(C, `insert into public.communities (game_id, kind, invite, pitch, listed_by) values ('fortunes-weave', 'discord', 'other1', 'Pretend', '${B}')`, 'nobody lists in someone else\'s name');
+await expectOk(C, `insert into public.communities (game_id, kind, invite, pitch, listed_by, status) values ('fortunes-weave', 'discord', 'other2', 'Sneaky', '${C}', 'live')`, 'a villager sends a listing marked live');
+const sneaky = await db.query(`select status from public.communities where invite = 'other2'`);
+sneaky.rows[0]?.status === 'waiting' ? ok('it still waits for approval') : bad('skipped approval ' + JSON.stringify(sneaky.rows));
+const seenWaiting = await asUser(B, `select count(*)::int as n from public.communities`);
+const ownWaiting = await asUser(C, `select count(*)::int as n from public.communities`);
+seenWaiting.rows[0].n === 0 && ownWaiting.rows[0].n === 3 ? ok('waiting listings show only to their lister and moderators') : bad('waiting visible ' + JSON.stringify([seenWaiting.rows, ownWaiting.rows]));
+await expectFail(C, `update public.communities set status = 'live' where id = '${CM1}'`, 'a villager cannot approve their own listing');
+await expectFail(B, `select public.decide_community('${CM1}', true)`, 'a villager cannot approve listings');
+await expectFail(A, `select public.decide_community('${CM2}', false, '')`, 'declining needs a reason');
+await expectOk(A, `select public.decide_community('${CM1}', true)`, 'a moderator approves the server');
+await expectOk(A, `select public.decide_community('${CM2}', false, 'Please link the main subreddit')`, 'and declines the link with a reason');
+await expectFail(A, `select public.decide_community('${CM1}', false, 'changed my mind')`, 'a decided listing stays decided');
+const cin = await db.query(`select type, payload->>'title' as title, payload->>'body' as body from public.inbox where profile_id = '${C}' and type like 'community_%' order by id`);
+cin.rows.length === 2 && cin.rows[0].type === 'community_live' && cin.rows[1].body === 'Please link the main subreddit'
+  ? ok('the lister hears both answers in their inbox') : bad('community inbox ' + JSON.stringify(cin.rows));
+const liveNow = await asUser(B, `select id from public.communities`);
+liveNow.rows.length === 1 && liveNow.rows[0].id === CM1 ? ok('an approved listing shows to everyone; a declined one does not') : bad('live ' + JSON.stringify(liveNow.rows));
+await expectFail(C, `insert into public.community_votes (community_id, voter_id, value) values ('${CM1}', '${C}', 1)`, 'nobody votes on their own listing');
+await expectOk(B, `insert into public.community_votes (community_id, voter_id, value) values ('${CM1}', '${B}', 1)`, 'another villager recommends it');
+await expectOk(A, `insert into public.community_votes (community_id, voter_id, value) values ('${CM1}', '${A}', -1)`, 'a moderator says not for me');
+await expectFail(B, `insert into public.community_votes (community_id, voter_id, value) values ('${CM2}', '${B}', 1)`, 'nobody votes on a listing that is not live');
+const ct = await asUser(C, `select ups, downs from public.community_tallies('fortunes-weave')`);
+const cv = await asUser(C, `select count(*)::int as n from public.community_votes`);
+ct.rows[0]?.ups === 1 && ct.rows[0].downs === 1 && cv.rows[0].n === 0 ? ok('totals are shared, who voted how is not') : bad('community tallies ' + JSON.stringify([ct.rows, cv.rows]));
+await expectOk(B, `insert into public.flags (community_id, reason, reporter_id) values ('${CM1}', 'spam', '${B}')`, 'a villager reports a listing');
+const cfl = await db.query(`select game_id from public.flags where community_id = '${CM1}'`);
+cfl.rows[0]?.game_id === 'fortunes-weave' ? ok('listing reports reach that game') : bad('community flag ' + JSON.stringify(cfl.rows));
+await expectFail(B, `select public.remove_community('${CM1}')`, 'another villager cannot take a listing down');
+await expectOk(A, `select public.remove_community('${CM1}')`, 'a moderator takes it down');
+const cgone = await db.query(`select (select status from public.communities where id = '${CM1}') as st, (select status from public.flags where community_id = '${CM1}') as fl`);
+cgone.rows[0].st === 'removed' && cgone.rows[0].fl === 'resolved' ? ok('taking it down hides it and closes its reports') : bad('community removal ' + JSON.stringify(cgone.rows));
+await expectOk(C, `insert into public.communities (id, game_id, kind, invite, pitch, listed_by) values ('${CM3}', 'fortunes-weave', 'discord', 'WeaveFans', 'Back again', '${C}')`, 'a taken-down server can be listed again for review');
+await expectOk(C, `select public.remove_community('${CM3}')`, 'the lister can take their own listing away');
+await expectOk(C, `insert into public.communities (game_id, kind, invite, pitch, listed_by, created_at) values ('fortunes-weave', 'discord', 'spam1', 'Backdated', '${C}', '2020-01-01')`, 'a 5th, sent with last year\'s date');
+const dated = await db.query(`select created_at > now() - interval '1 minute' as fresh from public.communities where invite = 'spam1'`);
+dated.rows[0]?.fresh === true ? ok('a listing cannot be backdated: it is dated now') : bad('backdated ' + JSON.stringify(dated.rows));
+await expectFail(C, `insert into public.communities (game_id, kind, invite, pitch, listed_by) values ('fortunes-weave', 'discord', 'spam9', 'Too many', '${C}')`, 'the 6th listing in a day is refused');
+}
