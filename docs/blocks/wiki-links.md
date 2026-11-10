@@ -80,10 +80,10 @@ What that tells us:
 On every character, item and class card (the Profiles card, the List's panel, the entry panel),
 right under the name:
 
-> **Fire Emblem Wiki ↗**
+> **Wiki ↗**
 
-- Small, blue and underlined so it reads plainly as a link out, with the wiki's name so it's clear where you're going (and the wiki
-  gets credit). Hovering says "Opens Fire Emblem Wiki in a new tab. Wikis often have spoilers."
+- Small, blue and underlined so it reads plainly as a link out. Just "Wiki"; which wiki is in
+  the hover text and read out by screen readers. Hovering says "Opens Fire Emblem Wiki in a new tab. Wikis often have spoilers."
 - Opens in a new tab (`target="_blank" rel="noopener noreferrer"`).
 - Shows only when the page was found. Until our check answers (a split second, usually from the
   cache) nothing shows, so there's no flicker of a link that then disappears.
@@ -230,8 +230,8 @@ Where the wiki names a page differently, a builder fixes that one entry with a n
   players pick a favorite wiki anyway. A second can come later if a game's community asks.
 - 2026-11-10 (Matt): a name that lands on a "which one?" page shows no link (after the bracket
   try) and goes on the builders' list. Why: a list page sends players nowhere.
-- 2026-11-10 (Matt): the link carries the wiki's full name, "Fire Emblem Wiki ↗". Why: players
-  see where they're going, and the wiki gets credit.
+- 2026-11-10 (Matt): the link says just "Wiki ↗" (it first said "Fire Emblem Wiki ↗"). Why: short
+  and clear under the name; the wiki's name is in the hover text.
 - 2026-11-10 (Matt): links show on Characters, Items and Collections (classes, foes, places),
   not on Guides, Checklists, Timelines or Tier lists. A per-Block switch in Set up can come later.
 

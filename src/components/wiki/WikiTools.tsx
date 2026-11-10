@@ -80,7 +80,7 @@ export function WikiPageInput({ gameId, name, value, onChange, inputClass }: {
 
   return (
     <div className="grid gap-1.5">
-      <span className="text-sm font-bold">Wiki page <span className="font-normal text-muted">(the “{w.name} ↗” link on its card)</span></span>
+      <span className="text-sm font-bold">Wiki page <span className="font-normal text-muted">(the “Wiki ↗” link on its card, to {w.name})</span></span>
       <Status page={page} />
       {editing && value !== false && (
         <>

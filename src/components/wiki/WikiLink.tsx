@@ -6,7 +6,7 @@ import { ArrowUpRight } from 'lucide-react';
 import type { WikiAnswer } from '@/lib/wiki';
 import { askFromBrowser } from './ask';
 
-// The small blue "Fire Emblem Wiki ↗" right under an entry's name (docs/blocks/wiki-links.md).
+// The small blue "Wiki ↗" right under an entry's name (docs/blocks/wiki-links.md).
 // It shows only once the page is checked to be really on the wiki; until then, and for entries
 // with no page, nothing shows. Our server checks; when the wiki turns our server away, the
 // player's browser asks the same wiki the same names, and remembers the answer for a day.
@@ -63,8 +63,8 @@ export function WikiLink({ cardId, sample = false, className = '' }: {
         title={`Opens ${a.name} in a new tab. Wikis often have spoilers.`}
         className="inline-flex items-center gap-0.5 text-sm font-bold text-sky underline decoration-sky/40 underline-offset-[3px] hover:decoration-sky">
         {/* Blue and underlined, so it reads plainly as a link out (Matt, 2026-11-10). */}
-        {a.name} <ArrowUpRight size={15} strokeWidth={2.75} aria-hidden="true" />
-        <span className="sr-only"> (opens in a new tab)</span>
+        {/* Just "Wiki" (Matt, 2026-11-10); which wiki is in the hover text and for screen readers. */}
+        Wiki<span className="sr-only"> page on {a.name} (opens in a new tab)</span> <ArrowUpRight size={15} strokeWidth={2.75} aria-hidden="true" />
       </a>
     </p>
   );
