@@ -82,7 +82,8 @@ export async function GET(_req: Request, ctx: RouteContext<'/api/wiki/[game]/[ca
     const answer = await answerFor(game, card);
     // Short at the edge, so a renamed entry or a new wiki shows within the hour; the wiki's own
     // answer is kept for a day above.
-    return Response.json(answer, { headers: { 'cache-control': 'public, max-age=600, s-maxage=3600, stale-while-revalidate=86400' } });
+    // (By wiki address, so a moderator's new wiki is asked afresh; this edge copy lasts minutes.)
+    return Response.json(answer, { headers: { 'cache-control': 'public, max-age=300, s-maxage=600, stale-while-revalidate=3600' } });
   } catch (e) {
     // Our own side failed (the app's data couldn't load): no link for now, asked again next time.
     const why = e instanceof Error ? e.name : 'unknown';

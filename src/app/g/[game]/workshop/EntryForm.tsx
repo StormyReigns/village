@@ -29,6 +29,8 @@ import { WikiOpen, WikiPageInput, WikiSourceChip } from '@/components/wiki/WikiT
  *  part of it to fix ("description", "routes", "section:Where to get it") from an app pencil. */
 export interface FormStart {
   blockId: string; entryId?: string; field?: string; theory?: boolean;
+  /** From the wiki list's "Which one?" picks: the page to link, filled in (docs/blocks/wiki-links.md). */
+  wiki?: string;
   /** Answering a player's question (docs/blocks/questions.md): it closes when this Draft ships. */
   question?: { id: string; body: string };
 }
@@ -119,6 +121,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
     if (label && !c.sections.some((s) => s.label === label)) c.sections = [...c.sections, { label, text: '' }];
     // From "Share a theory": it's marked as not confirmed yet.
     if (start.theory) c.flag = 'unconfirmed';
+    if (start.wiki) c.wiki = start.wiki;
     return c;
   });
   const [source, setSource] = useState(restore?.source ?? '');

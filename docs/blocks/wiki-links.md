@@ -1,6 +1,6 @@
 # Wiki links (an integration)
 
-**Status:** Live (2026-11-10): checked links on cards, and a fix per entry · **Chat:** `Village · Wiki links` · **Mockup:** none yet ·
+**Status:** Live (2026-11-10): checked links on cards, a fix per entry, and the builders' list · **Chat:** `Village · Wiki links` · **Mockup:** none yet ·
 **Code:** `src/lib/wiki.ts` (names to wiki addresses, checks; plain and tested),
 `src/app/api/wiki/[game]/[card]/route.ts` (asks the wiki whether the page exists, kept for a day),
 `src/components/wiki/WikiLink.tsx` (the link on cards) · **Database:** one column,
@@ -208,8 +208,17 @@ Where the wiki names a page differently, a builder fixes that one entry with a n
    In the Workshop the builder's browser checks names with the wiki directly (`src/components/wiki/ask.ts`),
    with the same limits as the live fallback. A spreadsheet paste-in copies the whole entry and only
    writes its columns, so a fix survives; a "Wiki page" column can come later.
-3. **Builders' list and moderator setup**: "Links to check" in the Workshop, with "Which one?"
-   picks; "Game wiki" for moderators.
+3. **Builders' list and moderator setup** (built 2026-11-10, `src/components/wiki/WikiCheck.tsx`): a
+   "Wiki" button on each Characters, Items and Collection Block in the Workshop ("In the app") opens
+   "Wiki links: <Block>" in the work column. Every entry is checked from the builder's browser, one
+   question of 50 names at a time, a moment apart, with `maxlag=5` so a busy wiki can say no. Groups:
+   "Which one?" (with "Choices": the pages that list offers that really exist, this game's first;
+   picking one opens the fix with it filled in), "Not on the wiki", "Goes elsewhere", "Turned off"
+   and "Linked". At the top, "Game wiki": moderators paste any page from a known wiki site, Village
+   reads the wiki's own name and page address (siteinfo), and they add the bracket word and save
+   ("That wiki isn't supported yet" for other sites). Saving refreshes the app; the wiki's answers
+   are kept by wiki address, so a new wiki is asked afresh, and the card answer's edge copy lasts
+   ten minutes.
 
 ## Decisions
 
@@ -247,6 +256,8 @@ Where the wiki names a page differently, a builder fixes that one entry with a n
 - None open right now.
 
 ## Later
+
+- **A "Wiki page" column** in spreadsheet downloads and paste-ins, if Matt wants one.
 
 - **Upgrade levels**: "Levin Sword +1" has no page, but "Levin Sword" does. Trying the name
   without a "+1" ending would link those without a fix per entry.

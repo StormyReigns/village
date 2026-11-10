@@ -130,6 +130,8 @@ export function queryUrl(wiki: GameWiki, titles: string[], fromBrowser = false):
   const q = new URLSearchParams({
     action: 'query', format: 'json', formatversion: '2', redirects: '1',
     prop: 'pageprops', ppprop: 'disambiguation', titles: titles.slice(0, TITLES_PER_ASK).join('|'),
+    // A busy wiki may say no politely (an error answer, taken as "couldn't reach", asked again later).
+    maxlag: '5',
     // From a browser, MediaWiki answers another site's page only when asked without a login.
     ...(fromBrowser ? { origin: '*' } : {}),
   });
@@ -209,4 +211,87 @@ export function askOf(raw: unknown): WikiAsk | null {
   if (!Array.isArray(titles) || !titles.length || titles.length > 2) return null;
   if (!titles.every((t) => typeof t === 'string' && toTitle(t) === t)) return null;
   return { wiki, titles };
+}
+
+// ---------------------------------------------------------------- the Workshop's wiki tools
+
+/**
+ * Where a known wiki's API might be, from any page address a moderator pastes: MediaWiki sites
+ * put it at /w/api.php (independent wikis) or /api.php (Fandom, wiki.gg). Empty for a site that
+ * isn't on our list (KNOWN_WIKI_HOSTS), so nothing else is ever asked.
+ */
+export function apiCandidates(pasted: string): string[] {
+  let u: URL;
+  try { u = new URL(pasted.trim()); } catch { return []; }
+  if (u.protocol !== 'https:' || u.username || u.password || u.port) return [];
+  const origin = `https://${u.hostname.toLowerCase()}`;
+  return [`${origin}/w/api.php`, `${origin}/api.php`].filter((a) => API.test(a) && knownWikiHost(a));
+}
+
+/** The question for a wiki's own name and page address. */
+export function siteinfoUrl(api: string): string {
+  return `${api}?${new URLSearchParams({ action: 'query', meta: 'siteinfo', siprop: 'general', format: 'json', formatversion: '2', origin: '*' })}`;
+}
+
+/** A wiki's answer about itself, as a setting to save (without the bracket word). Null if it doesn't fit. */
+export function readSiteinfo(body: unknown, api: string): GameWiki | null {
+  const g = (body as { query?: { general?: { sitename?: unknown; server?: unknown; articlepath?: unknown } } } | null)?.query?.general;
+  if (!g || typeof g.sitename !== 'string' || typeof g.server !== 'string' || typeof g.articlepath !== 'string') return null;
+  const server = g.server.startsWith('//') ? `https:${g.server}` : g.server.replace(/^http:\/\//, 'https://');
+  return wikiOf({ name: g.sitename.slice(0, 60), api, article: `${server.replace(/\/$/, '')}${g.articlepath}` });
+}
+
+/** The question for the pages a "which one?" page lists, and whether each exists. */
+export function linksUrl(wiki: GameWiki, title: string, fromBrowser = true): string {
+  const q = new URLSearchParams({
+    action: 'query', format: 'json', formatversion: '2', redirects: '1', generator: 'links', gplnamespace: '0', gpllimit: '50',
+    prop: 'pageprops', ppprop: 'disambiguation', titles: title, maxlag: '5',
+    ...(fromBrowser ? { origin: '*' } : {}),
+  });
+  return `${wiki.api}?${q}`;
+}
+
+/**
+ * The pages a "which one?" page lists that really exist (a list can link to pages nobody has
+ * written yet) and aren't lists themselves, best first: those naming this game's bracket word.
+ */
+export function readLinks(body: unknown, wiki: GameWiki): string[] {
+  const pages = (body as { query?: { pages?: { title?: unknown; missing?: boolean; invalid?: boolean; pageprops?: Record<string, unknown> }[] } } | null)?.query?.pages;
+  if (!Array.isArray(pages)) return [];
+  const titles = pages
+    .filter((p) => !p.missing && !p.invalid && !(p.pageprops && 'disambiguation' in p.pageprops))
+    .map((p) => p.title)
+    .filter((t): t is string => typeof t === 'string' && toTitle(t) === t && !/\(disambiguation\)$/i.test(t));
+  const mine = (t: string) => (wiki.bracket && t.includes(wiki.bracket) ? 0 : 1);
+  return [...new Set(titles)].sort((x, y) => mine(x) - mine(y) || x.localeCompare(y));
+}
+
+/** How an entry stands with the wiki, for the builders' list. */
+export type WikiCheck =
+  | { kind: 'linked'; title: string; url: string }
+  /** Linked, but through a redirect to a page with another name: worth a glance. */
+  | { kind: 'elsewhere'; title: string; url: string; asked: string }
+  | { kind: 'which'; asked: string }
+  | { kind: 'missing' }
+  | { kind: 'off' };
+
+/** Sorts one entry from the wiki's answer: the same choice as the card link, plus whether a redirect led elsewhere. */
+export function classify(wiki: GameWiki, titles: string[], found: Map<string, PageFound>): WikiCheck {
+  const a = choose(wiki, titles, found);
+  if (!a.ok) {
+    if (a.reason === 'which') return { kind: 'which', asked: titles.find((t) => found.get(t)?.which) ?? titles[titles.length - 1] };
+    return { kind: 'missing' };
+  }
+  const asked = titles.find((t) => found.get(t)?.title === a.title && found.get(t)?.exists && !found.get(t)?.which)!;
+  const f = found.get(asked);
+  // "Zelda" to "Princess Zelda" is fine to show, but a builder should glance at it.
+  if (f?.redirected && !titles.includes(a.title)) return { kind: 'elsewhere', title: a.title, url: a.url, asked };
+  return { kind: 'linked', title: a.title, url: a.url };
+}
+
+/** Splits page names into questions of at most 50. */
+export function inBatches<T>(items: T[], size = TITLES_PER_ASK): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
 }

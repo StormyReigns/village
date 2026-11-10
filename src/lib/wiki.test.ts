@@ -1,7 +1,7 @@
 // Run with: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { askOf, choose, encodeTitle, knownWikiHost, pageUrl, queryUrl, readAnswer, titleFromUrl, titlesFor, toTitle, wikiFixOf, wikiOf, type GameWiki } from './wiki.ts';
+import { apiCandidates, askOf, choose, classify, inBatches, linksUrl, readLinks, readSiteinfo, encodeTitle, knownWikiHost, pageUrl, queryUrl, readAnswer, titleFromUrl, titlesFor, toTitle, wikiFixOf, wikiOf, type GameWiki } from './wiki.ts';
 
 const FE: GameWiki = { name: 'Fire Emblem Wiki', api: 'https://fireemblemwiki.org/w/api.php', article: 'https://fireemblemwiki.org/wiki/$1', bracket: "Fortune's Weave" };
 
@@ -139,4 +139,38 @@ test("an entry's stored fix is checked wherever it's read", () => {
   for (const bad of [undefined, null, true, 0, '', '   ', 'A|B', 'a#b', '<x>', 'x\u0007y', 'x'.repeat(256), ['Maria'], { title: 'Maria' }, 'https://evil.example.com/x|y']) {
     assert.equal(wikiFixOf(bad), undefined, JSON.stringify(bad));
   }
+});
+
+test("a moderator's pasted page: only known wiki sites, two usual API spots", () => {
+  assert.deepEqual(apiCandidates('https://fireemblemwiki.org/wiki/Marth'), ['https://fireemblemwiki.org/w/api.php', 'https://fireemblemwiki.org/api.php']);
+  assert.deepEqual(apiCandidates('https://Terraria.wiki.gg/wiki/Guide'), ['https://terraria.wiki.gg/w/api.php', 'https://terraria.wiki.gg/api.php']);
+  for (const bad of ['https://evil.example.com/wiki/X', 'http://fireemblemwiki.org/wiki/Marth', 'https://fireemblemwiki.org:8443/wiki/Marth', 'not a link', 'https://a@fireemblemwiki.org/']) {
+    assert.deepEqual(apiCandidates(bad), [], bad);
+  }
+});
+
+test("a wiki's answer about itself becomes a setting", () => {
+  assert.deepEqual(readSiteinfo({ query: { general: { sitename: 'Zelda Wiki', server: '//zeldawiki.wiki', articlepath: '/wiki/$1' } } }, 'https://zeldawiki.wiki/w/api.php'),
+    { name: 'Zelda Wiki', api: 'https://zeldawiki.wiki/w/api.php', article: 'https://zeldawiki.wiki/wiki/$1' });
+  assert.equal(readSiteinfo({ query: { general: { sitename: 'X Wiki', server: 'https://other.example.com', articlepath: '/wiki/$1' } } }, 'https://zeldawiki.wiki/w/api.php'), null);
+  assert.equal(readSiteinfo({ error: 'x' }, 'https://zeldawiki.wiki/w/api.php'), null);
+});
+
+test("a which-one page's choices, this game's first", () => {
+  const body = { query: { pages: [
+    { title: "Ranger (Fortune's Weave)", missing: true }, { title: 'Ranger (Fates)', pageid: 1 }, { title: "Ranger (Fortune's Weave class)", pageid: 2 },
+    { title: 'A|B', pageid: 3 }, { title: 'Forest Knight', pageid: 4 }, { title: 'Fire', pageid: 5, pageprops: { disambiguation: '' } }, { title: 'Ursula (disambiguation)', pageid: 6 },
+  ] } };
+  assert.deepEqual(readLinks(body, FE), ["Ranger (Fortune's Weave class)", 'Forest Knight', 'Ranger (Fates)']);
+  assert.equal(new URL(linksUrl(FE, 'Ranger')).searchParams.get('origin'), '*');
+});
+
+test("sorting entries for the builders' list", () => {
+  const f = readAnswer(answer, asked);
+  assert.equal(classify(FE, titlesFor('Maria', FE), f).kind, 'linked');
+  assert.deepEqual(classify(FE, titlesFor('Fire', FE), f), { kind: 'which', asked: 'Fire' });
+  assert.deepEqual(classify(FE, titlesFor('Ursula', FE), f), { kind: 'which', asked: 'Ursula' });
+  assert.deepEqual(classify(FE, titlesFor('Glass Wheel', FE), f), { kind: 'missing' });
+  assert.deepEqual(classify(FE, ['Zelda'], f), { kind: 'elsewhere', title: 'Princess Zelda', url: 'https://fireemblemwiki.org/wiki/Princess_Zelda', asked: 'Zelda' });
+  assert.deepEqual(inBatches([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]]);
 });

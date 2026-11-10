@@ -4,7 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, CircleHelp, EyeOff, FileText, Flag, Hammer, MapPin, MessageCircle, PanelLeftOpen, Plus, ClipboardPaste,
-  RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, X,
+  RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, X, BookOpenText,
 } from 'lucide-react';
 import type { Page } from '@/data/pages';
 import { BlockIcon, NavSymbol } from '@/components/Icon';
@@ -36,6 +36,7 @@ import { EntryForm, ChangeList, type FormStart, type Posted } from './EntryForm'
 import { FieldSetup } from './FieldSetup';
 import { MapSetup } from './MapSetup';
 import { PasteSheet } from './PasteSheet';
+import { WikiCheck } from '@/components/wiki/WikiCheck';
 import { BatchCard } from './BatchCard';
 import { useBatches } from './useBatches';
 import { EditorChat, EditSwap } from './EditorShell';
@@ -86,6 +87,8 @@ export function Workshop({ game, pages, routes }: {
   const [setup, setSetup] = useState<string | null>(() => { const b = params.get('pins'); return b && placeOf(b)?.look === 'map' ? b : null; });
   // Rows pasted from a spreadsheet into a Block (?paste=block, from the app's Download menu).
   const [pasting, setPasting] = useState<string | null>(() => { const b = params.get('paste'); return b && placeOf(b) ? b : null; });
+  // A Block's wiki links: what to check, and the game's wiki (docs/blocks/wiki-links.md).
+  const [wikiFor, setWikiFor] = useState<string | null>(null);
   // A batch to open in Drafts, once it's sent.
   const [openBatch, setOpenBatch] = useState<string | null>(null);
   // The work column shows Drafts or what's in the app. Until you pick, it opens on Drafts
@@ -344,11 +347,12 @@ export function Workshop({ game, pages, routes }: {
   const editBlock = form ? blocks.find((b) => b.id === form.blockId) : undefined;
   const setupBlock = setup ? blocks.find((b) => b.id === setup) : undefined;
   const pasteBlock = pasting ? blocks.find((b) => b.id === pasting) : undefined;
-  const editing = form && blocks.length > 0 ? 'form' : setupBlock ? 'setup' : pasteBlock ? 'paste' : null;
+  const wikiBlock = wikiFor ? blocks.find((b) => b.id === wikiFor) : undefined;
+  const editing = form && blocks.length > 0 ? 'form' : setupBlock ? 'setup' : pasteBlock ? 'paste' : wikiBlock ? 'wiki' : null;
   const editLabel = editing === 'form'
     ? (form?.entryId ? `Fix: ${editBlock?.entries.find((e) => e.id === form.entryId)?.name ?? 'an entry'}` : `New in ${editBlock?.title ?? 'the app'}`)
-    : setupBlock ? (setupBlock.look === 'map' ? `Map: ${setupBlock.title}` : `Set up ${setupBlock.title}`) : pasteBlock ? `Paste into ${pasteBlock.title}` : '';
-  const editKey = editing ? `${editing}:${form?.blockId}.${form?.entryId}:${setup}:${pasting}` : null;
+    : setupBlock ? (setupBlock.look === 'map' ? `Map: ${setupBlock.title}` : `Set up ${setupBlock.title}`) : pasteBlock ? `Paste into ${pasteBlock.title}` : wikiBlock ? `Wiki links: ${wikiBlock.title}` : '';
+  const editKey = editing ? `${editing}:${form?.blockId}.${form?.entryId}:${setup}:${pasting}:${wikiFor}` : null;
 
   // Threads: what each is about, and the one open beside the chat.
   const threads = useThreads(blocks, drafts, live.messages);
@@ -550,6 +554,9 @@ export function Workshop({ game, pages, routes }: {
               ) : editing === 'paste' ? (
                 <PasteSheet gameId={game.id} block={pasteBlock!} routes={routes} me={me} data={batchData} onClose={closePaste}
                   onSent={(id) => { const page = pasteBlock!.page.id; closePaste(); setChip(page); setTab('drafts'); setOpenBatch(id); }} />
+              ) : editing === 'wiki' ? (
+                <WikiCheck gameId={game.id} block={wikiBlock!} mod={live.mod} onClose={() => setWikiFor(null)}
+                  onFix={(entryId, wiki) => setForm({ blockId: wikiBlock!.id, entryId, field: 'wiki', wiki })} />
               ) : setupBlock!.look === 'map' ? (
                 <MapSetup gameId={game.id} block={setupBlock!} me={me} mod={live.mod} drafts={drafts} postDraft={live.postDraft} onClose={() => setSetup(null)} />
               ) : (
@@ -776,7 +783,7 @@ export function Workshop({ game, pages, routes }: {
                     onAnswer={(a) => setForm({ blockId: a.blockId, entryId: a.entryId, question: a.question })} onOpenDraft={setDetail} />
                 ) : (
                   <AppContents pages={current ? [current] : pages} drafts={drafts} query={query} focus={form?.entryId ? `${form.blockId}.${form.entryId}` : undefined}
-                    onFix={(blockId, entryId) => setForm({ blockId, entryId })} onAdd={(blockId) => setForm({ blockId })} onSetup={setSetup} onPaste={setPasting}
+                    onFix={(blockId, entryId) => setForm({ blockId, entryId })} onAdd={(blockId) => setForm({ blockId })} onSetup={setSetup} onPaste={setPasting} onWiki={setWikiFor}
                     onDrafts={(cardId) => { const d = drafts.find((x) => x.cardId === cardId && isOpen(x)); if (d) setDetail(d.id); }} />
                 )}
               </>
@@ -1154,13 +1161,15 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
  * "In the app": what's on the selected Page right now, Block by Block, so villagers can
  * pick something to fix or add to without leaving the Workshop.
  */
-function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSetup, onPaste }: {
+function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSetup, onPaste, onWiki }: {
   pages: Page[]; drafts: LiveDraft[]; query: string; focus?: string;
   onFix: (blockId: string, entryId: string) => void; onAdd: (blockId: string) => void; onDrafts: (cardId: string) => void;
   /** Characters and Items Blocks: open their field setup. Places Blocks: their map. */
   onSetup: (blockId: string) => void;
   /** Paste rows from a spreadsheet (docs/blocks/spreadsheets.md). */
   onPaste: (blockId: string) => void;
+  /** Characters, Items and Collections: their wiki links (docs/blocks/wiki-links.md). */
+  onWiki: (blockId: string) => void;
 }) {
   const [folded, setFolded] = useStored<string[]>('village:workshop:folded-blocks', []);
   const fold = (id: string) => setFolded(folded.includes(id) ? folded.filter((x) => x !== id) : [...folded, id]);
@@ -1204,6 +1213,13 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSe
                     <Tip text={`The map picture, and a pin for each place in ${b.title}`} tint={p.tint} className="shrink-0">
                       <button onClick={() => onSetup(b.id)} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">
                         <MapPin size={13} aria-hidden="true" /> Map
+                      </button>
+                    </Tip>
+                  )}
+                  {(b.type === 'characters' || b.type === 'items' || b.type === 'collection') && (
+                    <Tip text={`Which of ${b.title} link to the game's wiki, and which need a look`} tint={p.tint} className="shrink-0">
+                      <button onClick={() => onWiki(b.id)} aria-label={`Wiki links for ${b.title}`} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">
+                        <BookOpenText size={13} aria-hidden="true" /><span className="hidden sm:inline">Wiki</span>
                       </button>
                     </Tip>
                   )}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { askOf, choose, queryUrl, readAnswer, searchUrl, titlesFor, wikiFixOf, wikiOf, type GameWiki, type WikiAnswer, type WikiAsk } from '@/lib/wiki';
+import { apiCandidates, askOf, choose, classify, inBatches, knownWikiHost, linksUrl, queryUrl, readAnswer, readLinks, readSiteinfo, searchUrl, siteinfoUrl, titlesFor, toTitle, wikiFixOf, wikiOf, type GameWiki, type PageFound, type WikiAnswer, type WikiAsk, type WikiCheck } from '@/lib/wiki';
 
 // Asking a game's wiki from the browser (docs/blocks/wiki-links.md): when the wiki turns our
 // server away, and in the Workshop while a builder types. Only a known wiki site (the one our
@@ -107,3 +107,52 @@ export function useWikiPage(gameId: string, name: string, rawFix: unknown): Wiki
   if (a.ok) return { state: 'found', wiki, url: a.url, title: a.title };
   return { state: a.reason === 'which' ? 'which' : 'missing', wiki, search, asked: titles[titles.length - 1] };
 }
+
+// ---------------------------------------------------------------- the Workshop's wiki list
+
+/** Every entry of a Block checked against the wiki, from the builder's browser, 50 names a question. */
+export async function checkEntries(wiki: GameWiki, entries: { id: string; name: string; wiki?: unknown }[]): Promise<Map<string, WikiCheck> | null> {
+  if (!knownWikiHost(wiki.api)) return null;
+  const plan = entries.map((e) => {
+    const fix = wikiFixOf(e.wiki);
+    return { id: e.id, off: fix === false, titles: fix === false ? [] : fix ? [fix] : titlesFor(e.name, wiki) };
+  });
+  const found = new Map<string, PageFound>();
+  try {
+    for (const batch of inBatches([...new Set(plan.flatMap((p) => p.titles))])) {
+      const r = await fetch(queryUrl(wiki, batch, true), { credentials: 'omit', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(8000) });
+      if (!r.ok) return null;
+      const got = readAnswer(await r.json(), batch);
+      if (!got.size) return null; // a busy wiki said no (maxlag): try again later
+      for (const [k, v] of got) found.set(k, v);
+      // One question at a time, a moment apart, to go easy on the wiki.
+      await new Promise((ok) => setTimeout(ok, 400));
+    }
+  } catch { return null; }
+  return new Map(plan.map((p) => [p.id, p.off ? { kind: 'off' } : classify(wiki, p.titles, found)]));
+}
+
+/** The pages a "which one?" page lists, this game's first. */
+export async function whichOptions(wiki: GameWiki, title: string): Promise<string[]> {
+  if (!knownWikiHost(wiki.api) || toTitle(title) !== title) return [];
+  try {
+    const r = await fetch(linksUrl(wiki, title), { credentials: 'omit', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(6000) });
+    return r.ok ? readLinks(await r.json(), wiki).slice(0, 12) : [];
+  } catch { return []; }
+}
+
+/** A moderator's pasted page from a known wiki: the wiki behind it, read from the wiki itself. */
+export async function findWiki(pasted: string): Promise<GameWiki | null> {
+  for (const api of apiCandidates(pasted)) {
+    try {
+      const r = await fetch(siteinfoUrl(api), { credentials: 'omit', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(6000) });
+      if (!r.ok) continue;
+      const w = readSiteinfo(await r.json().catch(() => null), api);
+      if (w) return w;
+    } catch { /* try the next spot */ }
+  }
+  return null;
+}
+
+/** Forget what this device remembered about a game's wiki (after a moderator changes it). */
+export function forgetGameWiki(gameId: string) { wikis.delete(gameId); }
