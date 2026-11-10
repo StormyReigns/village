@@ -29,26 +29,40 @@ async function gameWiki(gameId: string): Promise<GameWiki | null> {
   return wikiOf((data as { wiki?: unknown } | null)?.wiki);
 }
 
-/** What the wiki says about some page names. Kept for a day; a wiki that's down throws, so nothing is kept. */
-async function askWiki(api: string, article: string, titles: string[]): Promise<[string, PageFound][]> {
+/** What the wiki said, or why it couldn't be asked. */
+type Asked = { found: [string, PageFound][] } | { error: string };
+
+/**
+ * What the wiki says about some page names. An answer (found or missing) is kept for a day; a
+ * failure (the wiki down, slow or turning us away) only for a minute, so links come back soon.
+ * Failures are returned, not thrown: Next hides a thrown error's message in production.
+ */
+async function askWiki(api: string, article: string, titles: string[]): Promise<Asked> {
   'use cache';
-  cacheLife('days');
+  const failed = (error: string): Asked => { cacheLife({ stale: 30, revalidate: 60, expire: 120 }); return { error }; };
   const wiki = wikiOf({ name: 'wiki', api, article });
   // Only a site on our list (src/lib/wiki.ts), checked again here where the request is made.
-  if (!wiki || !knownWikiHost(api)) throw new Error('Not a wiki we ask');
-  const res = await fetch(queryUrl(wiki, titles), {
-    headers: { accept: 'application/json', 'user-agent': 'Village/1.0 (game companion app; wiki link check)' },
-    redirect: 'error',
-    signal: AbortSignal.timeout(4000),
-  });
-  if (!res.ok) throw new Error(`The wiki answered ${res.status}`);
-  const text = await res.text();
-  if (text.length > MAX_ANSWER) throw new Error('The wiki answered too much');
-  const found = readAnswer(JSON.parse(text), titles);
-  // An answer that says nothing about the names (an error page, a login wall) isn't kept as "missing".
-  if (!found.size) throw new Error("The wiki didn't answer the question");
-  return [...found];
+  if (!wiki || !knownWikiHost(api)) return failed('not a wiki we ask');
+  try {
+    const res = await fetch(queryUrl(wiki, titles), {
+      headers: { accept: 'application/json', 'user-agent': 'Village/1.0 (game companion app; wiki link check)' },
+      redirect: 'error',
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) return failed(`the wiki answered ${res.status}`);
+    const text = await res.text();
+    if (text.length > MAX_ANSWER) return failed('the wiki answered too much');
+    const found = readAnswer(JSON.parse(text), titles);
+    // An answer that says nothing about the names (an error page, a login wall) isn't kept as "missing".
+    if (!found.size) return failed("the wiki didn't answer the question");
+    cacheLife('days');
+    return { found: [...found] };
+  } catch (e) {
+    return failed(e instanceof Error ? (e.name === 'TimeoutError' ? 'timeout' : `${e.name}: ${e.message}`.slice(0, 120)) : 'unknown');
+  }
 }
+
+class WikiDown extends Error {}
 
 async function answerFor(gameId: string, cardId: string): Promise<WikiAnswer> {
   const wiki = await gameWiki(gameId);
@@ -61,8 +75,9 @@ async function answerFor(gameId: string, cardId: string): Promise<WikiAnswer> {
       if (!LINKED.has(block.type)) return { ok: false, reason: 'off' };
       const titles = titlesFor(entry.name, wiki);
       if (!titles.length) return { ok: false, reason: 'missing' };
-      const found = new Map(await askWiki(wiki.api, wiki.article, titles));
-      return choose(wiki, titles, found);
+      const asked = await askWiki(wiki.api, wiki.article, titles);
+      if ('error' in asked) throw new WikiDown(asked.error);
+      return choose(wiki, titles, new Map(asked.found));
     }
   }
   return { ok: false, reason: 'missing' };
@@ -79,7 +94,7 @@ export async function GET(_req: Request, ctx: RouteContext<'/api/wiki/[game]/[ca
   } catch (e) {
     // The wiki is down or slow: no link for now, asked again next time. A few words on why
     // (our own messages, or the kind of error) help tell a slow wiki from one that turns us away.
-    const why = e instanceof Error ? (e.name === 'TimeoutError' ? 'timeout' : `${e.name}: ${e.message}`.slice(0, 120)) : 'unknown';
+    const why = e instanceof WikiDown ? e.message : e instanceof Error ? e.name : 'unknown';
     console.error(`Wiki check failed for ${game}/${card}: ${why}`);
     return Response.json({ error: 'Couldn’t reach the wiki.', why }, { status: 502, headers: { 'cache-control': 'no-store' } });
   }
