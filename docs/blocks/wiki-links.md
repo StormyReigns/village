@@ -218,7 +218,8 @@ Where the wiki names a page differently, a builder fixes that one entry with a n
    reads the wiki's own name and page address (siteinfo), and they add the bracket word and save
    ("That wiki isn't supported yet" for other sites). Saving refreshes the app; the wiki's answers
    are kept by wiki address, so a new wiki is asked afresh, and the card answer's edge copy lasts
-   ten minutes.
+   ten minutes. Matt tested it live as a moderator (2026-11-10): switched to Fandom, the card
+   link followed, and switched back.
 
 ## Decisions
 
