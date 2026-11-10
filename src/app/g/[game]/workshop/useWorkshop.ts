@@ -41,8 +41,13 @@ export interface Attachment { path: string; w: number; h: number }
 
 /** What a system message is about (written by the database, see 20261101120000_chat_reactions_system.sql). */
 export interface ChatEvent {
-  type: 'published' | 'declined';
+  /** batch_…: a batch of rows pasted from a sheet (20261112000000_draft_batches.sql), which has no
+   *  single Draft: its id, and how many rows went out or were set aside. */
+  type: 'published' | 'declined' | 'batch_published' | 'batch_declined';
   draft: string;
+  batch?: string;
+  shipped?: number;
+  aside?: number;
   /** Who wrote the Draft. */
   author: string;
   /** The revision the Draft started from, to show what changed; null for a new entry. */
@@ -314,13 +319,18 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
   const loadDrafts = useCallback(async () => {
     const db = browserClient();
     if (!db) return;
+    // Rows of a pasted batch show inside their batch's card (useBatches), not one by one here.
+    let batches = true;
     const drafts = (columns: string) => {
-      const q = db.from('drafts').select(columns).eq('game_id', gameId).order('created_at', { ascending: false }).limit(200);
+      let q = db.from('drafts').select(columns).eq('game_id', gameId).order('created_at', { ascending: false }).limit(200);
+      if (batches) q = q.is('batch_id', null);
       return mod ? q : q.neq('status', 'removed');
     };
     // Before the Questions SQL is run Drafts have no question_id or reply: read without them.
+    // Before the batches SQL is run they have no batch_id either.
     const read = async () => {
-      const first = await drafts(`${DRAFT_COLUMNS}, question_id, reply`);
+      let first = await drafts(`${DRAFT_COLUMNS}, question_id, reply`);
+      if (first.error && /batch_id/.test(first.error.message)) { batches = false; first = await drafts(`${DRAFT_COLUMNS}, question_id, reply`); }
       return first.error && /question_id|reply/.test(first.error.message) ? drafts(DRAFT_COLUMNS) : first;
     };
     const [d, s, v] = await Promise.all([
@@ -696,7 +706,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
 
   return {
     state, messages, reactions, drafts: shownDrafts, reports, myReports, mod,
-    send, loadThread, loadMessage, react, postDraft, vote, view, report,
+    send, loadThread, loadMessage, react, postDraft, vote, view, report, loadDrafts,
     moderate: { removeMessage, markSpoiler, publish, decide, dismissReports, removeQuestion, removeVideo, removeTierReason },
   };
 }

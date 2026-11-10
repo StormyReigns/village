@@ -3,7 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, CircleHelp, EyeOff, FileText, Flag, Hammer, MapPin, MessageCircle, PanelLeftOpen, Plus,
+  ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, CircleHelp, EyeOff, FileText, Flag, Hammer, MapPin, MessageCircle, PanelLeftOpen, Plus, ClipboardPaste,
   RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import type { Page } from '@/data/pages';
@@ -35,6 +35,9 @@ import { mentionsIn } from '@/lib/refs';
 import { EntryForm, ChangeList, type FormStart, type Posted } from './EntryForm';
 import { FieldSetup } from './FieldSetup';
 import { MapSetup } from './MapSetup';
+import { PasteSheet } from './PasteSheet';
+import { BatchCard } from './BatchCard';
+import { useBatches } from './useBatches';
 import { EditorChat, EditSwap } from './EditorShell';
 import { Resizer } from './chat/Resizer';
 import { useBeside } from './split';
@@ -74,13 +77,17 @@ export function Workshop({ game, pages, routes }: {
     if (add && placeOf(add)) return { blockId: add };
     return null;
   })();
-  const startPage = params.get('page') ?? (linked ? placeOf(linked.blockId)?.page.id : null);
+  const startPage = params.get('page') ?? (linked ? placeOf(linked.blockId)?.page.id : params.get('paste') ? placeOf(params.get('paste')!)?.page.id ?? null : null);
   const [chip, setChip] = useState<string>(startPage && pages.some((p) => p.id === startPage) ? startPage : 'all');
   const [sort, setSort] = useState<Sort>('standouts');
   const [form, setForm] = useState<FormStart | null>(linked);
   // A Block being set up: a Characters (Items, Guides) Block's fields, or a Places Block's map
   // (?pins=block, from "not on the map yet" in the app).
   const [setup, setSetup] = useState<string | null>(() => { const b = params.get('pins'); return b && placeOf(b)?.look === 'map' ? b : null; });
+  // Rows pasted from a spreadsheet into a Block (?paste=block, from the app's Download menu).
+  const [pasting, setPasting] = useState<string | null>(() => { const b = params.get('paste'); return b && placeOf(b) ? b : null; });
+  // A batch to open in Drafts, once it's sent.
+  const [openBatch, setOpenBatch] = useState<string | null>(null);
   // The work column shows Drafts or what's in the app. Until you pick, it opens on Drafts
   // when something waits on you.
   // ?tab=questions (from the app's "Answer in the Workshop") opens the Questions tab.
@@ -151,7 +158,7 @@ export function Workshop({ game, pages, routes }: {
 
   // Next keeps a visited Workshop alive in the background, so coming back through a new
   // "Suggest a fix" link doesn't start it fresh. Follow each new link as it arrives.
-  const linkKey = `${params.get('fix') ?? ''}|${params.get('field') ?? ''}|${params.get('add') ?? ''}|${params.get('resume') ?? ''}|${params.get('draft') ?? ''}|${params.get('theory') ?? ''}|${params.get('msg') ?? ''}`;
+  const linkKey = `${params.get('fix') ?? ''}|${params.get('field') ?? ''}|${params.get('add') ?? ''}|${params.get('resume') ?? ''}|${params.get('draft') ?? ''}|${params.get('theory') ?? ''}|${params.get('msg') ?? ''}|${params.get('paste') ?? ''}`;
   const [followed, setFollowed] = useState(linkKey);
   if (linkKey !== followed) {
     setFollowed(linkKey);
@@ -160,6 +167,8 @@ export function Workshop({ game, pages, routes }: {
     if (params.get('resume')) resumeUnsent();
     if (params.get('draft')) setDetail(params.get('draft'));
     if (Number(params.get('msg'))) setPendingMsg(Number(params.get('msg')));
+    const paste = params.get('paste');
+    if (paste && placeOf(paste)) { setPasting(paste); setChip(placeOf(paste)!.page.id); }
   }
   // ?tab= is followed on its own, only when a link brings it; once read it's dropped from the
   // address, so a later re-render can never snap the tab back.
@@ -212,6 +221,7 @@ export function Workshop({ game, pages, routes }: {
   // phone chat leaves room for it, so it never covers the message box.
   const viewingAs = useViewAsSetting() !== 'self';
   const live = useWorkshop(game.id, me);
+  const batchData = useBatches(game.id, me?.id ?? null, live.mod, live.loadDrafts);
   const questions = useQuestions(game.id, me?.id);
   const questionBody = useMemo(() => {
     const bodies = new Map(questions.questions.map((q) => [q.id, q.body]));
@@ -229,6 +239,13 @@ export function Workshop({ game, pages, routes }: {
     saveUnsent(game.id, discarded);
     setDiscarded(null);
     resumeUnsent();
+  };
+
+  const closePaste = () => {
+    setPasting(null);
+    // Drop ?paste= so a refresh doesn't reopen it.
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('paste')) { url.searchParams.delete('paste'); window.history.replaceState({}, '', url); }
   };
 
   const closeForm = () => {
@@ -312,6 +329,11 @@ export function Workshop({ game, pages, routes }: {
   const waitingIds = new Set(waiting.map((x) => x.d.id));
   const matches = (d: LiveDraft) => !query || d.title.toLowerCase().includes(query.toLowerCase());
   const rest = visible.filter((d) => !waitingIds.has(d.id) && matches(d));
+  // Batches pasted from sheets, on the chosen Page: open ones (and one just sent), and published
+  // ones under "Shipped". Their rows show inside them, not as Drafts of their own.
+  const shownBatches = batchData.batches.filter((b) => (chip === 'all' || placeOf(b.blockKey)?.page.id === chip)
+    && (sort === 'shipped' ? b.status === 'stable' : b.status === 'open' || b.id === openBatch)
+    && (!query || b.title.toLowerCase().includes(query.toLowerCase())));
   const view = tab ?? (live.state === 'loading' || waiting.length > 0 ? 'drafts' : 'app');
   const openQuestions = questions.state === 'ready' ? questions.questions.filter((q) => q.status === 'open' && (!current || q.pageKey === current.id)).length : 0;
   const workSubtitle = view === 'drafts' ? (waiting.length ? `Drafts · ${waiting.length} waiting on you` : 'Drafts')
@@ -321,16 +343,17 @@ export function Workshop({ game, pages, routes }: {
   // An editor opens in the work column, so on wide screens the chat stays beside it.
   const editBlock = form ? blocks.find((b) => b.id === form.blockId) : undefined;
   const setupBlock = setup ? blocks.find((b) => b.id === setup) : undefined;
-  const editing = form && blocks.length > 0 ? 'form' : setupBlock ? 'setup' : null;
+  const pasteBlock = pasting ? blocks.find((b) => b.id === pasting) : undefined;
+  const editing = form && blocks.length > 0 ? 'form' : setupBlock ? 'setup' : pasteBlock ? 'paste' : null;
   const editLabel = editing === 'form'
     ? (form?.entryId ? `Fix: ${editBlock?.entries.find((e) => e.id === form.entryId)?.name ?? 'an entry'}` : `New in ${editBlock?.title ?? 'the app'}`)
-    : setupBlock ? (setupBlock.look === 'map' ? `Map: ${setupBlock.title}` : `Set up ${setupBlock.title}`) : '';
-  const editKey = editing ? `${editing}:${form?.blockId}.${form?.entryId}:${setup}` : null;
+    : setupBlock ? (setupBlock.look === 'map' ? `Map: ${setupBlock.title}` : `Set up ${setupBlock.title}`) : pasteBlock ? `Paste into ${pasteBlock.title}` : '';
+  const editKey = editing ? `${editing}:${form?.blockId}.${form?.entryId}:${setup}:${pasting}` : null;
 
   // Threads: what each is about, and the one open beside the chat.
   const threads = useThreads(blocks, drafts, live.messages);
   const editEntry = editing === 'form' && form?.entryId ? editBlock?.entries.find((e) => e.id === form.entryId) : undefined;
-  const editThread = editEntry && editBlock ? entryThread(editBlock.id, editEntry) : editing === 'setup' && setupBlock ? blockThread(setupBlock.id) : null;
+  const editThread = editEntry && editBlock ? entryThread(editBlock.id, editEntry) : editing === 'setup' && setupBlock ? blockThread(setupBlock.id) : editing === 'paste' && pasteBlock ? blockThread(pasteBlock.id) : null;
   const [followedEdit, setFollowedEdit] = useState<ThreadKey | null>(null);
   if (editThread !== followedEdit) {
     setFollowedEdit(editThread);
@@ -524,6 +547,9 @@ export function Workshop({ game, pages, routes }: {
                     closeForm();
                     if (copy) setDiscarded(copy);
                   }} />
+              ) : editing === 'paste' ? (
+                <PasteSheet gameId={game.id} block={pasteBlock!} routes={routes} me={me} data={batchData} onClose={closePaste}
+                  onSent={(id) => { const page = pasteBlock!.page.id; closePaste(); setChip(page); setTab('drafts'); setOpenBatch(id); }} />
               ) : setupBlock!.look === 'map' ? (
                 <MapSetup gameId={game.id} block={setupBlock!} me={me} mod={live.mod} drafts={drafts} postDraft={live.postDraft} onClose={() => setSetup(null)} />
               ) : (
@@ -694,6 +720,18 @@ export function Workshop({ game, pages, routes }: {
                     <div className="mt-3 grid gap-3" aria-hidden="true">{[0, 1].map((n) => <div key={n} className="h-24 animate-pulse rounded-3xl bg-card" />)}</div>
                   ) : (
                     <>
+                      {shownBatches.length > 0 && (
+                        <>
+                          <Tip text="Rows pasted from a spreadsheet. Vote once for the whole batch; set aside any row that's off" className="mt-3 self-start">
+                            <p className="text-xs font-bold uppercase tracking-wide text-muted">Batches from sheets · {shownBatches.length}</p>
+                          </Tip>
+                          <ul className="mt-2 grid gap-3">
+                            {shownBatches.map((b) => (
+                              <BatchCard key={b.id} batch={b} place={placeOf(b.blockKey)} routes={routes} me={me} mod={live.mod} data={batchData} startOpen={b.id === openBatch} />
+                            ))}
+                          </ul>
+                        </>
+                      )}
                       {waiting.some((x) => matches(x.d)) && (
                         <>
                           <Tip text={me ? 'Your vote, your own Drafts, or ready to publish' : 'Sign in to vote on these'} className="mt-3 self-start">
@@ -723,7 +761,7 @@ export function Workshop({ game, pages, routes }: {
                               chatCount={threads.counts.get(draftThread(d)) ?? 0} onChat={() => openThread(draftThread(d))} live={live} />
                           ))}
                         </ul>
-                      ) : waiting.length > 0 ? (
+                      ) : waiting.length > 0 || shownBatches.length > 0 ? (
                         <p className="mt-2 text-sm text-muted">Nothing else here{sort === 'shipped' ? ' published yet' : ''}.</p>
                       ) : (
                         <Empty title={sort === 'shipped' ? 'Nothing published yet' : 'No Drafts here yet'}
@@ -738,7 +776,7 @@ export function Workshop({ game, pages, routes }: {
                     onAnswer={(a) => setForm({ blockId: a.blockId, entryId: a.entryId, question: a.question })} onOpenDraft={setDetail} />
                 ) : (
                   <AppContents pages={current ? [current] : pages} drafts={drafts} query={query} focus={form?.entryId ? `${form.blockId}.${form.entryId}` : undefined}
-                    onFix={(blockId, entryId) => setForm({ blockId, entryId })} onAdd={(blockId) => setForm({ blockId })} onSetup={setSetup}
+                    onFix={(blockId, entryId) => setForm({ blockId, entryId })} onAdd={(blockId) => setForm({ blockId })} onSetup={setSetup} onPaste={setPasting}
                     onDrafts={(cardId) => { const d = drafts.find((x) => x.cardId === cardId && isOpen(x)); if (d) setDetail(d.id); }} />
                 )}
               </>
@@ -1116,11 +1154,13 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
  * "In the app": what's on the selected Page right now, Block by Block, so villagers can
  * pick something to fix or add to without leaving the Workshop.
  */
-function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSetup }: {
+function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSetup, onPaste }: {
   pages: Page[]; drafts: LiveDraft[]; query: string; focus?: string;
   onFix: (blockId: string, entryId: string) => void; onAdd: (blockId: string) => void; onDrafts: (cardId: string) => void;
   /** Characters and Items Blocks: open their field setup. Places Blocks: their map. */
   onSetup: (blockId: string) => void;
+  /** Paste rows from a spreadsheet (docs/blocks/spreadsheets.md). */
+  onPaste: (blockId: string) => void;
 }) {
   const [folded, setFolded] = useStored<string[]>('village:workshop:folded-blocks', []);
   const fold = (id: string) => setFolded(folded.includes(id) ? folded.filter((x) => x !== id) : [...folded, id]);
@@ -1164,6 +1204,13 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSe
                     <Tip text={`The map picture, and a pin for each place in ${b.title}`} tint={p.tint} className="shrink-0">
                       <button onClick={() => onSetup(b.id)} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">
                         <MapPin size={13} aria-hidden="true" /> Map
+                      </button>
+                    </Tip>
+                  )}
+                  {b.type !== 'guide' && b.type !== 'tierlist' && (
+                    <Tip text={`Paste rows from Excel or Google Sheets into ${b.title}`} tint={p.tint} className="shrink-0">
+                      <button onClick={() => onPaste(b.id)} aria-label={`Paste rows into ${b.title}`} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">
+                        <ClipboardPaste size={13} aria-hidden="true" /><span className="hidden sm:inline">Paste</span>
                       </button>
                     </Tip>
                   )}

@@ -54,7 +54,7 @@ export function buildStream<M extends MessageLike>(messages: M[], drafts: Map<st
   const items: StreamItem<M>[] = [];
   for (const m of messages) {
     if (m.kind === 'system') {
-      if (m.event?.type === 'published') items.push({ kind: 'system', m });
+      if (m.event?.type === 'published' || m.event?.type === 'batch_published') items.push({ kind: 'system', m });
       continue;
     }
     const key = threadOf(m, drafts);

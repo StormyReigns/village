@@ -562,7 +562,8 @@ function SystemLine({ m, me, live }: { m: ChatMessage; me: Villager | null | und
           className="inline-flex min-w-0 items-center gap-2 rounded-full bg-ink py-1 pl-1 pr-3 text-xs text-paper hover:ring-2 hover:ring-signal">
           <SystemMark />
           <span className="min-w-0 truncate">
-            {title ? <><b>{title}</b> {m.event?.isNew ? 'is new in the app' : 'was updated in the app'}</> : m.body}
+            {m.event?.type === 'batch_published' ? <>{title && <b>{title}</b>}{title ? ': ' : ''}{m.body}</>
+              : title ? <><b>{title}</b> {m.event?.isNew ? 'is new in the app' : 'was updated in the app'}</> : m.body}
           </span>
           <time dateTime={m.createdAt} title={fullTime(m.createdAt)} className="shrink-0 opacity-60">{clock(m.createdAt)}</time>
         </button>
@@ -578,6 +579,37 @@ function SystemLine({ m, me, live }: { m: ChatMessage; me: Villager | null | und
  * for something published, what changed. Marked as the Village's, never a person's.
  */
 function SystemNote({ m, info, me, live }: { m: ChatMessage; info: ThreadInfo; me: Villager | null | undefined; live: WorkshopData }) {
+  if (m.event?.type === 'batch_published' || m.event?.type === 'batch_declined') return <BatchNote m={m} me={me} live={live} />;
+  return <DraftNote m={m} info={info} me={me} live={live} />;
+}
+
+/** A batch of rows from a sheet, published or declined (docs/blocks/spreadsheets.md). */
+function BatchNote({ m, me, live }: { m: ChatMessage; me: Villager | null | undefined; live: WorkshopData }) {
+  const ev = m.event!;
+  const published = ev.type === 'batch_published';
+  return (
+    <li className="overflow-hidden rounded-2xl bg-card ring-1 ring-ink/70">
+      <div className="flex items-center gap-2 bg-ink py-1 pl-1 pr-3 text-xs font-bold text-paper">
+        <SystemMark />
+        <span>{published ? 'A batch from a sheet is in the app' : 'A batch was declined'}</span>
+        <time dateTime={m.createdAt} title={fullTime(m.createdAt)} className="ml-auto font-normal opacity-70">{clock(m.createdAt)}</time>
+      </div>
+      <div className="px-3 py-2 text-sm">
+        <p>{m.body}</p>
+        <p className="mt-0.5 text-muted">
+          {published ? <>Approved by <b className="text-ink">{m.author.name}</b>: {ev.shipped ?? 0} published{ev.aside ? `, ${ev.aside} set aside as Drafts of their own` : ''}.</> : <>Declined by <b className="text-ink">{m.author.name}</b>.</>}
+        </p>
+        <div className="mt-1 flex items-start gap-1">
+          <div className="min-w-0 flex-1"><Reactions m={m} me={me} live={live} /></div>
+          {me && <span className="shrink-0"><ReactButton m={m} live={live} /></span>}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+/** A single Draft published or declined, with what changed. */
+function DraftNote({ m, info, me, live }: { m: ChatMessage; info: ThreadInfo; me: Villager | null | undefined; live: WorkshopData }) {
   const links = useContext(ChatLinks);
   const ev = m.event;
   const draft = ev ? links?.threads.byId.get(ev.draft) : undefined;

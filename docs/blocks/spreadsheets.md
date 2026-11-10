@@ -1,13 +1,15 @@
 # Spreadsheets (an integration)
 
-**Status:** Download live (2026-11-09); paste-in agreed, its core built and tested, screens next ·
+**Status:** Download live (2026-11-09); paste-in built (2026-11-10), sending waits for the batch SQL ·
 **Chat:** `Village · Spreadsheets` · **Mockup:** none yet · **Code:** `src/lib/sheets.ts` (a Block's
 columns: how Download reads each one and how pasting writes it back; CSV and copied rows; tested),
 `src/lib/xlsx.ts` (a small .xlsx writer, no library; tested), `src/lib/paste.ts` (reading pasted
 rows, guessing columns, matching rows; tested), `src/lib/xlsx-read.ts` (reading an uploaded .xlsx,
-no library; tested), `src/components/sheets/SheetButton.tsx` (the Download menu) · **Database:**
+no library; tested), `src/components/sheets/SheetButton.tsx` (the Download menu), and in the Workshop `PasteSheet.tsx` (the
+paste editor), `BatchCard.tsx` (a batch in Drafts) and `useBatches.ts` (loading and acting on
+batches) · **Database:**
 nothing for Download; `supabase/migrations/20261112000000_draft_batches.sql` for batches (waiting
-for the hub's review), checked by `supabase/tests/batches-check.mjs`.
+reviewed by the hub; Matt runs it), checked by `supabase/tests/batches-check.mjs` in `npm test`.
 
 Not a Block: a way in and out of every Block for people who live in Excel and Google Sheets.
 Written up here with the Blocks because it's built like one.
@@ -243,11 +245,14 @@ once. Moderators can unlink it.
    itself saved), guessing columns, matching rows by id then name, each row's new content, the
    "blank on every row" warning. A downloaded sheet of every Block pastes back with nothing
    changed (tested as text, CSV and .xlsx).
-3. **Batches, the database**: the migration (written, 35 checks pass; waiting for the hub's
-   review, then Matt runs it).
-4. **Paste in, the screens**: the Paste editor in the Workshop, the batch card in Drafts (vote,
-   set a row aside, publish, decline, take back), the batch note in the chat, and the link in the
-   Download menu. Needs the hub's go-ahead for the Workshop files.
+3. **Batches, the database** (reviewed by the hub 2026-11-10): the migration, 37 checks. One row
+   that fails to publish is set aside and the rest still go out (the hub's fix). Matt runs it.
+4. **Paste in, the screens** (built 2026-11-10): Paste beside Add on each Block under "In the app",
+   the paste editor (paste or a file, columns, what happens, credit, Send), "Batches from sheets"
+   in Drafts (vote once, "This row's off", Publish the batch, Decline, Take it back), the batch note
+   in the chat, and "Fixed something? Paste it back in the Workshop" in the Download menu
+   (`?paste=<block>`). Checked on the production build at desktop and phone size up to Send;
+   sending, voting and publishing can be tried once the SQL is run.
 5. **Linked sheets**: the daily check.
 
 ## Decisions

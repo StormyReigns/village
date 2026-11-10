@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Check, ClipboardCopy, FileSpreadsheet, FileText, Sheet as SheetIcon, X } from 'lucide-react';
+import Link from 'next/link';
+import { Check, ClipboardCopy, ClipboardPaste, FileSpreadsheet, FileText, Sheet as SheetIcon, X } from 'lucide-react';
 import type { Block } from '@/data/pages';
 import { sharePath } from '@/data/pages/links';
 import { getGame } from '@/data/games';
@@ -151,7 +152,10 @@ export function SheetButton({ block, ctx }: { block: Block; ctx: BlockContext })
             <p role="status" className={'mx-3 mt-1 flex min-h-5 items-center gap-1.5 text-xs font-bold ' + (!done ? 'text-transparent' : done.startsWith('!') ? 'text-berry' : 'text-leaf')}>
               {done && !done.startsWith('!') && <Check size={13} aria-hidden="true" />}{done ? done.replace(/^!/, '') : '.'}
             </p>
-            <p className="mx-3 mb-1 mt-1 border-t border-line pt-2 text-[11px] leading-snug text-muted">
+            <Link href={`/g/${ctx.gameId}/workshop?paste=${block.id}`} className="mx-3 mt-1 flex items-center gap-1.5 border-t border-line pt-2 text-xs font-bold hover:underline">
+              <ClipboardPaste size={13} aria-hidden="true" /> Fixed something? Paste it back in the Workshop
+            </Link>
+            <p className="mx-3 mb-1 mt-1.5 text-[11px] leading-snug text-muted">
               Made by the community, shared under CC BY-SA. Reuse it freely and credit Village.
             </p>
           </div>
