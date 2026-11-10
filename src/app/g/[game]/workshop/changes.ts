@@ -3,6 +3,7 @@ import type { RouteOption } from '@/components/app/EntryPanel';
 import { DESCRIPTION, allStatDefs, fieldsOf } from '@/lib/fields';
 import { parseSteps, parseWriteup, sectionWords, stepWords } from '@/lib/guides';
 import { spotChange } from '@/lib/world-map';
+import { wikiFixOf } from '@/lib/wiki';
 
 // What a Draft changes compared with the entry on Stable, field by field, in words.
 
@@ -54,6 +55,9 @@ export function changesBetween(before: EntryContent | undefined, after: EntryCon
       add(`${label} as ${r.label}`, a.find((s) => s.label === label)?.text, b.find((s) => s.label === label)?.text);
     }
   }
+  // Its wiki page (docs/blocks/wiki-links.md): the usual one found from the name, another page, or none.
+  const wikiWords = (w: unknown) => { const f = wikiFixOf(w); return f === false ? 'No link' : f ?? 'The usual page'; };
+  if (wikiWords(before?.wiki) !== wikiWords(after.wiki)) out.push({ label: 'Wiki page', before: before ? wikiWords(before.wiki) : undefined, after: wikiWords(after.wiki) });
   if (Boolean(before?.spoiler) !== Boolean(after.spoiler)) out.push({ label: 'Spoiler', before: before ? (before.spoiler ? 'Yes' : 'No') : undefined, after: after.spoiler ? 'Yes' : 'No' });
   if ((before?.flag ?? '') !== (after.flag ?? '')) out.push({ label: 'Confirmed', before: before ? (before.flag ? 'Not yet' : 'Yes') : undefined, after: after.flag ? 'Not yet' : 'Yes' });
   return out;

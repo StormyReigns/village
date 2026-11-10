@@ -23,6 +23,7 @@ import { PictureInput } from './PictureInput';
 import { MapSpotInput } from '@/components/world/MapSpotInput';
 import { pinMark } from '@/components/world/PictureMap';
 import { cleanSpot, mapOf } from '@/lib/world-map';
+import { WikiOpen, WikiPageInput, WikiSourceChip } from '@/components/wiki/WikiTools';
 
 /** Where the form opens: a Block to add to, optionally the entry being fixed, and the one
  *  part of it to fix ("description", "routes", "section:Where to get it") from an app pencil. */
@@ -58,6 +59,8 @@ const DESCRIPTION_LABEL: Record<Block['type'], string> = {
 
 // Blocks whose entries are pieces a picture can fill: people, classes, items and the like.
 const PICTURES = new Set<Block['type']>(['collection', 'characters', 'items']);
+// Blocks whose entries link to their page on the game's wiki (docs/blocks/wiki-links.md).
+const WIKI = new Set<Block['type']>(['collection', 'characters', 'items']);
 
 const blank = (): EntryContent => ({ name: '', sections: [], categories: {} });
 
@@ -92,6 +95,8 @@ function clean(c: EntryContent): EntryContent {
     flag: c.flag || undefined,
     // A place's pin: two numbers kept to the picture, or none (docs/blocks/world.md).
     spot: cleanSpot(c.spot),
+    // Its wiki page when the wiki names it differently, or false for no link (docs/blocks/wiki-links.md).
+    wiki: typeof c.wiki === 'string' ? c.wiki.trim() || undefined : c.wiki === false ? false : undefined,
     source: undefined, // the Draft keeps its own source
   };
 }
@@ -303,7 +308,10 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
     <form id="entry-form" onSubmit={submit} className="grid content-start gap-3">
       {show('name') && (
         <label className="grid gap-1">
-          <span className="text-sm font-bold">Name<span className="text-berry"> *</span></span>
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="text-sm font-bold">Name<span className="text-berry"> *</span></span>
+            {WIKI.has(block.type) && <WikiOpen gameId={gameId} name={content.name} fix={content.wiki} />}
+          </span>
           <input id="entry-name" value={content.name} onChange={(e) => set({ name: e.target.value })} maxLength={120} className={input} />
         </label>
       )}
@@ -425,10 +433,17 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
         )}
       </div>
 
+      {WIKI.has(block.type) && show('wiki') && (
+        <div id={fid('wiki')} className={hl('wiki')}>
+          <WikiPageInput gameId={gameId} name={content.name} value={content.wiki} onChange={(wiki) => set({ wiki })} inputClass={input} />
+        </div>
+      )}
+
       <label className="grid gap-1">
         <span className="text-sm font-bold">Where can others check this?</span>
         <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="I saw it myself in chapter 6, or a link" className={input} />
       </label>
+      {WIKI.has(block.type) && <WikiSourceChip gameId={gameId} name={content.name} fix={content.wiki} source={source} onPick={setSource} />}
       <div className={(showAll ? 'flex' : 'hidden') + ' flex-wrap gap-x-5 gap-y-2 text-sm'}>
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={Boolean(content.spoiler)} onChange={(e) => set({ spoiler: e.target.checked })} className="size-4 accent-[var(--color-leaf)]" />

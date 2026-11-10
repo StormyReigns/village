@@ -296,6 +296,8 @@ export function EntryDetails({ entry, block, route, routes, fixHref, invite, col
         <EntryIcon entry={entry} block={block} size="lg" color={color} />
         <div className="min-w-0">
           <h2 className="font-display text-2xl leading-tight">{entry.name}</h2>
+          {/* The wiki link right under the name, as on character and item cards (docs/blocks/wiki-links.md). */}
+          {block.type === 'collection' && <WikiLink cardId={cardIdOf(entry)} className="mt-0.5" />}
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {Object.entries(entry.categories).map(([k, v]) => (
               <span key={k} className={'rounded-full px-2 py-0.5 text-xs font-bold ' + tintFor(v)}>{v}</span>
@@ -361,8 +363,6 @@ export function EntryDetails({ entry, block, route, routes, fixHref, invite, col
 
       {fixHref && invite?.sections.map((l) => <Invite key={l} label={l} href={fixHref(`section:${l}`)} />)}
 
-      {/* The wiki link, as on character and item cards (docs/blocks/wiki-links.md). */}
-      {block.type === 'collection' && <WikiLink cardId={cardIdOf(entry)} color={color} className="mt-4" />}
       {/* Videos (docs/blocks/videos.md): small rows, as on character and item cards. */}
       <Videos cardId={cardIdOf(entry)} size="small" name={entry.name} className="mt-4" />
     </>

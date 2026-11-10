@@ -95,6 +95,10 @@ export interface Entry {
   spoiler?: boolean;
   flag?: 'unconfirmed' | 'disputed';
   source?: string;
+  /** Its page on the game's wiki when the wiki names it differently ("Maria (Fortune's Weave)"), or
+   *  false for no wiki link. A page name, never an address (docs/blocks/wiki-links.md). Draft content
+   *  isn't checked by the database: read it with `wikiFixOf` in src/lib/wiki.ts. */
+  wiki?: string | false;
   /** Where it lives in the database: the entry and its Stable revision. Drafts edit these. */
   ref?: { card: string; revision: number };
 }

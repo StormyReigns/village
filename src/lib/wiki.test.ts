@@ -1,7 +1,7 @@
 // Run with: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { askOf, choose, encodeTitle, knownWikiHost, pageUrl, queryUrl, readAnswer, titlesFor, toTitle, wikiOf, type GameWiki } from './wiki.ts';
+import { askOf, choose, encodeTitle, knownWikiHost, pageUrl, queryUrl, readAnswer, titleFromUrl, titlesFor, toTitle, wikiFixOf, wikiOf, type GameWiki } from './wiki.ts';
 
 const FE: GameWiki = { name: 'Fire Emblem Wiki', api: 'https://fireemblemwiki.org/w/api.php', article: 'https://fireemblemwiki.org/wiki/$1', bracket: "Fortune's Weave" };
 
@@ -119,4 +119,24 @@ test("a browser's question is only for a known wiki, about at most two proper pa
   const u = new URL(queryUrl(FE, ['Maria'], true));
   assert.equal(u.searchParams.get('origin'), '*');
   assert.equal(new URL(queryUrl(FE, ['Maria'])).searchParams.get('origin'), null);
+});
+
+test('a pasted address is read only when it is from the game\'s wiki', () => {
+  assert.equal(titleFromUrl(FE, "https://fireemblemwiki.org/wiki/Maria_(Fortune's_Weave)"), "Maria (Fortune's Weave)");
+  assert.equal(titleFromUrl(FE, 'https://fireemblemwiki.org/wiki/Maria_%28Fortune%27s_Weave%29#Supports'), "Maria (Fortune's Weave)");
+  assert.equal(titleFromUrl(FE, 'https://fireemblemwiki.org/w/index.php?title=Pok%C3%A9mon_Red&action=edit'), 'Pokémon Red');
+  assert.equal(titleFromUrl(FE, '  https://FireEmblemWiki.org/wiki/Saria  '), 'Saria');
+  for (const bad of ['Maria', 'https://fireemblem.fandom.com/wiki/Maria', 'http://fireemblemwiki.org/wiki/Maria',
+    'https://fireemblemwiki.org/', 'https://fireemblemwiki.org/wiki/', 'https://user@fireemblemwiki.org/wiki/Maria', 'https://fireemblemwiki.org/wiki/A%7CB']) {
+    assert.equal(titleFromUrl(FE, bad), null, bad);
+  }
+});
+
+test("an entry's stored fix is checked wherever it's read", () => {
+  assert.equal(wikiFixOf("Maria (Fortune's Weave)"), "Maria (Fortune's Weave)");
+  assert.equal(wikiFixOf('  saria '), 'Saria');
+  assert.equal(wikiFixOf(false), false);
+  for (const bad of [undefined, null, true, 0, '', '   ', 'A|B', 'a#b', '<x>', 'x\u0007y', 'x'.repeat(256), ['Maria'], { title: 'Maria' }, 'https://evil.example.com/x|y']) {
+    assert.equal(wikiFixOf(bad), undefined, JSON.stringify(bad));
+  }
 });

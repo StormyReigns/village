@@ -106,6 +106,8 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
             </div>
           )}
         </div>
+        {/* The entry's page on the game's wiki, right under the name, once it's checked (docs/blocks/wiki-links.md). */}
+        <WikiLink cardId={sample ? undefined : cardIdOf(entry)} sample={sample} className="-mt-1" />
         {(at('tags').length > 0 || entry.routes?.length) ? (
           <div className="flex flex-wrap gap-1.5">
             {at('tags').map((f) => {
@@ -209,8 +211,6 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
           </Fragment>
         );
       })}
-      {/* The entry's page on the game's wiki, once it's checked (docs/blocks/wiki-links.md). */}
-      <WikiLink cardId={sample ? undefined : cardIdOf(entry)} sample={sample} color={color} className="mt-4" />
       {/* Videos (docs/blocks/videos.md): small rows after everything else. */}
       <Videos cardId={sample ? undefined : cardIdOf(entry)} size="small" name={entry.name} color={color} className="mt-4" />
     </article>

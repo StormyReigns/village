@@ -54,6 +54,17 @@ export function toTitle(name: string): string | null {
   return t[0].toUpperCase() + t.slice(1);
 }
 
+/**
+ * An entry's stored fix (entry.wiki), checked wherever it's read: Draft content isn't checked by
+ * the database. A page name a wiki allows (1 to 255 characters), or false for no link; anything
+ * else counts as not set, so the usual page is used.
+ */
+export function wikiFixOf(raw: unknown): string | false | undefined {
+  if (raw === false) return false;
+  if (typeof raw !== 'string' || raw.length < 1 || raw.length > 255) return undefined;
+  return toTitle(raw) ?? undefined;
+}
+
 /** "Theodora" and "Fortune's Weave" make "Theodora (Fortune's Weave)". */
 export function withBracket(title: string, bracket: string): string {
   return `${title} (${bracket})`;
@@ -84,6 +95,26 @@ export function encodeTitle(title: string): string {
 
 export function pageUrl(wiki: GameWiki, title: string): string {
   return wiki.article.replace('$1', encodeTitle(title));
+}
+
+/**
+ * A page name from an address pasted from the game's wiki, or null when it's from anywhere else.
+ * Reads the wiki's page pattern (".../wiki/Maria_(Fortune's_Weave)", with or without "#part")
+ * and its index.php form ("...?title=Maria"). Never used to build a request: only the page name
+ * is kept, so a fix can't point at another site.
+ */
+export function titleFromUrl(wiki: GameWiki, pasted: string): string | null {
+  let u: URL;
+  try { u = new URL(pasted.trim()); } catch { return null; }
+  const home = new URL(wiki.article.replace('$1', ''));
+  if (u.protocol !== 'https:' || u.host.toLowerCase() !== home.host.toLowerCase() || u.username || u.password) return null;
+  let raw: string | null = null;
+  if (u.pathname.startsWith(home.pathname) && u.pathname.length > home.pathname.length) raw = u.pathname.slice(home.pathname.length);
+  else if (/\/index\.php$/.test(u.pathname)) raw = u.searchParams.get('title');
+  if (!raw) return null;
+  let decoded: string;
+  try { decoded = u.pathname.includes(raw) ? decodeURIComponent(raw) : raw; } catch { return null; }
+  return toTitle(decoded.replace(/_/g, ' '));
 }
 
 /** The wiki's own search for a name, for builders when there's no page (slice 2). */

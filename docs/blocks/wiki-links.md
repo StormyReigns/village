@@ -1,6 +1,6 @@
 # Wiki links (an integration)
 
-**Status:** Live, first slice (2026-11-10): checked links on cards · **Chat:** `Village · Wiki links` · **Mockup:** none yet ·
+**Status:** Live (2026-11-10): checked links on cards, and a fix per entry · **Chat:** `Village · Wiki links` · **Mockup:** none yet ·
 **Code:** `src/lib/wiki.ts` (names to wiki addresses, checks; plain and tested),
 `src/app/api/wiki/[game]/[card]/route.ts` (asks the wiki whether the page exists, kept for a day),
 `src/components/wiki/WikiLink.tsx` (the link on cards) · **Database:** one column,
@@ -78,11 +78,11 @@ What that tells us:
 ## What a player sees
 
 On every character, item and class card (the Profiles card, the List's panel, the entry panel),
-after the entry's own content and before Videos:
+right under the name:
 
 > **Fire Emblem Wiki ↗**
 
-- Small, in the Page's color, with the wiki's name so it's clear where you're going (and the wiki
+- Small, blue and underlined so it reads plainly as a link out, with the wiki's name so it's clear where you're going (and the wiki
   gets credit). Hovering says "Opens Fire Emblem Wiki in a new tab. Wikis often have spoilers."
 - Opens in a new tab (`target="_blank" rel="noopener noreferrer"`).
 - Shows only when the page was found. Until our check answers (a split second, usually from the
@@ -202,8 +202,12 @@ Where the wiki names a page differently, a builder fixes that one entry with a n
    checks; tested), the check route, the column with the two games' wikis filled in (SQL for
    Matt), and the link on character, item and class cards and the entry panel. Shared files:
    `CharacterCard.tsx`, `EntryPanel.tsx` (one line each), and the migration (the hub reviews it).
-2. **Fixes**: the entry's `wiki` part in the type, the "Wiki page" control in the entry form, the
-   line in a Draft's changes, "Open on the wiki", and the Source chip.
+2. **Fixes** (built 2026-11-10): the entry's `wiki` part in the type (read through `wikiFixOf`
+   everywhere, since Draft content isn't checked by the database), the "Wiki page" control in the
+   entry form, the line in a Draft's changes, "Open on the wiki" by the name, and the Source chip.
+   In the Workshop the builder's browser checks names with the wiki directly (`src/components/wiki/ask.ts`),
+   with the same limits as the live fallback. A spreadsheet paste-in copies the whole entry and only
+   writes its columns, so a fix survives; a "Wiki page" column can come later.
 3. **Builders' list and moderator setup**: "Links to check" in the Workshop, with "Which one?"
    picks; "Game wiki" for moderators.
 
@@ -234,6 +238,9 @@ Where the wiki names a page differently, a builder fixes that one entry with a n
 - 2026-11-10 (Matt): when a wiki blocks our server, the player's browser asks the wiki instead.
   Why: fireemblemwiki.org's Cloudflare blocks Vercel; our server still decides which wiki and
   which names, so nobody can point it anywhere else.
+
+- 2026-11-10 (Matt): the link sits right under the name, blue and underlined. Why: easy to find,
+  and plainly a link out. (It was at the end of the card in the Page's color.)
 
 ## Open questions (for Matt)
 

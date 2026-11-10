@@ -1,9 +1,8 @@
-import { cacheLife, cacheTag } from 'next/cache';
-import { createClient } from '@supabase/supabase-js';
+import { cacheLife } from 'next/cache';
 import { getGame } from '@/data/games';
-import { appTag, getApp } from '@/lib/app-data';
-import { SUPABASE_ANON_KEY, SUPABASE_URL, supabaseConfigured } from '@/lib/supabase/config';
-import { choose, knownWikiHost, queryUrl, readAnswer, titlesFor, wikiOf, type GameWiki, type PageFound, type WikiAnswer } from '@/lib/wiki';
+import { getApp } from '@/lib/app-data';
+import { gameWiki } from '@/lib/wiki-server';
+import { choose, knownWikiHost, queryUrl, readAnswer, titlesFor, wikiFixOf, wikiOf, type PageFound, type WikiAnswer } from '@/lib/wiki';
 
 // Where an entry's wiki link goes, asked of the game's wiki itself (its free MediaWiki API, no
 // key) and kept for a day (docs/blocks/wiki-links.md). The browser only names a game and an
@@ -15,19 +14,6 @@ const CARD_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const LINKED = new Set(['characters', 'items', 'collection']);
 /** A wiki's answer about a few names is a few kilobytes; anything far bigger isn't one. */
 const MAX_ANSWER = 256 * 1024;
-
-/** The game's wiki, as its moderators saved it. Refreshed with the app, or hourly. */
-async function gameWiki(gameId: string): Promise<GameWiki | null> {
-  'use cache';
-  cacheTag(appTag(gameId));
-  cacheLife('hours');
-  if (!supabaseConfigured) return null;
-  const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
-  const { data, error } = await db.from('games').select('wiki').eq('id', gameId).maybeSingle();
-  // Until the wiki column exists (the SQL hasn't run), there's simply no wiki.
-  if (error) return null;
-  return wikiOf((data as { wiki?: unknown } | null)?.wiki);
-}
 
 /** What the wiki said, or why it couldn't be asked. */
 type Asked = { found: [string, PageFound][] } | { error: string };
@@ -68,14 +54,17 @@ async function askWiki(api: string, article: string, titles: string[]): Promise<
 
 async function answerFor(gameId: string, cardId: string): Promise<WikiAnswer> {
   const wiki = await gameWiki(gameId);
-  // A wiki on a site we don't know yet shows no links until we add the site.
-  if (!wiki || !knownWikiHost(wiki.api)) return { ok: false, reason: 'no-wiki' };
+  if (!wiki) return { ok: false, reason: 'no-wiki' };
   for (const page of await getApp(gameId)) {
     for (const block of page.blocks) {
       const entry = block.entries.find((e) => e.ref?.card === cardId);
       if (!entry) continue;
       if (!LINKED.has(block.type)) return { ok: false, reason: 'off' };
-      const titles = titlesFor(entry.name, wiki);
+      // A builder's fix for this entry (a Draft): no link, or a page named differently. Checked
+      // here, since Draft content isn't checked by the database; anything odd means the usual page.
+      const fix = wikiFixOf((entry as { wiki?: unknown }).wiki);
+      if (fix === false) return { ok: false, reason: 'off' };
+      const titles = fix ? [fix] : titlesFor(entry.name, wiki);
       if (!titles.length) return { ok: false, reason: 'missing' };
       const asked = await askWiki(wiki.api, wiki.article, titles);
       // Turned away or down: the player's browser asks the same wiki the same names (WikiLink.tsx).
