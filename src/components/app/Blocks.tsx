@@ -22,6 +22,7 @@ import { Characters } from './Characters';
 import { Items } from './Items';
 import { Guides } from './Guides';
 import { TierList } from '@/components/tiers/TierList';
+import { SheetButton } from '@/components/sheets/SheetButton';
 import { FilterChip, HiddenNote, OpenPanel, useVisible, type BlockContext } from './blockParts';
 
 export type { BlockContext } from './blockParts';
@@ -45,6 +46,8 @@ export function BlockView({ block, ctx: page }: { block: Block; ctx: BlockContex
           <h2 id={`${block.id}-title`} className="font-display text-xl leading-tight">{block.title}</h2>
           {intro && <p className="text-sm text-muted">{intro}</p>}
         </div>
+        {/* Download as a spreadsheet (docs/blocks/spreadsheets.md); not for Guides or Tier lists. */}
+        {block.entries.length > 0 && block.type !== 'guide' && block.type !== 'tierlist' && <SheetButton block={block} ctx={ctx} />}
         {block.entries.length > 0 && <ShareButton path={sharePath(ctx.gameId, ctx.page, block)} title={`${block.title} · ${ctx.pageTitle}`} what="Block" tint={ctx.tint} />}
         {block.entries.length > 0 && (
           <Tip text={`Know something missing from ${block.title}? Add it in the Workshop`} tint={ctx.tint} className="shrink-0">
