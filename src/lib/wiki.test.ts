@@ -1,7 +1,7 @@
 // Run with: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { choose, encodeTitle, knownWikiHost, pageUrl, queryUrl, readAnswer, titlesFor, toTitle, wikiOf, type GameWiki } from './wiki.ts';
+import { askOf, choose, encodeTitle, knownWikiHost, pageUrl, queryUrl, readAnswer, titlesFor, toTitle, wikiOf, type GameWiki } from './wiki.ts';
 
 const FE: GameWiki = { name: 'Fire Emblem Wiki', api: 'https://fireemblemwiki.org/w/api.php', article: 'https://fireemblemwiki.org/wiki/$1', bracket: "Fortune's Weave" };
 
@@ -105,4 +105,18 @@ test('choosing the link', () => {
   assert.deepEqual(pick('Ursula'), { ok: false, reason: 'which' });
   assert.deepEqual(pick('Glass Wheel'), { ok: false, reason: 'missing' });
   assert.deepEqual(choose(FE, ['Zelda'], f), { ok: true, name: 'Fire Emblem Wiki', url: 'https://fireemblemwiki.org/wiki/Princess_Zelda', title: 'Princess Zelda' });
+});
+
+test("a browser's question is only for a known wiki, about at most two proper page names", () => {
+  assert.deepEqual(askOf({ wiki: FE, titles: ["Maria (Fortune's Weave)", 'Maria'] }), { wiki: FE, titles: ["Maria (Fortune's Weave)", 'Maria'] });
+  for (const bad of [
+    null, {}, { wiki: FE }, { wiki: FE, titles: [] },
+    { wiki: FE, titles: ['a', 'b', 'c'] },
+    { wiki: FE, titles: ['A|B'] },
+    { wiki: FE, titles: ['lowercase first'] },
+    { wiki: { ...FE, api: 'https://internal.example.com/api.php', article: 'https://internal.example.com/wiki/$1' }, titles: ['Maria'] },
+  ]) assert.equal(askOf(bad), null, JSON.stringify(bad));
+  const u = new URL(queryUrl(FE, ['Maria'], true));
+  assert.equal(u.searchParams.get('origin'), '*');
+  assert.equal(new URL(queryUrl(FE, ['Maria'])).searchParams.get('origin'), null);
 });

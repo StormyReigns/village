@@ -3,14 +3,50 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowUpRight } from 'lucide-react';
-import type { WikiAnswer } from '@/lib/wiki';
+import { askOf, choose, queryUrl, readAnswer, type WikiAnswer, type WikiAsk } from '@/lib/wiki';
 
 // The small "Fire Emblem Wiki ↗" at the end of an entry's card (docs/blocks/wiki-links.md).
-// It shows only once our server has checked the page is really on the wiki; until then, and for
-// entries with no page, nothing shows.
+// It shows only once the page is checked to be really on the wiki; until then, and for entries
+// with no page, nothing shows. Our server checks; when the wiki turns our server away, the
+// player's browser asks the same wiki the same names, and remembers the answer for a day.
 
 /** One question per entry per visit, shared by every card showing it. */
 const asked = new Map<string, Promise<WikiAnswer | null>>();
+
+const DAY = 86_400_000;
+
+/** The wiki's answer remembered on this device (a convenience: it works without it). */
+function remembered(key: string): WikiAnswer | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const { at, a } = JSON.parse(raw) as { at: number; a: WikiAnswer };
+    return Date.now() - at < DAY && a && typeof a === 'object' ? a : null;
+  } catch { return null; }
+}
+function remember(key: string, a: WikiAnswer) {
+  try { localStorage.setItem(key, JSON.stringify({ at: Date.now(), a })); } catch { /* private window: fine */ }
+}
+
+/** The browser asks the wiki itself: only a known wiki site, only the names our server gave, no login. */
+async function askFromBrowser(raw: WikiAsk): Promise<WikiAnswer | null> {
+  const ask = askOf(raw);
+  if (!ask) return null;
+  const key = `wiki:${ask.wiki.api}:${ask.titles.join('|')}`;
+  const kept = remembered(key);
+  if (kept) return kept;
+  try {
+    const r = await fetch(queryUrl(ask.wiki, ask.titles, true), {
+      credentials: 'omit', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(6000),
+    });
+    if (!r.ok) return null;
+    const found = readAnswer(await r.json(), ask.titles);
+    if (!found.size) return null;
+    const a = choose(ask.wiki, ask.titles, found);
+    remember(key, a);
+    return a;
+  } catch { return null; }
+}
 
 function askOnce(game: string, cardId: string): Promise<WikiAnswer | null> {
   const key = `${game}/${cardId}`;
@@ -18,6 +54,7 @@ function askOnce(game: string, cardId: string): Promise<WikiAnswer | null> {
   if (!p) {
     p = fetch(`/api/wiki/${encodeURIComponent(game)}/${encodeURIComponent(cardId)}`)
       .then(async (r) => (r.ok ? ((await r.json()) as WikiAnswer) : null))
+      .then((a) => (a && !a.ok && a.reason === 'ask' ? askFromBrowser(a.ask) : a))
       .catch(() => null);
     // The wiki couldn't be reached: ask again next time.
     p.then((a) => { if (!a) asked.delete(key); });

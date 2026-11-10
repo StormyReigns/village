@@ -34,12 +34,16 @@ type Asked = { found: [string, PageFound][] } | { error: string };
 
 /**
  * What the wiki says about some page names. An answer (found or missing) is kept for a day; a
- * failure (the wiki down, slow or turning us away) only for a minute, so links come back soon.
+ * failure only briefly: a minute when the wiki is down or slow, an hour when it turns our server
+ * away (fireemblemwiki.org's Cloudflare blocks server companies like Vercel), since that rarely changes.
  * Failures are returned, not thrown: Next hides a thrown error's message in production.
  */
 async function askWiki(api: string, article: string, titles: string[]): Promise<Asked> {
   'use cache';
-  const failed = (error: string): Asked => { cacheLife({ stale: 30, revalidate: 60, expire: 120 }); return { error }; };
+  const failed = (error: string, blocked = false): Asked => {
+    cacheLife(blocked ? { stale: 300, revalidate: 3600, expire: 7200 } : { stale: 30, revalidate: 60, expire: 120 });
+    return { error };
+  };
   const wiki = wikiOf({ name: 'wiki', api, article });
   // Only a site on our list (src/lib/wiki.ts), checked again here where the request is made.
   if (!wiki || !knownWikiHost(api)) return failed('not a wiki we ask');
@@ -49,7 +53,7 @@ async function askWiki(api: string, article: string, titles: string[]): Promise<
       redirect: 'error',
       signal: AbortSignal.timeout(4000),
     });
-    if (!res.ok) return failed(`the wiki answered ${res.status}`);
+    if (!res.ok) return failed(`the wiki answered ${res.status}`, res.status === 403 || res.status === 429);
     const text = await res.text();
     if (text.length > MAX_ANSWER) return failed('the wiki answered too much');
     const found = readAnswer(JSON.parse(text), titles);
@@ -61,8 +65,6 @@ async function askWiki(api: string, article: string, titles: string[]): Promise<
     return failed(e instanceof Error ? (e.name === 'TimeoutError' ? 'timeout' : `${e.name}: ${e.message}`.slice(0, 120)) : 'unknown');
   }
 }
-
-class WikiDown extends Error {}
 
 async function answerFor(gameId: string, cardId: string): Promise<WikiAnswer> {
   const wiki = await gameWiki(gameId);
@@ -76,7 +78,8 @@ async function answerFor(gameId: string, cardId: string): Promise<WikiAnswer> {
       const titles = titlesFor(entry.name, wiki);
       if (!titles.length) return { ok: false, reason: 'missing' };
       const asked = await askWiki(wiki.api, wiki.article, titles);
-      if ('error' in asked) throw new WikiDown(asked.error);
+      // Turned away or down: the player's browser asks the same wiki the same names (WikiLink.tsx).
+      if ('error' in asked) return { ok: false, reason: 'ask', ask: { wiki, titles } };
       return choose(wiki, titles, new Map(asked.found));
     }
   }
@@ -92,10 +95,9 @@ export async function GET(_req: Request, ctx: RouteContext<'/api/wiki/[game]/[ca
     // answer is kept for a day above.
     return Response.json(answer, { headers: { 'cache-control': 'public, max-age=600, s-maxage=3600, stale-while-revalidate=86400' } });
   } catch (e) {
-    // The wiki is down or slow: no link for now, asked again next time. A few words on why
-    // (our own messages, or the kind of error) help tell a slow wiki from one that turns us away.
-    const why = e instanceof WikiDown ? e.message : e instanceof Error ? e.name : 'unknown';
+    // Our own side failed (the app's data couldn't load): no link for now, asked again next time.
+    const why = e instanceof Error ? e.name : 'unknown';
     console.error(`Wiki check failed for ${game}/${card}: ${why}`);
-    return Response.json({ error: 'Couldn’t reach the wiki.', why }, { status: 502, headers: { 'cache-control': 'no-store' } });
+    return Response.json({ error: 'Couldn’t check the wiki link.', why }, { status: 502, headers: { 'cache-control': 'no-store' } });
   }
 }

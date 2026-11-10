@@ -16,7 +16,13 @@ export interface GameWiki {
 /** What the check says about one entry. */
 export type WikiAnswer =
   | { ok: true; name: string; url: string; title: string }
-  | { ok: false; reason: 'no-wiki' | 'off' | 'missing' | 'which' };
+  | { ok: false; reason: 'no-wiki' | 'off' | 'missing' | 'which' }
+  /** The wiki turned our server away (some block whole server companies), so the player's browser
+   *  asks it: the saved wiki and the page names our server worked out, nothing else. */
+  | { ok: false; reason: 'ask'; ask: WikiAsk };
+
+/** What a browser asks the wiki when our server can't: the game's wiki and the names to try, in order. */
+export interface WikiAsk { wiki: GameWiki; titles: string[] }
 
 const HOST = /^https:\/\/((?:[a-z0-9-]+\.)+[a-z]{2,})(?=\/)/i;
 const API = /^https:\/\/(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[a-z0-9._~-]+)*\/api\.php$/i;
@@ -89,10 +95,12 @@ export function searchUrl(wiki: GameWiki, name: string): string {
 export const TITLES_PER_ASK = 50;
 
 /** The question for the wiki: do these pages exist, where do they redirect, which are "which one?" pages. */
-export function queryUrl(wiki: GameWiki, titles: string[]): string {
+export function queryUrl(wiki: GameWiki, titles: string[], fromBrowser = false): string {
   const q = new URLSearchParams({
     action: 'query', format: 'json', formatversion: '2', redirects: '1',
     prop: 'pageprops', ppprop: 'disambiguation', titles: titles.slice(0, TITLES_PER_ASK).join('|'),
+    // From a browser, MediaWiki answers another site's page only when asked without a login.
+    ...(fromBrowser ? { origin: '*' } : {}),
   });
   return `${wiki.api}?${q}`;
 }
@@ -159,4 +167,15 @@ export function choose(wiki: GameWiki, titles: string[], found: Map<string, Page
     return { ok: true, name: wiki.name, url: pageUrl(wiki, f.title), title: f.title };
   }
   return { ok: false, reason: which ? 'which' : 'missing' };
+}
+
+/** A browser's question is only ever for a known wiki site, about page names a wiki allows. */
+export function askOf(raw: unknown): WikiAsk | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const { wiki: w, titles } = raw as { wiki?: unknown; titles?: unknown };
+  const wiki = wikiOf(w);
+  if (!wiki || !knownWikiHost(wiki.api)) return null;
+  if (!Array.isArray(titles) || !titles.length || titles.length > 2) return null;
+  if (!titles.every((t) => typeof t === 'string' && toTitle(t) === t)) return null;
+  return { wiki, titles };
 }
