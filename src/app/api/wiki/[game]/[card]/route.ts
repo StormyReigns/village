@@ -76,8 +76,11 @@ export async function GET(_req: Request, ctx: RouteContext<'/api/wiki/[game]/[ca
     // Short at the edge, so a renamed entry or a new wiki shows within the hour; the wiki's own
     // answer is kept for a day above.
     return Response.json(answer, { headers: { 'cache-control': 'public, max-age=600, s-maxage=3600, stale-while-revalidate=86400' } });
-  } catch {
-    // The wiki is down or slow: no link for now, asked again next time.
-    return Response.json({ error: 'Couldn’t reach the wiki.' }, { status: 502 });
+  } catch (e) {
+    // The wiki is down or slow: no link for now, asked again next time. A few words on why
+    // (our own messages, or the kind of error) help tell a slow wiki from one that turns us away.
+    const why = e instanceof Error ? (e.name === 'TimeoutError' ? 'timeout' : `${e.name}: ${e.message}`.slice(0, 120)) : 'unknown';
+    console.error(`Wiki check failed for ${game}/${card}: ${why}`);
+    return Response.json({ error: 'Couldn’t reach the wiki.', why }, { status: 502, headers: { 'cache-control': 'no-store' } });
   }
 }
