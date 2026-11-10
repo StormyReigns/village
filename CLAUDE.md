@@ -143,6 +143,10 @@ Community-built companion apps for games, with a village theme. Two layers:
 - A Vercel deploy stuck on "pending" can finish later and replace newer ones on the live site
   (2026-11-09). After a stuck deploy, check the live site has the newest code, not just the
   latest commit's status; if it rolled back, push an empty commit.
+- The phone app's service worker (`public/sw.js`, production builds only) also runs on the local
+  `village-prod` server. After a rebuild, if a page looks old there, unregister it (DevTools →
+  Application, or `navigator.serviceWorker.getRegistration().then(r => r?.unregister())`) and reload.
+  On the live site pages always come from the network first.
 - The game app reads from the database (`src/lib/app-data.ts`, cached, refreshed when a
   moderator publishes). Starter Pages live in `src/data/pages/`; `npm run db:seed-app`
   turns them into `supabase/seed-app.sql`, which is safe to rerun and never overwrites
