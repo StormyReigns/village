@@ -1,10 +1,13 @@
 # Spreadsheets (an integration)
 
-**Status:** Download live (2026-11-09); paste-in designed · **Chat:**
-`Village · Spreadsheets` · **Mockup:** none yet · **Code:** `src/lib/sheets.ts` (a Block as rows
-and columns, CSV and copied rows; tested), `src/lib/xlsx.ts` (a small .xlsx writer, no library;
-tested), `src/components/sheets/SheetButton.tsx` (the Download menu) · **Database:** nothing for
-Download; a migration for batches (level 2), reviewed by the hub.
+**Status:** Download live (2026-11-09); paste-in agreed, its core built and tested, screens next ·
+**Chat:** `Village · Spreadsheets` · **Mockup:** none yet · **Code:** `src/lib/sheets.ts` (a Block's
+columns: how Download reads each one and how pasting writes it back; CSV and copied rows; tested),
+`src/lib/xlsx.ts` (a small .xlsx writer, no library; tested), `src/lib/paste.ts` (reading pasted
+rows, guessing columns, matching rows; tested), `src/lib/xlsx-read.ts` (reading an uploaded .xlsx,
+no library; tested), `src/components/sheets/SheetButton.tsx` (the Download menu) · **Database:**
+nothing for Download; `supabase/migrations/20261112000000_draft_batches.sql` for batches (waiting
+for the hub's review), checked by `supabase/tests/batches-check.mjs`.
 
 Not a Block: a way in and out of every Block for people who live in Excel and Google Sheets.
 Written up here with the Blocks because it's built like one.
@@ -111,50 +114,93 @@ How each kind of field reads in a cell:
 - Made in the browser from the Block already on the page: no wait, no server, and it works
   offline in the installed app.
 
-## Level 2: Paste in (designed, not built)
+## Level 2: Paste in (agreed 2026-11-09, building)
 
-In the Workshop, on a Block's "In the app" tab: **Paste from a sheet**.
+### The moment
 
-1. **Paste or upload.** Paste rows copied from Excel or Google Sheets (they arrive as
-   tab-separated text), or drop a .csv or .xlsx. The first row should be the headers.
-2. **Match columns.** Village guesses which column is which field: exact names first (from our
-   own download), then the field's key, then common short forms ("ATK" → Attack, "Def" →
-   Defense, "Lv" → Level), then close spellings. Each column shows its guess with a menu to fix
-   it, or "Leave out". Columns it can't place are left out until the builder picks. (AI could
-   help guess later; the builder still confirms every column.)
-3. **Match rows.** By id first, then by name (ignoring case and spaces). Three groups:
-   - **New** (no match): will add an entry.
-   - **Changes**: old → new for each field, the same "What changes" lines Drafts use
-     (`changesBetween`).
-   - **Unchanged**: folded away.
-   Rows can be ticked off individually. A blank cell never wipes a value (a sheet with an
-   empty column shouldn't erase the app); to clear a value, type `-`.
-4. **Credit.** A source is required ("Fan stat sheet by Mira, link"), and a tick: "I made this
-   sheet, or its maker is happy for it to be shared under CC BY-SA."
-5. **Send as one batch.** Nothing goes live until the usual review.
+A builder has a sheet open in another tab: their own, or a well-known fan sheet whose maker said
+yes. A Block in the app is half empty or out of date. They want to select the rows, copy, paste,
+check Village understood the columns, glance at what will change, and send. A few minutes, not an
+evening of forms. Then voters look at the batch once, spot-check a few rows they know, and a
+moderator publishes it.
 
-### What a batch is (recommended)
+### Where
+
+In the Workshop, under **In the app**, each Block (the ones Download offers) gets a **Paste**
+button beside Add. The app's Download menu ends with "Fixed something? Paste it back in the
+Workshop", which opens that Block's paste screen. It opens in the work column like the other editors, on the Workbench, with the
+chat still beside it. On a phone it fills the screen. (Pasting 60 rows is mostly a computer job,
+but it works on a tablet or phone too.)
+
+### The screen, top to bottom
+
+One screen that fills in as you go, not a wizard of separate pages:
+
+1. **Paste box.** "Copy the rows in Excel or Google Sheets, headers included, and paste here", or
+   **Choose a file** (.csv or .xlsx; for an .xlsx with several sheets, pick one). A link: "Start
+   from our sheet" downloads this Block's own sheet, so the columns already match.
+2. **Columns.** One row per sheet column: its header, two sample values, and a menu with Village's
+   choice for it ("ATK → Attack", "Leave out"). Guessing goes: exact field name (our own download),
+   the field's key, a stat's short name ("ATK", "Str", "Lv", "HP"), then a close spelling. Columns
+   it can't place say "Leave out" in gray until the builder picks. Name must be matched to
+   something; id, Source, Appears on, the "(as Theodora)" columns, Spoiler and Confirmed are
+   understood too. Link is ignored. The choice is remembered on the device for that Block, so the
+   same sheet next week needs no matching.
+3. **Rows.** Matched to the app by id first, then by name (ignoring case, spaces and accents).
+   Four groups, with counts:
+   - **New · 12**: entries that will be added. Each opens to show its fields.
+   - **Changes · 23**: entries that will be fixed, each with the same "What changes" lines a Draft
+     shows (old → new).
+   - **Same as the app · 25**: folded away.
+   - **Can't use · 2**: a plain reason each ("No name", "Might isn't a number: 'high'", "Playable
+     or NPC must be Playable or NPC", "Two rows are both called Cai"). Fix the sheet and paste
+     again, or leave them out.
+   Every New and Changes row has a tick, on by default, to leave single rows out.
+4. **Credit.** Where it's from (required): "Fan stat sheet by Mira", plus a link if there is one.
+   If the sheet has its own Source column, each row keeps its own and this fills the gaps. A tick:
+   "I made this sheet, or its maker is happy for it to be shared under CC BY-SA."
+5. **Send.** "Send 35 changes for review". It becomes one batch in Drafts.
+
+### How a cell becomes a value
+
+- **The sheet is the truth for its own columns** (Matt): a blank cell in a column the sheet has
+  clears that value, and shows as a change to review ("Skills: Fire Bolt → nothing"). If a column
+  is blank on every row, Village warns before sending ("Skills is empty on all 40 rows: this
+  clears Skills on 23 entries").
+- **Fields the sheet doesn't have stay as they are.** A row only changes what its columns say, so
+  a sheet downloaded without spoilers (no spoiler columns) never touches spoiler fields.
+- **Rows the app has but the sheet doesn't are left alone.** Pasting never deletes an entry.
+- **Numbers and stats** must be numbers ("14", "2.5"); "1,200" is read as 1200 for stats.
+  A number field keeps what's typed if it isn't a number ("1,200 G"), as in the form.
+- **Tags** take any text. **Toggles** must be one of their two choices (case doesn't matter).
+  **Yes or no** takes Yes, No, Y, N, True, False.
+- **Lists and other entries**: one per line inside the cell, as Download writes them.
+- A leading `'` that Download added to keep text safe is taken off again.
+- **Spoilers**: a new entry is a spoiler only if the Spoiler column says Yes; an existing entry
+  keeps its spoiler mark unless the column says otherwise.
+- Pictures can't be pasted (they come in through uploads).
+
+### What a batch is
 
 **Many Drafts grouped together**, not one Draft holding many entries:
 - Each row is an ordinary Draft (one entry, its own "What changes", its own history once
   published), so publishing, rollback and credit work unchanged.
-- A new **batch** record holds them together: its title, source, who sent it, and how many rows.
-- In Drafts, a batch shows as **one card**: "Units · 42 changes from Mira's stat sheet", which
-  opens to a table of every row's changes.
+- A **batch** record holds them together: the Block, a title ("42 changes from Mira's stat
+  sheet"), the source, who sent it, and when.
+- In Drafts, a batch shows as **one card**: "Units · 42 changes from Mira's stat sheet · by
+  stormy", with counts (12 new, 30 fixed). It opens to a table of every row's changes, New first.
+  Its rows don't also show as separate Drafts.
 - **Voting is on the batch**: "I can confirm" / "Seems wrong" once for the whole batch (totals
-  hidden until 5, as always). Anyone can **flag a row** ("this one's off"), which sets it aside.
-- **Publishing**: a moderator publishes the batch in one go (every row except flagged ones,
-  which stay as separate Drafts to settle on their own), or declines it with a reason.
-- **Limits**: a batch counts as one Draft against the 20-an-hour limit, holds up to 200 rows,
-  and each player can send 3 batches a day.
-
-To work out before the migration (the hub, 2026-11-09):
-- **A row that clashes with a newer fix.** Each row's Draft records the revision it was based on.
-  If someone else's fix to that entry is published first, that row shouldn't overwrite it:
-  publishing the batch skips it and sets it aside as its own Draft, showing the new version
-  beside the sheet's, to settle on its own.
-- **The rate limit.** A batch counts as one against the hourly Drafts limit, with its own
-  3-a-day limit, checked in the database, not just in the page.
+  hidden until 5, as always), and it sorts in Drafts by Standouts like any Draft.
+- **Flag a row**: anyone signed in can say "this row's off", which takes it out of the batch and
+  makes it a Draft of its own, to be voted on and settled by itself.
+- **Publishing**: a moderator publishes the batch in one go, whenever they're happy with it (Matt:
+  no waiting time, as with any Draft), or declines it with a reason that
+  goes to the sender's inbox. Publishing skips any row whose entry changed since the batch was
+  sent (someone else's fix was published first): that row is set aside as its own Draft, so the
+  newer fix is never overwritten without a look.
+- **Limits**: a batch counts as one against the 20-an-hour Drafts limit, holds up to 200 rows, and
+  each player can send 3 batches a day. Checked by the database, not just the page.
 
 Why not one big Draft: every part of Village assumes a Draft changes one entry (what it edits,
 "What changes", the history, publishing). One Draft per row keeps all of that, and the batch is
@@ -162,14 +208,17 @@ just a folder around them.
 
 ### What it needs in the database (for the hub)
 
-- `draft_batches`: id, game, block, title, source, author, row count, status, created_at
-  (always now), decided by and when, decline reason.
-- `drafts.batch_id` (nullable): which batch a Draft belongs to.
-- `batch_votes`: one per player per batch, like `draft_votes`.
-- `ship_batch(batch)`: moderators only; ships every open Draft in the batch that isn't flagged
-  (calling `ship_draft` for each), in one go.
+- `draft_batches`: id, game, block, title, source, author, status (open, stable, declined,
+  removed), created_at (always now), decided by and when, decline reason.
+- `drafts.batch_id` (nullable): which batch a Draft belongs to. Flagging a row clears it.
+- `batch_votes`: one per player per batch, +1 or -1, like `draft_votes`, with scores from the same
+  `wilson_lower`.
+- `send_batch(game, block, title, source, rows jsonb)`: makes the batch and its Drafts in one go
+  (all or nothing), checks the limits, credits the author, and dates everything now.
+- `ship_batch(batch)`: moderators only; publishes every open Draft in the batch through
+  `ship_draft`, skipping (and setting aside) rows whose entry has a newer Stable revision.
+- `decline_batch(batch, reason)`, `flag_batch_row(draft)`.
 - `slow_down`: Drafts in a batch don't count one by one; batches have their own limit.
-- Standouts for batches, from batch votes.
 
 ## Level 3: A linked Google Sheet (later)
 
@@ -190,12 +239,16 @@ once. Moderators can unlink it.
 1. **Download**: `sheets.ts` and its tests, `xlsx.ts`, the sheet button and menu (Excel, CSV,
    Copy rows). Checked on the production build, desktop and
    phone.
-2. **Paste in, the matching screen**: paste or upload, column matching, row matching with
-   "What changes", sent as separate Drafts at first if the batch SQL isn't in yet (for small
-   pastes, under the hourly limit).
-3. **Batches**: the migration (reviewed by the hub, run by Matt), the batch card, voting, flags,
-   publishing as one.
-4. **Linked sheets**: the daily check.
+2. **Paste in, the core** (built 2026-11-09): reading tabs, CSV and .xlsx (including files Excel
+   itself saved), guessing columns, matching rows by id then name, each row's new content, the
+   "blank on every row" warning. A downloaded sheet of every Block pastes back with nothing
+   changed (tested as text, CSV and .xlsx).
+3. **Batches, the database**: the migration (written, 35 checks pass; waiting for the hub's
+   review, then Matt runs it).
+4. **Paste in, the screens**: the Paste editor in the Workshop, the batch card in Drafts (vote,
+   set a row aside, publish, decline, take back), the batch note in the chat, and the link in the
+   Download menu. Needs the hub's go-ahead for the Workshop files.
+5. **Linked sheets**: the daily check.
 
 ## Decisions
 
@@ -206,6 +259,14 @@ once. Moderators can unlink it.
   published in one go; a single row can be flagged and set aside.
 - 2026-11-09 (Matt): anyone signed in can send a batch (up to 200 rows, 3 a day, a source and
   the CC BY-SA tick required); it always waits for votes and a moderator.
+- 2026-11-09 (Matt): pasting, a blank cell clears that value (the sheet is the truth for its own
+  columns); columns the sheet doesn't have are left alone, and entries missing from the sheet
+  are never deleted.
+- 2026-11-09 (Matt): a moderator can publish a batch any time, like a Draft.
+- 2026-11-09 (Matt): Paste sits beside Add on each Block in the Workshop, and the app's Download
+  menu links to it.
+- 2026-11-09 (Matt): column matching is rules first (names, keys, short forms, close spellings,
+  remembered per Block); AI help later if the rules miss too often.
 - 2026-11-09 (building): the sheet is made in the browser from the Block already on the page,
   and the .xlsx by our own small writer. Why: no server route, no database, no new library.
 - 2026-11-09 (building, the hub): text a contributor typed never runs as a formula. In the CSV
