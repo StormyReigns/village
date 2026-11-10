@@ -1,6 +1,6 @@
 # Wiki links (an integration)
 
-**Status:** Building (2026-11-10): first slice, links on cards · **Chat:** `Village · Wiki links` · **Mockup:** none yet ·
+**Status:** Live, first slice (2026-11-10): checked links on cards · **Chat:** `Village · Wiki links` · **Mockup:** none yet ·
 **Code:** `src/lib/wiki.ts` (names to wiki addresses, checks; plain and tested),
 `src/app/api/wiki/[game]/[card]/route.ts` (asks the wiki whether the page exists, kept for a day),
 `src/components/wiki/WikiLink.tsx` (the link on cards) · **Database:** one column,
@@ -163,6 +163,14 @@ Where the wiki names a page differently, a builder fixes that one entry with a n
   wiki.gg, fextralife.com and miraheze.org. A game whose wiki is elsewhere shows no links until
   we add its site. Why: a name that looks fine could point somewhere it shouldn't, and moderators
   will be community members.
+- **When a wiki turns our server away, the player's browser asks.** fireemblemwiki.org sits
+  behind Cloudflare, which blocks requests from server companies like Vercel (it answers 403),
+  while players' browsers get through. So when the wiki turns our server away (or is down), our
+  server answers with the saved wiki and the page names it worked out, and the browser asks that
+  wiki itself (MediaWiki allows this with `origin=*`): only a known wiki site, at most two names
+  that pass the page-name check (`askOf`), no login or cookies, no referrer. The answer is kept on
+  the device for a day. The wiki sees the player's internet address, as it would when they click
+  the link, like YouTube thumbnails. Our server keeps "turned away" for an hour and tries again.
 - **Checked like any outside answer**: https only, no following redirects to other addresses,
   a 4-second timeout, a size cap on the answer, and page names checked against the characters a
   wiki allows (no `#<>[]|{}`, at most 255 bytes).
@@ -222,6 +230,10 @@ Where the wiki names a page differently, a builder fixes that one entry with a n
   see where they're going, and the wiki gets credit.
 - 2026-11-10 (Matt): links show on Characters, Items and Collections (classes, foes, places),
   not on Guides, Checklists, Timelines or Tier lists. A per-Block switch in Set up can come later.
+
+- 2026-11-10 (Matt): when a wiki blocks our server, the player's browser asks the wiki instead.
+  Why: fireemblemwiki.org's Cloudflare blocks Vercel; our server still decides which wiki and
+  which names, so nobody can point it anywhere else.
 
 ## Open questions (for Matt)
 
