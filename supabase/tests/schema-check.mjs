@@ -555,3 +555,21 @@ await expectOk(C, `insert into public.chat_messages (game_id, author_id, body, c
 const when = await db.query(`select created_at > now() - interval '1 minute' as fresh from public.chat_messages where body = 'From the past'`);
 when.rows[0]?.fresh === true ? ok('it is dated now, not 2000') : bad('backdated chat ' + JSON.stringify(when.rows));
 }
+
+// Wiki links (docs/blocks/wiki-links.md): a game's wiki is set by its moderators, and only to a
+// safe https MediaWiki address on one site.
+{
+const W = (w) => `update public.games set wiki = '${JSON.stringify(w).replace(/'/g, "''")}'::jsonb where id = 'fortunes-weave'`;
+const good = { name: 'Fire Emblem Wiki', api: 'https://fireemblemwiki.org/w/api.php', article: 'https://fireemblemwiki.org/wiki/$1', bracket: "Fortune's Weave" };
+await expectOk(A, W(good), 'a moderator sets the game wiki');
+await expectFail(B, W({ ...good, name: 'Hacked Wiki' }), 'a villager cannot change it');
+await expectFail(A, W({ ...good, api: 'http://fireemblemwiki.org/w/api.php' }), 'the wiki must be https');
+await expectFail(A, W({ ...good, api: 'https://127.0.0.1/w/api.php', article: 'https://127.0.0.1/wiki/$1' }), 'no bare numbers for a host');
+await expectFail(A, W({ ...good, api: 'https://localhost/api.php', article: 'https://localhost/wiki/$1' }), 'no localhost');
+await expectFail(A, W({ ...good, api: 'https://fireemblemwiki.org/w/index.php' }), 'the API address ends in api.php');
+await expectFail(A, W({ ...good, article: 'https://evil.example.com/wiki/$1' }), 'pages and the API are on the same site');
+await expectFail(A, W({ ...good, article: 'https://fireemblemwiki.org/wiki/' }), 'the page address says where the name goes');
+await expectFail(A, W({ ...good, bracket: 'a|b' }), 'the bracket word has no wiki-breaking characters');
+const gw = await db.query(`select wiki->>'name' as n from public.games where id = 'fortunes-weave'`);
+gw.rows[0]?.n === 'Fire Emblem Wiki' ? ok('the good setting stuck') : bad('wiki ' + JSON.stringify(gw.rows));
+}

@@ -15,6 +15,7 @@ import { MADE_FROM, STATS, UPGRADES_TO, amountText, besideText, toggleOptions, c
 import { byStat, heatFill, placeText, rangeOf, statFacts } from '@/lib/stats';
 import { StatTable, statSort } from './StatTable';
 import { Videos, cardIdOf } from '@/components/videos/Videos';
+import { WikiLink } from '@/components/wiki/WikiLink';
 import { CommunityTier } from '@/components/tiers/CommunityTier';
 
 /**
@@ -208,6 +209,8 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
           </Fragment>
         );
       })}
+      {/* The entry's page on the game's wiki, once it's checked (docs/blocks/wiki-links.md). */}
+      <WikiLink cardId={sample ? undefined : cardIdOf(entry)} sample={sample} color={color} className="mt-4" />
       {/* Videos (docs/blocks/videos.md): small rows after everything else. */}
       <Videos cardId={sample ? undefined : cardIdOf(entry)} size="small" name={entry.name} color={color} className="mt-4" />
     </article>
