@@ -10,6 +10,8 @@ import { Tip } from '@/components/Tip';
 import { usePlayerPrefs } from '@/components/usePlayerPrefs';
 import { BlockView, type BlockContext } from './Blocks';
 import { TextLinksProvider, type TextLinkData } from './TextLinks';
+import { KinProvider } from '@/components/classes/kin';
+import type { Kin } from '@/lib/class-fit';
 import { HelpSolve, NewInVillage, Welcome } from './HomeHooks';
 import { GLOSSARY, IN_GAME_DATES } from '@/data/glossary';
 import type { Mention } from '@/data/pages/links';
@@ -45,9 +47,11 @@ function RoutePicker({ game, route, onPick, solid }: { game: AppGame; route: Rou
   );
 }
 
-export function PageView({ game, page, openOnLoad, scrollTo, links = [], mentions, pages = [], questionsPage }: {
+export function PageView({ game, page, openOnLoad, scrollTo, links = [], mentions, pages = [], questionsPage, kin }: {
   game: AppGame; page: Page; openOnLoad?: string; scrollTo?: string; links?: TextLinkData['names'];
   mentions?: Record<string, Mention[]>;
+  /** Units and classes: what this Page's cards know about the kin Block (src/lib/class-fit.ts). */
+  kin?: Kin[];
   /** Every Page, for the Ask sheet's "Which Page is it about?" (src/components/questions). */
   pages?: QPage[];
   /** The Page that lists every open question (questionsPage in src/lib/questions.ts). */
@@ -124,12 +128,12 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [], mention
         )}
       </header>
 
-      <TextLinksProvider value={textLinks}>
+      <TextLinksProvider value={textLinks}><KinProvider kin={kin}>
         <div className="mt-4 grid gap-4">
           {page.blocks.map((b) => <BlockView key={b.id} block={b} ctx={ctx} />)}
           {questionsPage === page.id && <AllQuestions gameId={game.id} pages={pages} allPages={[page]} />}
         </div>
-      </TextLinksProvider>
+      </KinProvider></TextLinksProvider>
     </div>
   );
 }

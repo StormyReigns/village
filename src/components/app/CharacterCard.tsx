@@ -18,6 +18,7 @@ import { StatTable, statSort } from './StatTable';
 import { Videos, cardIdOf } from '@/components/videos/Videos';
 import { WikiLink } from '@/components/wiki/WikiLink';
 import { CommunityTier } from '@/components/tiers/CommunityTier';
+import { ClassFit } from '@/components/classes/ClassFit';
 
 /**
  * Set by the Characters Block: tapping a tag on a card (a group, a class, Playable or NPC)
@@ -25,7 +26,7 @@ import { CommunityTier } from '@/components/tiers/CommunityTier';
  */
 export const TagPick = createContext<((key: string, value: string) => void) | null>(null);
 
-type CardBlock = Pick<Block, 'title' | 'icon'> & Partial<Pick<Block, 'type' | 'fields' | 'stats' | 'symbols' | 'filters' | 'entries'>>;
+type CardBlock = Pick<Block, 'title' | 'icon'> & Partial<Pick<Block, 'id' | 'type' | 'fields' | 'stats' | 'symbols' | 'filters' | 'entries'>>;
 
 /**
  * A character's profile, laid out by its Block's fields: the portrait, the name with
@@ -231,6 +232,9 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
           </Fragment>
         );
       })}
+      {/* Units and classes (src/components/classes): the classes for a unit, or who suits a class, after the
+          card's own fields. Nothing without a kin Block, or in samples and previews. */}
+      {!sample && <ClassFit entry={entry} blockId={block.id} cast={others.map((e) => e.stats)} color={color} />}
       {/* Videos (docs/blocks/videos.md): small rows after everything else. */}
       <Videos cardId={sample ? undefined : cardIdOf(entry)} size="small" name={entry.name} color={color} className="mt-4" />
     </article>

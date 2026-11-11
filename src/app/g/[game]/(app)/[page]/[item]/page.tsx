@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { GAMES, getGame } from '@/data/games';
 import { getApp } from '@/lib/app-data';
+import { classKin } from '@/lib/class-fit';
 import { PageView } from '@/components/app/PageView';
 import { clip, entryLinks, findItem, itemParam, mapMentions, resolveItem, shareAnswer } from '@/data/pages/links';
 import { shadeHex } from '@/lib/shades';
@@ -74,7 +75,7 @@ async function Loaded({ params }: { params: PageProps<'/g/[game]/[page]/[item]'>
   // the one guide, in place of the list).
   const panel = hit.block.type === 'collection' || hit.block.type === 'checklist' || hit.block.type === 'characters' || hit.block.type === 'items' || hit.block.type === 'classes' || hit.block.type === 'guide';
   return (
-    <PageView game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }} page={page} links={entryLinks(game.id, await getApp(game.id))} mentions={mapMentions(game.id, await getApp(game.id), page)}
+    <PageView game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }} page={page} links={entryLinks(game.id, await getApp(game.id))} mentions={mapMentions(game.id, await getApp(game.id), page)} kin={classKin(game.id, await getApp(game.id), page)}
       openOnLoad={hit.entry && panel ? `${hit.block.id}.${hit.entry.id}` : undefined}
       scrollTo={!hit.entry ? hit.block.id : panel ? undefined : `${hit.block.id}-${hit.entry.id}`} />
   );

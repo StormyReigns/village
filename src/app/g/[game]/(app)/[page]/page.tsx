@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { GAMES, getGame } from '@/data/games';
 import { getApp } from '@/lib/app-data';
+import { classKin } from '@/lib/class-fit';
 import { PageView } from '@/components/app/PageView';
 import { entryLinks, mapMentions, movedPagePath } from '@/data/pages/links';
 import { shadeHex } from '@/lib/shades';
@@ -55,7 +56,7 @@ async function Loaded({ params, searchParams }: { params: PageProps<'/g/[game]/[
   }
   const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
   return (
-    <PageView game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }} page={page} links={entryLinks(game.id, pages)} mentions={mapMentions(game.id, pages, page)}
+    <PageView game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }} page={page} links={entryLinks(game.id, pages)} mentions={mapMentions(game.id, pages, page)} kin={classKin(game.id, pages, page)}
       pages={pages.map((p) => ({ id: p.id, title: p.title, short: p.short, tint: p.tint }))} questionsPage={questionsPage(pages)?.id} />
   );
 }

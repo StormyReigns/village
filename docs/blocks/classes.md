@@ -174,12 +174,38 @@ the live preview. Moderators save setups for now.
 
 1. **Slice 1** (this one): the "classes" type, the ladder with header cards, List, Compare, search
    and chips; the class card with its path; 58 classes of starter data. Then made general (above).
-2. **Slice 2: units and classes**, linked both ways, shown only where characters and classes share
-   a chart's stats. On a class card, "Pick a unit" shows her growths
-   in the class (her growths + the modifiers); on a unit card, "Best classes for her growths". A
-   unit's starting class.
-3. **Slice 3**: "What can she take?" (tap the ranks a unit has and the classes she qualifies for
-   light up); a Class tiers list (the Tier lists Block ranking Classes); class art.
+2. **Slice 2: units and classes** (below), linked both ways, shown only where characters and
+   classes share a chart's stats.
+3. **Slice 3**: "What can they take?" (tap the ranks a unit has and the classes they qualify for
+   light up); a unit's starting class; a Class tiers list (the Tier lists Block ranking Classes);
+   class art.
+
+## Slice 2: units and classes
+
+Designed with Matt, 2026-11-11. **Code:** `src/lib/class-fit.ts` (kin, strengths, ranking; tested in
+`class-fit.test.ts`), `src/components/classes/ClassFit.tsx` (the card sections), `kin.tsx` (the
+context), one line in `CharacterCard.tsx`, and the kin handed down by the Page routes and `PageView`.
+
+- **Kin.** A Characters Block and a Classes Block in the same game pair up when their charts share at
+  least three stats (Fortune's Weave: the nine growths). The server works out each Page's kin (the
+  other Block's names, pictures, numbers and bands) and hands it to the cards, so nothing else loads.
+  A game whose classes have no numbers in common with its characters (World of Warcraft) never sees it.
+- **On a unit's card: "Classes for <name>".** Band chips (Beginner to Divine), remembered on the
+  device, since players promote their army around the same time. The top 3 in the band, "Show all"
+  for the rest. Ranked by default by **their strengths**: the stats they grow better than the cast's
+  average, times how much each class raises them, with a short reason: what the class adds to those
+  stats ("Def +25 · Str +10"). A "Rank by" menu switches to **one stat** ("Best Spd": "Spd 50 here
+  (35 + 15)") (Matt: strengths by default, a stat if the player wants). Each class opens its card on
+  the Classes Page, and its piece wears the Classes Page's color.
+- **On a class's card: "Who suits it"**, the 5 units whose strengths it raises most, each with the
+  stats why; and **"Pick a unit"**: any unit's numbers in the class, written so a stranger can read
+  them ("Esmeralda as Sniper": Dex 55, with "35 + 20" under it), remembered on the device, so a player can pick Fabio once and browse
+  classes with his numbers.
+- **The player's route and spoilers** (the hub, 2026-11-11): units and classes follow the route picked
+  in the switcher (a Theodora player isn't told about a unit only Cai can recruit), and spoiler units
+  and classes stay out, by name and picture, until spoilers are shown; the band says when a whole
+  band is hidden. Both sections sit at the end of the card, after its own fields. A unit whose numbers are all close to the cast's gets "no classes stand out, try
+  ranking by one stat".
 
 ## Decisions
 
@@ -206,7 +232,15 @@ the live preview. Moderators save setups for now.
   the Fire Emblem rules only fit tactics games. Fortune's Weave looks the same, with "Leads to /
   Comes from" in place of "Next steps / Steps before"; no SQL.
 
+- 2026-11-11: slice 2 designed (Matt): "Classes for <name>" on unit cards, ranked by their strengths
+  by default with one stat as the other choice, band chips remembered; "Who suits it" and "Pick a
+  unit" on class cards. Only where characters and classes share chart stats.
+
 ## Open questions
+
+- Charm counts as a strength like any stat, so Dietrich (high Charm) gets Dancer and Priest first.
+  If players find that odd, builders could mark stats that shouldn't count.
+- Gender and route locks ("Women only", Dancer on Leda's route) aren't checked in suggestions yet.
 
 - Class art: the game's class icons, credited, once uploads cover classes.
 - Whether "Weapons" should be a tag of its own (a filter by weapon) or keep coming from the exam.
