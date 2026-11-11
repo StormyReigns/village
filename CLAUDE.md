@@ -147,6 +147,9 @@ Community-built companion apps for games, with a village theme. Two layers:
   `village-prod` server. After a rebuild, if a page looks old there, unregister it (DevTools →
   Application, or `navigator.serviceWorker.getRegistration().then(r => r?.unregister())`) and reload.
   On the live site pages always come from the network first.
+- Vercel skips building commits that only change `docs/` or `*.md` files (`vercel.json`,
+  `scripts/vercel-ignore.sh`), to stay inside the free plan's 10 GB of kept deploys. Rebuild commits
+  and empty commits still build. A notes-only commit's GitHub status may say "skipped" or stay empty.
 - The game app reads from the database (`src/lib/app-data.ts`, cached, refreshed when a
   moderator publishes). Starter Pages live in `src/data/pages/`; `npm run db:seed-app`
   turns them into `supabase/seed-app.sql`, which is safe to rerun and never overwrites
