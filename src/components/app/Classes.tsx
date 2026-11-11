@@ -28,7 +28,12 @@ type View = 'ladder' | 'list' | 'compare';
 export function Classes({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const headers = useMemo(() => block.entries.filter((e) => e.header), [block]);
   const classes = useMemo(() => block.entries.filter((e) => !e.header), [block]);
-  const shown = useMemo(() => (ctx.spoilers ? classes : classes.filter((e) => !e.spoiler)), [classes, ctx.spoilers]);
+  // What the Block's own setup makes the bands, the skill ranks and the path (src/lib/classes.ts).
+  const shape = useMemo(() => classShape(block), [block]);
+  // Spoilers open a band at a time (Matt: tapping one band's bar shouldn't open them all). The
+  // Page's own spoiler switch still shows everything.
+  const [opened, setOpened] = useState<Set<string>>(() => new Set());
+  const shown = useMemo(() => (ctx.spoilers ? classes : classes.filter((e) => !e.spoiler || opened.has(bandOf(e, shape.band)))), [classes, ctx.spoilers, opened, shape.band]);
   const defs = useMemo(() => allStatDefs(block), [block]);
   const [stored, setView] = useStored<View>(`village:${ctx.gameId}:${block.id}:view`, 'ladder');
   const view: View = stored === 'compare' && !defs.length ? 'ladder' : stored;
@@ -39,8 +44,6 @@ export function Classes({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const color = `var(--${ctx.tint})`;
   const open = (e: Entry) => set(`${block.id}.${e.id}`);
 
-  // What the Block's own setup makes the bands, the skill ranks and the path (src/lib/classes.ts).
-  const shape = useMemo(() => classShape(block), [block]);
   // Chips: the first tag that isn't the bands' (Moves: On foot, Riding, Flying...).
   const chipTag = useMemo(() => shownFields(block).filter((f) => isCategory(f) && f.key !== shape.band && !f.spoiler)
     .find((f) => new Set(shown.map((e) => e.categories[f.key]).filter(Boolean)).size > 1), [block, shown, shape.band]);
@@ -71,9 +74,9 @@ export function Classes({ block, ctx }: { block: Block; ctx: BlockContext }) {
       header: headers.find((h) => bandOf(h, shape.band) === tier),
       items: list.filter((e) => bandOf(e, shape.band) === tier),
       // Classes in this tier hidden as spoilers (Part III), so the band can offer to show them.
-      hidden: ctx.spoilers || pick ? 0 : classes.filter((e) => e.spoiler && bandOf(e, shape.band) === tier).length,
+      hidden: ctx.spoilers || pick || opened.has(tier) ? 0 : classes.filter((e) => e.spoiler && bandOf(e, shape.band) === tier).length,
     })).filter((b) => b.items.length || b.hidden);
-  }, [banded, tiers, headers, list, classes, ctx.spoilers, pick, shape.band]);
+  }, [banded, tiers, headers, list, classes, ctx.spoilers, pick, shape.band, opened]);
   // Under each class's name: its skill ranks when the Block has them, else its chip tag (Plate, Riding...).
   const subline = (e: Entry) => (shape.ranks ? rankLine(e, shape.ranks) : chipTag ? e.categories[chipTag.key] ?? '' : '');
 
@@ -138,9 +141,9 @@ export function Classes({ block, ctx }: { block: Block; ctx: BlockContext }) {
               </ul>
             )}
             {b.hidden > 0 && (
-              <button type="button" onClick={ctx.onShowSpoilers}
+              <button type="button" onClick={() => setOpened(new Set([...opened, b.tier]))}
                 className="spoiler-cover mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-xl py-2 text-sm font-bold text-muted ring-1 ring-line hover:text-ink">
-                <EyeOff size={14} aria-hidden="true" /> {b.hidden} {b.hidden === 1 ? 'class' : 'classes'} hidden as spoilers. Tap to show
+                <EyeOff size={14} aria-hidden="true" /> {b.hidden} {b.hidden === 1 ? 'class' : 'classes'} hidden as spoilers. Tap to show {b.hidden === 1 ? 'it' : 'them'}
               </button>
             )}
           </section>

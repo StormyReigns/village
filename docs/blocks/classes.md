@@ -235,6 +235,10 @@ context), one line in `CharacterCard.tsx`, and the kin handed down by the Page r
 - 2026-11-11: slice 2 designed (Matt): "Classes for <name>" on unit cards, ranked by their strengths
   by default with one stat as the other choice, band chips remembered; "Who suits it" and "Pick a
   unit" on class cards. Only where characters and classes share chart stats.
+- 2026-11-11: spoilers open a band at a time (Matt: tapping one spoiler bar opened them all, and a
+  unit card's Master or Divine chip had no way to show its classes). Each band's bar on the ladder
+  shows just that band; a spoiler band in "Classes for <name>" gets the same bar. The Page's spoiler
+  switch still shows everything.
 
 ## Open questions
 

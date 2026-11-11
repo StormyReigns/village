@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { EyeOff } from 'lucide-react';
 import type { EntryContent, StatDef } from '@/data/pages';
 import { Piece } from '@/components/Piece';
 import { useStored } from '@/components/useStored';
@@ -31,10 +32,9 @@ export function ClassFit({ entry, blockId, cast, color }: {
   const onRoute = (r: KinRow) => prefs.route === 'all' || !r.routes?.length || r.routes.includes(prefs.route);
   const routed = kin.rows.filter(onRoute);
   const rows = routed.filter((r) => prefs.spoilers || !r.spoiler);
-  const hidden = routed.length - rows.length;
 
   return kin.side === 'classes'
-    ? <ClassesFor kin={kin} rows={rows} routed={routed} hidden={hidden} entry={entry} cast={cast} color={color} />
+    ? <ClassesFor kin={kin} rows={rows} routed={routed} entry={entry} cast={cast} color={color} />
     : <UnitsFor kin={kin} rows={rows} entry={entry} color={color} />;
 }
 
@@ -58,14 +58,16 @@ function Mini({ r, kin }: { r: KinRow; kin: Kin }) {
 }
 
 /** On a unit's card: "Classes for Fabio", a band at a time, by their strengths or by one stat. */
-function ClassesFor({ kin, rows, routed, hidden, entry, cast, color }: { kin: Kin; rows: KinRow[]; routed: KinRow[]; hidden: number; entry: EntryContent; cast: Stats[]; color: string }) {
+function ClassesFor({ kin, rows, routed, entry, cast, color }: { kin: Kin; rows: KinRow[]; routed: KinRow[]; entry: EntryContent; cast: Stats[]; color: string }) {
   const bands = kin.bands.filter((b) => routed.some((r) => r.band === b));
   const [stored, setBand] = useStored<string>(`village:${kin.game}:classfit:band`, bands[0] ?? '');
   const band = bands.includes(stored) ? stored : bands[0] ?? '';
   const [by, setBy] = useStored<string>(`village:${kin.game}:classfit:by`, 'strengths');
   const [all, setAll] = useState(false);
-  const inBand = useMemo(() => rows.filter((r) => !band || r.band === band), [rows, band]);
-  const fits = useMemo(() => classesFor(entry.stats, cast, inBand, kin.defs, by), [entry.stats, cast, inBand, kin.defs, by]);
+  // Spoiler classes open a band at a time, here on this card (the Page's spoiler switch shows them all).
+  const [opened, setOpened] = useState<Set<string>>(() => new Set());
+  const inBand = (opened.has(band) ? routed : rows).filter((r) => !band || r.band === band);
+  const fits = classesFor(entry.stats, cast, inBand, kin.defs, by);
   const shown = all ? fits : fits.slice(0, 3);
   const name = entry.name || 'them';
   const stat = by.startsWith('stat:') ? kin.defs.find((d) => `stat:${d.key}` === by) : undefined;
@@ -94,10 +96,8 @@ function ClassesFor({ kin, rows, routed, hidden, entry, cast, color }: { kin: Ki
         </div>
       )}
       {fits.length === 0 ? (
-        <p className="mt-2 text-sm text-muted">
-          {bandHidden > 0 && !inBand.length ? `The ${band} ${kin.title.toLowerCase()} are hidden as spoilers.`
-            : `${name}'s numbers are close to everyone's, so no ${kin.title.toLowerCase()} stand out. Try ranking by one stat.`}
-        </p>
+        // A band that's all spoilers just shows its bar, below.
+        inBand.length > 0 && <p className="mt-2 text-sm text-muted">{name}&apos;s numbers are close to everyone&apos;s, so no {kin.title.toLowerCase()} stand out. Try ranking by one stat.</p>
       ) : (
         <ul className="mt-2 grid gap-2">
           {shown.map((f) => (
@@ -122,7 +122,13 @@ function ClassesFor({ kin, rows, routed, hidden, entry, cast, color }: { kin: Ki
           {all ? 'Show the top 3' : `Show all ${fits.length} in ${band || kin.title}`}
         </button>
       )}
-      {hidden > 0 && bandHidden === 0 && <p className="mt-1 text-xs text-muted">{hidden} more are hidden as spoilers.</p>}
+      {bandHidden > 0 && (
+        <button type="button" onClick={() => { setOpened(new Set([...opened, band])); setAll(false); }}
+          className="spoiler-cover mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold text-muted ring-1 ring-line hover:text-ink">
+          <EyeOff size={13} aria-hidden="true" />
+          {bandHidden} {band} {bandHidden === 1 ? kin.title.replace(/s$/, '').toLowerCase() : kin.title.toLowerCase()} hidden as spoilers. Tap to show {bandHidden === 1 ? 'it' : 'them'}
+        </button>
+      )}
     </section>
   );
 }
