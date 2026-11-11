@@ -178,7 +178,8 @@ function Tile({ e, color, routes, onOpen }: { e: Entry; color: string; routes: s
           <Piece size={56} color={color} image={e.icon}>{e.icon ? null : initials(e.name)}</Piece>
         </span>
         <span className="line-clamp-2 w-full text-xs font-bold leading-tight">{e.name}</span>
-        <span className="line-clamp-2 w-full text-[11px] leading-tight text-muted">{examLine(e)}</span>
+        {/* The exam is the tile's answer ("can she take it?"), so it gets room for three skills on a phone. */}
+        <span className="line-clamp-3 w-full text-[11px] leading-tight text-muted">{examLine(e)}</span>
         {routes && <span className="inline-flex max-w-full items-center gap-0.5 truncate text-[10px] font-bold text-muted"><Lock size={9} strokeWidth={3} aria-hidden="true" />{routes}</span>}
       </button>
     </li>

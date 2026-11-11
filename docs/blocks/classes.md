@@ -1,6 +1,6 @@
 # Block 8: Classes
 
-**Status:** Building slice 1 (2026-11-11) · **Chat:** `Village · Block: Classes` · **Mockup:** none yet ·
+**Status:** Live, slice 1 (2026-11-11): SQL applied by Matt · **Chat:** `Village · Block: Classes` · **Mockup:** none yet ·
 **Code:** `src/components/app/Classes.tsx` (the ladder, List, Compare), `src/lib/classes.ts` (exam
 ranks, tier order, next steps; plain and tested in `classes.test.ts`), the class card in
 `CharacterCard.tsx`, the class fields in `src/lib/fields.ts` (`CLASS_FIELDS`), starter data in
@@ -158,6 +158,8 @@ the live preview. Moderators save setups for now.
 - 2026-11-11: "Next steps" and "Steps before" are worked out from the exam ranks: the previous
   tier's classes most like this one's exam, plus any whose skills this exam all asks for. Why:
   Fortune's Weave has no fixed tree, and typing one would be wrong in places and twice the work.
+
+- 2026-11-11: slice 1 live (0e9d0dc, Rebuild b102202). Checked on the live site, desktop and phone (375 px): the ladder with five bands and spoiler bars, three classes a row on phones with no sideways scroll, the migrated cards (Dancer) with their new content and a wiki link, old links (/classes/dancer, /classes/master-classes) opening their cards, sorts and search, no console errors. Exam lines get three lines on a tile, so three-skill exams aren't cut off.
 
 ## Open questions
 
