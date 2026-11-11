@@ -8,4 +8,5 @@ export const TINT: Record<Tint, { solid: string; soft: string; text: string; rin
   sun: { solid: 'bg-sun', soft: 'bg-sun-soft', text: 'text-sun', ring: 'ring-sun' },
   plum: { solid: 'bg-plum', soft: 'bg-plum-soft', text: 'text-plum', ring: 'ring-plum' },
   teal: { solid: 'bg-teal', soft: 'bg-teal-soft', text: 'text-teal', ring: 'ring-teal' },
+  indigo: { solid: 'bg-indigo', soft: 'bg-indigo-soft', text: 'text-indigo', ring: 'ring-indigo' },
 };

@@ -33,7 +33,7 @@ designed properly), **Idea** (not built).
 | 2 | Items | Live, first version | Fortune's Weave · Items, Weapons and magic | [items.md](items.md) |
 | 3 | Guides | Live, first version (designed with Matt) | Fortune's Weave · Guides · How to | [guides.md](guides.md) |
 | 4 | Questions (replaces Mysteries) | Live, first version (designed with Matt) | Every Page's top bar; Workshop | [questions.md](questions.md) |
-| 5 | Tier lists | Live, first version (designed with Matt) | Fortune's Weave · Units and classes · Unit tiers | [tier-lists.md](tier-lists.md) |
+| 5 | Tier lists | Live, first version (designed with Matt) | Fortune's Weave · Units · Unit tiers | [tier-lists.md](tier-lists.md) |
 | 7 | World: Places (a real map), then Foes | Building (2026-11-09): the map, designed with Matt | Fortune's Weave · World · Dungeons and places | [world.md](world.md) |
 | – | Wiki links (an integration) | Building (2026-11-10) | Every character, item and class card | [wiki-links.md](wiki-links.md) |
 | – | Collection: slots and rows | Live, first version | Classes, Foes | |

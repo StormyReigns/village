@@ -22,7 +22,7 @@ test('the standard shade changes nothing; others set every Page color and the co
   assert.deepEqual(shadeVars(), {});
   assert.deepEqual(shadeVars('standard'), {});
   const vars = shadeVars('fantasy');
-  for (const t of ['berry', 'sun', 'plum', 'sky', 'teal', 'leaf']) assert.ok(vars[`--${t}`] && vars[`--${t}-soft`], t);
+  for (const t of ['berry', 'sun', 'plum', 'sky', 'teal', 'leaf', 'indigo']) assert.ok(vars[`--${t}`] && vars[`--${t}-soft`], t);
   assert.ok(vars['--radius-2xl']);
   assert.equal(shadeHex('berry'), '#c23a5c');
   assert.equal(shadeHex('berry', 'fantasy'), SHADES.fantasy.colors.berry[0]);

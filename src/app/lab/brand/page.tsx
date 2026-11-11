@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { ArrowLeft, Backpack, BookOpen, Check, Flag, Hourglass, House, MapPin, Plus, Users, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, Backpack, BookOpen, Check, Flag, Hourglass, House, MapPin, Plus, Users, type LucideIcon, Shield } from 'lucide-react';
 import { Piece, pieceHeight } from '@/components/Piece';
 import { Wordmark } from '@/components/Logo';
 
@@ -16,7 +16,8 @@ const SIGNAL = '#FFC53D';
 const SIZES = [260, 160, 96, 48, 32, 24, 16];
 
 const PAGES: { title: string; tint: string; Icon: LucideIcon }[] = [
-  { title: 'Units and classes', tint: 'berry', Icon: Users },
+  { title: 'Units', tint: 'berry', Icon: Users },
+  { title: 'Classes', tint: 'indigo', Icon: Shield },
   { title: 'Items', tint: 'sun', Icon: Backpack },
   { title: 'Last chances', tint: 'plum', Icon: Hourglass },
   { title: 'Story', tint: 'sky', Icon: Flag },

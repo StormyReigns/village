@@ -36,6 +36,29 @@ export function resolveItem(page: Page, item: string): { block: Block; entry?: E
   return null;
 }
 
+/** A shared Block or entry on whichever Page it is on now, for links made before it moved. */
+export function findItem(pages: Page[], item: string): { page: Page; block: Block; entry?: Entry } | null {
+  for (const page of pages) {
+    const hit = resolveItem(page, item);
+    if (hit) return { page, ...hit };
+  }
+  return null;
+}
+
+/**
+ * Where an old Page address leads now: the Page holding the Block an "?e=block.entry" link
+ * opens, else the Page it was renamed to (a game's movedPages). Null when it leads nowhere.
+ */
+export function movedPagePath(gameId: string, pages: Page[], moved: Record<string, string> | undefined, pageId: string, query: Record<string, string | string[] | undefined>): string | null {
+  const e = typeof query.e === "string" ? query.e : undefined;
+  const byEntry = e?.includes(".") ? pages.find((p) => p.blocks.some((b) => b.id === e.split(".")[0])) : undefined;
+  const to = byEntry ?? pages.find((p) => p.id === moved?.[pageId]);
+  if (!to || to.id === pageId) return null;
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(query)) for (const x of Array.isArray(v) ? v : v === undefined ? [] : [v]) qs.append(k, x);
+  return `/g/${gameId}/${to.id}${qs.size ? `?${qs}` : ""}`;
+}
+
 /** A short plain-words summary of an entry, for link previews. Spoilers stay hidden. */
 export function summarize(block: Block, entry: Entry, routeNames: Record<string, string> = {}): { label: string; text: string }[] {
   if (entry.spoiler) return [{ label: 'Spoiler', text: 'Open it in the app to read.' }];

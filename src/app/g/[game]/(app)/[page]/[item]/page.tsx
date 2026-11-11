@@ -1,10 +1,10 @@
 import { Suspense } from 'react';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { GAMES, getGame } from '@/data/games';
 import { getApp } from '@/lib/app-data';
 import { PageView } from '@/components/app/PageView';
-import { clip, entryLinks, itemParam, mapMentions, resolveItem, shareAnswer } from '@/data/pages/links';
+import { clip, entryLinks, findItem, itemParam, mapMentions, resolveItem, shareAnswer } from '@/data/pages/links';
 import { shadeHex } from '@/lib/shades';
 
 // A shared Block or entry: /g/fortunes-weave/items/paradise-fish. It shows the Page with
@@ -60,7 +60,15 @@ export default function SharedItem({ params }: PageProps<'/g/[game]/[page]/[item
 
 async function Loaded({ params }: { params: PageProps<'/g/[game]/[page]/[item]'>['params'] }) {
   const { game, page, hit } = await find(params);
-  if (!game || !page || !hit) notFound();
+  if (!game) notFound();
+  if (!page || !hit) {
+    // A link made before its Page moved (Classes left "Units and classes"): find it where it is now.
+    const pages = await getApp(game.id);
+    const { item } = await params;
+    const now = findItem(pages, item);
+    if (now) redirect(`/g/${game.id}/${now.page.id}/${itemParam(now.page, now.block, now.entry)}`);
+    notFound();
+  }
   const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
   // Timelines show every entry in place; the others open it (Characters: on the card; Guides:
   // the one guide, in place of the list).

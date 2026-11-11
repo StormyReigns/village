@@ -1,10 +1,10 @@
 import { Suspense } from 'react';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { GAMES, getGame } from '@/data/games';
 import { getApp } from '@/lib/app-data';
 import { PageView } from '@/components/app/PageView';
-import { entryLinks, mapMentions } from '@/data/pages/links';
+import { entryLinks, mapMentions, movedPagePath } from '@/data/pages/links';
 import { shadeHex } from '@/lib/shades';
 import { questionsPage } from '@/lib/questions';
 
@@ -32,20 +32,27 @@ export async function generateMetadata({ params }: PageProps<'/g/[game]/[page]'>
 
 
 // One Page of the game app. The URL is read inside <Suspense> so navigation is instant.
-export default function AppPage({ params }: PageProps<'/g/[game]/[page]'>) {
+export default function AppPage({ params, searchParams }: PageProps<'/g/[game]/[page]'>) {
   return (
     <Suspense fallback={<div className="mt-3 h-96 animate-pulse rounded-2xl bg-card" />}>
-      <Loaded params={params} />
+      <Loaded params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function Loaded({ params }: { params: PageProps<'/g/[game]/[page]'>['params'] }) {
+async function Loaded({ params, searchParams }: { params: PageProps<'/g/[game]/[page]'>['params']; searchParams: PageProps<'/g/[game]/[page]'>['searchParams'] }) {
   const { game: gameId, page: pageId } = await params;
   const game = getGame(gameId);
   const pages = await getApp(gameId);
   const page = pages.find((p) => p.id === pageId);
-  if (!game || !page) notFound();
+  if (!game) notFound();
+  if (!page) {
+    // An old address (a Page that moved or was renamed): the query is only read here, so pages
+    // that exist still prerender.
+    const to = movedPagePath(game.id, pages, game.movedPages, pageId, await searchParams);
+    if (to) redirect(to);
+    notFound();
+  }
   const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
   return (
     <PageView game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }} page={page} links={entryLinks(game.id, pages)} mentions={mapMentions(game.id, pages, page)}

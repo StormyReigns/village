@@ -212,14 +212,21 @@ const ITEM_TYPES: Record<string, string> = {
 
 export const PAGES: Page[] = [
   {
-    id: 'units-and-classes', title: 'Units and classes', short: 'Units', icon: 'Users', tint: 'berry',
-    blurb: 'Who can join your army, how to recruit them, and every class tier.',
+    id: 'units', title: 'Units', short: 'Units', icon: 'Users', tint: 'berry',
+    blurb: "Who can join your army, how to recruit them, and who's worth a spot.",
     blocks: [
       block({ type: 'characters', title: 'Units', icon: 'Users', filters: ['Group'], byRoute: true, entries: units(), symbols: FACTIONS, fields: UNIT_FIELDS, stats: GROWTH_STATS,
         intro: 'Pick your Flame Lord to see who can join you and what it takes.' }),
       // A Tier list ranks the Units above (docs/blocks/tier-lists.md). Builders can rename the tiers later.
       block({ type: 'tierlist', title: 'Unit tiers', icon: 'Trophy', entries: [], tierSetup: { ranks: 'units', tiers: DEFAULT_TIERS },
         intro: "Who's worth a spot in your army, across the whole game? Rank them in My list, and the community list is everyone's lists together." }),
+    ],
+  },
+  {
+    // Moved off Units onto a Page of its own (Matt, 2026-11-11); indigo is the seventh Page color.
+    id: 'classes', title: 'Classes', short: 'Classes', icon: 'Shield', tint: 'indigo',
+    blurb: 'Every class, its tier, and how to reach it.',
+    blocks: [
       block({ type: 'collection', look: 'slots', title: 'Classes', icon: 'Shield', filters: ['Tier'], entries: classes() }),
     ],
   },

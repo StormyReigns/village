@@ -16,7 +16,7 @@ Community-built companion apps for games, with a village theme. Two layers:
   two tabs, "Drafts" (what waits on you first, then the rest, sortable) and "In the app"
   (entries to fix or add to). Editors open in the work column, so the chat stays beside them;
   on phones the editor fills the screen and its Chat button hops over and back (2026-10-31).
-- **Game app** (top layer): Pages (topics, like "Units and classes") made of Blocks.
+- **Game app** (top layer): Pages (topics, like "Units" or "Classes") made of Blocks.
   Blocks are preset types, nothing freeform: Collection (icon grid, tap for a detail
   panel, built-in search, A-Z sort and filters), Guide, Checklist, Timeline. New Block
   types come from community requests and are built by us. Collection entries have Name,
@@ -109,7 +109,7 @@ Community-built companion apps for games, with a village theme. Two layers:
   yellow and violet split, was the old banner logo's look and is unused for now.)
 - **Colors**: ink #15171c and signal yellow #FFC53D frame every screen (ink top bar,
   yellow main button). Yellow means "act on this" or "your choice". One standard color per
-  Page in every game; a game's genre may shift the shade, never the hue. Each game picks a
+  Page in every game (seven: berry, sun, plum, sky, teal, leaf and indigo, added for Classes 2026-11-11); a game's genre may shift the shade, never the hue. Each game picks a
   `shade` in `src/data/games.ts` (standard, cozy, fantasy, shooter, openworld; table in
   `src/lib/shades.ts`); `GameShade` applies it to that game's screens only, and share
   pictures use it too. Fortune's Weave and Ocarina of Time are fantasy.

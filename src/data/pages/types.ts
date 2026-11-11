@@ -8,7 +8,7 @@ import type { TierSetup } from '@/lib/tiers';
 export type { Route };
 
 /** A Page's color, from a fixed set. */
-export type Tint = 'leaf' | 'sky' | 'berry' | 'sun' | 'plum' | 'teal';
+export type Tint = 'leaf' | 'sky' | 'berry' | 'sun' | 'plum' | 'teal' | 'indigo';
 
 /** How a Collection shows its entries: portrait cards, inventory slots, a list, a map of
  *  region tiles (grouped by the Block's first filter, e.g. Region), or a table of its

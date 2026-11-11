@@ -29,6 +29,8 @@ export interface Game {
   popularity: number;
   /** Games with separate routes or paths: the question and the choices. */
   paths?: { question: string; options: { key: Route; label: string; note: string }[] };
+  /** Page addresses that have moved, old → new, so old links and bookmarks still land. */
+  movedPages?: Record<string, string>;
 }
 
 export const GAMES: Game[] = [
@@ -53,6 +55,8 @@ export const GAMES: Game[] = [
     genre: 'Tactics RPG',
     shade: 'fantasy',
     popularity: 1,
+    // Classes got a Page of its own (2026-11-11); class entries are found wherever they are now.
+    movedPages: { 'units-and-classes': 'units' },
   },
   {
     id: 'ocarina-of-time',
