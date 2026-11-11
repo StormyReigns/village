@@ -126,23 +126,27 @@ export const GUIDE_FIELDS: FieldDef[] = [
   { key: 'What you get', label: 'What you get', kind: 'list', off: true },
 ];
 
-/** Classes (docs/blocks/classes.md): where a class keeps its tier and exam, which the ladder and the
- *  steps between classes read (src/lib/classes.ts). */
-export const CLASS_TIER = 'Tier';
-export const EXAM_NEEDS = 'Exam needs';
+/** Classes: the classes a class leads to (a promotion, a job, a spec, a subclass). The other side,
+ *  "Comes from", is worked out from it (src/lib/classes.ts). */
+export const LEADS_TO = 'Leads to';
 
-/** The common fields every new Classes Block starts with. The chart is growth modifiers: numbers only
- *  (a web can't show the minus ones). */
+/**
+ * The common fields every new Classes Block starts with (docs/blocks/classes.md), named for no game:
+ * builders rename them (Fortune's Weave: Tier, Exam needs, How to unlock, Growth modifiers). The keys
+ * are the ones Fortune's Weave's classes already use, so its entries keep their values. The first tag
+ * is the bands (a tier, a role, a base class); a list of "Skill: Rank" lines, wherever it is, also
+ * draws the path between classes. The chart shows numbers only, since class numbers often go below zero.
+ */
 export const CLASS_FIELDS: FieldDef[] = [
-  { key: CLASS_TIER, label: 'Tier', kind: 'tag' },
-  { key: 'Moves', label: 'Moves', kind: 'tag' },
+  { key: 'Tier', label: 'Tier or group', kind: 'tag' },
+  { key: 'Role', label: 'Role', kind: 'tag', off: true },
   { key: TIER, label: 'Community tier', kind: 'tier', off: true },
-  { key: STATS, label: 'Growth modifiers', kind: 'chart', noWeb: true },
-  { key: EXAM_NEEDS, label: 'Exam needs', kind: 'list' },
-  { key: 'How to unlock', label: 'How to unlock', kind: 'longtext' },
+  { key: STATS, label: 'Stats', kind: 'chart', noWeb: true },
+  { key: 'Exam needs', label: 'Requirements', kind: 'list' },
+  { key: LEADS_TO, label: 'Leads to', kind: 'links' },
+  { key: 'How to unlock', label: 'How to get it', kind: 'longtext' },
   { key: 'Who can take it', label: 'Who can take it', kind: 'text' },
-  { key: 'Mastery skill', label: 'Mastery skill', kind: 'list' },
-  { key: 'Skills', label: 'Skills', kind: 'list' },
+  { key: 'Skills', label: 'Skills and abilities', kind: 'list' },
   { key: DESCRIPTION, label: 'Description', kind: 'longtext' },
 ];
 
@@ -245,8 +249,8 @@ const ITEM_SAMPLE: Partial<Record<string, string>> = {
 
 /** Made-up values for a Classes Block's sample, for its common fields. */
 const CLASS_SAMPLE: Partial<Record<string, string>> = {
-  [CLASS_TIER]: 'Advanced', Moves: 'On foot', [EXAM_NEEDS]: 'Swords: B\nBows: C', 'How to unlock': 'Finish a quest in Chapter 9.',
-  'Who can take it': 'Anyone', 'Mastery skill': 'Skill name: What it does once mastered.', Skills: 'Combat Arts +2\nSword Crit +5',
+  Tier: 'Advanced', Role: 'Damage', 'Exam needs': 'Level: 30\nSwords: B', [LEADS_TO]: 'Next class: at level 40',
+  'How to unlock': 'Finish a quest in Chapter 9.', 'Who can take it': 'Anyone', Skills: 'Skill name: What it does.\nAnother skill',
 };
 
 /** Made-up values for the builder's preview, one per kind. */

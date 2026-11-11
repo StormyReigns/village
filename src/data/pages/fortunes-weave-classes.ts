@@ -9,7 +9,8 @@
 //   * the secret classes' unlocks: our starter codex (src/data/content/fortunes-weave.ts)
 // Where the guides disagree the entry is marked, for the community to settle in the Workshop.
 
-import type { Entry, Route } from './types.ts';
+import type { Entry, FieldDef, Route } from './types.ts';
+import { DESCRIPTION, LEADS_TO, STATS, TIER } from '../../lib/fields.ts';
 
 const SOURCE = "Guides, Nov 2026: gameoverdrive.com.br (exam ranks, locks), Pocket Tactics (skills, movement), KeenGamer (growth modifiers), allthings.how (mastery skills); Fortune's Weave Codex (unlocks)";
 
@@ -227,6 +228,23 @@ const GROWTH_KEYS = ['hp', 'str', 'mag', 'spd', 'dex', 'def', 'res', 'lck', 'cha
 
 /** "Swords B, Bows C" as list lines, "Swords: B". */
 const examLines = (exam: string) => exam.split(',').map((p) => p.trim().replace(/\s+(\S+)$/, ': $1')).join('\n');
+
+/** Fortune's Weave's class fields: the common ones under this game's names (Tier, Exam needs, How to
+ *  unlock, Growth modifiers), plus how a class moves and its mastery skill. The ladder's bands are
+ *  Tier (the first tag), and Exam needs, being skill ranks, also draws the path between classes. */
+export const CLASS_SETUP: FieldDef[] = [
+  { key: 'Tier', label: 'Tier', kind: 'tag' },
+  { key: 'Moves', label: 'Moves', kind: 'tag' },
+  { key: TIER, label: 'Community tier', kind: 'tier', off: true },
+  { key: STATS, label: 'Growth modifiers', kind: 'chart', noWeb: true },
+  { key: 'Exam needs', label: 'Exam needs', kind: 'list' },
+  { key: LEADS_TO, label: 'Leads to', kind: 'links' },
+  { key: 'How to unlock', label: 'How to unlock', kind: 'longtext' },
+  { key: 'Who can take it', label: 'Who can take it', kind: 'text' },
+  { key: 'Mastery skill', label: 'Mastery skill', kind: 'list' },
+  { key: 'Skills', label: 'Skills', kind: 'list' },
+  { key: DESCRIPTION, label: 'Description', kind: 'longtext' },
+];
 
 export function classEntries(): Entry[] {
   const headers: Entry[] = TIERS.map((t, i) => ({

@@ -8,8 +8,8 @@ import { Piece } from '@/components/Piece';
 import { useStored } from '@/components/useStored';
 import { closest, rank } from '@/lib/search';
 import { byStat } from '@/lib/stats';
-import { allStatDefs, isCategory, shownFields } from '@/lib/fields';
-import { examLine, tierOf, tierOrder, TIER_KEY } from '@/lib/classes';
+import { allStatDefs, isCategory, shownFields, valueOf } from '@/lib/fields';
+import { bandOf, bandOrder, classShape, rankLine } from '@/lib/classes';
 import { entryText, initials, useOpenEntry } from './entries';
 import { FilterChip, OpenPanel, type BlockContext } from './blockParts';
 import { StatTable, statSort } from './StatTable';
@@ -17,12 +17,13 @@ import { StatTable, statSort } from './StatTable';
 type View = 'ladder' | 'list' | 'compare';
 
 /**
- * Classes (docs/blocks/classes.md): the game's own ladder of tiers, top to bottom, each band
- * headed by what the tier takes (level, Renown, License) and holding its classes as pieces with
- * their exam under the name. A List to scan and Compare, the growth modifiers side by side. A
- * tier's header is an entry of its own (`header`), so the community fixes it with a Draft, and
- * tapping it opens it like any card. A class's card is the Characters card, with its next steps
- * and steps before worked out from the exams (src/lib/classes.ts).
+ * Classes (docs/blocks/classes.md): the classes in bands by the Block's first tag (a ladder of
+ * tiers in Fire Emblem, roles in World of Warcraft), each band headed by its own card (what the
+ * tier takes, what the role does) and holding its classes as pieces with their skill ranks (or
+ * chip tag) under the name. A List to scan, and Compare, every class's numbers side by side. A
+ * band's header is an entry of its own (`header`), so the community fixes it with a Draft, and
+ * tapping it opens it like any card. A class's card is the Characters card, with "Leads to" and
+ * "Comes from" (src/lib/classes.ts).
  */
 export function Classes({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const headers = useMemo(() => block.entries.filter((e) => e.header), [block]);
@@ -38,10 +39,11 @@ export function Classes({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const color = `var(--${ctx.tint})`;
   const open = (e: Entry) => set(`${block.id}.${e.id}`);
 
-  // Chips: the first tag that isn't the tier (Moves: On foot, Riding, Flying...), since the
-  // tiers are already the bands.
-  const chipTag = useMemo(() => shownFields(block).filter((f) => isCategory(f) && f.key !== TIER_KEY && !f.spoiler)
-    .find((f) => new Set(shown.map((e) => e.categories[f.key]).filter(Boolean)).size > 1), [block, shown]);
+  // What the Block's own setup makes the bands, the skill ranks and the path (src/lib/classes.ts).
+  const shape = useMemo(() => classShape(block), [block]);
+  // Chips: the first tag that isn't the bands' (Moves: On foot, Riding, Flying...).
+  const chipTag = useMemo(() => shownFields(block).filter((f) => isCategory(f) && f.key !== shape.band && !f.spoiler)
+    .find((f) => new Set(shown.map((e) => e.categories[f.key]).filter(Boolean)).size > 1), [block, shown, shape.band]);
   const chipValues = useMemo(() => {
     if (!chipTag) return [];
     const counts = new Map<string, number>();
@@ -59,19 +61,21 @@ export function Classes({ block, ctx }: { block: Block; ctx: BlockContext }) {
     return found.sort(byName);
   }, [shown, pick, chipTag, query, sort, statDef]);
 
-  // The ladder: one band per tier, in the header cards' order, while nothing is searched or ranked.
-  const tiers = useMemo(() => tierOrder(block.entries), [block]);
+  // The ladder: one band per value of the band tag, in the header cards' order, while nothing is searched or ranked.
+  const tiers = useMemo(() => bandOrder(block.entries, shape.band), [block, shape.band]);
   const banded = !query.trim() && !statDef;
   const bands = useMemo(() => {
     if (!banded) return [{ tier: '', header: undefined, items: list, hidden: 0 }];
     return [...tiers, ''].map((tier) => ({
       tier,
-      header: headers.find((h) => tierOf(h) === tier),
-      items: list.filter((e) => tierOf(e) === tier),
+      header: headers.find((h) => bandOf(h, shape.band) === tier),
+      items: list.filter((e) => bandOf(e, shape.band) === tier),
       // Classes in this tier hidden as spoilers (Part III), so the band can offer to show them.
-      hidden: ctx.spoilers || pick ? 0 : classes.filter((e) => e.spoiler && tierOf(e) === tier).length,
+      hidden: ctx.spoilers || pick ? 0 : classes.filter((e) => e.spoiler && bandOf(e, shape.band) === tier).length,
     })).filter((b) => b.items.length || b.hidden);
-  }, [banded, tiers, headers, list, classes, ctx.spoilers, pick]);
+  }, [banded, tiers, headers, list, classes, ctx.spoilers, pick, shape.band]);
+  // Under each class's name: its skill ranks when the Block has them, else its chip tag (Plate, Riding...).
+  const subline = (e: Entry) => (shape.ranks ? rankLine(e, shape.ranks) : chipTag ? e.categories[chipTag.key] ?? '' : '');
 
   const views: [View, string, typeof LayoutGrid][] = [['ladder', 'Ladder', LayoutGrid], ['list', 'List', LayoutList], ...(defs.length ? [['compare', 'Compare', Table2] as [View, string, typeof LayoutGrid]] : [])];
   const routeNames = (rs?: Route[]) => (rs ?? []).map((r) => ctx.routes.find((o) => o.key === r)?.label ?? r).join(', ');
@@ -99,7 +103,7 @@ export function Classes({ block, ctx }: { block: Block; ctx: BlockContext }) {
             <select value={sort} onChange={(e) => setSort(e.target.value)} className="rounded-full bg-card-2 px-3 py-2 text-sm font-bold ring-1 ring-line">
               <option value="az">A to Z</option>
               <option value="za">Z to A</option>
-              {defs.map((d) => <option key={d.key} value={statSort(d.key)}>Best {d.label} growth</option>)}
+              {defs.map((d) => <option key={d.key} value={statSort(d.key)}>Best {d.label}</option>)}
               {sort.endsWith(':worst') && <option value={sort}>Worst {statDef?.label} first</option>}
             </select>
           </label>
@@ -117,21 +121,20 @@ export function Classes({ block, ctx }: { block: Block; ctx: BlockContext }) {
       ) : view === 'compare' ? (
         <div className="mt-3">
           <StatTable block={{ ...block, stats: defs }} entries={list} among={shown} sort={sort.startsWith('stat:') ? sort : ''} onSort={setSort} onOpen={open} color={color} />
-          <p className="mt-2 text-xs text-muted">Growth modifiers add to a unit’s own growths while it’s in the class.</p>
         </div>
       ) : (
         bands.map((b) => (
           <section key={b.tier || 'all'} className="mt-5" aria-label={b.tier ? `${b.tier} classes` : undefined}>
-            {b.tier && <BandHeader tier={b.tier} header={b.header} count={b.items.length} tint={ctx.tint} onOpen={open} />}
+            {b.tier && <BandHeader tier={b.tier} header={b.header} block={block} count={b.items.length} tint={ctx.tint} onOpen={open} />}
             {view === 'ladder' ? (
               b.items.length > 0 && (
                 <ul className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-x-2 gap-y-3">
-                  {b.items.map((e) => <Tile key={e.id} e={e} color={color} routes={routeNames(e.routes)} onOpen={() => open(e)} />)}
+                  {b.items.map((e) => <Tile key={e.id} e={e} sub={subline(e)} color={color} routes={routeNames(e.routes)} onOpen={() => open(e)} />)}
                 </ul>
               )
             ) : (
               <ul className="mt-1 grid">
-                {b.items.map((e, i) => <Row key={e.id} e={e} color={color} first={i === 0} routes={routeNames(e.routes)} tag={chipTag?.key} onOpen={() => open(e)} />)}
+                {b.items.map((e, i) => <Row key={e.id} e={e} sub={shape.ranks ? rankLine(e, shape.ranks) : ''} color={color} first={i === 0} routes={routeNames(e.routes)} tag={chipTag?.key} onOpen={() => open(e)} />)}
               </ul>
             )}
             {b.hidden > 0 && (
@@ -149,10 +152,13 @@ export function Classes({ block, ctx }: { block: Block; ctx: BlockContext }) {
   );
 }
 
-/** A tier's band header: its name and how many classes, and what it takes, as one button that
- *  opens the tier's own card. */
-function BandHeader({ tier, header, count, tint, onOpen }: { tier: string; header?: Entry; count: number; tint: BlockContext['tint']; onOpen: (e: Entry) => void }) {
-  const needs = header?.sections.find((s) => s.label === 'How to unlock')?.text;
+/** A band's header: its name and how many classes, and the first line of its own card (what the
+ *  tier takes, what the role does), as one button that opens that card. */
+function BandHeader({ tier, header, block, count, tint, onOpen }: { tier: string; header?: Entry; block: Block; count: number; tint: BlockContext['tint']; onOpen: (e: Entry) => void }) {
+  // The header card's first filled field in the card's order (Fortune's Weave: "Level 20 · Renown 4 ·
+  // Specialty License"), else its description.
+  const first = header && shownFields(block).filter((f) => !isCategory(f) && f.kind !== 'chart' && f.kind !== 'tier').map((f) => valueOf(header, f).text).find(Boolean);
+  const needs = first ?? header?.description;
   const inner = (
     <>
       <span className="flex items-baseline gap-2">
@@ -165,12 +171,12 @@ function BandHeader({ tier, header, count, tint, onOpen }: { tier: string; heade
   // The band's rule in the Page color, so the ladder reads as rungs.
   const cls = 'grid w-full gap-0.5 border-b-2 pb-1.5 text-left';
   return header ? (
-    <button type="button" onClick={() => onOpen(header)} className={cls + ' hover:opacity-80'} style={{ borderColor: `var(--${tint})` }} aria-label={`${tier} classes: what it takes`}>{inner}</button>
+    <button type="button" onClick={() => onOpen(header)} className={cls + ' hover:opacity-80'} style={{ borderColor: `var(--${tint})` }} aria-label={`${tier}: about this group`}>{inner}</button>
   ) : <div className={cls} style={{ borderColor: `var(--${tint})` }}>{inner}</div>;
 }
 
 /** One class on the ladder: its piece, its name under it like an app icon, and its exam. */
-function Tile({ e, color, routes, onOpen }: { e: Entry; color: string; routes: string; onOpen: () => void }) {
+function Tile({ e, sub, color, routes, onOpen }: { e: Entry; sub: string; color: string; routes: string; onOpen: () => void }) {
   return (
     <li className="min-w-0">
       <button type="button" onClick={onOpen} className="group grid w-full justify-items-center gap-1 rounded-2xl p-1.5 text-center hover:bg-card-2">
@@ -178,8 +184,8 @@ function Tile({ e, color, routes, onOpen }: { e: Entry; color: string; routes: s
           <Piece size={56} color={color} image={e.icon}>{e.icon ? null : initials(e.name)}</Piece>
         </span>
         <span className="line-clamp-2 w-full text-xs font-bold leading-tight">{e.name}</span>
-        {/* The exam is the tile's answer ("can she take it?"), so it gets room for three skills on a phone. */}
-        <span className="line-clamp-3 w-full text-[11px] leading-tight text-muted">{examLine(e)}</span>
+        {/* Skill ranks are the tile's answer ("can she take it?"), so they get room for three skills on a phone. */}
+        {sub && <span className="line-clamp-3 w-full text-[11px] leading-tight text-muted">{sub}</span>}
         {routes && <span className="inline-flex max-w-full items-center gap-0.5 truncate text-[10px] font-bold text-muted"><Lock size={9} strokeWidth={3} aria-hidden="true" />{routes}</span>}
       </button>
     </li>
@@ -187,7 +193,7 @@ function Tile({ e, color, routes, onOpen }: { e: Entry; color: string; routes: s
 }
 
 /** One class in the List: piece, name, its exam, how it moves and any route lock in a line. */
-function Row({ e, color, first, routes, tag, onOpen }: { e: Entry; color: string; first: boolean; routes: string; tag?: string; onOpen: () => void }) {
+function Row({ e, sub, color, first, routes, tag, onOpen }: { e: Entry; sub: string; color: string; first: boolean; routes: string; tag?: string; onOpen: () => void }) {
   return (
     <li className={first ? '' : 'border-t border-line'}>
       <button type="button" onClick={onOpen} className="flex w-full items-center gap-3 rounded-xl px-1 py-2.5 text-left hover:bg-card-2">
@@ -197,7 +203,7 @@ function Row({ e, color, first, routes, tag, onOpen }: { e: Entry; color: string
             <span className="truncate font-bold">{e.name}</span>
             {tag && e.categories[tag] && <span className="rounded-full bg-card-2 px-2 text-[11px] font-bold">{e.categories[tag]}</span>}
           </span>
-          <span className="truncate text-sm text-muted">{examLine(e)}{routes && <> · <Lock size={11} strokeWidth={2.5} className="inline align-[-1px]" aria-label="Only on" /> {routes}</>}</span>
+          <span className="truncate text-sm text-muted">{sub}{routes && <>{sub && ' · '}<Lock size={11} strokeWidth={2.5} className="inline align-[-1px]" aria-label="Only on" /> {routes}</>}</span>
         </span>
       </button>
     </li>

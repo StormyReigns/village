@@ -1,16 +1,46 @@
 # Block 8: Classes
 
-**Status:** Live, slice 1 (2026-11-11): SQL applied by Matt · **Chat:** `Village · Block: Classes` · **Mockup:** none yet ·
-**Code:** `src/components/app/Classes.tsx` (the ladder, List, Compare), `src/lib/classes.ts` (exam
-ranks, tier order, next steps; plain and tested in `classes.test.ts`), the class card in
-`CharacterCard.tsx`, the class fields in `src/lib/fields.ts` (`CLASS_FIELDS`), starter data in
-`src/data/pages/fortunes-weave-classes.ts` · **Database:**
+**Status:** Live, slice 1 (2026-11-11), made general for any game the same day · **Chat:** `Village · Block: Classes` · **Mockup:** none yet ·
+**Code:** `src/components/app/Classes.tsx` (the ladder, List, Compare), `src/lib/classes.ts` (a
+Block's shape: bands, skill ranks, Leads to; the path between classes; plain and tested in `classes.test.ts`), the class card in
+`CharacterCard.tsx`, the class fields in `src/lib/fields.ts` (`CLASS_FIELDS`), Fortune's Weave's
+own setup and starter data in `src/data/pages/fortunes-weave-classes.ts` (`CLASS_SETUP`) · **Database:**
 `supabase/migrations/20261114000000_classes_block.sql` (made by `scripts/build-classes-migration.ts`),
 then `seed-app.sql` · **Live on:** Fortune's Weave · Classes (its own Page since 2026-11-11, indigo,
 Shield symbol, second after Units) · **Replaces:** a "slots" Collection of 12 entries
 
 Built on Characters (Block 1) and Items (Block 2): the same fields, piece, card, heatmap and Workshop
 editors. Classes adds the ladder and the path between classes.
+
+## Any game with classes, not just Fire Emblem
+
+Matt, 2026-11-11: "Will this tool still make sense for an app made for FFVII, WoW, etc?" Slice 1 was
+shaped around Fire Emblem (a fixed Tier ladder, paths from exam ranks, growth modifiers). So the
+Block now takes its shape from its own setup, and nothing in the code names a game:
+- **The bands are the Block's first tag**, ordered by the bands' header cards (Items groups the same
+  way). Builders choose it by putting a tag first in Set up.
+- **"Leads to"** is a links field builders fill in (a promotion, a job, a spec, a subclass), with a
+  note after a colon ("Paladin: at level 30"). **"Comes from"** is worked out on the other side,
+  matching names without caring about capitals, and never from a band's header card. A name that
+  matches no class stays plain text, like Items' "Made from".
+- **Skill ranks are spotted, not named**: when nearly every class's value in a list field is
+  "Skill: Rank" lines ("Swords: B"), the tiles show them, the card shows them as chips, and the path
+  also follows the skills a band at a time. Any other list (sentences, levels, quests) leaves that off.
+- **The common fields have plain names** (below); a game renames them in Set up.
+
+How some games would set it up:
+
+| Game | Bands (first tag) | Leads to | Skill ranks | Chart |
+|------|-------------------|----------|-------------|-------|
+| Fire Emblem: Fortune's Weave | Tier (Beginner to Divine) | worked out from the exams | Exam needs | Growth modifiers |
+| World of Warcraft | Role (Tank, Healer, Damage) | renamed "Specs": Arms, Fury, Protection | none | usually off |
+| Final Fantasy XIV | Base class or job | renamed "Becomes": Gladiator to Paladin | none | off |
+| Final Fantasy Tactics | Tier, or none | typed: Squire to Knight | job levels as ranks, if written "Squire: 2" | stat multipliers |
+| Final Fantasy VII | (no classes: it wouldn't use this Block; Materia belongs in Items) | | | |
+
+The unit-and-class features of slice 2 only make sense where characters switch classes and share
+stats with them (Fire Emblem, Final Fantasy Tactics, Bravely Default), so they show only when a
+game's characters and classes share a chart's stats.
 
 ## What was there
 
@@ -62,8 +92,8 @@ What this means for the design:
   without a tap, and search finds "bows" in every exam.
 - **The card leads with how to get it**: the exam's ranks and, for a locked class, its routes and
   steps. Then the mastery skill, skills, growth modifiers.
-- **The path is worked out, not typed.** From the exams, a class shows "Next steps" (classes a tier
-  up that build on its skills) and "Steps before". Nobody types the tree, and it can't be right in
+- **The path is worked out, not typed.** From the exams, a class shows "Leads to" (classes a tier
+  up that build on its skills) and "Comes from". Nobody types the tree, and it can't be right in
   one direction and wrong in the other.
 - **Comparing is one tap**: growth modifiers are heat-colored against every class, and Compare puts
   all of them side by side.
@@ -82,7 +112,7 @@ What this means for the design:
 - **Search** across names, exams, skills and unlocks; a typo offers "Did you mean". While searching,
   the bands give way to one list of matches.
 - **Filter chips** by how a class moves (On foot, Armored, Riding, Flying). Sorts: A to Z, Z to A,
-  and "Best <stat> growth" for each of the nine stats, which ranks every class in one list.
+  and "Best <stat>" for each of the chart's stats, which ranks every class in one list.
 - **List**: rows with the piece, name, how it moves, exam and route lock, under the same bands.
 - **Compare**: every class's growth modifiers as a heatmap table; tap a column to sort, a row to open.
 - Each device remembers the view and the sort. The address holds the open class.
@@ -94,8 +124,8 @@ The Characters card, laid out by the class fields, with a smaller picture (as it
 - A "Guides disagree" or "Not confirmed yet" note where the guides differ.
 - **Growth modifiers** as heat-colored number boxes with + and −; tapping one opens every class
   sorted by it.
-- **Exam needs** as rows ("Swords B"), then **Next steps** and **Steps before**: small pieces of
-  the classes on either side, tappable.
+- **Exam needs** as chips ("Swords B"), then **Leads to** and **Comes from**: small pieces of
+  the classes on either side, tappable. (Before the same day's rework: "Next steps" and "Steps before".)
 - **How to unlock** (route by route where it differs), **Who can take it** ("Women only", "One unit
   at a time"), **Mastery skill**, **Skills**, the description, then the wiki link and videos as on
   every card.
@@ -103,20 +133,28 @@ The Characters card, laid out by the class fields, with a smaller picture (as it
 
 ## Fields
 
-Every Classes Block starts from these common fields (`CLASS_FIELDS`); all are optional.
+Every Classes Block starts from these common fields (`CLASS_FIELDS`), named for no game; all are
+optional. The keys are the ones Fortune's Weave's classes already use, so its entries keep their values.
 
-| Field | Kind | On by default |
+| Field (key) | Kind | On by default |
 |-------|------|---------------|
-| Tier | tag (the ladder's bands, ordered by the tiers' header cards) | yes |
-| Moves | tag (On foot, Armored, Riding, Flying) | yes |
-| Growth modifiers | chart, the same nine stats as unit growths, numbers only (no web) | yes |
-| Exam needs | list, "Swords: B", one rank per line (drives Next steps and Steps before) | yes |
-| How to unlock | long text | yes |
+| Tier or group (`Tier`) | tag: the bands while it's the first tag | yes |
+| Role (`Role`) | tag (Tank, Healer, Damage); put it first to band by role | no |
+| Stats (`@stats`) | chart, numbers only (class numbers often go below zero) | yes |
+| Requirements (`Exam needs`) | list; "Skill: Rank" lines draw the path too | yes |
+| Leads to (`Leads to`) | other classes, "Name: note" | yes |
+| How to get it (`How to unlock`) | long text | yes |
 | Who can take it | short text | yes |
-| Mastery skill | list ("Name: what it does") | yes |
-| Skills | list | yes |
+| Skills and abilities (`Skills`) | list | yes |
 | Community tier | tier (once a Class tiers list exists) | no |
 | Description | long text | yes |
+
+**Fortune's Weave** (`CLASS_SETUP`): Tier, Moves (On foot, Armored, Riding, Flying), Growth
+modifiers, Exam needs, Leads to, How to unlock, Who can take it, Mastery skill, Skills, Description.
+**A saved setup wins**: a Block whose fields are saved in the database (Fortune's Weave's were, by
+slice 1's seed) keeps its own labels and fields; new common fields, like Leads to and Role, show in
+its Set up switched off, for a moderator to turn on. Re-running seed-app.sql never replaces a saved
+setup.
 
 A tier's header card is an entry with `header: true`, its tier, an `order` (its place on the
 ladder), "How to unlock" (what the tier takes) and a description. Builders can add their own fields
@@ -135,8 +173,9 @@ the live preview. Moderators save setups for now.
 ## Build plan
 
 1. **Slice 1** (this one): the "classes" type, the ladder with header cards, List, Compare, search
-   and chips; the class card with Next steps and Steps before; 58 classes of starter data.
-2. **Slice 2: units and classes**, linked both ways. On a class card, "Pick a unit" shows her growths
+   and chips; the class card with its path; 58 classes of starter data. Then made general (above).
+2. **Slice 2: units and classes**, linked both ways, shown only where characters and classes share
+   a chart's stats. On a class card, "Pick a unit" shows her growths
    in the class (her growths + the modifiers); on a unit card, "Best classes for her growths". A
    unit's starting class.
 3. **Slice 3**: "What can she take?" (tap the ranks a unit has and the classes she qualifies for
@@ -161,11 +200,18 @@ the live preview. Moderators save setups for now.
 
 - 2026-11-11: slice 1 live (0e9d0dc, Rebuild b102202). Checked on the live site, desktop and phone (375 px): the ladder with five bands and spoiler bars, three classes a row on phones with no sideways scroll, the migrated cards (Dancer) with their new content and a wiki link, old links (/classes/dancer, /classes/master-classes) opening their cards, sorts and search, no console errors. Exam lines get three lines on a tile, so three-skill exams aren't cut off.
 
+- 2026-11-11: made general (Matt: "Will this tool still make sense for an app made for FFVII, WoW,
+  etc?"). Bands from the first tag, a typed "Leads to" with "Comes from" worked out, skill ranks
+  spotted rather than named, plain common field names. Why: a Block is a preset for every game, and
+  the Fire Emblem rules only fit tactics games. Fortune's Weave looks the same, with "Leads to /
+  Comes from" in place of "Next steps / Steps before"; no SQL.
+
 ## Open questions
 
 - Class art: the game's class icons, credited, once uploads cover classes.
 - Whether "Weapons" should be a tag of its own (a filter by weapon) or keep coming from the exam.
-- Ocarina of Time has no classes; when another fantasy game does, check the fields still fit.
+- Ocarina of Time has no classes. The first non-Fire Emblem game with classes is the real test of
+  the general setup.
 
 ## Sources (2026-11-11)
 

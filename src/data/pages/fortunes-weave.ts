@@ -5,8 +5,8 @@ import type { Card, Route } from '../content/types.ts';
 import type { Block, Entry, Page, Section } from './types.ts';
 import { WEAPON_STATS, weapons } from './fortunes-weave-weapons.ts';
 import { GROWTH_STATS, GROWTHS } from './fortunes-weave-growths.ts';
-import { classEntries } from './fortunes-weave-classes.ts';
-import { CLASS_FIELDS, COMMON_FIELDS, ITEM_FIELDS, STATS, withCommon } from '../../lib/fields.ts';
+import { CLASS_SETUP, classEntries } from './fortunes-weave-classes.ts';
+import { COMMON_FIELDS, ITEM_FIELDS, STATS, withCommon } from '../../lib/fields.ts';
 import { DEFAULT_TIERS } from '../../lib/tiers.ts';
 
 const ROUTE_NAMES: Record<string, Route> = { Cai: 'cai', Dietrich: 'dietrich', Theodora: 'theodora', Leda: 'leda' };
@@ -220,7 +220,7 @@ export const PAGES: Page[] = [
     blurb: 'Every class, its tier, and how to reach it.',
     blocks: [
       // The Classes Block (docs/blocks/classes.md): the tiers as a ladder, growth modifiers as a chart.
-      block({ type: 'classes', title: 'Classes', icon: 'Shield', filters: ['Tier', 'Moves'], stats: GROWTH_STATS, fields: CLASS_FIELDS, entries: classEntries(),
+      block({ type: 'classes', title: 'Classes', icon: 'Shield', filters: ['Tier', 'Moves'], stats: GROWTH_STATS, fields: CLASS_SETUP, entries: classEntries(),
         intro: 'Climb the ladder: a tier’s License and exam open its classes. Tap a tier for what it takes, or a class for its exam, skills and growths.' }),
     ],
   },

@@ -11,8 +11,8 @@ import { RichText } from './TextLinks';
 import { initials } from './entries';
 import type { RouteOption } from './EntryPanel';
 import { symbolFor } from './symbols';
-import { stepsAround } from '@/lib/classes';
-import { EXAM_NEEDS, MADE_FROM, STATS, UPGRADES_TO, amountText, besideText, toggleOptions, chartDefs, linkedFrom, listItems, shownFields, showsTier, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
+import { classShape, pathAround } from '@/lib/classes';
+import { MADE_FROM, STATS, UPGRADES_TO, amountText, besideText, toggleOptions, chartDefs, linkedFrom, listItems, shownFields, showsTier, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
 import { byStat, heatFill, placeText, rangeOf, statFacts } from '@/lib/stats';
 import { StatTable, statSort } from './StatTable';
 import { Videos, cardIdOf } from '@/components/videos/Videos';
@@ -77,13 +77,20 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
       const found = linkedFrom(entry.name, others, key);
       return [key, found.length ? [{ key: `@from:${key}`, label, text: found.map((x) => (x.note ? `${x.name}: ${x.note}` : x.name)).join('\n') }] : []];
     })) : {};
-  // Classes: the classes a tier up that build on this one's skills, and a tier down, after its exam.
+  // Classes (src/lib/classes.ts): what this class leads to and comes from, at its "Leads to" spot (else
+  // after its skill ranks). Leads to keeps what builders typed, notes and all, then adds the classes the
+  // skill ranks point to; a name that matches no class stays plain text. Comes from is worked out.
   const klass = block.type === 'classes';
-  if (klass && !entry.header) {
+  const shape = klass ? classShape({ fields: block.fields, filters: block.filters, type: block.type, entries: others }) : {};
+  if (klass && !entry.header && (shape.leads || shape.ranks)) {
     const me = { ...entry, id: '' } as Entry;
-    const { next, before } = stepsAround(me, [...others.filter((e) => e.name !== entry.name), me]);
-    derived[EXAM_NEEDS] = ([['Next steps', next], ['Steps before', before]] as const).filter(([, es]) => es.length)
-      .map(([label, es]) => ({ key: `@steps:${label}`, label, text: es.map((e) => e.name).join('\n') }));
+    const { next, before } = pathAround(me, [...others.filter((e) => e.name.trim().toLowerCase() !== entry.name.trim().toLowerCase()), me], shape);
+    const typed = shape.leads ? listItems(valueOf(entry, { key: shape.leads, label: '', kind: 'links' }).text ?? '') : [];
+    const said = new Set(typed.map((i) => i.name.toLowerCase()));
+    const leadsText = [...typed.map((i) => (i.note ? `${i.name}: ${i.note}` : i.name)), ...next.filter((e) => !said.has(e.name.toLowerCase())).map((e) => e.name)].join('\n');
+    const leadsLabel = shownFields(block).find((f) => f.key === shape.leads)?.label ?? 'Leads to';
+    derived[shape.leads ?? shape.ranks!] = ([[leadsLabel, leadsText], ['Comes from', before.map((e) => e.name).join('\n')]] as const)
+      .filter(([, text]) => text).map(([label, text]) => ({ key: `@path:${label}`, label, text }));
   }
 
   return (
@@ -201,7 +208,8 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
         const from = derived[f.key] ?? [];
         return (
           <Fragment key={f.key}>
-            {hasValue(entry, f) && (
+            {/* A class's Leads to shows below, with the classes its ranks point to added. */}
+            {hasValue(entry, f) && !(klass && f.key === shape.leads) && (
               <section className="mt-4">
                 {spotOf(f) === 'section' && (
                   <div className="flex items-center">
@@ -210,7 +218,7 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
                   </div>
                 )}
                 <Spoiler f={f} on={spoilers}>
-                  <FieldBody f={f} v={valueOf(entry, f)} route={route} routeName={routeName} name={entry.name} block={block} onGo={onGo} color={color} />
+                  <FieldBody f={f} v={valueOf(entry, f)} route={route} routeName={routeName} name={entry.name} block={block} onGo={onGo} color={color} ranks={shape.ranks} />
                 </Spoiler>
               </section>
             )}
@@ -260,8 +268,10 @@ function Fix({ href, what }: { href: string; what: string }) {
 }
 
 /** A field's value under its label, shaped by its kind. Route-specific values come first. */
-function FieldBody({ f, v, route, routeName, name, block, onGo, color }: {
+function FieldBody({ f, v, route, routeName, name, block, onGo, color, ranks }: {
   f: FieldDef; v: FieldValue; route: Route | 'all'; routeName: (r: Route) => string; name: string; block: CardBlock; onGo?: (e: Entry) => void; color: string;
+  /** Classes: the field holding skill ranks, shown as chips. */
+  ranks?: string;
 }) {
   const mine = route !== 'all' ? v.byRoute.find(([r]) => r === route)?.[1] : undefined;
   const others = route === 'all' ? v.byRoute : [];
@@ -269,7 +279,8 @@ function FieldBody({ f, v, route, routeName, name, block, onGo, color }: {
     // Items: lines without "Name:" that are whole sentences ("Lake Brontes, past the mine.")
     // read as text below, not as chips or bold names.
     const sentences = f.kind === 'list' && block.type === 'items' && listItems(text).every((i) => !i.note) && listItems(text).some((i) => i.name.length > 24);
-    if (f.kind === 'list' && block.type === 'classes' && f.key === EXAM_NEEDS) {
+    // A class's skill ranks as chips ("Swords B").
+    if (f.kind === 'list' && block.type === 'classes' && f.key === ranks) {
       return <ul className="mt-1 flex flex-wrap gap-1.5">{listItems(text).map((i) => <li key={i.name} className="rounded-full bg-card-2 px-2.5 py-1 text-sm"><span className="font-bold">{i.name}</span>{i.note && <> {i.note}</>}</li>)}</ul>;
     }
     if (f.kind === 'list' && !sentences) {
