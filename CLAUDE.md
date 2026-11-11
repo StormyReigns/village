@@ -46,6 +46,15 @@ Community-built companion apps for games, with a village theme. Two layers:
   "This helped". #6 is **Tier lists** (2026-11-09, `src/components/tiers/`): a Tier list Block ranks
   another Block on its Page; the community tier is the median of everyone's lists, hidden until 5,
   with a pill on the entry's card. Specs: `docs/blocks/videos.md`, `docs/blocks/tier-lists.md`.
+  #7 is **World** (`src/components/world/`): a real map picture for a Places Block, a pin per place
+  (each pin a Draft), Groups to filter by. #8 is **Classes** (2026-11-11, `src/components/app/Classes.tsx`):
+  its own Page (indigo), a ladder of tiers with one entry per class and a header card per tier
+  (`header: true`, left out by `entriesOf` in fields.ts). Specs: `docs/blocks/world.md`, `docs/blocks/classes.md`.
+- **Integrations** (2026-11-08 to 11-11): Videos and Tier lists (above); the installable phone app
+  (`src/app/manifest.ts`, `public/sw.js`, `/offline`); Discord posts and Communities
+  (`docs/blocks/discord.md`, posted by the database with pg_net and pg_cron); Spreadsheets download and
+  paste-in batches (`docs/blocks/spreadsheets.md`); wiki links (`docs/blocks/wiki-links.md`). Patch
+  watch waits for a game that patches.
 - **Block specs** (`docs/blocks/`, from 2026-10-31): one file per Block, the source of truth
   for its purpose, fields, layout, decisions and open questions; the roadmap and how we
   work are in `docs/blocks/README.md`. Each Block gets its own chat ("Village · Block:
