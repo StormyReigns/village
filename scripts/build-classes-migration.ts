@@ -91,14 +91,13 @@ begin
   end loop;
 end $$;
 
--- Class cards skipped for an open Draft (expected: none). A moderator decides each by hand.
-select k.slug, d.id as draft, d.status
-from public.drafts d join public.cards k on k.id = d.card_id
-where k.game_id = 'fortunes-weave' and k.block_key = 'classes' and d.status in ('checking', 'open', 'approved', 'preview');
-
--- What the 12 cards that were there say now: "Classes Block: ..." for each one changed (expected: all
--- 12, the four headers with header = true).
-select k.slug, v.summary, v.content->'categories'->>'Tier' as tier, (v.content->>'header')::boolean as header
+-- One table to read (the SQL Editor shows only the last result): the class cards and what they say
+-- now. Expected before the seed: the 12 that were there, each "Classes Block: ...", the four headers
+-- with header = true, and skipped_for_draft false. A row still on "Starter content" was skipped:
+-- skipped_for_draft says when an open Draft was why (a moderator decides it by hand); otherwise the
+-- community had edited it, and it keeps its words.
+select k.slug, v.summary, v.content->'categories'->>'Tier' as tier, (v.content->>'header')::boolean as header,
+       exists (select 1 from public.drafts d where d.card_id = k.id and d.status in ('checking', 'open', 'approved', 'preview')) as skipped_for_draft
 from public.cards k
 join public.card_pointers p on p.card_id = k.id and p.channel = 'stable'
 join public.card_revisions v on v.id = p.revision_id
