@@ -9,6 +9,7 @@ import { TopBar } from '@/components/Logo';
 import { GameShade } from '@/components/GameShade';
 import { WorkshopLink } from '@/components/PageLinks';
 import { withCovers } from '@/lib/pictures';
+import { entriesOf } from '@/lib/fields';
 
 // The game app: Pages made of Blocks, read from the database. The ink bar runs across the
 // top; computers get a sidebar, phones a bottom tab bar.
@@ -60,7 +61,7 @@ async function Nav({ params }: { params: LayoutProps<'/g/[game]'>['params'] }) {
   const [game] = withCovers([found]);
   const pages = (await getApp(id)).map((p) => ({
     id: p.id, title: p.title, short: p.short, icon: p.icon, tint: p.tint,
-    count: p.blocks.reduce((n, b) => n + b.entries.length, 0),
+    count: p.blocks.reduce((n, b) => n + entriesOf(b).length, 0),
   }));
   return <AppNav game={{ id: game.id, shortTitle: game.shortTitle, cover: game.cover }} pages={pages} />;
 }

@@ -137,7 +137,7 @@ export function FieldSetup({ gameId, block, routes, canSave, onClose }: {
         <>
         <ul className="grid rounded-2xl bg-card ring-1 ring-line">
           <li className="flex items-center gap-2 rounded-t-2xl bg-card-2 px-3 py-2 text-sm">
-            <span className="w-8" /><span className="font-bold">Name</span><span className="ml-auto text-xs text-muted">{item ? 'Every item has one: under its tile, and the title of its full view' : guide ? 'Every guide has one: its title in the list and at the top' : 'Every character has one: the big title on their card'}</span>
+            <span className="w-8" /><span className="font-bold">Name</span><span className="ml-auto text-xs text-muted">{item ? 'Every item has one: under its tile, and the title of its full view' : block.type === 'classes' ? 'Every class has one: under its piece on the ladder, and the title of its card' : guide ? 'Every guide has one: its title in the list and at the top' : 'Every character has one: the big title on their card'}</span>
           </li>
           {fields.map((f, i) => (
             <li key={f.key} className={'grid gap-2 border-t border-line px-3 py-2 last:rounded-b-2xl ' + (f.off ? 'bg-card-2/60' : '')}>

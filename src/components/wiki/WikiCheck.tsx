@@ -7,6 +7,7 @@ import { EntryDetails, EntryIcon } from '@/components/app/EntryPanel';
 import { EditorShell } from '@/app/g/[game]/workshop/EditorShell';
 import { appChanged } from '@/app/actions';
 import { browserClient } from '@/lib/supabase/browser';
+import { entriesOf } from '@/lib/fields';
 import { apiCandidates, knownWikiHost, searchUrl, wikiOf, type GameWiki, type WikiCheck as Check1 } from '@/lib/wiki';
 import { checkEntries, findWiki, forgetGameWiki, useGameWiki, whichOptions } from './ask';
 
@@ -40,25 +41,27 @@ export function WikiCheck({ gameId, block, mod, onFix, onClose }: {
   const [picked, setPicked] = useState<string | null>(null);
   const [open, setOpen] = useState<Group[]>(['which', 'missing', 'elsewhere']);
   const tint = block.page.tint;
+  // A Classes tier's header card isn't a page on the wiki, so it isn't checked.
+  const entries = useMemo(() => entriesOf(block), [block]);
 
   useEffect(() => {
     if (!wiki) return;
     let live = true;
-    checkEntries(wiki, block.entries).then((c) => { if (live) setChecks(c); });
+    checkEntries(wiki, entries).then((c) => { if (live) setChecks(c); });
     return () => { live = false; };
-  }, [wiki, block.entries, round]);
+  }, [wiki, entries, round]);
 
   const groups = useMemo(() => {
     const by = new Map<Group, Entry[]>(GROUPS.map((g) => [g.key, []]));
-    for (const e of block.entries) {
+    for (const e of entries) {
       const c = checks?.get(e.id);
       if (c) by.get(c.kind as Group)!.push(e);
     }
     return by;
-  }, [checks, block.entries]);
+  }, [checks, entries]);
   const needs = (groups.get('which')?.length ?? 0) + (groups.get('missing')?.length ?? 0);
   const first = GROUPS.flatMap((g) => groups.get(g.key) ?? [])[0];
-  const shown = block.entries.find((e) => e.id === picked) ?? first ?? block.entries[0];
+  const shown = entries.find((e) => e.id === picked) ?? first ?? entries[0];
 
   const editor = (
     // One column that never grows past the frame, so long names wrap or cut off on phones.
@@ -68,10 +71,10 @@ export function WikiCheck({ gameId, block, mod, onFix, onClose }: {
         <>
           <div className="flex flex-wrap items-center gap-2">
             <p className="flex-1 text-sm">
-              {checks === undefined ? <span className="text-muted">Checking {block.entries.length} entries on {wiki.name}…</span>
+              {checks === undefined ? <span className="text-muted">Checking {entries.length} entries on {wiki.name}…</span>
                 : checks === null ? <span>Couldn’t reach {wiki.name} just now.</span>
-                : needs ? <><span className="font-bold">{needs} of {block.entries.length}</span> have no wiki link yet.</>
-                : <><span className="font-bold">All {block.entries.length}</span> are linked or turned off.</>}
+                : needs ? <><span className="font-bold">{needs} of {entries.length}</span> have no wiki link yet.</>
+                : <><span className="font-bold">All {entries.length}</span> are linked or turned off.</>}
             </p>
             <button type="button" onClick={() => { setChecks(undefined); setRound((n) => n + 1); }} className={pill}>
               <RefreshCw size={13} aria-hidden="true" /> Check again

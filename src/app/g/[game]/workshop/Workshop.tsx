@@ -11,7 +11,7 @@ import { BlockIcon, NavSymbol } from '@/components/Icon';
 import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
 import { entryText } from '@/components/app/entries';
 import { rank } from '@/lib/search';
-import { byFields } from '@/lib/fields';
+import { byFields, entriesOf } from '@/lib/fields';
 import { SignInPrompt } from '@/components/SignInPrompt';
 import { ScrollRow } from '@/components/ScrollRow';
 import { Tip } from '@/components/Tip';
@@ -1199,11 +1199,11 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSe
                   <button onClick={() => fold(b.id)} aria-expanded={!isFolded} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                     <BlockIcon name={b.icon} size={17} className="shrink-0" style={{ color: `var(--${p.tint})` }} />
                     <h4 className="truncate font-bold">{b.title}</h4>
-                    <span className="text-xs text-muted">{b.entries.length}</span>
+                    <span className="text-xs text-muted">{entriesOf(b).length}</span>
                     <ChevronDown size={15} className={'shrink-0 text-muted transition ' + (isFolded ? '-rotate-90' : '')} aria-hidden="true" />
                   </button>
                   {byFields(b) && (
-                    <Tip text={b.type === 'items' ? `Choose what ${b.title} tiles and full views show, with a preview` : `Choose the fields ${b.title} cards show, with a preview`} tint={p.tint} className="shrink-0">
+                    <Tip text={b.type === 'items' ? `Choose what ${b.title} tiles and full views show, with a preview` : b.type === 'classes' ? `Choose the fields ${b.title} cards show, with a sample class` : `Choose the fields ${b.title} cards show, with a preview`} tint={p.tint} className="shrink-0">
                       <button onClick={() => onSetup(b.id)} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">
                         <SlidersHorizontal size={13} aria-hidden="true" /> Set up
                       </button>
@@ -1216,7 +1216,7 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSe
                       </button>
                     </Tip>
                   )}
-                  {(b.type === 'characters' || b.type === 'items' || b.type === 'collection') && (
+                  {(b.type === 'characters' || b.type === 'items' || b.type === 'classes' || b.type === 'collection') && (
                     <Tip text={`Which of ${b.title} link to the game's wiki, and which need a look`} tint={p.tint} className="shrink-0">
                       <button onClick={() => onWiki(b.id)} aria-label={`Wiki links for ${b.title}`} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">
                         <BookOpenText size={13} aria-hidden="true" /><span className="hidden sm:inline">Wiki</span>

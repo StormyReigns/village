@@ -42,7 +42,8 @@ function Board({ block, ranked, ctx }: { block: Block; ranked: Block; ctx: Block
   const tiers = useMemo(() => tiersOf(block.tierSetup), [block.tierSetup]);
   const title = titleOf(block.tierSetup);
   const { shown: visible } = useVisible(ranked, ctx);
-  const shown = useMemo(() => visible.filter((e) => inLimits(e, block.tierSetup)), [visible, block.tierSetup]);
+  // A Classes tier's header card isn't a piece to rank.
+  const shown = useMemo(() => visible.filter((e) => !e.header && inLimits(e, block.tierSetup)), [visible, block.tierSetup]);
   const data = useTierList(ctx.gameId, block.id, shown, tiers);
   const params = useSearchParams();
   // ?mine=<block> opens your own list ("Make your own" on a shared list).

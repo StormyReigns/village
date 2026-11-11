@@ -11,7 +11,8 @@ import { RichText } from './TextLinks';
 import { initials } from './entries';
 import type { RouteOption } from './EntryPanel';
 import { symbolFor } from './symbols';
-import { MADE_FROM, STATS, UPGRADES_TO, amountText, besideText, toggleOptions, chartDefs, linkedFrom, listItems, shownFields, showsTier, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
+import { stepsAround } from '@/lib/classes';
+import { EXAM_NEEDS, MADE_FROM, STATS, UPGRADES_TO, amountText, besideText, toggleOptions, chartDefs, linkedFrom, listItems, shownFields, showsTier, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
 import { byStat, heatFill, placeText, rangeOf, statFacts } from '@/lib/stats';
 import { StatTable, statSort } from './StatTable';
 import { Videos, cardIdOf } from '@/components/videos/Videos';
@@ -32,7 +33,9 @@ type CardBlock = Pick<Block, 'title' | 'icon'> & Partial<Pick<Block, 'type' | 'f
  * rest in the builders' order. Empty fields don't show. Used by the Characters Block,
  * its details panel, the Workshop's previews and the builders' "John Doe" sample.
  * Items use it too, as an item's full view: amounts on "Made from", and "Used to make" and
- * "Upgrades from" worked out from the other items. (Named for Characters, which came first.)
+ * "Upgrades from" worked out from the other items. Classes too: a class's "Next steps" and "Steps
+ * before" follow its exam, worked out from the other classes' exams (src/lib/classes.ts), and its
+ * growth modifiers carry a + or −. (Named for Characters, which came first.)
  */
 export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)', spoilers = false, sample = false, size = 152, onGo, fixHref }: {
   entry: EntryContent; block: CardBlock; route: Route | 'all'; routes: RouteOption[];
@@ -68,11 +71,20 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
   // Items: the other side of "Made from" and "Upgrades to", from every other item.
   const item = block.type === 'items';
   const others = block.entries ?? [];
-  const derived: Record<string, { key: string; label: string; text: string } | undefined> = item ? Object.fromEntries([[MADE_FROM, 'Used to make'], [UPGRADES_TO, 'Upgrades from']]
+  type Derived = { key: string; label: string; text: string };
+  const derived: Record<string, Derived[]> = item ? Object.fromEntries([[MADE_FROM, 'Used to make'], [UPGRADES_TO, 'Upgrades from']]
     .map(([key, label]) => {
       const found = linkedFrom(entry.name, others, key);
-      return [key, found.length ? { key: `@from:${key}`, label, text: found.map((x) => (x.note ? `${x.name}: ${x.note}` : x.name)).join('\n') } : undefined];
+      return [key, found.length ? [{ key: `@from:${key}`, label, text: found.map((x) => (x.note ? `${x.name}: ${x.note}` : x.name)).join('\n') }] : []];
     })) : {};
+  // Classes: the classes a tier up that build on this one's skills, and a tier down, after its exam.
+  const klass = block.type === 'classes';
+  if (klass && !entry.header) {
+    const me = { ...entry, id: '' } as Entry;
+    const { next, before } = stepsAround(me, [...others.filter((e) => e.name !== entry.name), me]);
+    derived[EXAM_NEEDS] = ([['Next steps', next], ['Steps before', before]] as const).filter(([, es]) => es.length)
+      .map(([label, es]) => ({ key: `@steps:${label}`, label, text: es.map((e) => e.name).join('\n') }));
+  }
 
   return (
     <article className="relative min-w-0">
@@ -173,20 +185,20 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
             </div>
             <Spoiler f={f} on={spoilers}>
               {ownWeb && <div className="flex justify-center"><Web defs={defs} entry={entry} among={among} color={chartColor} size={150} /></div>}
-              {!f.noNumbers && <StatBoxes defs={defs} entry={entry} among={among} color={chartColor} onOpen={(d) => setHeat({ chart: f, sort: statSort(d.key) })} />}
+              {!f.noNumbers && <StatBoxes defs={defs} entry={entry} among={among} color={chartColor} signed={klass} onOpen={(d) => setHeat({ chart: f, sort: statSort(d.key) })} />}
             </Spoiler>
           </section>
         );
       })}
       {heat && (
-        <HeatMap label={heat.chart.label} defs={chartDefs(block, heat.chart)} entry={entry} among={among} block={block} color={color} sort={heat.sort}
+        <HeatMap label={heat.chart.label} defs={chartDefs(block, heat.chart)} entry={entry} among={among} block={block} color={color} sort={heat.sort} pinLabel={klass ? 'Selected classes' : 'Selected characters'}
           onSort={(sort) => setHeat({ ...heat, sort })} onClose={() => setHeat(null)} onGo={onGo} />
       )}
 
       {/* Every switched-on field in order; an item's "Used to make" follows its "Made from"
-          spot even when the item itself is made from nothing. */}
+          spot even when the item itself is made from nothing, and a class's steps follow its exam. */}
       {shownFields(block).filter((f) => ['body', 'section'].includes(spotOf(f))).map((f) => {
-        const from = derived[f.key];
+        const from = derived[f.key] ?? [];
         return (
           <Fragment key={f.key}>
             {hasValue(entry, f) && (
@@ -202,12 +214,12 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
                 </Spoiler>
               </section>
             )}
-            {from && (
-              <section className="mt-4">
-                <h3 className="text-xs font-bold uppercase tracking-wide" style={{ color }}>{from.label}</h3>
-                <FieldBody f={{ ...from, kind: 'links' }} v={{ text: from.text, byRoute: [] }} route={route} routeName={routeName} name={entry.name} block={block} onGo={onGo} color={color} />
+            {from.map((d) => (
+              <section key={d.key} className="mt-4">
+                <h3 className="text-xs font-bold uppercase tracking-wide" style={{ color }}>{d.label}</h3>
+                <FieldBody f={{ ...d, kind: 'links' }} v={{ text: d.text, byRoute: [] }} route={route} routeName={routeName} name={entry.name} block={block} onGo={onGo} color={color} />
               </section>
-            )}
+            ))}
           </Fragment>
         );
       })}
@@ -257,6 +269,9 @@ function FieldBody({ f, v, route, routeName, name, block, onGo, color }: {
     // Items: lines without "Name:" that are whole sentences ("Lake Brontes, past the mine.")
     // read as text below, not as chips or bold names.
     const sentences = f.kind === 'list' && block.type === 'items' && listItems(text).every((i) => !i.note) && listItems(text).some((i) => i.name.length > 24);
+    if (f.kind === 'list' && block.type === 'classes' && f.key === EXAM_NEEDS) {
+      return <ul className="mt-1 flex flex-wrap gap-1.5">{listItems(text).map((i) => <li key={i.name} className="rounded-full bg-card-2 px-2.5 py-1 text-sm"><span className="font-bold">{i.name}</span>{i.note && <> {i.note}</>}</li>)}</ul>;
+    }
     if (f.kind === 'list' && !sentences) {
       const items = listItems(text);
       // Names alone (likes, gifts) read as chips; "Name: what it does" as rows.
@@ -349,7 +364,7 @@ function Web({ defs, entry, among, color, size, style }: { defs: StatDef[]; entr
  * The numbers as small boxes, "STR" over each, colored from gray to the Page's color by how
  * they compare with every other character. Tapping one opens the full heatmap, sorted by it.
  */
-function StatBoxes({ defs, entry, among, color, onOpen }: { defs: StatDef[]; entry: EntryContent; among: Entry[]; color: string; onOpen: (d: StatDef) => void }) {
+function StatBoxes({ defs, entry, among, color, signed = false, onOpen }: { defs: StatDef[]; entry: EntryContent; among: Entry[]; color: string; signed?: boolean; onOpen: (d: StatDef) => void }) {
   if (!defs.length) return null;
   const few = among.filter((e) => defs.some((d) => typeof e.stats?.[d.key] === 'number')).length < 3;
   const me = { ...entry, id: '' } as Entry;
@@ -362,7 +377,7 @@ function StatBoxes({ defs, entry, among, color, onOpen }: { defs: StatDef[]; ent
             className="grid gap-0.5 text-center hover:opacity-80">
             <span className="text-[10px] font-bold uppercase text-muted">{d.label.slice(0, 4)}</span>
             <span className="rounded-lg py-1 text-sm font-bold tabular-nums ring-1 ring-line"
-              style={{ background: f && !few ? heatFill(f.goodness, color) : 'var(--card-2)' }}>{entry.stats?.[d.key]}</span>
+              style={{ background: f && !few ? heatFill(f.goodness, color) : 'var(--card-2)' }}>{signed ? signedText(entry.stats?.[d.key]) : entry.stats?.[d.key]}</span>
           </button>
         );
       })}
@@ -370,9 +385,12 @@ function StatBoxes({ defs, entry, among, color, onOpen }: { defs: StatDef[]; ent
   );
 }
 
+/** A modifier as the game writes it: +10, −5, 0. */
+const signedText = (v?: number) => (typeof v !== 'number' ? '' : v > 0 ? `+${v}` : v < 0 ? `−${-v}` : '0');
+
 /** Every character's numbers for one chart, as a heatmap over the page. Tap a row to open them. */
-function HeatMap({ label, defs, entry, among, block, color, sort, onSort, onClose, onGo }: {
-  label: string; defs: StatDef[]; entry: EntryContent; among: Entry[]; block: CardBlock; color: string; sort: string;
+function HeatMap({ label, defs, entry, among, block, color, sort, pinLabel, onSort, onClose, onGo }: {
+  label: string; defs: StatDef[]; entry: EntryContent; among: Entry[]; block: CardBlock; color: string; sort: string; pinLabel: string;
   onSort: (s: string) => void; onClose: () => void; onGo?: (e: Entry) => void;
 }) {
   useEffect(() => {
@@ -403,7 +421,7 @@ function HeatMap({ label, defs, entry, among, block, color, sort, onSort, onClos
           <button type="button" onClick={onClose} aria-label="Close" className="grid size-9 shrink-0 place-items-center rounded-full bg-card-2 ring-1 ring-line"><X size={18} aria-hidden="true" /></button>
         </div>
         <div className="flex min-h-0 flex-1 flex-col">
-          <StatTable block={{ ...(block as Block), stats: defs }} entries={rows} among={among} sort={sort} onSort={onSort} color={color} mark={entry.name} pinned={pinned} onPin={pin} pinLabel="Selected characters"
+          <StatTable block={{ ...(block as Block), stats: defs }} entries={rows} among={among} sort={sort} onSort={onSort} color={color} mark={entry.name} pinned={pinned} onPin={pin} pinLabel={pinLabel}
             onOpen={(e) => { onClose(); if (e.name !== entry.name) onGo?.(e); }} />
         </div>
       </div>

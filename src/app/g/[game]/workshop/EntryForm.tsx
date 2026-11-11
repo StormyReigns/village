@@ -12,7 +12,7 @@ import { CharacterCard } from '@/components/app/CharacterCard';
 import { GuideCard } from '@/components/app/Guides';
 import { entryText } from '@/components/app/entries';
 import { rank } from '@/lib/search';
-import { byFields, fieldsOf } from '@/lib/fields';
+import { byFields, entriesOf, fieldsOf } from '@/lib/fields';
 import { CharacterInputs } from './CharacterInputs';
 import { useWide } from './split';
 import { EditorShell } from './EditorShell';
@@ -46,6 +46,7 @@ const DEFAULT_LABELS: Record<Block['type'], string[]> = {
   timeline: [],
   characters: [],
   items: [],
+  classes: [],
   tierlist: [],
 };
 
@@ -56,13 +57,14 @@ const DESCRIPTION_LABEL: Record<Block['type'], string> = {
   timeline: 'What happens (spoiler-light)',
   characters: 'Description',
   items: 'Description',
+  classes: 'Description',
   tierlist: 'Description',
 };
 
 // Blocks whose entries are pieces a picture can fill: people, classes, items and the like.
-const PICTURES = new Set<Block['type']>(['collection', 'characters', 'items']);
+const PICTURES = new Set<Block['type']>(['collection', 'characters', 'items', 'classes']);
 // Blocks whose entries link to their page on the game's wiki (docs/blocks/wiki-links.md).
-const WIKI = new Set<Block['type']>(['collection', 'characters', 'items']);
+const WIKI = new Set<Block['type']>(['collection', 'characters', 'items', 'classes']);
 
 const blank = (): EntryContent => ({ name: '', sections: [], categories: {} });
 
@@ -368,8 +370,9 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
 
       {people && (
         <CharacterInputs key={`${block.id}.${fixing?.id ?? 'new'}`} block={block} content={content} set={set} setField={setField} setStat={setStat}
-                classes={pages.flatMap((p) => p.blocks).filter((b) => b.id !== block.id && /class/i.test(b.title)).flatMap((b) => b.entries.map((e) => e.name)).filter((n) => !/\bclasses\b/i.test(n))}
-          show={show} hl={hl} fid={fid} others={block.entries.filter((e) => e.id !== fixing?.id).map((e) => e.name)}
+          // Class names to suggest: any Classes Block's classes (not its tiers' header cards), whatever it's called.
+          classes={pages.flatMap((p) => p.blocks).filter((b) => b.id !== block.id && b.type === 'classes').flatMap((b) => entriesOf(b).map((e) => e.name))}
+          show={show} hl={hl} fid={fid} others={entriesOf(block).filter((e) => e.id !== fixing?.id).map((e) => e.name)}
           upload={block.type === 'guide' && me ? (file) => uploadPicture('guide-pictures', gameId, me.id, file) : undefined} />
       )}
 

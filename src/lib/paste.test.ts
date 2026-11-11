@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { PAGES } from '../data/pages/fortunes-weave.ts';
 import type { Block } from '../data/pages/types.ts';
 import { blockSheet, toCsv, toTsv } from './sheets.ts';
+import { entriesOf } from './fields.ts';
 import { batchTitle, cellText, emptyColumns, guessColumns, matchRows, pasteColumns, readTable, rememberColumns } from './paste.ts';
 
 const blocks = PAGES.flatMap((p) => p.blocks);
@@ -35,7 +36,8 @@ test('round trip: every Block downloaded and pasted straight back changes nothin
       assert.deepEqual(picks, sheet.columns, `${b.id} ${format}: every column is recognized`);
       const off = rows.filter((r) => r.status !== 'same');
       assert.equal(off.length, 0, `${b.id} ${format}: ${off.slice(0, 2).map((r) => `row ${r.line} ${r.status} ${r.problems.join('; ')}`).join(' | ')}`);
-      assert.equal(rows.length, b.entries.length);
+      // A Classes tier's header card is never a row (src/lib/sheets.ts).
+      assert.equal(rows.length, entriesOf(b).length);
     }
   }
 });

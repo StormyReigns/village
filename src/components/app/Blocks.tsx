@@ -20,6 +20,7 @@ import { TINT } from './tint';
 import { StatTable, statSort } from './StatTable';
 import { Characters } from './Characters';
 import { Items } from './Items';
+import { Classes } from './Classes';
 import { Guides } from './Guides';
 import { TierList } from '@/components/tiers/TierList';
 import { SheetButton } from '@/components/sheets/SheetButton';
@@ -29,7 +30,7 @@ export type { BlockContext } from './blockParts';
 import { byStat } from '@/lib/stats';
 
 export function BlockView({ block, ctx: page }: { block: Block; ctx: BlockContext }) {
-  const Cmp = { collection: Collection, timeline: Timeline, checklist: Checklist, guide: Guides, characters: Characters, items: Items, tierlist: TierList }[block.type];
+  const Cmp = { collection: Collection, timeline: Timeline, checklist: Checklist, guide: Guides, characters: Characters, items: Items, classes: Classes, tierlist: TierList }[block.type];
   const t = TINT[page.tint];
   // "Show them" under a Block reveals that Block's spoilers only; the Page's switch does them all.
   const [revealed, setRevealed] = useState(false);

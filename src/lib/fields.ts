@@ -1,4 +1,4 @@
-// The fields of a Characters or Items Block: the common ones builders start from, the kinds
+// The fields of a Characters, Items or Classes Block: the common ones builders start from, the kinds
 // a builder can add, where each value lives on an entry, and the "John Doe" sample the
 // builder's preview fills in. See FieldDef in src/data/pages/types.ts.
 
@@ -36,11 +36,18 @@ const GUIDE_KINDS = [
   { kind: 'writeup' as const, label: 'Write-up', hint: 'A short article: sections with a heading, a few paragraphs and a picture. Any section can be a spoiler' },
 ];
 
-export const kindsFor = (type?: BlockType) => (type === 'items' ? ITEM_KINDS : type === 'guide' ? GUIDE_KINDS : FIELD_KINDS);
+/** The kinds as a Classes Block offers them: links point at other classes there. */
+const CLASS_KINDS = FIELD_KINDS.map((k) => (k.kind === 'links' ? { ...k, label: 'Other classes', hint: 'Other classes, one per line: "Name: why"' } : k));
+
+export const kindsFor = (type?: BlockType) => (type === 'items' ? ITEM_KINDS : type === 'guide' ? GUIDE_KINDS : type === 'classes' ? CLASS_KINDS : FIELD_KINDS);
 export const kindLabel = (k: FieldKind, type?: BlockType) => (k === 'tier' ? 'Community tier' : kindsFor(type).find((x) => x.kind === k)?.label ?? k);
 
-/** Blocks whose entries are laid out by their fields (Characters, Items, Guides), not a Collection's fixed parts. */
-export const byFields = (block: Pick<Block, 'type'>) => block.type === 'characters' || block.type === 'items' || block.type === 'guide';
+/** Blocks whose entries are laid out by their fields (Characters, Items, Classes, Guides), not a Collection's fixed parts. */
+export const byFields = (block: Pick<Block, 'type'>) => block.type === 'characters' || block.type === 'items' || block.type === 'classes' || block.type === 'guide';
+
+/** A Block's entries without its header cards (a Classes tier's card): what counts as its classes,
+ *  characters or items for Compare, tier lists, spreadsheets, wiki links and suggestions. */
+export const entriesOf = <E extends { header?: boolean }>(block: { entries: E[] }) => block.entries.filter((e) => !e.header);
 
 /** "Playable or NPC": one of the common fields (not one builders add), a green or red pill. */
 export const PLAYABLE = { yes: 'Playable', no: 'NPC' } as const;
@@ -119,8 +126,28 @@ export const GUIDE_FIELDS: FieldDef[] = [
   { key: 'What you get', label: 'What you get', kind: 'list', off: true },
 ];
 
-/** The common fields for a Block type: Items and Guides have their own, Characters the set above. */
-export const commonFor = (type?: BlockType) => (type === 'items' ? ITEM_FIELDS : type === 'guide' ? GUIDE_FIELDS : COMMON_FIELDS);
+/** Classes (docs/blocks/classes.md): where a class keeps its tier and exam, which the ladder and the
+ *  steps between classes read (src/lib/classes.ts). */
+export const CLASS_TIER = 'Tier';
+export const EXAM_NEEDS = 'Exam needs';
+
+/** The common fields every new Classes Block starts with. The chart is growth modifiers: numbers only
+ *  (a web can't show the minus ones). */
+export const CLASS_FIELDS: FieldDef[] = [
+  { key: CLASS_TIER, label: 'Tier', kind: 'tag' },
+  { key: 'Moves', label: 'Moves', kind: 'tag' },
+  { key: TIER, label: 'Community tier', kind: 'tier', off: true },
+  { key: STATS, label: 'Growth modifiers', kind: 'chart', noWeb: true },
+  { key: EXAM_NEEDS, label: 'Exam needs', kind: 'list' },
+  { key: 'How to unlock', label: 'How to unlock', kind: 'longtext' },
+  { key: 'Who can take it', label: 'Who can take it', kind: 'text' },
+  { key: 'Mastery skill', label: 'Mastery skill', kind: 'list' },
+  { key: 'Skills', label: 'Skills', kind: 'list' },
+  { key: DESCRIPTION, label: 'Description', kind: 'longtext' },
+];
+
+/** The common fields for a Block type: Items, Classes and Guides have their own, Characters the set above. */
+export const commonFor = (type?: BlockType) => (type === 'items' ? ITEM_FIELDS : type === 'classes' ? CLASS_FIELDS : type === 'guide' ? GUIDE_FIELDS : COMMON_FIELDS);
 
 /** A Block's own fields plus any common field it doesn't have yet (switched off), so a Block
  *  set up before a common field existed can still switch it on. The community tier is the one
@@ -216,6 +243,12 @@ const ITEM_SAMPLE: Partial<Record<string, string>> = {
   'Where to get it': 'Some town: Sold at the market\nOld mine: In a chest', [MADE_FROM]: 'Iron Ore: 3\nOak Log: 1', [UPGRADES_TO]: 'Sample item +1', 'Who can use it': 'Anyone',
 };
 
+/** Made-up values for a Classes Block's sample, for its common fields. */
+const CLASS_SAMPLE: Partial<Record<string, string>> = {
+  [CLASS_TIER]: 'Advanced', Moves: 'On foot', [EXAM_NEEDS]: 'Swords: B\nBows: C', 'How to unlock': 'Finish a quest in Chapter 9.',
+  'Who can take it': 'Anyone', 'Mastery skill': 'Skill name: What it does once mastered.', Skills: 'Combat Arts +2\nSword Crit +5',
+};
+
 /** Made-up values for the builder's preview, one per kind. */
 const SAMPLE: Record<FieldKind, string> = {
   text: 'Sample', number: '12', tag: 'Tag', place: 'Some town', when: 'Chapter 3', chart: '',
@@ -244,21 +277,23 @@ export function johnDoe(block: Pick<Block, 'fields' | 'stats'> & Partial<Pick<Bl
   let description: string | undefined;
   // An Items Block's sample is an item, with item-like values for its common fields.
   const item = block.type === 'items';
-  // A Guides Block's sample is a guide.
+  // A Guides Block's sample is a guide, and a Classes Block's a class.
   const guide = block.type === 'guide';
+  const klass = block.type === 'classes';
   for (const f of shownFields(block)) {
     if (f.kind === 'chart' || f.kind === 'tier') continue;
     if (f.key === DESCRIPTION) {
       description = guide ? 'Bring two archers and take out the healers first. The boss never moves, so you can rest before the last push.'
-        : item ? 'A line or two of flavor or extra notes goes here.' : 'A few lines about who they are and why you would bring them along go here.';
+        : item ? 'A line or two of flavor or extra notes goes here.' : klass ? 'What the class is good at, in a line or two.' : 'A few lines about who they are and why you would bring them along go here.';
       continue;
     }
-    const v = (item ? ITEM_SAMPLE[f.key] : guide ? GUIDE_SAMPLE[f.key] : undefined) ?? (/\bage\b/i.test(f.label) ? '30' : f.kind === 'tag' ? f.label : f.kind === 'playable' ? toggleOptions(f)[0]
+    const v = (item ? ITEM_SAMPLE[f.key] : guide ? GUIDE_SAMPLE[f.key] : klass ? CLASS_SAMPLE[f.key] : undefined) ?? (/\bage\b/i.test(f.label) ? '30' : f.kind === 'tag' ? f.label : f.kind === 'playable' ? toggleOptions(f)[0]
       : item && f.kind === 'links' ? 'Sample part: 2' : SAMPLE[f.kind]);
     if (isCategory(f)) categories[f.key] = v;
     else sections.push({ label: f.key, text: v });
   }
   const defs = shownFields(block).filter((f) => f.kind === 'chart').flatMap((f) => chartDefs(block, f));
-  const stats = defs.length ? Object.fromEntries(defs.map((d, i) => [d.key, 8 + ((i * 7) % 13)])) : undefined;
-  return { name: item ? 'Sample item' : guide ? 'Beat the bridge fort' : 'John Doe', description, sections, categories, stats };
+  // A class's numbers are modifiers, so some are below zero.
+  const stats = defs.length ? Object.fromEntries(defs.map((d, i) => [d.key, klass ? ((i * 7) % 6) * 5 - 5 : 8 + ((i * 7) % 13)])) : undefined;
+  return { name: item ? 'Sample item' : guide ? 'Beat the bridge fort' : klass ? 'Sample class' : 'John Doe', description, sections, categories, stats };
 }

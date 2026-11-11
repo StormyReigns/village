@@ -24,7 +24,7 @@ export interface StatDef {
 }
 
 /** The preset Block types. New ones come from community requests. */
-export type BlockType = 'collection' | 'guide' | 'checklist' | 'timeline' | 'characters' | 'items' | 'tierlist';
+export type BlockType = 'collection' | 'guide' | 'checklist' | 'timeline' | 'characters' | 'items' | 'tierlist' | 'classes';
 
 /**
  * What kind of thing a field holds, which decides how it's typed in and shown:
@@ -86,8 +86,12 @@ export interface Entry {
   stat?: string;
   /** Numbers for the Block's stats, keyed by StatDef.key: { might: 14, hit: 70 }. */
   stats?: Record<string, number>;
-  /** Timeline position. */
+  /** Timeline position. On a header card, its band's place (Classes: 1 is the top tier). */
   order?: number;
+  /** A band's header card rather than an entry of its own: a Classes tier's card, saying what the
+   *  tier takes (docs/blocks/classes.md). Kept out of everything that counts entries as classes
+   *  (Compare, tier lists, spreadsheets, wiki links, suggestions): use `entriesOf` in src/lib/fields.ts. */
+  header?: boolean;
   /** A place on a Block with a map picture: where its pin sits, in percent across (x) and down
    *  (y) the picture. Part of the content, so a pin is a Draft like any edit. The database
    *  doesn't check it: read it with `spotOf` in src/lib/world-map.ts. */
@@ -129,7 +133,7 @@ export interface Block {
   intro?: string;
   /** Category names players can filter by (Collection only). */
   filters?: string[];
-  /** Characters and Items: the fields each entry can have, in the order they show. The name,
+  /** Characters, Items and Classes: the fields each entry can have, in the order they show. The name,
    *  description and stats chart use the entry's own name, description and stats. */
   fields?: FieldDef[];
   /** Entries change with the player's route, so the page shows a route switcher. */

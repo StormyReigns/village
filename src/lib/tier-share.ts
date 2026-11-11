@@ -45,7 +45,7 @@ export async function getSharedList(gameId: string, listId: string): Promise<Sha
     db.from('tier_placements').select('card_id, tier_key, position, reason').eq('list_id', listId),
     db.from('profiles').select('display_name, username').eq('id', head.data.profile_id as string).maybeSingle(),
   ]);
-  const shown = ranked.entries.filter((e) => !e.spoiler && inLimits(e, block.tierSetup));
+  const shown = ranked.entries.filter((e) => !e.header && !e.spoiler && inLimits(e, block.tierSetup));
   const idOf = new Map(shown.flatMap((e) => (e.ref ? [[e.ref.card, e.id] as const] : [])));
   const list = fromPlacements((p.data ?? []) as { card_id: string; tier_key: string; position: number; reason: string | null }[], (c) => idOf.get(c));
   const name = (who.data?.display_name as string | undefined)?.trim() || (who.data?.username as string | undefined) || 'A villager';

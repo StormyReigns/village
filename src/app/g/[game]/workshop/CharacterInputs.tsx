@@ -146,7 +146,7 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
           return (
             <label key={f.key} id={fid('description')} className={'grid gap-1' + hl('description')}>
               <span className="text-sm font-bold">{f.label}</span>
-              <textarea value={content.description ?? ''} onChange={(e) => set({ description: e.target.value })} rows={3} placeholder={block.type === 'items' ? 'A line or two about it' : block.type === 'guide' ? 'What would you tell a friend, in two lines?' : 'Who they are, in a few lines'} className={input} />
+              <textarea value={content.description ?? ''} onChange={(e) => set({ description: e.target.value })} rows={3} placeholder={block.type === 'items' ? 'A line or two about it' : block.type === 'classes' ? 'What the class is good at, in a line or two' : block.type === 'guide' ? 'What would you tell a friend, in two lines?' : 'Who they are, in a few lines'} className={input} />
             </label>
           );
         }

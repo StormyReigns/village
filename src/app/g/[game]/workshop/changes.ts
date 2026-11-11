@@ -21,12 +21,12 @@ export function changesBetween(before: EntryContent | undefined, after: EntryCon
   if ((before?.icon ?? '') !== (after.icon ?? '')) out.push({ label: 'Picture', before: before?.icon ? 'A picture' : undefined, after: after.icon ? (before?.icon ? 'A new picture' : 'A picture') : undefined });
   add(block.statName ?? 'Key fact', before?.stat, after.stat);
   // Characters and Items can have several charts (Base stats, Growths), each with its own stats.
-  for (const d of block.type === 'characters' || block.type === 'items' ? allStatDefs(block) : block.stats ?? []) add(d.label, before?.stats?.[d.key]?.toString(), after.stats?.[d.key]?.toString());
+  for (const d of block.type === 'characters' || block.type === 'items' || block.type === 'classes' ? allStatDefs(block) : block.stats ?? []) add(d.label, before?.stats?.[d.key]?.toString(), after.stats?.[d.key]?.toString());
   add('Order', before?.order?.toString(), after.order?.toString());
   // A place's pin on the map, in words (docs/blocks/world.md).
   const pin = spotChange(before?.spot, after.spot);
   if (pin) out.push({ label: 'Pin', ...pin });
-  const fields = block.type === 'characters' || block.type === 'items' || block.type === 'guide' ? fieldsOf(block) : block.fields ?? [];
+  const fields = block.type === 'characters' || block.type === 'items' || block.type === 'classes' || block.type === 'guide' ? fieldsOf(block) : block.fields ?? [];
   add(fields.find((f) => f.key === DESCRIPTION)?.label ?? 'Description', before?.description, after.description);
   // A guide's steps in words, numbered, with their spoiler and picture marks spelled out. A
   // write-up's sections in words, with a spoiler section's words and picture kept out.

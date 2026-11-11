@@ -16,6 +16,7 @@ import type { Mention } from '@/data/pages/links';
 import { EntryIcon, type RouteOption } from './EntryPanel';
 import { colorFor, entryText, onRoute, useRecent, useTicks } from './entries';
 import { closest, rank } from '@/lib/search';
+import { entriesOf } from '@/lib/fields';
 import { TINT } from './tint';
 import { AllQuestions, AskFromSearch, QuestionBar, type QPage } from '@/components/questions/Questions';
 import { CommunitiesCard } from '@/components/communities/Communities';
@@ -116,7 +117,7 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [], mention
           <p className="relative mt-4 flex flex-wrap gap-2 text-sm">
             {page.blocks.map((b) => (
               <a key={b.id} href={`#${b.id}`} className="inline-flex items-center gap-1.5 rounded-full bg-card/80 px-3 py-1 font-bold ring-1 ring-line hover:ring-ink">
-                <BlockIcon name={b.icon} size={14} /> {b.title} <span className="text-muted">{b.entries.filter((e) => onRoute(e, ctx.route) && (prefs.spoilers || !e.spoiler)).length}</span>
+                <BlockIcon name={b.icon} size={14} /> {b.title} <span className="text-muted">{entriesOf(b).filter((e) => onRoute(e, ctx.route) && (prefs.spoilers || !e.spoiler)).length}</span>
               </a>
             ))}
           </p>
@@ -286,7 +287,7 @@ export function AppHome({ game, pages }: { game: AppGame; pages: Page[] }) {
                 <Piece size={64} color={`var(--${p.tint})`}><BlockIcon name={p.icon} size={19} strokeWidth={2.4} /></Piece>
                 <span className="mt-3 block font-display text-2xl leading-tight">{p.title}</span>
                 <span className="mt-1 block text-sm text-muted">{p.blurb}</span>
-                <span className="mt-auto pt-3 text-xs font-bold text-muted">{p.blocks.reduce((n, b) => n + b.entries.length, 0)} entries</span>
+                <span className="mt-auto pt-3 text-xs font-bold text-muted">{p.blocks.reduce((n, b) => n + entriesOf(b).length, 0)} entries</span>
               </Link>
             </li>
           );

@@ -280,9 +280,9 @@ export function EntryDetails({ entry, block, route, routes, fixHref, invite, col
   /** Characters: open someone named in Relationships. */
   onGo?: (e: Entry) => void;
 }) {
-  // Characters and Items lay themselves out by their Block's fields (an item's picture is smaller).
+  // Characters, Items and Classes lay themselves out by their Block's fields (an item's or class's picture is smaller).
   if (block.type === 'characters') return <CharacterCard entry={entry} block={block} route={route} routes={routes} color={color} fixHref={fixHref} onGo={onGo} size={136} />;
-  if (block.type === 'items') return <CharacterCard entry={entry} block={block} route={route} routes={routes} color={color} fixHref={fixHref} onGo={onGo} size={96} />;
+  if (block.type === 'items' || block.type === 'classes') return <CharacterCard entry={entry} block={block} route={route} routes={routes} color={color} fixHref={fixHref} onGo={onGo} size={96} />;
   if (block.type === 'guide') return <GuideCard entry={entry} block={block} route={route} routes={routes} color={color} />;
   const name = (r: Route) => routes.find((o) => o.key === r)?.label ?? r;
   const mine = route !== 'all' ? entry.perRoute?.[route] : undefined;

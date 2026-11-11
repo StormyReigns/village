@@ -4,7 +4,7 @@
 // sheet becomes an .xlsx (src/lib/xlsx.ts), a CSV, or rows copied for pasting into Excel or Sheets.
 
 import type { Block, Entry, EntryContent, Route, Section } from '@/data/pages/types';
-import { DESCRIPTION, byFields, chartDefs, isCategory, shownFields, STATS, toggleOptions } from './fields.ts';
+import { DESCRIPTION, byFields, chartDefs, entriesOf, isCategory, shownFields, STATS, toggleOptions } from './fields.ts';
 
 /** A cell: text, a number, or empty. */
 export type Cell = string | number | null;
@@ -211,15 +211,16 @@ function uniqueHeaders(headers: string[]) {
 
 /** A Block's columns with the names a sheet shows, for Download and for pasting back. */
 export function sheetColumns(block: Block, o: SheetOptions): Column[] {
-  const entries = o.spoilers ? block.entries : block.entries.filter((e) => !e.spoiler);
+  const entries = entriesOf(block).filter((e) => o.spoilers || !e.spoiler);
   const cols = columnsOf(block, entries, o);
   const names = uniqueHeaders(cols.map((c) => c.header));
   return cols.map((c, i) => ({ ...c, header: names[i] }));
 }
 
-/** The Block as a sheet. Without spoilers, spoiler entries and spoiler fields are left out. */
+/** The Block as a sheet. Without spoilers, spoiler entries and spoiler fields are left out, and a
+ *  Classes tier's header card is never a row. */
 export function blockSheet(block: Block, o: SheetOptions): Sheet {
-  const entries = o.spoilers ? block.entries : block.entries.filter((e) => !e.spoiler);
+  const entries = entriesOf(block).filter((e) => o.spoilers || !e.spoiler);
   const cols = sheetColumns(block, o);
   return {
     name: block.title,
@@ -230,7 +231,7 @@ export function blockSheet(block: Block, o: SheetOptions): Sheet {
 }
 
 /** How many entries a Block's sheet leaves out as spoilers. */
-export const spoilerCount = (block: Block) => block.entries.filter((e) => e.spoiler).length + (byFields(block) ? shownFields(block).filter((f) => f.spoiler).length : 0);
+export const spoilerCount = (block: Block) => entriesOf(block).filter((e) => e.spoiler).length + (byFields(block) ? shownFields(block).filter((f) => f.spoiler).length : 0);
 
 /** Text a spreadsheet would run as a formula (=, +, -, @) gets a ' in front, so a cell someone
  *  typed in the Workshop can never run in Excel. Pasting back in removes it again. */

@@ -11,7 +11,7 @@ import { choose, knownWikiHost, queryUrl, readAnswer, titlesFor, wikiFixOf, wiki
 
 const CARD_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 /** Blocks whose entries get a wiki link. */
-const LINKED = new Set(['characters', 'items', 'collection']);
+const LINKED = new Set(['characters', 'items', 'classes', 'collection']);
 /** A wiki's answer about a few names is a few kilobytes; anything far bigger isn't one. */
 const MAX_ANSWER = 256 * 1024;
 
@@ -59,7 +59,8 @@ async function answerFor(gameId: string, cardId: string): Promise<WikiAnswer> {
     for (const block of page.blocks) {
       const entry = block.entries.find((e) => e.ref?.card === cardId);
       if (!entry) continue;
-      if (!LINKED.has(block.type)) return { ok: false, reason: 'off' };
+      // A Classes tier's header card isn't a page on the wiki.
+      if (!LINKED.has(block.type) || entry.header) return { ok: false, reason: 'off' };
       // A builder's fix for this entry (a Draft): no link, or a page named differently. Checked
       // here, since Draft content isn't checked by the database; anything odd means the usual page.
       const fix = wikiFixOf((entry as { wiki?: unknown }).wiki);
