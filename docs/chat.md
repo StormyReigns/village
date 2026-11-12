@@ -390,6 +390,15 @@ Dated, newest last, each with why.
   a new tab: large on a dark backdrop with who shared it and when, Download, Copy picture,
   Copy link (to the message) and Open full size; arrows for several pictures; Escape, X or a
   click on the backdrop closes it.
+- 2026-11-12 (Matt): the chat looks like a work tool, not a phone. Same structure, restyled:
+  compact rows instead of bubbles (picture, name and time on one line; the same person's
+  messages a moment apart grouped under one name), day dividers (rows then show just the time),
+  a plain white main list (the village wallpaper is gone), threads and system notes as one-line
+  rows, the reply/react/options toolbar at a row's top right, a roomy message box with a toolbar,
+  and a wider chat (26rem, 30rem on the widest screens). Your own messages line up with
+  everyone's, marked by a yellow edge and "You" (replaces right-aligned bubbles); a message
+  that mentions you gets a light yellow wash. A thread's one-line row opens the thread; the
+  inline reply box on thread cards is gone. Why: it felt like WhatsApp, not coordinating work.
 
 ## Open questions
 

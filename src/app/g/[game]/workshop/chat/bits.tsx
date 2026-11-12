@@ -29,6 +29,30 @@ export function clock(iso: string) {
   return `${date}, ${time}`;
 }
 
+/** A day divider's words: "Today", "Yesterday", then "Mon, Nov 10" (with the year once it's another year). */
+export function dayLabel(iso: string) {
+  const d = new Date(iso), now = new Date();
+  if (d.toDateString() === now.toDateString()) return 'Today';
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', ...(d.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}) });
+}
+
+/** The same calendar day, in your own time zone. */
+export const sameDay = (a: string, b: string) => new Date(a).toDateString() === new Date(b).toDateString();
+
+/**
+ * Whether a message carries on from the one before (same person, a few minutes apart, not a
+ * reply), so it shows without its name and picture again, the way work chats group them.
+ */
+export const carriesOn = (prev: { author: { id: string }; createdAt: string; kind?: string } | undefined, m: { author: { id: string }; createdAt: string; replyTo?: number | null }) =>
+  Boolean(prev && prev.kind !== 'system' && prev.author.id === m.author.id && !m.replyTo
+    && new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60_000 && sameDay(prev.createdAt, m.createdAt));
+
+/** Just the time ("3:42 PM"), for lists whose day dividers already say the day. */
+export const timeOf = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+
 /** The full date and time, for a tooltip. */
 export const fullTime = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' });
 

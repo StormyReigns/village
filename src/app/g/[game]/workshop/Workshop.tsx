@@ -415,8 +415,10 @@ export function Workshop({ game, pages, routes }: {
     window.addEventListener('resize', track);
     return () => window.removeEventListener('resize', track);
   }, []);
-  const shownChatWidth = chatWidth && windowWidth
-    ? Math.min(chatWidth, Math.max(260, windowWidth - 48 - (editing ? 768 : 480) - 32)) : chatWidth;
+  // The usual width is 26rem, 30rem on the widest screens; it gives way the same way.
+  const usualChatWidth = windowWidth >= 1536 ? 480 : 416;
+  const shownChatWidth = windowWidth
+    ? Math.min(chatWidth || usualChatWidth, Math.max(260, windowWidth - 48 - (editing ? 768 : 480) - 32)) : chatWidth;
   // Phones show the chat or the work, one at a time. The switch between them sits at the top
   // right of whichever is showing, in the same spot, so the chat gets the whole height.
   const phoneSwitch = (
@@ -502,7 +504,7 @@ export function Workshop({ game, pages, routes }: {
         {/* The stream, and beside it the open thread. Where both don't fit (below the widest
             screens, on phones, and whenever an editor needs the room for its preview) the
             thread takes the stream's place, with a way back. */}
-        <div data-chat-col className={(phoneTab === 'chat' && !threadInfo ? 'flex' : 'hidden') + ' min-h-0 min-w-0 flex-1 flex-col gap-2 lg:w-[var(--chat-w,20rem)] lg:flex-none lg:shrink-0 2xl:w-[var(--chat-w,24rem)] '
+        <div data-chat-col className={(phoneTab === 'chat' && !threadInfo ? 'flex' : 'hidden') + ' min-h-0 min-w-0 flex-1 flex-col gap-2 lg:w-[var(--chat-w,26rem)] lg:flex-none lg:shrink-0 2xl:w-[var(--chat-w,30rem)] '
           + (chatFolded ? 'lg:hidden' : threadInfo ? (editing ? 'lg:hidden' : 'lg:hidden 2xl:flex') : 'lg:flex')}>
           <Stream
             topic={current ? { key: current.id, label: current.title } : null}
@@ -517,13 +519,13 @@ export function Workshop({ game, pages, routes }: {
           />
         </div>
         {threadInfo && (
-          <div data-chat-col className={(phoneTab === 'chat' ? 'flex' : 'hidden') + ' min-h-0 min-w-0 flex-1 flex-col gap-2 lg:w-[var(--chat-w,20rem)] lg:flex-none lg:shrink-0 2xl:w-[var(--chat-w,24rem)] ' + (chatFolded ? 'lg:hidden' : 'lg:flex')}>
+          <div data-chat-col className={(phoneTab === 'chat' ? 'flex' : 'hidden') + ' min-h-0 min-w-0 flex-1 flex-col gap-2 lg:w-[var(--chat-w,26rem)] lg:flex-none lg:shrink-0 2xl:w-[var(--chat-w,30rem)] ' + (chatFolded ? 'lg:hidden' : 'lg:flex')}>
             {threadPanel({ onBack: () => setThread(null), switcher: phoneSwitch })}
           </div>
         )}
         {!chatFolded && (
           <Resizer value={shownChatWidth} onReset={() => setChatWidth(0)} onWidth={setChatWidth}
-            measure={() => [...(columns.current?.querySelectorAll<HTMLElement>('[data-chat-col]') ?? [])].find((el) => el.offsetWidth)?.offsetWidth ?? 320}
+            measure={() => [...(columns.current?.querySelectorAll<HTMLElement>('[data-chat-col]') ?? [])].find((el) => el.offsetWidth)?.offsetWidth ?? 416}
             limits={() => {
               // The chat may grow until the work column would get too narrow: an open editor needs
               // 768px to keep its preview beside the form.
