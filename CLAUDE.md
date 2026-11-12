@@ -7,61 +7,30 @@ Matt is building this. He relies on Claude for the tech; explain choices in plai
 ## What it is
 
 Community-built companion apps for games, with a village theme. Two layers:
-- **Workshop** (community layer): one chat per game, Pages as folder tabs across the top (a
-  symbol each, with counts; the open one stands in its Page color on an edge of that color;
-  "Everything" first as its own ink folder; the Notice Board last). The open Page is in the
-  address (`?page=`), so the app's Workshop button opens on the Page you were reading and
-  "Open the app" goes back to it (`src/components/PageLinks.tsx`, 2026-11-03). Below, two columns that fill
-  the screen and scroll on their own: the chat (it folds to a strip) and the work column, with
-  two tabs, "Drafts" (what waits on you first, then the rest, sortable) and "In the app"
-  (entries to fix or add to). Editors open in the work column, so the chat stays beside them;
-  on phones the editor fills the screen and its Chat button hops over and back (2026-10-31).
-- **Game app** (top layer): Pages (topics, like "Units" or "Classes") made of Blocks.
-  Blocks are preset types, nothing freeform: Collection (icon grid, tap for a detail
-  panel, built-in search, A-Z sort and filters), Guide, Checklist, Timeline. New Block
-  types come from community requests and are built by us. Collection entries have Name,
-  Icon, Description, "+" labeled sections, and filter categories set by the Block.
-  Routes (e.g. Flame Lords) are a game setting: a Block can "differ by route", and the
-  page then shows a route switcher. Workshop chips are Pages. Entry edits are Drafts;
-  Block and Page changes are Drafts with a longer vote plus moderator approval.
-  (Agreed 2026-10-21; replaces the per-game block presets in `src/lib/blocks.ts`.)
-- **Building it** (from 2026-10-29): one genre first (fantasy and adventure), one Block at a
-  time. Block 1 is **Characters** (`src/components/app/Characters.tsx`): Profiles (a strip
-  of pieces above one card) by default, or a List; each device remembers which, per Block.
-  The card is laid out by the Block's `fields` (`src/lib/fields.ts`): common ones to switch,
-  rename and reorder, plus builders' own, all optional. Values live on entries as they
-  always have (tags as categories, the rest as sections under the field's key), so Drafts
-  work unchanged. Builders set fields up in the Workshop ("Set up", with a "John Doe"
-  preview); moderators save for now, voting on setups comes later. Block 2 is **Items**
-  (`src/components/app/Items.tsx`, 2026-11-02): tiles with basic stats, grouped by Type, plus
-  List and Compare; builders pick what's "On the tile" in Set up; "Made from" works out
-  "Used to make"; a "Got it" tick. Its full view is the Characters card. Spec: `docs/blocks/items.md`.
-  Block 3 is **Guides** (`src/components/app/Guides.tsx`): Quick steps or a Write-up, "In
-  short", spoiler steps, pictures. #4 is **Questions** (2026-11-08, replaces the Mysteries
-  Block): a bar on every Page to ask, a Questions tab in the Workshop, answered by a Draft or
-  by linking an entry, with the reply sent to an inbox (the bell beside the account button).
-  Specs: `docs/blocks/guides.md`, `docs/blocks/questions.md`.
-  #5 is **Videos** (2026-11-08, `src/components/videos/`): YouTube videos on any entry, sized to
-  where they show, played in YouTube's own player and credited from YouTube itself, voted
-  "This helped". #6 is **Tier lists** (2026-11-09, `src/components/tiers/`): a Tier list Block ranks
-  another Block on its Page; the community tier is the median of everyone's lists, hidden until 5,
-  with a pill on the entry's card. Specs: `docs/blocks/videos.md`, `docs/blocks/tier-lists.md`.
-  #7 is **World** (`src/components/world/`): a real map picture for a Places Block, a pin per place
-  (each pin a Draft), Groups to filter by. #8 is **Classes** (2026-11-11, `src/components/app/Classes.tsx`):
-  its own Page (indigo), a ladder of tiers with one entry per class and a header card per tier
-  (`header: true`, left out by `entriesOf` in fields.ts). Specs: `docs/blocks/world.md`, `docs/blocks/classes.md`.
-- **Integrations** (2026-11-08 to 11-11): Videos and Tier lists (above); the installable phone app
-  (`src/app/manifest.ts`, `public/sw.js`, `/offline`); Discord posts and Communities
-  (`docs/blocks/discord.md`, posted by the database with pg_net and pg_cron); Spreadsheets download and
-  paste-in batches (`docs/blocks/spreadsheets.md`); wiki links (`docs/blocks/wiki-links.md`). Patch
-  watch waits for a game that patches.
-- **Block specs** (`docs/blocks/`, from 2026-10-31): one file per Block, the source of truth
-  for its purpose, fields, layout, decisions and open questions; the roadmap and how we
-  work are in `docs/blocks/README.md`. Each Block gets its own chat ("Village · Block:
-  <name>"), which reads its file first and updates it as things are decided. Changes to
-  parts every Block shares (the piece, `src/lib/fields.ts`, the entry panel, the Workshop,
-  the database) go through the hub chat, "Village · Main". Only one Block chat builds at
-  a time.
+- **Game app**: Pages (topics, like "Units" or "Classes") made of preset Blocks (Characters,
+  Items, Classes, Guides, Tier lists, Collection, Checklist, Timeline...), nothing freeform.
+  Entries are pieces. Routes (e.g. Flame Lords) are a game setting a Block can differ by.
+  Data lives in the database (`src/lib/app-data.ts`). A Block's card layout comes from its
+  `fields` (`src/lib/fields.ts`), set up by builders in the Workshop ("Set up").
+- **Workshop**: one per game. A chat beside a work column ("Drafts" and "In the app"),
+  with Pages as folder tabs. Entry edits are Drafts, voted on and published by moderators.
+
+What each Block does, and where it's used: the roadmap, `docs/blocks/README.md`, and one spec per
+Block in `docs/blocks/` (the source of truth: read the Block's spec before working on it).
+Integrations (phone app, Discord, Spreadsheets, wiki links) have specs there too.
+
+## How we work (leaner from 2026-11-12)
+
+- **One chat per Block or integration** (`Village · Block: <name>`). It reads its spec first,
+  keeps it updated, and reports to Matt directly.
+- **The hub** (`Village · Main`) keeps the roadmap and reviews **database changes only** (new
+  migrations, RLS, triggers, SQL functions) before Matt runs them. Its notes, and the review
+  checklist, are in `docs/hub.md`.
+- **Shared code needs no go-ahead.** Check `git status` first, stage only your own files by name,
+  and name the shared files you touched in the commit message.
+- **One check per change.** Whoever pushes checks the deploy and the live site, once.
+- **Model by task.** The big model for design and database work, Sonnet for small fixes and notes.
+  When a chat gets long, start a fresh one from its spec.
 
 ## Decisions to keep
 
