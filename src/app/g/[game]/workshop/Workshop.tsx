@@ -803,13 +803,13 @@ export function Workshop({ game, pages, routes }: {
           {threadInfo ? threadPanel({
             onBack: () => setThread(null),
             bar: <EditSwap on="chat" count={chatCount} editLabel={`Back to ${editLabel}`} onEdit={() => setChatOver(null)} />,
-            className: 'rounded-none px-4 pb-4 pt-2.5 ring-0',
+            className: 'rounded-none ring-0',
           }) : (
             <Stream
               topic={current ? { key: current.id, label: current.title } : null}
               onAll={() => setChip('all')}
               bar={<EditSwap on="chat" count={chatCount} editLabel={`Back to ${editLabel}`} onEdit={() => setChatOver(null)} />}
-              className="rounded-none px-4 pb-4 pt-2.5 ring-0"
+              className="rounded-none ring-0"
               messages={chat}
               me={me}
               live={live}

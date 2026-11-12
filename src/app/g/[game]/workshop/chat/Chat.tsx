@@ -21,7 +21,7 @@ import { browserClient } from '@/lib/supabase/browser';
 import { imageUrl, targetKey, uploadChatImage, type Attachment, type ChatMessage, type LiveDraft, type Reaction, type WorkshopData } from '../useWorkshop';
 import { changesBetween } from '../changes';
 import { ChangeList } from '../EntryForm';
-import { ago, carriesOn, clock, dayLabel, fullTime, timeOf, ReportForm, sameDay, showInList, SmallButton, useAction } from './bits';
+import { ago, carriesOn, clock, dayLabel, fullTime, timeOf, ReportForm, sameDay, showInList, useAction } from './bits';
 import { Popover } from './Popover';
 import { Lightbox } from './Lightbox';
 
@@ -61,13 +61,22 @@ const THREAD_WALL: React.CSSProperties = {
   scrollbarColor: 'color-mix(in srgb, var(--ink) 25%, transparent) transparent',
 };
 /** The message list: edge to edge in the chat box (which has 1rem of padding), on the wallpaper. */
-const WALL_LIST = '-mx-4 my-3 grid text-ink min-h-0 flex-1 grid-cols-[minmax(0,1fr)] content-start overflow-y-auto overflow-x-hidden overscroll-contain py-1';
+const WALL_LIST = 'grid text-ink min-h-0 flex-1 grid-cols-[minmax(0,1fr)] content-start overflow-y-auto overflow-x-hidden overscroll-contain py-1';
 /** The main chat's list: plain white, like a work tool, with a thin scrollbar at the edge. */
 const PLAIN: React.CSSProperties = {
   backgroundColor: 'var(--card)',
   scrollbarWidth: 'thin',
   scrollbarColor: 'color-mix(in srgb, var(--ink) 25%, transparent) transparent',
 };
+
+/**
+ * A short, faint line in the middle between one person's turn and the next (agreed 2026-11-12),
+ * so a busy chat reads as separate posts without boxes round them. The main chat only: a
+ * thread already has its ruled lines.
+ */
+function TurnLine() {
+  return <li aria-hidden="true" className="mx-auto my-1 h-px w-24 bg-ink/20" />;
+}
 
 /** "Today ———": where a new day starts in a list. */
 function DayDivider({ iso }: { iso: string }) {
@@ -476,7 +485,7 @@ export function Message({ m, me, live, compact = false, small = false, grouped =
   return (
     <li id={`msg-${m.id}`}
       className={'group relative flex scroll-my-6 gap-2.5 px-3 outline-none [@media(hover:hover)]:hover:bg-ink/[0.03] '
-        + (grouped ? 'py-0.5 ' : 'pt-2 pb-0.5 ') + (m.removed ? 'opacity-50 ' : '')
+        + (grouped ? 'py-0.5 ' : 'pt-1 pb-0.5 ') + (m.removed ? 'opacity-50 ' : '')
         + (own ? 'shadow-[inset_3px_0_0_var(--signal)] ' : '')}
       style={mentionsYou ? { background: 'color-mix(in srgb, var(--signal) 14%, transparent)', boxShadow: 'inset 3px 0 0 var(--signal)' } : undefined}>
       <div className="w-8 shrink-0">
@@ -607,7 +616,7 @@ function BatchNote({ m, me, live }: { m: ChatMessage; me: Villager | null | unde
   const ev = m.event!;
   const published = ev.type === 'batch_published';
   return (
-    <li className="mx-3 my-1.5 overflow-hidden rounded-xl bg-card ring-1 ring-ink/70">
+    <li className="mx-3 my-0.5 overflow-hidden rounded-xl bg-card ring-1 ring-ink/70">
       <div className="flex items-center gap-2 bg-ink py-1 pl-1 pr-3 text-xs font-bold text-paper">
         <SystemMark />
         <span>{published ? 'A batch from a sheet is in the app' : 'A batch was declined'}</span>
@@ -646,7 +655,7 @@ function DraftNote({ m, info, me, live }: { m: ChatMessage; info: ThreadInfo; me
     ? changesBetween(before ?? undefined, draft.content, info.block, links.routes) : [];
   const writer = draft?.author.name;
   return (
-    <li className="mx-3 my-1.5 overflow-hidden rounded-xl bg-card ring-1 ring-ink/70">
+    <li className="mx-3 my-0.5 overflow-hidden rounded-xl bg-card ring-1 ring-ink/70">
       <div className="flex items-center gap-2 bg-ink py-1 pl-1 pr-3 text-xs font-bold text-paper">
         <SystemMark />
         <span>{published ? (ev?.isNew ? 'New in the app' : 'Updated in the app') : 'Declined'}</span>
@@ -771,7 +780,7 @@ export function Composer({ me, placeholder, onSend, id, compact = false, replyTo
   // Choosing Reply puts the cursor in the box.
   useEffect(() => { if (replyTo) field.current?.focus(); }, [replyTo]);
 
-  if (me === null) return compact ? null : <div className="mt-auto pt-2"><SignInPrompt>Sign in to chat</SignInPrompt></div>;
+  if (me === null) return compact ? null : <div className="mt-auto p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"><SignInPrompt>Sign in to chat</SignInPrompt></div>;
 
   const pick = (o: { key: string; label: string }) => {
     if (!typed || !links) return;
@@ -816,7 +825,7 @@ export function Composer({ me, placeholder, onSend, id, compact = false, replyTo
       onCancelReply?.();
     }
   };
-  const size = compact ? 'size-7' : 'size-8';
+  const size = 'size-7';
   const track = (el: HTMLTextAreaElement) => setCaret(el.selectionStart ?? el.value.length);
   // Enter sends and Shift+Enter starts a new line. On a phone (no hover, an on-screen keyboard)
   // Enter starts a new line, and the Send button sends.
@@ -824,7 +833,7 @@ export function Composer({ me, placeholder, onSend, id, compact = false, replyTo
   const canSend = Boolean(text.trim() || pictures.length);
 
   return (
-    <div className={'relative ' + (compact ? '' : 'mt-auto')}>
+    <div className={'relative ' + (compact ? '' : 'mt-auto p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]')}>
       {picking && typed && (
         <ul id={listId} role="listbox" aria-label={typed.mark === '#' ? 'Point at something' : 'Mention someone'} className="absolute inset-x-0 bottom-full z-30 mb-2 max-h-64 overflow-y-auto overscroll-contain rounded-2xl bg-card p-1 text-ink shadow-soft ring-1 ring-line">
           {choices.map((o, i) => (
@@ -872,7 +881,7 @@ export function Composer({ me, placeholder, onSend, id, compact = false, replyTo
         // In a small card: one row.
         className={'cursor-text bg-card text-ink ring-1 ring-line ' + (compact
           ? 'flex items-end gap-1.5 rounded-[1.25rem] p-1 focus-within:ring-2 focus-within:ring-sky'
-          : 'grid rounded-xl focus-within:ring-2 focus-within:ring-signal')}>
+          : 'grid rounded-lg focus-within:ring-2 focus-within:ring-signal')}>
         <textarea ref={field} id={id} value={text} maxLength={4000} disabled={me === undefined} rows={1}
           onChange={(e) => { setText(e.target.value); track(e.target); setHidden(false); setSel(0); if (error) setError(''); }}
           onSelect={(e) => track(e.currentTarget)}
@@ -894,8 +903,8 @@ export function Composer({ me, placeholder, onSend, id, compact = false, replyTo
             else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setHidden(true); }
           }}
           role="combobox" aria-expanded={picking} aria-controls={listId} aria-autocomplete="list"
-          className={'max-h-40 min-w-0 flex-1 resize-none self-center overflow-y-auto bg-transparent outline-none placeholder:text-muted ' + (compact ? 'px-2.5 py-1 text-sm leading-5' : 'w-full self-stretch px-3 pb-1 pt-2.5 leading-6')} placeholder={placeholder} aria-label={placeholder} />
-        <div className={compact ? 'contents' : 'flex items-center gap-0.5 border-t border-line/70 px-1.5 py-1'}>
+          className={'max-h-40 min-w-0 flex-1 resize-none self-center overflow-y-auto bg-transparent outline-none placeholder:text-muted ' + (compact ? 'px-2.5 py-1 text-sm leading-5' : 'w-full self-stretch px-3 pb-0.5 pt-2 leading-6')} placeholder={placeholder} aria-label={placeholder} />
+        <div className={compact ? 'contents' : 'flex items-center gap-0.5 px-1 pb-1'}>
         {!compact && (
           <>
             <input ref={files} type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple className="hidden"
@@ -920,7 +929,7 @@ export function Composer({ me, placeholder, onSend, id, compact = false, replyTo
             <Send size={14} aria-hidden="true" />
           </button>
         ) : (
-          <button disabled={busy || !canSend} className="btn-primary ml-auto inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-sm font-bold disabled:opacity-50">
+          <button disabled={busy || !canSend} className="btn-primary ml-auto inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-sm font-bold disabled:opacity-50">
             {busy ? 'Sending…' : 'Send'}<Send size={14} aria-hidden="true" />
           </button>
         )}
@@ -1021,28 +1030,28 @@ export function Stream({ topic, onAll, onFold, switcher, bar, className = '', me
   const { list, onScroll } = useStickToBottom(last?.id, me, last?.author.id);
 
   return (
-    <section aria-label="Chat" className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl bg-ink p-4 text-paper ring-1 ring-ink in-data-[phone-chat]:min-h-0 lg:min-h-0 ' + className}>
-      <div className="flex flex-wrap items-center gap-x-2">
+    <section aria-label="Chat" className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col overflow-hidden rounded-xl bg-ink text-paper ring-1 ring-ink in-data-[phone-chat]:min-h-0 lg:min-h-0 ' + className}>
+      <div className="flex min-h-10 flex-wrap items-center gap-x-2 px-3 py-1">
         {bar && <span className="mr-1 shrink-0">{bar}</span>}
-        <h2 className="font-display text-xl">Chat</h2>
+        <h2 className="font-display text-base">Chat</h2>
         {switcher && <span className="ml-auto lg:hidden">{switcher}</span>}
         {topic && (
-          <span className="order-last basis-full text-sm text-paper/70">
+          <span className="order-last basis-full pb-0.5 text-xs text-paper/70">
             {topic.label} only · <button onClick={onAll} className="font-bold text-signal underline underline-offset-2">show all</button>
           </span>
         )}
         {onFold && <span className="ml-auto hidden shrink-0 lg:block">
           <Tip text="Fold the chat away, for more room">
-            <button onClick={onFold} aria-label="Fold the chat away" className="grid size-8 place-items-center rounded-full text-paper/70 hover:bg-white/10 hover:text-paper">
+            <button onClick={onFold} aria-label="Fold the chat away" className="-mr-1.5 grid size-8 place-items-center rounded-full text-paper/70 hover:bg-white/10 hover:text-paper">
               <PanelLeftClose size={17} aria-hidden="true" />
             </button>
           </Tip>
         </span>}
       </div>
       {live.state === 'loading' ? (
-        <div className="m-auto py-10 text-sm text-paper/70">Opening the workshop doors…</div>
+        <div className="grid flex-1 place-items-center bg-card py-10 text-sm text-muted">Opening the workshop doors…</div>
       ) : messages.length === 0 ? (
-        <div className="-mx-4 my-3 grid flex-1 place-items-center px-3 text-ink" style={PLAIN}><div className="grid max-w-sm justify-items-center gap-2 py-10 text-center">
+        <div className="grid flex-1 place-items-center px-3 text-ink" style={PLAIN}><div className="grid max-w-sm justify-items-center gap-2 py-10 text-center">
           <span className="grid size-14 place-items-center rounded-full bg-sky-soft text-sky"><MessageCircle aria-hidden="true" /></span>
           <h3 className="font-display text-xl">{topic ? `Nothing about ${topic.label} yet` : 'The village is quiet'}</h3>
           <p className="text-sm text-muted">Say what you&apos;ve found or what you&apos;re stuck on. Messages show up for everyone here right away.</p>
@@ -1054,10 +1063,11 @@ export function Stream({ topic, onAll, onFold, switcher, bar, className = '', me
             const prev = items[i - 1];
             const prevAt = prev ? (prev.kind === 'thread' ? prev.at : prev.m.createdAt) : null;
             const key = x.kind === 'thread' ? x.key : x.m.id;
+            const grouped = x.kind === 'message' && prev?.kind === 'message' && carriesOn(prev.m, x.m);
             return (
               <Fragment key={key}>
-                {(!prevAt || !sameDay(prevAt, at)) && <DayDivider iso={at} />}
-                {x.kind === 'message' ? <Message m={x.m} me={me} live={live} onReply={setReplyTo} grouped={prev?.kind === 'message' && carriesOn(prev.m, x.m)} />
+                {(!prevAt || !sameDay(prevAt, at)) ? <DayDivider iso={at} /> : !grouped && <TurnLine />}
+                {x.kind === 'message' ? <Message m={x.m} me={me} live={live} onReply={setReplyTo} grouped={grouped} />
                   : x.kind === 'system' ? <SystemLine m={x.m} me={me} live={live} />
                   : <ThreadCard info={threads.info(x.key)} messages={x.messages} onOpen={() => onOpen(x.key)} />}
               </Fragment>
@@ -1117,7 +1127,7 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, switcher
   return (
     // Escape goes back to the main chat, unless you're partway through writing a message.
     <section aria-label={`Thread: ${info.title}`}
-      className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-2xl bg-ink p-4 text-paper ring-1 ring-ink in-data-[phone-chat]:min-h-0 lg:min-h-0 ' + className}
+      className={'relative flex min-h-[28rem] min-w-0 flex-1 flex-col overflow-hidden rounded-xl bg-ink text-paper ring-1 ring-ink in-data-[phone-chat]:min-h-0 lg:min-h-0 ' + className}
       onKeyDown={(e) => {
         if (e.key !== 'Escape' || !onBack || e.defaultPrevented) return;
         if (e.target instanceof HTMLInputElement && e.target.value.trim()) return;
@@ -1125,7 +1135,7 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, switcher
         onBack();
       }}>
       {/* Phones: "← Chat ›" and the switch on the first line, the thread's name on the next. */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <div className="flex min-h-10 flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1">
         {bar && <span className="shrink-0">{bar}</span>}
         {/* A thread is a part of the main chat, so its heading says so: Chat › Eshmel. */}
         {onBack && (
@@ -1138,20 +1148,26 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, switcher
         )}
         {onBack && <span aria-hidden="true" className="-mx-1 shrink-0 text-paper/50">›</span>}
         <div className="flex min-w-0 flex-1 items-center gap-2 max-lg:order-last max-lg:basis-full">
-          <ThreadIcon info={info} small />
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate font-display text-lg leading-tight" title={info.title}>{info.title}</h2>
-            <p className="truncate text-xs text-paper/70">{info.where}{people ? ` · ${people} ${people === 1 ? 'person' : 'people'} talking` : ''}</p>
-          </div>
+          <ThreadIcon info={info} tiny />
+          <h2 className="min-w-0 flex-1 truncate text-sm" title={`${info.title} · ${info.where}`}>
+            <span className="font-display">{info.title}</span>
+            <span className="text-xs text-paper/60">{' · '}{info.where}{people ? ` · ${people} ${people === 1 ? 'person' : 'people'}` : ''}</span>
+          </h2>
+          {onEdit && (
+            <button onClick={onEdit} className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-xs font-bold text-signal hover:bg-white/10">
+              <PenLine size={13} aria-hidden="true" />{info.kind === 'setup' ? 'Set up' : 'Fix'}
+            </button>
+          )}
+          {href && (
+            <Tip text="See it in the app" className="shrink-0">
+              <a href={href} aria-label="See it in the app" className="grid size-7 place-items-center rounded-md text-paper/70 hover:bg-white/10 hover:text-paper">
+                <ExternalLink size={14} aria-hidden="true" />
+              </a>
+            </Tip>
+          )}
         </div>
         {switcher && <span className="ml-auto shrink-0 lg:hidden">{switcher}</span>}
       </div>
-      {(onEdit || href) && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {onEdit && <SmallButton onClick={onEdit} icon={<PenLine size={13} aria-hidden="true" />}>{info.kind === 'setup' ? 'Set up' : 'Fix'}</SmallButton>}
-          {href && <a href={href} className="inline-flex items-center gap-1 rounded-full bg-card px-2.5 py-1 text-xs font-bold text-ink ring-1 ring-line hover:ring-signal">See it in the app</a>}
-        </div>
-      )}
       <ul ref={list} onScroll={onScroll} aria-live="polite" className={WALL_LIST}
         style={{ ...THREAD_WALL, boxShadow: `inset 4px 0 0 ${info.block ? 'var(--' + info.block.page.tint + ')' : 'var(--ink)'}` }}>
         {timeline.length === 0 && (
@@ -1162,19 +1178,20 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, switcher
         )}
         {timeline.map((x, i) => {
           const prev = timeline[i - 1];
-          const divider = (!prev || !sameDay(prev.at, x.at)) && <DayDivider iso={x.at} />;
           const prevMessage = prev && 'm' in prev ? prev.m : undefined;
+          const grouped = 'm' in x && x.m.kind !== 'system' && carriesOn(prevMessage, x.m);
+          const divider = (!prev || !sameDay(prev.at, x.at)) && <DayDivider iso={x.at} />;
           return 'm' in x ? (
             <Fragment key={`m${x.m.id}`}>
               {divider}
               {x.m.kind === 'system'
                 ? <SystemNote m={x.m} info={info} me={me} live={live} />
-                : <Message m={x.m} me={me} live={live} small onReply={setReplyTo} grouped={carriesOn(prevMessage, x.m)} />}
+                : <Message m={x.m} me={me} live={live} small onReply={setReplyTo} grouped={grouped} />}
             </Fragment>
           ) : (
           <Fragment key={`d${x.d.id}`}>
           {divider}
-          <li className="mx-3 my-1 flex items-center gap-2.5 rounded-xl bg-card px-3 py-2 text-sm ring-1 ring-line">
+          <li className="mx-3 my-0.5 flex items-center gap-2.5 rounded-xl bg-card px-3 py-2 text-sm ring-1 ring-line">
             <FileText size={16} className="shrink-0 text-muted" aria-hidden="true" />
             <span className="min-w-0 flex-1">
               <span className="font-bold">{x.d.author.name}</span> posted {x.d.cardId ? 'a fix' : 'a new entry'}

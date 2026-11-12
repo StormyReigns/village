@@ -399,6 +399,12 @@ Dated, newest last, each with why.
   everyone's, marked by a yellow edge and "You" (replaces right-aligned bubbles); a message
   that mentions you gets a light yellow wash. A thread's one-line row opens the thread; the
   inline reply box on thread cards is gone. Why: it felt like WhatsApp, not coordinating work.
+- 2026-11-12 (Matt), round two: the panel no longer looks like a phone. No black frame round
+  the edge or big rounded corners: a slim ink bar on top ("Chat", or "← Chat › Eshmel · Units ·
+  2 people" with Fix and "See it in the app" at its right end) and a thin ink band round the
+  message box. In the main chat a short faint line in the middle separates one person's turn
+  from the next (not inside a run of grouped messages, and not in threads, which have their
+  ruled lines).
 
 ## Open questions
 
