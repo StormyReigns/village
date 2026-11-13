@@ -12,7 +12,8 @@ import { initials } from './entries';
 import type { RouteOption } from './EntryPanel';
 import { symbolFor } from './symbols';
 import { classShape, pathAround } from '@/lib/classes';
-import { MADE_FROM, STATS, UPGRADES_TO, amountText, besideText, toggleOptions, chartDefs, linkedFrom, listItems, shownFields, showsTier, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
+import { backOf, linesOf, otherSides, pointsAt } from '@/lib/entry-links';
+import { STATS, amountText, besideText, toggleOptions, chartDefs, listItems, shownFields, showsTier, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
 import { byStat, heatFill, placeText, rangeOf, statFacts } from '@/lib/stats';
 import { StatTable, statSort } from './StatTable';
 import { Videos, cardIdOf } from '@/components/videos/Videos';
@@ -69,28 +70,29 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
   const pickTag = useContext(TagPick);
   const chartColor = sample ? '#9aa0ad' : color;
   const webSize = Math.round(Math.max(size * 0.92, 96));
-  // Items: the other side of "Made from" and "Upgrades to", from every other item.
-  const item = block.type === 'items';
   const others = block.entries ?? [];
-  type Derived = { key: string; label: string; text: string };
-  const derived: Record<string, Derived[]> = item ? Object.fromEntries([[MADE_FROM, 'Used to make'], [UPGRADES_TO, 'Upgrades from']]
-    .map(([key, label]) => {
-      const found = linkedFrom(entry.name, others, key);
-      return [key, found.length ? [{ key: `@from:${key}`, label, text: found.map((x) => (x.note ? `${x.name}: ${x.note}` : x.name)).join('\n') }] : []];
-    })) : {};
-  // Classes (src/lib/classes.ts): what this class leads to and comes from, at its "Leads to" spot (else
-  // after its skill ranks). Leads to keeps what builders typed, notes and all, then adds the classes the
-  // skill ranks point to; a name that matches no class stays plain text. Comes from is worked out.
   const klass = block.type === 'classes';
   const shape = klass ? classShape({ fields: block.fields, filters: block.filters, type: block.type, entries: others }) : {};
+  // The other side of every links field here that has one (docs/blocks/entry-links.md): an item's "Used
+  // to make" and "Upgrades from", from every other item, under the field it comes from.
+  type Derived = { key: string; label: string; text: string };
+  const linkFields = shownFields(block).filter((f) => f.kind === 'links' && pointsAt(f, block.id, block.id));
+  const derived: Record<string, Derived[]> = Object.fromEntries(otherSides(entry.name, others, linkFields, [shape.leads])
+    .map((s) => [s.key, [{ key: `@from:${s.key}`, label: s.label, text: linesOf(s.items) }]]));
+  // Classes (src/lib/classes.ts): what this class leads to and comes from, at its "Leads to" spot (else
+  // after its skill ranks). Leads to keeps what builders typed, notes and all, then adds the classes the
+  // skill ranks point to; a name that matches no class stays plain text. Comes from (Leads to's other
+  // side) is worked out from both.
   if (klass && !entry.header && (shape.leads || shape.ranks)) {
     const me = { ...entry, id: '' } as Entry;
     const { next, before } = pathAround(me, [...others.filter((e) => e.name.trim().toLowerCase() !== entry.name.trim().toLowerCase()), me], shape);
     const typed = shape.leads ? listItems(valueOf(entry, { key: shape.leads, label: '', kind: 'links' }).text ?? '') : [];
     const said = new Set(typed.map((i) => i.name.toLowerCase()));
     const leadsText = [...typed.map((i) => (i.note ? `${i.name}: ${i.note}` : i.name)), ...next.filter((e) => !said.has(e.name.toLowerCase())).map((e) => e.name)].join('\n');
-    const leadsLabel = shownFields(block).find((f) => f.key === shape.leads)?.label ?? 'Leads to';
-    derived[shape.leads ?? shape.ranks!] = ([[leadsLabel, leadsText], ['Comes from', before.map((e) => e.name).join('\n')]] as const)
+    const leadsField = shownFields(block).find((f) => f.key === shape.leads);
+    const leadsLabel = leadsField?.label ?? 'Leads to';
+    const fromLabel = (leadsField && backOf(leadsField)) ?? 'Comes from';
+    derived[shape.leads ?? shape.ranks!] = ([[leadsLabel, leadsText], [fromLabel, before.map((e) => e.name).join('\n')]] as const)
       .filter(([, text]) => text).map(([label, text]) => ({ key: `@path:${label}`, label, text }));
   }
 

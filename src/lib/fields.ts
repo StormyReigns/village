@@ -180,17 +180,6 @@ export const canTile = (f: FieldDef) => !['longtext', 'list', 'links', 'steps', 
 /** What an item's tile shows, in the builders' order. */
 export const tileFields = (block: Pick<Block, 'fields'> & Partial<Pick<Block, 'type'>>) => shownFields(block).filter((f) => f.tile && canTile(f)).slice(0, TILE_MAX);
 
-/** The other side of a links field: entries whose `key` field names this one (what a
- *  material is used to make, what an item upgrades from), with the note they give. */
-export function linkedFrom(name: string, entries: EntryContent[], key: string) {
-  const me = name.trim().toLowerCase();
-  if (!me) return [];
-  return entries.flatMap((e) => {
-    const hit = listItems(e.sections.find((s) => s.label === key)?.text ?? '').find((i) => i.name.toLowerCase() === me);
-    return hit && e.name.trim().toLowerCase() !== me ? [{ name: e.name, note: hit.note }] : [];
-  });
-}
-
 /** A links note that's just a number is an amount: "3" reads "× 3". */
 export const amountText = (note: string) => (/^\d+$/.test(note.trim()) ? `× ${note.trim()}` : note);
 

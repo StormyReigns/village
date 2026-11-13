@@ -2,7 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { groupOrder } from './items.ts';
-import { ITEM_FIELDS, amountText, canTile, fieldsOf, johnDoe, linkedFrom, tileFields, withCommon, MADE_FROM } from './fields.ts';
+import { ITEM_FIELDS, amountText, canTile, fieldsOf, johnDoe, tileFields, withCommon, MADE_FROM } from './fields.ts';
+import { linkedFrom } from './entry-links.ts';
 import type { EntryContent } from '../data/pages/types.ts';
 
 test('letter ranks group best first (a range by its best letter), with "No rank" and the like after them', () => {

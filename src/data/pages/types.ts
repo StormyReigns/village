@@ -64,6 +64,12 @@ export interface FieldDef {
   options?: [string, string];
   /** Items: shown on the item's tile as well as in its full view (three at most). */
   tile?: boolean;
+  /** Links: the Block it points at (a Block id in this game). Missing: the Block it's on, as every
+   *  links field before 2026-11-12 (docs/blocks/entry-links.md). */
+  to?: string;
+  /** Links: what its other side is called on the entries it names ("Used to make" for Made from),
+   *  worked out there. Missing: a default for a few keys (`backOf` in src/lib/entry-links.ts), else none. */
+  back?: string;
 }
 
 /** A "+" section on an entry: a label the Builder chose, and its text. Lines become a list. */
