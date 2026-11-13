@@ -75,7 +75,7 @@ export function Workshop({ game, pages, routes }: {
     const fix = params.get('fix')?.split('.');
     if (fix && placeOf(fix[0])) return { blockId: fix[0], entryId: fix[1], field: params.get('field') ?? undefined, theory: params.get('theory') === '1' };
     const add = params.get('add');
-    if (add && placeOf(add)) return { blockId: add };
+    if (add && placeOf(add)) return { blockId: add, name: params.get('name') ?? undefined };
     return null;
   })();
   const startPage = params.get('page') ?? (linked ? placeOf(linked.blockId)?.page.id : params.get('paste') ? placeOf(params.get('paste')!)?.page.id ?? null : null);

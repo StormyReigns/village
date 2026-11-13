@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useState } from 'react';
 import Link from 'next/link';
 import type { Route } from '@/data/pages';
 import type { BlockLinks, LinkRow } from '@/lib/entry-links';
@@ -23,6 +23,28 @@ export const useBlockLinks = () => useContext(LinksContext);
 
 /** Whether an entry of another Block is on the player's route (no routes: every one). */
 export const onRoute = (r: Pick<LinkRow, 'routes'>, route: Route | 'all') => route === 'all' || !r.routes?.length || r.routes.includes(route);
+
+/** How many linked pieces show before "See all": enough for most, short enough for a big town's 40 items. */
+export const LINKS_SHOWN = 8;
+
+/** A row of linked pieces, the first few and then "See all 40" (and back to fewer). */
+export function LinkRow({ items }: { items: { key: string; node: React.ReactNode }[] }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? items : items.slice(0, LINKS_SHOWN);
+  return (
+    <ul className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-2">
+      {shown.map((x) => <li key={x.key}>{x.node}</li>)}
+      {items.length > LINKS_SHOWN && (
+        <li>
+          <button type="button" onClick={() => setAll(!all)} aria-expanded={all}
+            className="rounded-full px-3 py-1 text-xs font-bold text-muted ring-1 ring-line hover:text-ink hover:ring-ink">
+            {all ? 'Show fewer' : `See all ${items.length}`}
+          </button>
+        </li>
+      )}
+    </ul>
+  );
+}
 
 /** One linked entry: a small piece in its Page's color, its name and note, opening it when it's known. */
 export function LinkChip({ name, note, row, color, amounts = false }: { name: string; note: string; row?: LinkRow; color: string; amounts?: boolean }) {

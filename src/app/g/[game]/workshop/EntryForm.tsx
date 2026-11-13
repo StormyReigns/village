@@ -13,6 +13,7 @@ import { GuideCard } from '@/components/app/Guides';
 import { entryText } from '@/components/app/entries';
 import { rank } from '@/lib/search';
 import { byFields, entriesOf, fieldsOf } from '@/lib/fields';
+import { referrers, renameIn } from '@/lib/entry-links';
 import { CharacterInputs } from './CharacterInputs';
 import { useWide } from './split';
 import { EditorShell } from './EditorShell';
@@ -29,6 +30,8 @@ import { WikiOpen, WikiPageInput, WikiSourceChip } from '@/components/wiki/WikiT
  *  part of it to fix ("description", "routes", "section:Where to get it") from an app pencil. */
 export interface FormStart {
   blockId: string; entryId?: string; field?: string; theory?: boolean;
+  /** A new entry's name, filled in: from a link's "Add it" (docs/blocks/entry-links.md). */
+  name?: string;
   /** From the wiki list's "Which one?" picks: the page to link, filled in (docs/blocks/wiki-links.md). */
   wiki?: string;
   /** Answering a player's question (docs/blocks/questions.md): it closes when this Draft ships. */
@@ -65,6 +68,9 @@ const DESCRIPTION_LABEL: Record<Block['type'], string> = {
 const PICTURES = new Set<Block['type']>(['collection', 'characters', 'items', 'classes']);
 // Blocks whose entries link to their page on the game's wiki (docs/blocks/wiki-links.md).
 const WIKI = new Set<Block['type']>(['collection', 'characters', 'items', 'classes']);
+
+/** At most this many linking entries get a fix sent with a rename; more is a job for a batch. */
+const MAX_LINK_FIXES = 10;
 
 const blank = (): EntryContent => ({ name: '', sections: [], categories: {} });
 
@@ -124,6 +130,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
     // From "Share a theory": it's marked as not confirmed yet.
     if (start.theory) c.flag = 'unconfirmed';
     if (start.wiki) c.wiki = start.wiki;
+    if (start.name && !fixing) c.name = start.name;
     return c;
   });
   const [source, setSource] = useState(restore?.source ?? '');
@@ -163,6 +170,8 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
   const wide = useWide();
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  // A rename sends link fixes along unless the writer says no (below).
+  const [fixLinks, setFixLinks] = useState(true);
   if (!block) return null;
   const page = block.page;
   const set = (patch: Partial<EntryContent>) => { setContent((c) => ({ ...c, ...patch })); setNote(''); };
@@ -181,6 +190,18 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
   const blockMap = block.type === 'collection' && block.look === 'map' ? mapOf(block) : null;
   const changes = fixing ? changesBetween(contentOf(fixing), cleaned, block, routes) : [];
   const unchanged = Boolean(fixing) && changes.length === 0;
+  // A rename: entries that link to the old name (docs/blocks/entry-links.md). Each gets a small Draft of its
+  // own with the link changed, sent along with this one, so nobody's link quietly stops working.
+  const renamed = fixing && cleaned.name && cleaned.name.trim().toLowerCase() !== fixing.name.trim().toLowerCase() ? fixing.name : '';
+  const linking = (() => {
+    if (!renamed || !fixing) return [];
+    const byEntry = new Map<string, { block: Block; entry: Entry; keys: string[] }>();
+    for (const r of referrers(pages, block.id, renamed, { block: block.id, entry: fixing.id }).filter((x) => x.entry.ref)) {
+      const k = `${r.block.id}.${r.entry.id}`;
+      byEntry.set(k, { block: r.block, entry: r.entry, keys: [...(byEntry.get(k)?.keys ?? []), r.field.key] });
+    }
+    return [...byEntry.values()].slice(0, MAX_LINK_FIXES);
+  })();
 
   // A blank box takes that stat away; the numbers keep the Block's own order.
   const setStat = (key: string, v: string) => {
@@ -223,6 +244,19 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
       ...(question ? { question: { id: question.id, reply: reply.trim() || `${fixing ? 'Updated' : 'Added'} ${cleaned.name} for you` } } : {}),
     });
     setBusy(false);
+    if (!res.error && fixLinks && linking.length) {
+      const failed: string[] = [];
+      for (const { block: b, entry: e, keys } of linking) {
+        const c = contentOf(e);
+        const swap = (ss: Section[]) => ss.map((x) => (keys.includes(x.label) ? { ...x, text: renameIn(x.text, renamed, cleaned.name) } : x));
+        c.sections = swap(c.sections);
+        if (c.perRoute) c.perRoute = Object.fromEntries(Object.entries(c.perRoute).map(([r, ss]) => [r, swap(ss as Section[])]));
+        const r = await postDraft({ blockKey: b.id, kind: 'fact', title: e.name, content: c, source: `Follows the rename of ${renamed} to ${cleaned.name}`,
+          theory: false, cardId: e.ref?.card, baseRevision: e.ref?.revision });
+        if (r.error) failed.push(e.name);
+      }
+      if (failed.length) window.alert(`Your change was sent, but the link fixes for ${failed.join(', ')} weren't. Fix those by hand.`);
+    }
     if (res.error) setNote(res.error);
     else { clearUnsent(gameId); onPosted({ pageId: page.id, blockId: block.id, entryId: fixing?.id, draftId: res.id, name: cleaned.name }); }
   };
@@ -373,7 +407,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
           // Class names to suggest: any Classes Block's classes (not its tiers' header cards), whatever it's called.
           classes={pages.flatMap((p) => p.blocks).filter((b) => b.id !== block.id && b.type === 'classes').flatMap((b) => entriesOf(b).map((e) => e.name))}
           show={show} hl={hl} fid={fid} others={entriesOf(block).filter((e) => e.id !== fixing?.id).map((e) => e.name)}
-          namesIn={(id) => { const b = pages.flatMap((p) => p.blocks).find((x) => x.id === id); return b ? entriesOf(b).map((e) => e.name) : []; }}
+          linkTo={(id) => { const b = blocks.find((x) => x.id === id); return { title: b?.title ?? '', names: b ? entriesOf(b).map((e) => e.name) : [], add: (n: string) => `/g/${gameId}/workshop?add=${encodeURIComponent(id)}&name=${encodeURIComponent(n)}` }; }}
           upload={block.type === 'guide' && me ? (file) => uploadPicture('guide-pictures', gameId, me.id, file) : undefined} />
       )}
 
@@ -462,6 +496,15 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
         </label>
       </div>
 
+      {linking.length > 0 && (
+        <label className="flex items-start gap-2 rounded-2xl bg-sun-soft/60 p-3 text-sm ring-1 ring-sun">
+          <input type="checkbox" checked={fixLinks} onChange={(e) => setFixLinks(e.target.checked)} className="mt-0.5 size-4 accent-[var(--color-leaf)]" />
+          <span>
+            <span className="font-bold">{linking.length === 1 ? '1 entry links' : `${linking.length} entries link`} to {renamed}</span>: {linking.map((x) => x.entry.name).join(', ')}.
+            {' '}Also suggest changing {linking.length === 1 ? 'its link' : 'their links'} to {cleaned.name}, each as a small Draft of its own.
+          </span>
+        </label>
+      )}
       {changeBox}
 
       {/* Closing keeps what's written for next time; this throws it away (undoable from the Workshop). */}

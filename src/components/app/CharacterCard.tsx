@@ -12,8 +12,8 @@ import { initials } from './entries';
 import type { RouteOption } from './EntryPanel';
 import { symbolFor } from './symbols';
 import { classShape, pathAround } from '@/lib/classes';
-import { backOf, bothOf, linesOf, mirrored, otherSides, pointsAway } from '@/lib/entry-links';
-import { LinkChip, onRoute, useBlockLinks } from './EntryLinks';
+import { backOf, bothOf, linesOf, mirrored, otherSides, placedFrom, pointsAway } from '@/lib/entry-links';
+import { LinkChip, LinkRow, onRoute, useBlockLinks } from './EntryLinks';
 import { STATS, amountText, besideText, toggleOptions, chartDefs, listItems, shownFields, showsTier, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
 import { byStat, heatFill, placeText, rangeOf, statFacts } from '@/lib/stats';
 import { StatTable, statSort } from './StatTable';
@@ -79,13 +79,23 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
   type Derived = { key: string; label: string; text: string };
   const linkFields = shownFields(block).filter((f) => f.kind === 'links' && !pointsAway(f, block.id));
   const derived: Record<string, Derived[]> = Object.fromEntries(otherSides(entry.name, others, linkFields, block.id, [shape.leads])
-    .map((s) => [s.key, [{ key: `@from:${s.key}`, label: s.label, text: linesOf(s.items) }]]));
+    .map((s) => [s.key, [{ key: `@side:${s.key}`, label: s.label, text: linesOf(s.items) }]]));
   // Both ways under one name (Relationships): whoever lists this entry shows in its own list too.
   const mirror: Record<string, string> = Object.fromEntries(linkFields.filter((f) => bothOf(f, block.id))
     .map((f) => [f.key, linesOf(mirrored(entry.name, valueOf(entry, f).text ?? '', others, f.key))]).filter(([, t]) => t));
-  // Other sides from links fields in other Blocks (an item's "Where to get it" on a place), after the card's own fields.
-  const { incoming } = useBlockLinks();
-  const fromAway = sample ? [] : (incoming[block.id ?? ''] ?? []).map((inc) => ({ inc, rows: (inc.byName[entry.name.trim().toLowerCase()] ?? []).filter((r) => onRoute(r, route)) })).filter((x) => x.rows.length);
+  // Other sides from link fields in other Blocks (an item's "Where to get it" on a place): where this Block's
+  // Set up put them (after one of its fields, at the top, or off), else after the card's own fields.
+  const { incoming, targets } = useBlockLinks();
+  const placed = placedFrom(block.fields);
+  const fromAway = sample ? [] : (incoming[block.id ?? ''] ?? []).filter((inc) => !placed[inc.key]?.off)
+    .map((inc) => ({ inc, after: placed[inc.key] ? placed[inc.key].after ?? '' : undefined, rows: (inc.byName[entry.name.trim().toLowerCase()] ?? []).filter((r) => onRoute(r, route)) }))
+    .filter((x) => x.rows.length);
+  const awaySection = ({ inc, rows }: (typeof fromAway)[number]) => (
+    <section key={inc.key} className="mt-4">
+      <h3 className="text-xs font-bold uppercase tracking-wide" style={{ color }}>{inc.label}</h3>
+      <LinkRow items={rows.map((r) => ({ key: r.href, node: <LinkChip name={r.name} note={r.note} row={r} color={`var(--${inc.tint})`} /> }))} />
+    </section>
+  );
   // Classes (src/lib/classes.ts): what this class leads to and comes from, at its "Leads to" spot (else
   // after its skill ranks). Leads to keeps what builders typed, notes and all, then adds the classes the
   // skill ranks point to; a name that matches no class stays plain text. Comes from (Leads to's other
@@ -170,10 +180,16 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
             {at('meta').map((f) => {
               const Icon = f.kind === 'when' ? Clock : MapPin;
+              // A place pointing at a Block (docs/blocks/entry-links.md): the place opens, on its own Page.
+              const text = short(valueOf(entry, f));
+              const one = f.kind === 'place' && pointsAway(f, block.id) ? listItems(text)[0] : undefined;
+              const row = one && targets[f.to!]?.rows.find((r) => r.name.toLowerCase() === one.name.toLowerCase());
               return (
                 <Spoiler key={f.key} f={f} on={spoilers} small>
                   <span className="inline-flex items-center gap-1" title={f.label}>
-                    <Icon size={14} style={{ color }} aria-label={f.label} /> <RichText text={short(valueOf(entry, f))} skip={entry.name} />
+                    <Icon size={14} style={{ color }} aria-label={f.label} />{' '}
+                    {row && one ? <><Link href={row.href} className="font-bold underline decoration-line underline-offset-2 hover:decoration-current">{one.name}</Link>{one.note && <span className="text-muted">{one.note}</span>}</>
+                      : <RichText text={text} skip={entry.name} />}
                   </span>
                 </Spoiler>
               );
@@ -213,7 +229,9 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
       )}
 
       {/* Every switched-on field in order; an item's "Used to make" follows its "Made from"
-          spot even when the item itself is made from nothing, and a class's steps follow its exam. */}
+          spot even when the item itself is made from nothing, and a class's steps follow its exam.
+          Other sides from elsewhere that Set up put at the top or after a field sit there. */}
+      {fromAway.filter((x) => x.after === '').map(awaySection)}
       {shownFields(block).filter((f) => ['body', 'section'].includes(spotOf(f))).map((f) => {
         const from = derived[f.key] ?? [];
         const own = valueOf(entry, f);
@@ -240,19 +258,13 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
                 <FieldBody f={{ ...d, kind: 'links' }} v={{ text: d.text, byRoute: [] }} route={route} routeName={routeName} name={entry.name} block={block} onGo={onGo} color={color} />
               </section>
             ))}
+            {fromAway.filter((x) => x.after === f.key).map(awaySection)}
           </Fragment>
         );
       })}
       {/* Other sides from links in other Blocks (docs/blocks/entry-links.md): "Items here" on a place, in
           the other Page's color, each opening that entry. */}
-      {fromAway.map(({ inc, rows }) => (
-        <section key={inc.key} className="mt-4">
-          <h3 className="text-xs font-bold uppercase tracking-wide" style={{ color }}>{inc.label}</h3>
-          <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-2">
-            {rows.map((r) => <li key={r.href}><LinkChip name={r.name} note={r.note} row={r} color={`var(--${inc.tint})`} /></li>)}
-          </ul>
-        </section>
-      ))}
+      {fromAway.filter((x) => x.after === undefined).map(awaySection)}
       {/* Units and classes (src/components/classes): the classes for a unit, or who suits a class, after the
           card's own fields. Nothing without a kin Block, or in samples and previews. */}
       {!sample && <ClassFit entry={entry} blockId={block.id} cast={others.map((e) => e.stats)} color={color} />}
@@ -321,36 +333,29 @@ function FieldBody({ f, v, route, routeName, name, block, onGo, color, ranks }: 
     // Links to another Block (an item's places): pieces in that Page's color, each opening the entry there.
     if (f.kind === 'links' && target) {
       return (
-        <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-2">
-          {listItems(text).map((i) => (
-            <li key={i.name}><LinkChip name={i.name} note={i.note} row={target.rows.find((r) => r.name.toLowerCase() === i.name.toLowerCase())} color={target.tint ? `var(--${target.tint})` : color} amounts={block.type === 'items'} /></li>
-          ))}
-        </ul>
+        <LinkRow items={listItems(text).map((i) => ({ key: i.name, node: <LinkChip name={i.name} note={i.note} row={target.rows.find((r) => r.name.toLowerCase() === i.name.toLowerCase())} color={target.tint ? `var(--${target.tint})` : color} amounts={block.type === 'items'} /> }))} />
       );
     }
     if (f.kind === 'links') {
       return (
-        <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-2">
-          {listItems(text).map((i) => {
-            const who = block.entries?.find((e) => e.name.toLowerCase() === i.name.toLowerCase());
-            // Items: a linked item shows its type's symbol, and a number is how many ("× 3").
-            const item = block.type === 'items';
-            const symbol = item && who ? symbolFor(who, block) : undefined;
-            const note = item ? amountText(i.note) : i.note;
-            const inner = (
-              <>
-                <Piece size={34} color={color} image={who?.icon}>{who?.icon ? null : symbol ? <BlockIcon name={symbol} size={12} strokeWidth={2.4} /> : initials(i.name)}</Piece>
-                <span className="grid text-left leading-tight"><span className="text-sm font-bold">{i.name}</span>{note && <span className="text-xs text-muted">{note}</span>}</span>
-              </>
-            );
-            return (
-              <li key={i.name}>
-                {who && onGo ? <button type="button" onClick={() => onGo(who)} className="flex items-center gap-2 rounded-xl hover:bg-card-2">{inner}</button>
-                  : <span className="flex items-center gap-2">{inner}</span>}
-              </li>
-            );
-          })}
-        </ul>
+        <LinkRow items={listItems(text).map((i) => {
+          const who = block.entries?.find((e) => e.name.toLowerCase() === i.name.toLowerCase());
+          // Items: a linked item shows its type's symbol, and a number is how many ("× 3").
+          const item = block.type === 'items';
+          const symbol = item && who ? symbolFor(who, block) : undefined;
+          const note = item ? amountText(i.note) : i.note;
+          const inner = (
+            <>
+              <Piece size={34} color={color} image={who?.icon}>{who?.icon ? null : symbol ? <BlockIcon name={symbol} size={12} strokeWidth={2.4} /> : initials(i.name)}</Piece>
+              <span className="grid text-left leading-tight"><span className="text-sm font-bold">{i.name}</span>{note && <span className="text-xs text-muted">{note}</span>}</span>
+            </>
+          );
+          return {
+            key: i.name,
+            node: who && onGo ? <button type="button" onClick={() => onGo(who)} className="flex items-center gap-2 rounded-xl hover:bg-card-2">{inner}</button>
+              : <span className="flex items-center gap-2">{inner}</span>,
+          };
+        })} />
       );
     }
     const lines = text.split('\n').filter((l) => l.trim());

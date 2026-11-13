@@ -168,7 +168,15 @@ export function showsTier(block: Pick<Block, 'fields'> & Partial<Pick<Block, 'ty
 const sameField = (f: FieldDef, c: FieldDef) => f.key === c.key || f.label.toLowerCase() === c.label.toLowerCase();
 
 /** A Block's fields, or the common ones for its type if it hasn't set any. */
-export const fieldsOf = (block: Pick<Block, 'fields'> & Partial<Pick<Block, 'type'>>) => block.fields?.length ? block.fields : commonFor(block.type);
+export const fieldsOf = (block: Pick<Block, 'fields'> & Partial<Pick<Block, 'type'>>) => {
+  const own = (block.fields ?? []).filter((f) => !f.key.startsWith(FROM));
+  return own.length ? own : commonFor(block.type);
+};
+
+/** Where a Block keeps the spot (and on or off) of an other side shown on its cards from a links field
+ *  in another Block: a row in its fields keyed "@from:<block>.<field key>" (docs/blocks/entry-links.md).
+ *  Not a field of its own, so fieldsOf leaves these out; `placedFrom` in src/lib/entry-links.ts reads them. */
+export const FROM = '@from:';
 
 /** Fields that are switched on. */
 export const shownFields = (block: Pick<Block, 'fields'> & Partial<Pick<Block, 'type'>>) => fieldsOf(block).filter((f) => !f.off);

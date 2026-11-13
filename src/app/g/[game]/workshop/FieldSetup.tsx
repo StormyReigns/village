@@ -15,7 +15,8 @@ import { browserClient } from '@/lib/supabase/browser';
 import { appChanged } from '@/app/actions';
 import { DESCRIPTION, TIER, TILE_MAX, besideText, canTile, toggleOptions, STATS, chartDefs, fieldsOf, hasValue, withCommon, johnDoe, kindLabel, kindsFor, shownFields, spotOf, statKeyFor, valueOf } from '@/lib/fields';
 import { ItemTile } from '@/components/app/Items';
-import { backOf, bothOf, incomingFields, pointsAway } from '@/lib/entry-links';
+import { FROM } from '@/lib/fields';
+import { backOf, bothOf, incomingFields, pointsAway, withFromRows } from '@/lib/entry-links';
 
 const input = 'w-full rounded-xl bg-card px-2.5 py-1.5 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-sky';
 const slug = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_]+/g, '-');
@@ -39,7 +40,9 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
   const draftKey = `village:setup:${gameId}:${block.id}`;
   const [saved] = useState(() => readDraft(draftKey));
   // Common fields added since this Block was set up are offered too, switched off.
-  const [fields, setFields] = useState<FieldDef[]>(() => saved?.fields ?? withCommon(fieldsOf(block), block.type).map((f) => ({ ...f })));
+  // Other sides shown here from links set up elsewhere get rows too, where builders put them (docs/blocks/entry-links.md).
+  const start = () => withFromRows(withCommon(fieldsOf(block), block.type), block.fields, incoming);
+  const [fields, setFields] = useState<FieldDef[]>(() => saved?.fields ?? start().map((f) => ({ ...f })));
   // Each chart's stat names as typed, by the chart's key.
   const [names, setNames] = useState<Record<string, string>>(() => saved?.names ?? Object.fromEntries(fieldsOf(block).filter((f) => f.kind === 'chart')
     .map((f) => [f.key, chartDefs(block, f).map((d) => d.label).join(', ')])));
@@ -69,7 +72,7 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
   const sample = johnDoe(draft);
   const onTile = fields.filter((f) => !f.off && f.tile && canTile(f)).length;
   // What the Block has now, to tell whether anything would be lost by closing.
-  const [baseline, setBaseline] = useState(() => JSON.stringify({ fields: withCommon(fieldsOf(block), block.type), stats: block.stats ?? [] }));
+  const [baseline, setBaseline] = useState(() => JSON.stringify({ fields: start(), stats: block.stats ?? [] }));
   const dirty = JSON.stringify({ fields: drafted, stats }) !== baseline;
 
   const patch = (i: number, p: Partial<FieldDef>) => { setFields(fields.map((f, j) => (j === i ? { ...f, ...p } : f))); setNote(''); };
@@ -144,7 +147,30 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
           <li className="flex items-center gap-2 rounded-t-2xl bg-card-2 px-3 py-2 text-sm">
             <span className="w-8" /><span className="font-bold">Name</span><span className="ml-auto text-xs text-muted">{item ? 'Every item has one: under its tile, and the title of its full view' : block.type === 'classes' ? 'Every class has one: under its piece on the ladder, and the title of its card' : guide ? 'Every guide has one: its title in the list and at the top' : 'Every character has one: the big title on their card'}</span>
           </li>
-          {fields.map((f, i) => (
+          {fields.map((f, i) => f.key.startsWith(FROM) ? (
+            // An other side from a links field elsewhere: on or off, and where it sits; named over there.
+            <li key={f.key} className={'flex items-center gap-2 border-t border-line px-3 py-2 last:rounded-b-2xl ' + (f.off ? 'bg-card-2/60' : '')}>
+              <button type="button" role="switch" aria-checked={!f.off} aria-label={`Show ${f.label}`} onClick={() => patch(i, { off: !f.off || undefined })}
+                className={'relative h-5 w-9 shrink-0 rounded-full transition ' + (f.off ? 'bg-line' : 'bg-ink')}>
+                <span className={'absolute top-0.5 size-4 rounded-full bg-card transition-all ' + (f.off ? 'left-0.5' : 'left-[1.15rem]')} />
+              </button>
+              {(() => {
+                const x = incoming.find((y) => `${FROM}${y.key}` === f.key);
+                return (
+                  <span className={'grid min-w-0 flex-1 px-2.5 leading-tight' + (f.off ? ' text-muted' : '')}>
+                    <span className="truncate text-sm font-bold">{x?.label ?? f.label}</span>
+                    <span className="truncate text-xs text-muted">Worked out from {x ? `${x.where}'s ${x.field}` : 'another Block'}. Named in its Set up</span>
+                  </span>
+                );
+              })()}
+              <span className="hidden w-28 shrink-0 items-center justify-center gap-1 rounded-md bg-card-2 px-1 py-0.5 text-[11px] font-bold sm:flex"><Link2 size={11} aria-hidden="true" /> Other side</span>
+              {item && <span className="size-8 shrink-0" />}
+              <span className="size-8 shrink-0" />
+              <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move ${f.label} up`} className="grid size-8 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink disabled:opacity-30"><ArrowUp size={15} aria-hidden="true" /></button>
+              <button type="button" onClick={() => move(i, 1)} disabled={i === fields.length - 1} aria-label={`Move ${f.label} down`} className="grid size-8 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink disabled:opacity-30"><ArrowDown size={15} aria-hidden="true" /></button>
+              <span className="size-8 shrink-0" />
+            </li>
+          ) : (
             <li key={f.key} className={'grid gap-2 border-t border-line px-3 py-2 last:rounded-b-2xl ' + (f.off ? 'bg-card-2/60' : '')}>
               <div className="flex items-center gap-2">
                 <button type="button" role="switch" aria-checked={!f.off} aria-label={`Show ${f.label}`} onClick={() => patch(i, { off: !f.off || undefined })}
@@ -152,7 +178,7 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
                   <span className={'absolute top-0.5 size-4 rounded-full bg-card transition-all ' + (f.off ? 'left-0.5' : 'left-[1.15rem]')} />
                 </button>
                 <input value={f.label} onChange={(e) => patch(i, { label: e.target.value })} aria-label="Field name" className={input + ' min-w-0 flex-1 font-bold' + (f.off ? ' text-muted' : '')} />
-                <span className="hidden w-28 shrink-0 truncate rounded-md bg-card-2 px-1 py-0.5 text-center text-[11px] font-bold sm:inline">{pointsAway(f, block.id) ? 'Links' : kindLabel(f.kind, block.type)}</span>
+                <span className="hidden w-28 shrink-0 truncate rounded-md bg-card-2 px-1 py-0.5 text-center text-[11px] font-bold sm:inline">{f.kind === 'links' && pointsAway(f, block.id) ? 'Links' : kindLabel(f.kind, block.type)}</span>
                 {/* Items: whether it's on the tile too, for the kinds that fit there (three at most). */}
                 {item && f.kind !== 'tier' && (canTile(f) ? (
                   <button type="button" onClick={() => patch(i, { tile: !f.tile || undefined })} aria-pressed={Boolean(f.tile)} aria-label={`${f.label} on the tile`}
@@ -195,7 +221,7 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
                   </div>
                 </div>
               )}
-              {(f.kind === 'list' || f.kind === 'links') && !f.off && !guide && (
+              {(f.kind === 'list' || f.kind === 'links' || f.kind === 'place') && !f.off && !guide && (
                 <LinkSetup f={f} block={block} blocks={blocks} onChange={(p) => patch(i, p)} />
               )}
               {f.kind === 'playable' && !f.off && (
@@ -213,17 +239,6 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
             </li>
           ))}
         </ul>
-
-        {/* Other sides this Block's cards show from links set up in other Blocks (docs/blocks/entry-links.md). */}
-        {incoming.length > 0 && (
-          <div className="grid gap-1 rounded-2xl bg-card p-3 text-sm ring-1 ring-line">
-            <p className="flex items-center gap-1.5 font-bold"><Link2 size={15} aria-hidden="true" /> Also on these cards, worked out</p>
-            <ul className="grid gap-0.5">
-              {incoming.map((x) => <li key={`${x.where}.${x.field}`}><span className="font-bold">{x.label}</span> <span className="text-muted">from {x.where}&apos;s {x.field}</span></li>)}
-            </ul>
-            <p className="text-xs text-muted">Nobody types these: they come from what entries there name. They show after the card&apos;s own fields, and are named in that Block&apos;s Set up.</p>
-          </div>
-        )}
 
         <div className="grid gap-2 rounded-2xl bg-card p-3 ring-1 ring-line">
           <p className="flex items-center gap-1.5 text-sm font-bold"><Plus size={15} aria-hidden="true" /> Add your own field</p>
@@ -291,23 +306,25 @@ const LINKABLE = new Set(['characters', 'items', 'classes', 'collection', 'check
 /**
  * Under a list or links field: what its names point at (nothing, this Block, or another Block in the
  * game), and what the other side is called on the cards it names (docs/blocks/entry-links.md). The
- * lines stay "Name: note" either way, so switching keeps every entry's value.
+ * lines stay "Name: note" either way, so switching keeps every entry's value. A place (Location) can
+ * point at another Block too: then its one name, under the card's name with a pin, opens that entry.
  */
 function LinkSetup({ f, block, blocks, onChange }: { f: FieldDef; block: Block & { page: Page }; blocks: (Block & { page: Page })[]; onChange: (p: Partial<FieldDef>) => void }) {
-  const at = f.kind === 'list' ? '' : !f.to || f.to === block.id ? '@self' : f.to;
+  const place = f.kind === 'place';
+  const at = f.kind === 'list' || (place && !f.to) ? '' : !f.to || f.to === block.id ? '@self' : f.to;
   const others = blocks.filter((b) => b.id !== block.id && LINKABLE.has(b.type));
   const target = at === '@self' ? block : others.find((b) => b.id === at);
   const name = (b: Block & { page: Page }) => (b.page.title === b.title ? b.title : `${b.page.title} · ${b.title}`);
-  const pick = (v: string) => onChange(v === '' ? { kind: 'list', to: undefined } : v === '@self' ? { kind: 'links', to: undefined } : { kind: 'links', to: v, both: undefined });
+  const pick = (v: string) => onChange(place ? { to: v || undefined } : v === '' ? { kind: 'list', to: undefined } : v === '@self' ? { kind: 'links', to: undefined } : { kind: 'links', to: v, both: undefined });
   const both = at === '@self' && bothOf(f, block.id);
   const fallback = backOf({ ...f, back: undefined, both: false }, block.id);
   return (
     <div className="grid gap-1.5 pl-11 text-xs">
       <label className="flex flex-wrap items-center gap-2">
-        <span className="font-bold text-muted">Names point at</span>
+        <span className="font-bold text-muted">{place ? 'The name points at' : 'Names point at'}</span>
         <select value={at} onChange={(e) => pick(e.target.value)} className={input + ' w-auto min-w-0 flex-1 py-1'}>
-          <option value="">Nothing: a plain list</option>
-          <option value="@self">This Block ({block.title})</option>
+          <option value="">{place ? 'Nothing: just words' : 'Nothing: a plain list'}</option>
+          {!place && <option value="@self">This Block ({block.title})</option>}
           {others.map((b) => <option key={b.id} value={b.id}>{name(b)}</option>)}
         </select>
       </label>

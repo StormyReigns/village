@@ -7,8 +7,9 @@
 // ("Used to make"). Nobody types both sides.
 
 import type { Block, Entry, EntryContent, FieldDef, Page, Route, Tint } from '../data/pages/types.ts';
+import { FROM, LEADS_TO, MADE_FROM, UPGRADES_TO, entriesOf, listItems, shownFields, spotOf } from './fields.ts';
+
 type BlockEntry = Entry;
-import { LEADS_TO, MADE_FROM, UPGRADES_TO, entriesOf, listItems, shownFields } from './fields.ts';
 
 /** Other sides for the links fields that had one before `back` existed, so Blocks set up then
  *  (and the seeded ones) keep showing them without anyone touching Set up. */
@@ -19,15 +20,20 @@ const BACK_BY_KEY: Record<string, string> = { [MADE_FROM]: 'Used to make', [UPGR
 export const bothOf = (f: Pick<FieldDef, 'kind' | 'key' | 'to' | 'both'>, own?: string) =>
   f.kind === 'links' && (!f.to || f.to === own) && (f.both ?? f.key === 'Relationships');
 
-/** What a links field's other side is called, or undefined for none (Relationships, which shows both ways instead). */
-export const backOf = (f: Pick<FieldDef, 'kind' | 'key' | 'back' | 'to' | 'both'>, own?: string) =>
-  f.kind === 'links' && !bothOf(f, own) ? f.back?.trim() || BACK_BY_KEY[f.key] : undefined;
+/** Whether a field links to entries: a links field (several, as pieces), or a place pointing at a
+ *  Block (one, under the name with a pin: a character's Location, a foe's Where). */
+export const isLinkField = (f: Pick<FieldDef, 'kind' | 'to'>) => f.kind === 'links' || (f.kind === 'place' && !!f.to);
 
-/** Whether a links field points at the Block `here` (a field with no `to` points at its own Block). */
+/** What a link field's other side is called, or undefined for none (Relationships, which shows both ways instead). */
+export const backOf = (f: Pick<FieldDef, 'kind' | 'key' | 'back' | 'to' | 'both'>, own?: string) =>
+  f.kind === 'links' && !bothOf(f, own) ? f.back?.trim() || BACK_BY_KEY[f.key]
+    : f.kind === 'place' && f.to ? f.back?.trim() || undefined : undefined;
+
+/** Whether a link field points at the Block `here` (a field with no `to` points at its own Block). */
 export const pointsAt = (f: Pick<FieldDef, 'to'>, here: string | undefined, own: string | undefined) => (f.to || own) === here;
 
-/** Whether a links field points at a Block other than its own. */
-export const pointsAway = (f: Pick<FieldDef, 'kind' | 'to'>, own: string | undefined) => f.kind === 'links' && !!f.to && f.to !== own;
+/** Whether a link field points at a Block other than its own. */
+export const pointsAway = (f: Pick<FieldDef, 'kind' | 'to'>, own: string | undefined) => isLinkField(f) && !!f.to && f.to !== own;
 
 export interface Linked { name: string; note: string }
 
@@ -162,6 +168,67 @@ export function withLinkMentions<M extends { name: string; where: string; href: 
 
 /** For Set up: the other sides a Block shows from links fields in other Blocks, by name and source. */
 export function incomingFields(blocks: (Pick<Block, 'id' | 'title' | 'fields' | 'type'> & { page: Pick<Page, 'title'> })[], here: string) {
-  return blocks.flatMap((b) => shownFields(b).filter((f) => pointsAway(f, b.id) && f.to === here)
-    .map((f) => ({ label: backOf(f, b.id), field: f.label, where: b.page.title === b.title ? b.title : `${b.page.title} · ${b.title}` })));
+  return blocks.flatMap((b) => shownFields(b).filter((f) => pointsAway(f, b.id) && f.to === here && backOf(f, b.id))
+    .map((f) => ({ key: `${b.id}.${f.key}`, label: backOf(f, b.id)!, field: f.label, where: b.page.title === b.title ? b.title : `${b.page.title} · ${b.title}` })));
+}
+
+// ---- Placing other sides (Set up of the Block they show on) ----
+
+/** The Set up row that places an other side, by the other side's `<block>.<field key>`. */
+export const fromRowKey = (key: string) => `${FROM}${key}`;
+
+/**
+ * Where a Block's builders put each other side from elsewhere, read from its fields' order: after the
+ * nearest switched-on field before it that shows in the card's body (null: before them all), or off.
+ * Other sides it has no row for show after the card's own fields.
+ */
+export function placedFrom(fields: FieldDef[] | undefined): Record<string, { after: string | null; off: boolean }> {
+  const out: Record<string, { after: string | null; off: boolean }> = {};
+  let after: string | null = null;
+  for (const f of fields ?? []) {
+    if (f.key.startsWith(FROM)) out[f.key.slice(FROM.length)] = { after, off: Boolean(f.off) };
+    else if (!f.off && ['body', 'section'].includes(spotOf(f))) after = f.key;
+  }
+  return out;
+}
+
+/**
+ * Set up's list: the Block's own fields with a row for each other side shown on its cards, where its
+ * builders put it, new ones at the end. Rows for other sides that no longer come here are dropped.
+ */
+export function withFromRows(own: FieldDef[], raw: FieldDef[] | undefined, incoming: { key: string; label: string }[]): FieldDef[] {
+  const live = new Set(incoming.map((x) => fromRowKey(x.key)));
+  const out: FieldDef[] = [];
+  const rows = (raw ?? []).filter((f) => f.key.startsWith(FROM) && live.has(f.key));
+  // Each placed row goes right after the field it followed in the saved order.
+  const before = new Map<string, FieldDef[]>();
+  let prev = '';
+  for (const f of raw ?? []) {
+    if (f.key.startsWith(FROM)) { if (live.has(f.key)) before.set(prev, [...(before.get(prev) ?? []), f]); } else prev = f.key;
+  }
+  out.push(...(before.get('') ?? []));
+  for (const f of own) { out.push(f); out.push(...(before.get(f.key) ?? [])); }
+  // Rows whose field is gone, then other sides never placed.
+  for (const r of rows) if (!out.includes(r)) out.push(r);
+  for (const x of incoming) if (!out.some((f) => f.key === fromRowKey(x.key))) out.push({ key: fromRowKey(x.key), label: x.label, kind: 'links' });
+  return out;
+}
+
+// ---- Renames ----
+
+/** The entries anywhere in the game whose link fields name `name` in the Block `blockId`. */
+export function referrers(pages: Page[], blockId: string, name: string, skip?: { block: string; entry: string }) {
+  return pages.flatMap((p) => p.blocks.flatMap((b) => shownFields(b).filter((f) => isLinkField(f) && pointsAt(f, blockId, b.id))
+    .flatMap((f) => b.entries.filter((e) => !(skip && b.id === skip.block && e.id === skip.entry)
+      && listItems(e.sections.find((s) => s.label === f.key)?.text ?? '').some((i) => same(i.name, name)))
+      .map((e) => ({ page: p, block: b, entry: e, field: f })))));
+}
+
+/** A link field's lines with one name changed, notes kept ("Old Mine: 3" to "Deep Mine: 3"). */
+export function renameIn(text: string, from: string, to: string) {
+  return text.split('\n').map((l) => {
+    const at = l.indexOf(':');
+    const name = (at > 0 ? l.slice(0, at) : l).trim();
+    return same(name, from) ? (at > 0 ? `${to}:${l.slice(at + 1)}` : to) : l;
+  }).join('\n');
 }

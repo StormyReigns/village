@@ -1,8 +1,8 @@
 // Run with: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { backOf, blockLinks, bothOf, incomingFields, linesOf, linkedFrom, mirrored, otherSides, pointsAt, withLinkMentions } from './entry-links.ts';
-import { ITEM_FIELDS, CLASS_FIELDS, COMMON_FIELDS, LEADS_TO, MADE_FROM, UPGRADES_TO } from './fields.ts';
+import { backOf, blockLinks, bothOf, incomingFields, isLinkField, linesOf, linkedFrom, mirrored, otherSides, placedFrom, pointsAt, pointsAway, referrers, renameIn, withFromRows, withLinkMentions } from './entry-links.ts';
+import { DESCRIPTION, FROM, ITEM_FIELDS, CLASS_FIELDS, COMMON_FIELDS, LEADS_TO, MADE_FROM, UPGRADES_TO, fieldsOf } from './fields.ts';
 import type { Block, Entry, EntryContent, FieldDef, Page } from '../data/pages/types.ts';
 
 const entry = (name: string, sections: Record<string, string> = {}): EntryContent =>
@@ -100,6 +100,45 @@ test("a map's places get typed links first in What's here, without doubles", () 
 
 test("Set up lists the other sides a Block gets from elsewhere", () => {
   const blocks = pages.flatMap((p) => p.blocks.map((b) => ({ ...b, page: p })));
-  assert.deepEqual(incomingFields(blocks, 'places'), [{ label: 'Items here', field: 'Where to get it', where: 'Items' }]);
+  assert.deepEqual(incomingFields(blocks, 'places'), [{ key: 'items.Where to get it', label: 'Items here', field: 'Where to get it', where: 'Items' }]);
   assert.deepEqual(incomingFields(blocks, 'items'), []);
+});
+
+test('a place can point at a Block: one link, under the name with a pin', () => {
+  const loc: FieldDef = { key: 'Location', label: 'Location', kind: 'place' };
+  assert.ok(!isLinkField(loc), 'just words until it points somewhere');
+  assert.ok(isLinkField({ ...loc, to: 'places' }));
+  assert.ok(pointsAway({ ...loc, to: 'places' }, 'units'));
+  assert.equal(backOf({ ...loc, to: 'places' }), undefined, 'no other side until named');
+  assert.equal(backOf({ ...loc, to: 'places', back: 'People here' }), 'People here');
+  const units = blk('units', 'characters', 'Units', [e('ash', 'Ash', { Location: 'Nemea Cavern' })], [{ ...loc, to: 'places', back: 'People here' }]);
+  const game = [pg('units', 'Units', 'berry', [units]), pages[1]];
+  assert.deepEqual(blockLinks(game, game[1], href).incoming.places?.map((x) => Object.keys(x.byName)), [['nemea cavern']]);
+});
+
+test('Set up places other sides among the fields, and the cards read where', () => {
+  const raw: FieldDef[] = [
+    { key: 'Type', label: 'Type', kind: 'tag' },
+    { key: FROM + 'items.Where', label: 'Items here', kind: 'links' },
+    { key: DESCRIPTION, label: 'About', kind: 'longtext' },
+    { key: 'Chests', label: 'Chests', kind: 'list', off: true },
+    { key: FROM + 'foes.Where', label: 'Foes here', kind: 'links', off: true },
+    { key: FROM + 'gone.Field', label: 'Old', kind: 'links' },
+  ];
+  // A tag isn't in the body, and an off field doesn't count: after nothing, then after About.
+  assert.deepEqual(placedFrom(raw), { 'items.Where': { after: null, off: false }, 'foes.Where': { after: DESCRIPTION, off: true }, 'gone.Field': { after: DESCRIPTION, off: false } });
+  assert.deepEqual(fieldsOf({ fields: raw }).map((f) => f.key), ['Type', DESCRIPTION, 'Chests'], 'rows are not fields');
+  const own = fieldsOf({ fields: raw });
+  const incoming = [{ key: 'items.Where', label: 'Items here' }, { key: 'foes.Where', label: 'Foes here' }, { key: 'npcs.Home', label: 'People here' }];
+  assert.deepEqual(withFromRows(own, raw, incoming).map((f) => f.key), ['Type', FROM + 'items.Where', DESCRIPTION, 'Chests', FROM + 'foes.Where', FROM + 'npcs.Home'],
+    'kept where they were, the stale one dropped, the new one at the end');
+});
+
+test('a rename finds the entries linking to the old name and changes just that name', () => {
+  const found = referrers(pages, 'places', 'NEMEA CAVERN');
+  assert.deepEqual(found.map((r) => r.entry.name), ['Fire Gem', 'Ice Gem', 'Secret Blade']);
+  assert.deepEqual(referrers(pages, 'places', 'Nemea Cavern', { block: 'items', entry: 'ice-gem' }).map((r) => r.entry.name), ['Fire Gem', 'Secret Blade']);
+  const nl = String.fromCharCode(10);
+  assert.equal(renameIn(['Nemea Cavern: in a chest', 'nemea cavern', 'Nowhere Town: Nemea Cavern'].join(nl), 'Nemea Cavern', 'Nemea Caves'),
+    ['Nemea Caves: in a chest', 'Nemea Caves', 'Nowhere Town: Nemea Cavern'].join(nl));
 });

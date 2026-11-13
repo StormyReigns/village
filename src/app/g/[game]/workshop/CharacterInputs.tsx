@@ -1,12 +1,32 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, EyeOff, FileText, ImagePlus, ListOrdered, Plus, X } from 'lucide-react';
 import type { Block, EntryContent, FieldDef } from '@/data/pages';
 import { DESCRIPTION, STATS, chartDefs, isCategory, listItems, shownFields, toggleOptions } from '@/lib/fields';
 import { parseSteps, parseWriteup, stepsText, stepsToWriteup, writeupText, writeupToSteps, type Step, type WriteSection } from '@/lib/guides';
 import { pictureUrl } from '@/components/app/Guides';
 import { pointsAway } from '@/lib/entry-links';
+import { Piece } from '@/components/Piece';
+
+/** A Block a link field points at, as the form needs it (docs/blocks/entry-links.md). */
+export interface LinkTarget { title: string; names: string[]; add: (name: string) => string }
+
+/**
+ * Under a linked name that's in no entry of its Block yet: the split outline ("not built yet") and
+ * "Add it", which starts that entry in a new tab so this form stays as it is.
+ */
+function NotBuilt({ name, target }: { name: string; target: LinkTarget }) {
+  const n = name.trim();
+  if (n.length < 2 || target.names.some((x) => x.trim().toLowerCase() === n.toLowerCase())) return null;
+  return (
+    <p className="flex items-center gap-2 pl-1 text-xs text-muted">
+      <Piece size={18} outline />
+      <span>Not in {target.title || 'that Block'} yet.</span>
+      <a href={target.add(n)} target="_blank" rel="noopener" className="font-bold text-ink underline decoration-line underline-offset-2 hover:decoration-current">Add it</a>
+    </p>
+  );
+}
 
 // The same boxes as the rest of the entry form.
 /** Common fantasy roles and classes, to start from when a game has none listed yet. */
@@ -25,7 +45,7 @@ const PLACEHOLDER: Partial<Record<FieldDef['kind'], string>> = {
  * characters already use, lists and other characters are one row per item, and yes or no
  * is a choice rather than typing.
  */
-export function CharacterInputs({ block, content, set, setField, setStat, show, hl, fid, others, namesIn, classes = [], upload }: {
+export function CharacterInputs({ block, content, set, setField, setStat, show, hl, fid, others, linkTo, classes = [], upload }: {
   block: Block;
   content: EntryContent;
   set: (patch: Partial<EntryContent>) => void;
@@ -38,8 +58,9 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
   fid: (part: string) => string | undefined;
   /** The other characters in this Block, offered when linking one. */
   others: string[];
-  /** The names in another Block of the game, offered for a links field pointing there (docs/blocks/entry-links.md). */
-  namesIn?: (blockId: string) => string[];
+  /** A Block a link field points at: its title, its names (offered while typing) and where "Add it" starts
+   *  a new entry there (docs/blocks/entry-links.md). */
+  linkTo?: (blockId: string) => LinkTarget;
   /** Names from the game's own class Blocks, offered for a role or class. */
   classes?: string[];
   /** Guides: puts a step's picture in storage. Missing until the writer is signed in. */
@@ -170,7 +191,8 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
           return (
             <div key={f.key} role="group" aria-label={f.label} id={fid(part)} className={'grid gap-1.5' + hl(part)}>
               <span className="text-sm font-bold">{f.label}</span>
-              <Rows text={v} onChange={put} links={f.kind === 'links'} item={block.type === 'items'} single={block.type === 'guide' && f.kind === 'list'} away={pointsAway(f, block.id)} names={pointsAway(f, block.id) && namesIn ? namesIn(f.to!) : others} label={f.label} />
+              <Rows text={v} onChange={put} links={f.kind === 'links'} item={block.type === 'items'} single={block.type === 'guide' && f.kind === 'list'} away={pointsAway(f, block.id)} target={f.kind === 'links' && linkTo ? (pointsAway(f, block.id) ? linkTo(f.to!) : { ...linkTo(block.id), names: others }) : undefined}
+                names={f.kind === 'links' && pointsAway(f, block.id) && linkTo ? linkTo(f.to!).names : others} label={f.label} />
             </div>
           );
         }
@@ -205,7 +227,9 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
         // Suggestions: what other characters use, and for a role or class the game's own classes
         // and common ones too. Typing narrows them to the ones that match.
         const roleish = /\b(role|class|job)\b/i.test(f.label);
-        const pool = f.kind === 'longtext' ? [] : [...new Set([...used(f), ...(roleish ? [...classes, ...COMMON_CLASSES] : [])])];
+        // A place pointing at a Block offers that Block's names (docs/blocks/entry-links.md).
+        const placeTo = f.kind === 'place' && pointsAway(f, block.id) && linkTo ? linkTo(f.to!) : undefined;
+        const pool = f.kind === 'longtext' ? [] : placeTo ? placeTo.names : [...new Set([...used(f), ...(roleish ? [...classes, ...COMMON_CLASSES] : [])])];
         const typed = v.trim().toLowerCase();
         const suggestions = pool.filter((s) => s !== v && (!typed || s.toLowerCase().includes(typed)));
         return (
@@ -217,6 +241,7 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
               <input value={v} onChange={(e) => put(e.target.value)} type={f.kind === 'number' ? 'number' : 'text'} inputMode={f.kind === 'number' ? 'decimal' : undefined}
                 placeholder={f.kind === 'tag' ? (used(f).slice(0, 3).join(', ') || 'A word or two') : PLACEHOLDER[f.kind]} className={input} />
             )}
+            {placeTo && <NotBuilt name={listItems(v)[0]?.name ?? ''} target={placeTo} />}
             {/* What others already use, one tap away, on one line that scrolls sideways. */}
             {suggestions.length > 0 && (
               <span className="chip-strip -mx-1 flex gap-1.5 overflow-x-auto px-1">
@@ -237,10 +262,12 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
  * characters, who and how they know them). Written back as "Name: note" lines, which is
  * how the card reads them.
  */
-function Rows({ text, onChange, links, item = false, single = false, away = false, names, label }: {
+function Rows({ text, onChange, links, item = false, single = false, away = false, target, names, label }: {
   text: string; onChange: (t: string) => void; links: boolean; item?: boolean;
   /** Links to another Block (an item's places): plain words, not "Which item" or "Who". */
   away?: boolean;
+  /** The Block the names point at, to mark a name that's in no entry there yet. */
+  target?: LinkTarget;
   /** One box per row, kept as written (a guide's Watch out: whole sentences, not names). */
   single?: boolean;
   names: string[]; label: string;
@@ -262,7 +289,8 @@ function Rows({ text, onChange, links, item = false, single = false, away = fals
   return (
     <div className="grid gap-1.5">
       {rows.map((r, i) => (
-        <div key={i} className="flex gap-1.5">
+        <Fragment key={i}>
+        <div className="flex gap-1.5">
           <input value={r.name} onChange={(e) => edit(i, { name: e.target.value })} list={links ? listId : undefined}
             placeholder={single ? 'One per row' : who} aria-label={single ? `${label} ${i + 1}` : `${label} ${i + 1}: ${who.toLowerCase()}`} className={input + ' min-w-0 py-1.5 ' + (single ? 'flex-1' : 'flex-[2] font-bold')} />
           {!single && (
@@ -272,6 +300,8 @@ function Rows({ text, onChange, links, item = false, single = false, away = fals
           <button type="button" onClick={() => write(rows.length > 1 ? rows.filter((_, j) => j !== i) : [{ name: '', note: '' }])} aria-label={`Remove ${r.name || 'this one'}`}
             className="grid size-9 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-berry"><X size={15} aria-hidden="true" /></button>
         </div>
+        {target && <NotBuilt name={r.name} target={target} />}
+        </Fragment>
       ))}
       {links && <datalist id={listId}>{names.map((n) => <option key={n} value={n} />)}</datalist>}
       <button type="button" onClick={() => setRows([...rows, { name: '', note: '' }])}
