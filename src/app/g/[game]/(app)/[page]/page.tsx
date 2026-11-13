@@ -5,7 +5,8 @@ import { GAMES, getGame } from '@/data/games';
 import { getApp } from '@/lib/app-data';
 import { classKin } from '@/lib/class-fit';
 import { PageView } from '@/components/app/PageView';
-import { entryLinks, mapMentions, movedPagePath } from '@/data/pages/links';
+import { entryLinks, mapMentions, movedPagePath, sharePath } from '@/data/pages/links';
+import { blockLinks, withLinkMentions } from '@/lib/entry-links';
 import { shadeHex } from '@/lib/shades';
 import { questionsPage } from '@/lib/questions';
 
@@ -55,8 +56,9 @@ async function Loaded({ params, searchParams }: { params: PageProps<'/g/[game]/[
     notFound();
   }
   const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
+  const linked = blockLinks(pages, page, (p, b, e) => sharePath(game.id, p, b, e));
   return (
-    <PageView game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }} page={page} links={entryLinks(game.id, pages)} mentions={mapMentions(game.id, pages, page)} kin={classKin(game.id, pages, page)}
+    <PageView game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }} page={page} links={entryLinks(game.id, pages)} mentions={withLinkMentions(mapMentions(game.id, pages, page), linked, page)} kin={classKin(game.id, pages, page)} blockLinks={linked}
       pages={pages.map((p) => ({ id: p.id, title: p.title, short: p.short, tint: p.tint }))} questionsPage={questionsPage(pages)?.id} />
   );
 }

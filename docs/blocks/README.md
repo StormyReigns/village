@@ -36,7 +36,7 @@ designed properly), **Idea** (not built).
 | 6 | Tier lists | Live, first version (designed with Matt) | Fortune's Weave · Units · Unit tiers | [tier-lists.md](tier-lists.md) |
 | 7 | World: Places (a real map), then Foes | Building (2026-11-09): the map, designed with Matt | Fortune's Weave · World · Dungeons and places | [world.md](world.md) |
 | 8 | Classes | Live, first slice (2026-11-11, designed with Matt): the tier ladder and class card | Fortune's Weave · Classes | [classes.md](classes.md) |
-| – | Links between Blocks (shared) | Building (2026-11-12): slice 1, one way to link | Every Block with a links field | [entry-links.md](entry-links.md) |
+| – | Links between Blocks (shared) | Building (2026-11-12): slices 1 and 2, links across Blocks | Every Block with a links field | [entry-links.md](entry-links.md) |
 | – | Wiki links (integration) | Live (2026-11-10) | Every character, item and class card | [wiki-links.md](wiki-links.md) |
 | – | Discord posts and Communities (integration) | Live (2026-11-10) | Notice Board (moderators); each game's home | [discord.md](discord.md) |
 | – | Spreadsheets (integration) | Live (2026-11-10): download, paste-in batches | Every Block with entries; Workshop | [spreadsheets.md](spreadsheets.md) |

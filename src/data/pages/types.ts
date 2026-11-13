@@ -70,6 +70,9 @@ export interface FieldDef {
   /** Links: what its other side is called on the entries it names ("Used to make" for Made from),
    *  worked out there. Missing: a default for a few keys (`backOf` in src/lib/entry-links.ts), else none. */
   back?: string;
+  /** Links inside its own Block: shown both ways under this one name (Alice lists Bob, so Bob's card
+   *  shows Alice too), instead of an other side. Missing: on for Relationships (`bothOf`). */
+  both?: boolean;
 }
 
 /** A "+" section on an entry: a label the Builder chose, and its text. Lines become a list. */

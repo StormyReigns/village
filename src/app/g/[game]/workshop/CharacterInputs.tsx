@@ -6,6 +6,7 @@ import type { Block, EntryContent, FieldDef } from '@/data/pages';
 import { DESCRIPTION, STATS, chartDefs, isCategory, listItems, shownFields, toggleOptions } from '@/lib/fields';
 import { parseSteps, parseWriteup, stepsText, stepsToWriteup, writeupText, writeupToSteps, type Step, type WriteSection } from '@/lib/guides';
 import { pictureUrl } from '@/components/app/Guides';
+import { pointsAway } from '@/lib/entry-links';
 
 // The same boxes as the rest of the entry form.
 /** Common fantasy roles and classes, to start from when a game has none listed yet. */
@@ -24,7 +25,7 @@ const PLACEHOLDER: Partial<Record<FieldDef['kind'], string>> = {
  * characters already use, lists and other characters are one row per item, and yes or no
  * is a choice rather than typing.
  */
-export function CharacterInputs({ block, content, set, setField, setStat, show, hl, fid, others, classes = [], upload }: {
+export function CharacterInputs({ block, content, set, setField, setStat, show, hl, fid, others, namesIn, classes = [], upload }: {
   block: Block;
   content: EntryContent;
   set: (patch: Partial<EntryContent>) => void;
@@ -37,6 +38,8 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
   fid: (part: string) => string | undefined;
   /** The other characters in this Block, offered when linking one. */
   others: string[];
+  /** The names in another Block of the game, offered for a links field pointing there (docs/blocks/entry-links.md). */
+  namesIn?: (blockId: string) => string[];
   /** Names from the game's own class Blocks, offered for a role or class. */
   classes?: string[];
   /** Guides: puts a step's picture in storage. Missing until the writer is signed in. */
@@ -167,7 +170,7 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
           return (
             <div key={f.key} role="group" aria-label={f.label} id={fid(part)} className={'grid gap-1.5' + hl(part)}>
               <span className="text-sm font-bold">{f.label}</span>
-              <Rows text={v} onChange={put} links={f.kind === 'links'} item={block.type === 'items'} single={block.type === 'guide' && f.kind === 'list'} names={others} label={f.label} />
+              <Rows text={v} onChange={put} links={f.kind === 'links'} item={block.type === 'items'} single={block.type === 'guide' && f.kind === 'list'} away={pointsAway(f, block.id)} names={pointsAway(f, block.id) && namesIn ? namesIn(f.to!) : others} label={f.label} />
             </div>
           );
         }
@@ -234,15 +237,17 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
  * characters, who and how they know them). Written back as "Name: note" lines, which is
  * how the card reads them.
  */
-function Rows({ text, onChange, links, item = false, single = false, names, label }: {
+function Rows({ text, onChange, links, item = false, single = false, away = false, names, label }: {
   text: string; onChange: (t: string) => void; links: boolean; item?: boolean;
+  /** Links to another Block (an item's places): plain words, not "Which item" or "Who". */
+  away?: boolean;
   /** One box per row, kept as written (a guide's Watch out: whole sentences, not names). */
   single?: boolean;
   names: string[]; label: string;
 }) {
   // Items link other items, with how many ("Iron Ore: 3"); characters link people and how they know them.
-  const who = links ? (item ? 'Which item' : 'Who') : 'Name';
-  const how = links ? (item ? 'How many, or a note' : 'How they know them') : (item ? 'Details' : 'What it does');
+  const who = links && !away ? (item ? 'Which item' : 'Who') : 'Name';
+  const how = away ? 'A note' : links ? (item ? 'How many, or a note' : 'How they know them') : (item ? 'Details' : 'What it does');
   // Rows live here so an empty one (just added) stays until it's filled or removed.
   const [rows, setRows] = useState(() => {
     const items = single ? text.split('\n').map((l) => l.trim()).filter(Boolean).map((name) => ({ name, note: '' })) : listItems(text);

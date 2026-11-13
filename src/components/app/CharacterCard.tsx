@@ -12,7 +12,8 @@ import { initials } from './entries';
 import type { RouteOption } from './EntryPanel';
 import { symbolFor } from './symbols';
 import { classShape, pathAround } from '@/lib/classes';
-import { backOf, linesOf, otherSides, pointsAt } from '@/lib/entry-links';
+import { backOf, bothOf, linesOf, mirrored, otherSides, pointsAway } from '@/lib/entry-links';
+import { LinkChip, onRoute, useBlockLinks } from './EntryLinks';
 import { STATS, amountText, besideText, toggleOptions, chartDefs, listItems, shownFields, showsTier, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
 import { byStat, heatFill, placeText, rangeOf, statFacts } from '@/lib/stats';
 import { StatTable, statSort } from './StatTable';
@@ -76,9 +77,15 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
   // The other side of every links field here that has one (docs/blocks/entry-links.md): an item's "Used
   // to make" and "Upgrades from", from every other item, under the field it comes from.
   type Derived = { key: string; label: string; text: string };
-  const linkFields = shownFields(block).filter((f) => f.kind === 'links' && pointsAt(f, block.id, block.id));
-  const derived: Record<string, Derived[]> = Object.fromEntries(otherSides(entry.name, others, linkFields, [shape.leads])
+  const linkFields = shownFields(block).filter((f) => f.kind === 'links' && !pointsAway(f, block.id));
+  const derived: Record<string, Derived[]> = Object.fromEntries(otherSides(entry.name, others, linkFields, block.id, [shape.leads])
     .map((s) => [s.key, [{ key: `@from:${s.key}`, label: s.label, text: linesOf(s.items) }]]));
+  // Both ways under one name (Relationships): whoever lists this entry shows in its own list too.
+  const mirror: Record<string, string> = Object.fromEntries(linkFields.filter((f) => bothOf(f, block.id))
+    .map((f) => [f.key, linesOf(mirrored(entry.name, valueOf(entry, f).text ?? '', others, f.key))]).filter(([, t]) => t));
+  // Other sides from links fields in other Blocks (an item's "Where to get it" on a place), after the card's own fields.
+  const { incoming } = useBlockLinks();
+  const fromAway = sample ? [] : (incoming[block.id ?? ''] ?? []).map((inc) => ({ inc, rows: (inc.byName[entry.name.trim().toLowerCase()] ?? []).filter((r) => onRoute(r, route)) })).filter((x) => x.rows.length);
   // Classes (src/lib/classes.ts): what this class leads to and comes from, at its "Leads to" spot (else
   // after its skill ranks). Leads to keeps what builders typed, notes and all, then adds the classes the
   // skill ranks point to; a name that matches no class stays plain text. Comes from (Leads to's other
@@ -91,7 +98,7 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
     const leadsText = [...typed.map((i) => (i.note ? `${i.name}: ${i.note}` : i.name)), ...next.filter((e) => !said.has(e.name.toLowerCase())).map((e) => e.name)].join('\n');
     const leadsField = shownFields(block).find((f) => f.key === shape.leads);
     const leadsLabel = leadsField?.label ?? 'Leads to';
-    const fromLabel = (leadsField && backOf(leadsField)) ?? 'Comes from';
+    const fromLabel = (leadsField && backOf(leadsField, block.id)) ?? 'Comes from';
     derived[shape.leads ?? shape.ranks!] = ([[leadsLabel, leadsText], [fromLabel, before.map((e) => e.name).join('\n')]] as const)
       .filter(([, text]) => text).map(([label, text]) => ({ key: `@path:${label}`, label, text }));
   }
@@ -209,10 +216,12 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
           spot even when the item itself is made from nothing, and a class's steps follow its exam. */}
       {shownFields(block).filter((f) => ['body', 'section'].includes(spotOf(f))).map((f) => {
         const from = derived[f.key] ?? [];
+        const own = valueOf(entry, f);
+        const v = mirror[f.key] ? { ...own, text: [own.text, mirror[f.key]].filter(Boolean).join('\n') } : own;
         return (
           <Fragment key={f.key}>
             {/* A class's Leads to shows below, with the classes its ranks point to added. */}
-            {hasValue(entry, f) && !(klass && f.key === shape.leads) && (
+            {(hasValue(entry, f) || mirror[f.key]) && !(klass && f.key === shape.leads) && (
               <section className="mt-4">
                 {spotOf(f) === 'section' && (
                   <div className="flex items-center">
@@ -221,7 +230,7 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
                   </div>
                 )}
                 <Spoiler f={f} on={spoilers}>
-                  <FieldBody f={f} v={valueOf(entry, f)} route={route} routeName={routeName} name={entry.name} block={block} onGo={onGo} color={color} ranks={shape.ranks} />
+                  <FieldBody f={f} v={v} route={route} routeName={routeName} name={entry.name} block={block} onGo={onGo} color={color} ranks={shape.ranks} />
                 </Spoiler>
               </section>
             )}
@@ -234,6 +243,16 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
           </Fragment>
         );
       })}
+      {/* Other sides from links in other Blocks (docs/blocks/entry-links.md): "Items here" on a place, in
+          the other Page's color, each opening that entry. */}
+      {fromAway.map(({ inc, rows }) => (
+        <section key={inc.key} className="mt-4">
+          <h3 className="text-xs font-bold uppercase tracking-wide" style={{ color }}>{inc.label}</h3>
+          <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-2">
+            {rows.map((r) => <li key={r.href}><LinkChip name={r.name} note={r.note} row={r} color={`var(--${inc.tint})`} /></li>)}
+          </ul>
+        </section>
+      ))}
       {/* Units and classes (src/components/classes): the classes for a unit, or who suits a class, after the
           card's own fields. Nothing without a kin Block, or in samples and previews. */}
       {!sample && <ClassFit entry={entry} blockId={block.id} cast={others.map((e) => e.stats)} color={color} />}
@@ -281,6 +300,10 @@ function FieldBody({ f, v, route, routeName, name, block, onGo, color, ranks }: 
 }) {
   const mine = route !== 'all' ? v.byRoute.find(([r]) => r === route)?.[1] : undefined;
   const others = route === 'all' ? v.byRoute : [];
+  // A links field pointing at another Block: its entries, from the server (none in previews: plain names).
+  const { targets } = useBlockLinks();
+  const found = pointsAway(f, block.id) ? targets[f.to!] : undefined;
+  const target = pointsAway(f, block.id) ? { rows: found?.rows ?? [], tint: found?.tint } : undefined;
   const body = (text: string) => {
     // Items: lines without "Name:" that are whole sentences ("Lake Brontes, past the mine.")
     // read as text below, not as chips or bold names.
@@ -294,6 +317,16 @@ function FieldBody({ f, v, route, routeName, name, block, onGo, color, ranks }: 
       // Names alone (likes, gifts) read as chips; "Name: what it does" as rows.
       if (items.every((i) => !i.note)) return <ul className="mt-1 flex flex-wrap gap-1.5">{items.map((i) => <li key={i.name} className="rounded-full bg-card-2 px-2.5 py-1 text-sm"><RichText text={i.name} skip={name} /></li>)}</ul>;
       return <ul className="mt-1 grid gap-1">{items.map((i) => <li key={i.name} className="text-sm leading-snug"><span className="font-bold">{i.name}</span>{i.note && <span className="text-muted"> {i.note}</span>}</li>)}</ul>;
+    }
+    // Links to another Block (an item's places): pieces in that Page's color, each opening the entry there.
+    if (f.kind === 'links' && target) {
+      return (
+        <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-2">
+          {listItems(text).map((i) => (
+            <li key={i.name}><LinkChip name={i.name} note={i.note} row={target.rows.find((r) => r.name.toLowerCase() === i.name.toLowerCase())} color={target.tint ? `var(--${target.tint})` : color} amounts={block.type === 'items'} /></li>
+          ))}
+        </ul>
+      );
     }
     if (f.kind === 'links') {
       return (

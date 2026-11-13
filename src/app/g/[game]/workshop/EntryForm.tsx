@@ -373,6 +373,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
           // Class names to suggest: any Classes Block's classes (not its tiers' header cards), whatever it's called.
           classes={pages.flatMap((p) => p.blocks).filter((b) => b.id !== block.id && b.type === 'classes').flatMap((b) => entriesOf(b).map((e) => e.name))}
           show={show} hl={hl} fid={fid} others={entriesOf(block).filter((e) => e.id !== fixing?.id).map((e) => e.name)}
+          namesIn={(id) => { const b = pages.flatMap((p) => p.blocks).find((x) => x.id === id); return b ? entriesOf(b).map((e) => e.name) : []; }}
           upload={block.type === 'guide' && me ? (file) => uploadPicture('guide-pictures', gameId, me.id, file) : undefined} />
       )}
 

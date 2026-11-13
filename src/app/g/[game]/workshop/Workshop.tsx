@@ -562,7 +562,7 @@ export function Workshop({ game, pages, routes }: {
               ) : setupBlock!.look === 'map' ? (
                 <MapSetup gameId={game.id} block={setupBlock!} me={me} mod={live.mod} drafts={drafts} postDraft={live.postDraft} onClose={() => setSetup(null)} />
               ) : (
-                <FieldSetup gameId={game.id} block={setupBlock!} routes={routes} canSave={live.mod} onClose={() => setSetup(null)} />
+                <FieldSetup gameId={game.id} block={setupBlock!} blocks={blocks} routes={routes} canSave={live.mod} onClose={() => setSetup(null)} />
               )}
             </EditorChat.Provider>
           ) : (

@@ -5,7 +5,8 @@ import { GAMES, getGame } from '@/data/games';
 import { getApp } from '@/lib/app-data';
 import { classKin } from '@/lib/class-fit';
 import { PageView } from '@/components/app/PageView';
-import { clip, entryLinks, findItem, itemParam, mapMentions, resolveItem, shareAnswer } from '@/data/pages/links';
+import { clip, entryLinks, findItem, itemParam, mapMentions, resolveItem, shareAnswer, sharePath } from '@/data/pages/links';
+import { blockLinks, withLinkMentions } from '@/lib/entry-links';
 import { shadeHex } from '@/lib/shades';
 
 // A shared Block or entry: /g/fortunes-weave/items/paradise-fish. It shows the Page with
@@ -71,11 +72,13 @@ async function Loaded({ params }: { params: PageProps<'/g/[game]/[page]/[item]'>
     notFound();
   }
   const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
+  const pages = await getApp(game.id);
+  const linked = blockLinks(pages, page, (p, b, e) => sharePath(game.id, p, b, e));
   // Timelines show every entry in place; the others open it (Characters: on the card; Guides:
   // the one guide, in place of the list).
   const panel = hit.block.type === 'collection' || hit.block.type === 'checklist' || hit.block.type === 'characters' || hit.block.type === 'items' || hit.block.type === 'classes' || hit.block.type === 'guide';
   return (
-    <PageView game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }} page={page} links={entryLinks(game.id, await getApp(game.id))} mentions={mapMentions(game.id, await getApp(game.id), page)} kin={classKin(game.id, await getApp(game.id), page)}
+    <PageView game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }} page={page} links={entryLinks(game.id, pages)} mentions={withLinkMentions(mapMentions(game.id, pages, page), linked, page)} kin={classKin(game.id, pages, page)} blockLinks={linked}
       openOnLoad={hit.entry && panel ? `${hit.block.id}.${hit.entry.id}` : undefined}
       scrollTo={!hit.entry ? hit.block.id : panel ? undefined : `${hit.block.id}-${hit.entry.id}`} />
   );
