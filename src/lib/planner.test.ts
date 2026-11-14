@@ -124,3 +124,23 @@ test('a Planner finds its roster, classes and gear Blocks on other Pages', () =>
   assert.deepEqual(Object.keys(r?.slots ?? {}), ['weapons']);
   assert.deepEqual(plannerRosters(pages, pages[0]), {});
 });
+
+test('dragging moves a unit to a place', async () => {
+  const { moveMemberTo } = await import('./planner.ts');
+  const p: Plan = { party: ['a', 'b', 'c', 'd'] };
+  assert.deepEqual(moveMemberTo(p, 'd', 0).party, ['d', 'a', 'b', 'c']);
+  assert.deepEqual(moveMemberTo(p, 'a', 2).party, ['b', 'c', 'a', 'd']);
+  assert.deepEqual(moveMemberTo(p, 'b', 1), p, 'same place, same plan');
+  assert.deepEqual(moveMemberTo(p, 'x', 0), p);
+});
+
+test('the party index: members and planned items, for marks on other Pages', async () => {
+  const { partyIndexRoute, readPartyIndex } = await import('./planner.ts');
+  const plan: Plan = { party: ['goliath', 'ninae'], builds: { goliath: { gear: { weapons: ['steel-axe'] } }, ninae: { gear: { weapons: ['steel-axe', 'levin'] } } } };
+  const names: Record<string, string> = { goliath: 'Goliath', ninae: 'Ninae' };
+  const idx = partyIndexRoute(plan, 'units', (id) => names[id], (s) => (s === 'weapons' ? 'weapons-and-magic' : undefined));
+  assert.deepEqual(idx, { members: ['units.goliath', 'units.ninae'], items: { 'weapons-and-magic.steel-axe': ['Goliath', 'Ninae'], 'weapons-and-magic.levin': ['Ninae'] } });
+  assert.equal(readPartyIndex({ href: 'https://evil.example', byRoute: {} }), null, 'only paths in Village');
+  assert.deepEqual(readPartyIndex({ href: '/g/x/party', byRoute: { leda: { members: ['units.a', 3], items: { 'w.i': ['A', 1], bad: 'x' } } } }),
+    { href: '/g/x/party', byRoute: { leda: { members: ['units.a'], items: { 'w.i': ['A'] } } } });
+});

@@ -65,6 +65,8 @@ export function usePlan(gameId: string, blockKey: string, sources: PlanSources, 
     return { known, refs, back };
   }, [roster, sources.classes, sources.slots, size]);
   const [store, setStore] = useState<Store>({});
+  // Whether this device's plans have been read yet (they can't be before the page is up).
+  const [ready, setReady] = useState(false);
   const [save, setSave] = useState<PlanSave>('device');
   const [error, setError] = useState<string | null>(null);
   const latest = useRef<Store>({});
@@ -74,6 +76,7 @@ export function usePlan(gameId: string, blockKey: string, sources: PlanSources, 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reading device storage after hydration
     setStore(readDevice(gameId, blockKey));
+    setReady(true);
   }, [gameId, blockKey]);
 
   /** Sends one route's plan to your account. */
@@ -143,5 +146,5 @@ export function usePlan(gameId: string, blockKey: string, sources: PlanSources, 
     pending.current = { k: key, timer: setTimeout(() => { flush(); }, 1000) };
   }, [plan, key, gameId, blockKey, me, flush]);
 
-  return { plan, setPlan, save: me ? save : 'device' as PlanSave, error, signedIn: Boolean(me) };
+  return { plan, setPlan, ready, save: me ? save : 'device' as PlanSave, error, signedIn: Boolean(me) };
 }

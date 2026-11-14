@@ -141,7 +141,7 @@ shared plans only.
 2. **Slice 2: a member's plan** (built 2026-11-14). Class steps (with "Classes for <name>" as the first
    picks) and gear slots, the "Your plan" section on the unit's card, the line moving on to gear and
    class steps. Saving builds to the account needs `20261116000000_planner_builds.sql`.
-2b. **Slice 2b: around the app.** "In your party" marks on Units and on planned items, the "Your party"
+2b. **Slice 2b: around the app** (built 2026-11-14, not yet checked in a browser or pushed). "In your party" marks on Units and on planned items, the "Your party"
    card on the game's home, dragging to reorder. (Split from slice 2 to keep it reviewable.)
 3. **Slice 3: Set up and sharing.** The Planner's Set up in the Workshop (roster, size, class
    steps, slots); Share with a picture; abilities as a slot (once skills are entries somewhere).

@@ -20,6 +20,7 @@ import { StatTable, statSort } from './StatTable';
 import { Videos, cardIdOf } from '@/components/videos/Videos';
 import { WikiLink } from '@/components/wiki/WikiLink';
 import { CommunityTier } from '@/components/tiers/CommunityTier';
+import { PartyMark } from '@/components/planner/PartyMark';
 import { ClassFit } from '@/components/classes/ClassFit';
 
 /**
@@ -147,6 +148,8 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
         </div>
         {/* The entry's page on the game's wiki, right under the name, once it's checked (docs/blocks/wiki-links.md). */}
         <WikiLink cardId={sample ? undefined : cardIdOf(entry)} sample={sample} className="-mt-1" />
+        {/* In the app only (previews have no onGo): "In your party" or "Planned for Goliath" (docs/blocks/planner.md). */}
+        {onGo && !sample && block.id && 'id' in entry && <PartyMark blockId={block.id} entryId={String(entry.id)} />}
         {(at('tags').length > 0 || entry.routes?.length) ? (
           <div className="flex flex-wrap gap-1.5">
             {at('tags').map((f) => {

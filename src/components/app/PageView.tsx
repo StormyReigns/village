@@ -1,6 +1,7 @@
 'use client';
 
 import type { Roster } from '@/lib/planner';
+import { PartyHome } from '@/components/planner/PartyHome';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, ChevronDown, Clock, Eye, EyeOff, Hourglass, Info, Search, Signpost } from 'lucide-react';
@@ -281,6 +282,8 @@ export function AppHome({ game, pages }: { game: AppGame; pages: Page[] }) {
       {/* Reasons to come back: open questions, your next deadline, what other players found
           lately and where you left off. Two to a row; a card left on its own fills the row. */}
       <div className="grid gap-3 md:grid-cols-2 md:[&>*:last-child:nth-child(odd)]:col-span-2">
+        {/* Your party for this run and what to do next for them (docs/blocks/planner.md). */}
+        <PartyHome gameId={game.id} pages={pages} route={prefs.route} />
         <HelpSolve gameId={game.id} pages={pages} />
           {next && (
             <Link href={`/g/${game.id}/${next.p.id}`} className="lift flex items-center gap-3 rounded-2xl bg-card p-4 ring-1 ring-line">

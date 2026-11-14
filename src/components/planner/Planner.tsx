@@ -1,18 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Check, Plus, Search, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDown, ArrowUp, Check, GripVertical, Plus, Search, X } from 'lucide-react';
 import type { Block, Entry } from '@/data/pages';
 import { Piece } from '@/components/Piece';
 import { BlockIcon } from '@/components/Icon';
 import { EntryPanel, symbolFor } from '@/components/app/EntryPanel';
-import { initials, onRoute, rememberEntry, useOpenEntry, useTicks } from '@/components/app/entries';
+import { initials, rememberEntry, useOpenEntry } from '@/components/app/entries';
 import type { BlockContext } from '@/components/app/blockParts';
-import { STEP_LABEL, addMember, buildOf, moveMember, nextStep, partySize, removeMember, slotCount, slotsOf, type NextStep, type Roster } from '@/lib/planner';
-import { valueOf, shownFields } from '@/lib/fields';
-import { usePlan, type PlanSources } from './usePlan';
+import { STEP_LABEL, addMember, moveMember, moveMemberTo, removeMember, type Roster } from '@/lib/planner';
 import { BuildPlan } from './BuildPlan';
-import { ladderOf } from './sources';
+import { useParty } from './useParty';
 
 // The Planner Block (docs/blocks/planner.md): your party for this run, picked from the roster (Units),
 // each with the next thing to do for them: recruit, get their gear, reach their next class. Saved on
@@ -46,46 +44,24 @@ export function Planner({ block, ctx }: { block: Block; ctx: BlockContext }) {
 }
 
 function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: BlockContext }) {
-  const size = partySize(block.planSetup);
-  const rb = roster.block;
   const color = `var(--${roster.page.tint})`;
-  // Every unit on this route (header cards aside); spoilers stay out of the picker unless shown.
-  const onThisRoute = useMemo(() => rb.entries.filter((e) => !e.header && (!rb.byRoute || onRoute(e, ctx.route))), [rb, ctx.route]);
-  const setup = block.planSetup;
-  const ladder = useMemo(() => ladderOf(roster.classes, ctx.route), [roster.classes, ctx.route]);
-  // Each slot's items, and the field that says where to get one ("Where to get it").
-  const slots = useMemo(() => slotsOf(setup).flatMap((slot) => {
-    const src = roster.slots?.[slot.key];
-    if (!src) return [];
-    const where = shownFields(src.block).find((f) => /where|source|how to get/i.test(`${f.key} ${f.label}`) && f.kind !== 'tag');
-    return [{ slot, src, where, byId: new Map(src.block.entries.map((e) => [e.id, e])) }];
-  }), [setup, roster.slots]);
-  const sources: PlanSources = useMemo(() => ({
-    roster: onThisRoute,
-    classes: ladder && roster.classes ? { entries: [...ladder.byId.values()], band: ladder.bandOf } : undefined,
-    slots: slots.map(({ slot, src }) => ({ key: slot.key, entries: src.block.entries.filter((e) => !e.header), count: slotCount(slot) })),
-  }), [onThisRoute, ladder, roster.classes, slots]);
-  const { plan, setPlan, save, error, signedIn } = usePlan(ctx.gameId, block.id, sources, ctx.route, size);
-  const [ticks, toggle] = useTicks(ctx.gameId);
-  const recruits = (rb.fields ?? []).some((f) => !f.off && /recruit/i.test(`${f.key} ${f.label}`));
-  const byId = useMemo(() => new Map(onThisRoute.map((e) => [e.id, e])), [onThisRoute]);
-  const members = plan.party.map((id) => byId.get(id)).filter((e): e is Entry => Boolean(e));
+  const { plan, setPlan, save, error, signedIn, size, setup, rb, onThisRoute, ladder, slots, ticks, toggle, recruits, recruitKey, byId, members, stepOf } =
+    useParty(ctx.gameId, block, roster, ctx.route, `/g/${ctx.gameId}/${ctx.page.id}`);
   const [picking, setPicking] = useState(false);
   const [editing, setEditing] = useState(false);
   const [snapped, setSnapped] = useState<string | null>(null);
   const full = members.length >= size;
-  const recruitKey = (e: Entry) => `recruited:${rb.id}.${e.id}`;
-  const stepOf = (e: Entry): NextStep => nextStep(e, {
-    roster: rb, route: ctx.route, recruited: recruits ? ticks.has(recruitKey(e)) : undefined, setup, build: buildOf(plan, e.id), bands: ladder?.bands,
-    classOf: (id) => { const c = ladder?.byId.get(id); return c ? { name: c.name, exam: ladder!.exam(c) } : undefined; },
-    itemOf: (slot, id) => {
-      const s = slots.find((x) => x.slot.key === slot);
-      const item = s?.byId.get(id);
-      if (!s || !item) return undefined;
-      const v = s.where ? valueOf(item, s.where) : undefined;
-      return { name: item.name, where: v?.text ?? '', got: ticks.has(`got:${s.src.block.id}.${id}`) };
-    },
-  });
+
+  // Dragging a row by its grip (Reorder mode): the row moves as the finger passes its neighbours'
+  // middles. Up and down buttons do the same without dragging.
+  const list = useRef<HTMLUListElement>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const dragTo = (id: string, y: number) => {
+    const rows = [...(list.current?.querySelectorAll<HTMLElement>('li[data-member]') ?? [])].filter((r) => r.dataset.member !== id);
+    const to = rows.filter((r) => { const b = r.getBoundingClientRect(); return b.top + b.height / 2 < y; }).length;
+    const next = moveMemberTo(plan, id, to);
+    if (next !== plan) setPlan(next);
+  };
 
   // The unit's card opens over this Page; its address stays the Party Page's (?e=units.goliath).
   const { open, set, close } = useOpenEntry();
@@ -121,14 +97,23 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
           </button>
         </div>
       ) : (
-        <ul className="mt-3 divide-y divide-line overflow-hidden rounded-2xl bg-card ring-1 ring-line">
+        <ul ref={list} className="mt-3 divide-y divide-line overflow-hidden rounded-2xl bg-card ring-1 ring-line">
           {members.map((e, i) => {
             const step = stepOf(e);
             const got = recruits ? ticks.has(recruitKey(e)) : true;
             return (
-              <li key={e.id} className="flex items-center gap-3 px-3 py-2.5">
+              <li key={e.id} data-member={e.id} className={'flex items-center gap-2 px-3 py-2.5 sm:gap-3 ' + (dragging === e.id ? 'relative z-10 bg-signal/20' : '')}>
+                {editing && (
+                  <span aria-hidden="true" title="Drag to move"
+                    className="-ml-1 grid h-11 w-7 shrink-0 cursor-grab touch-none place-items-center rounded-lg text-muted hover:bg-card-2 hover:text-ink active:cursor-grabbing"
+                    onPointerDown={(ev) => { ev.currentTarget.setPointerCapture(ev.pointerId); setDragging(e.id); }}
+                    onPointerMove={(ev) => { if (dragging === e.id) dragTo(e.id, ev.clientY); }}
+                    onPointerUp={() => setDragging(null)} onPointerCancel={() => setDragging(null)}>
+                    <GripVertical size={18} />
+                  </span>
+                )}
                 <button onClick={() => set(`${rb.id}.${e.id}`)} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label={`Open ${e.name}`}>
-                  <UnitPiece entry={e} roster={rb} color={color} outline={step.kind === 'recruit'} size={48} />
+                  <UnitPiece entry={e} roster={rb} color={color} outline={step.kind === 'recruit'} size={editing ? 40 : 48} />
                   <span className="min-w-0">
                     <span className="block font-bold leading-tight">{e.name}</span>
                     {step.text && (

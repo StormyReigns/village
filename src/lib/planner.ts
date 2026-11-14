@@ -360,3 +360,47 @@ export function plannerRosters(pages: Page[], page: Page): Record<string, Roster
   }
   return out;
 }
+
+/** Moves a unit to a place in the party (dragging). */
+export function moveMemberTo(plan: Plan, id: string, to: number): Plan {
+  const from = plan.party.indexOf(id);
+  if (from < 0) return plan;
+  const party = plan.party.filter((x) => x !== id);
+  party.splice(Math.max(0, Math.min(to, party.length)), 0, id);
+  return party.join('\n') === plan.party.join('\n') ? plan : { ...plan, party };
+}
+
+// ------------------------------------------------------------------ The party index (marks elsewhere)
+
+/** What other Pages need to mark a party: who's in it ("units.goliath") and which items are planned
+ *  for whom ("weapons-and-magic.levin-sword-plus-1": ["Goliath"]). Kept on the device per route. */
+export interface PartyIndexRoute { members: string[]; items: Record<string, string[]> }
+export interface PartyIndex { href: string; byRoute: Record<string, PartyIndexRoute> }
+
+export function partyIndexRoute(plan: Plan, rosterBlock: string, nameOf: (id: string) => string | undefined, slotBlock: (slot: string) => string | undefined): PartyIndexRoute {
+  const items: Record<string, string[]> = {};
+  for (const id of plan.party) {
+    const name = nameOf(id);
+    if (!name) continue;
+    for (const [slot, ids] of Object.entries(plan.builds?.[id]?.gear ?? {})) {
+      const block = slotBlock(slot);
+      if (!block) continue;
+      for (const item of ids) (items[`${block}.${item}`] ??= []).push(name);
+    }
+  }
+  return { members: plan.party.map((id) => `${rosterBlock}.${id}`), items };
+}
+
+/** Reads a stored index, keeping only what has the right shape. */
+export function readPartyIndex(raw: unknown): PartyIndex | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Partial<PartyIndex>;
+  if (typeof r.href !== 'string' || !r.href.startsWith('/') || !r.byRoute || typeof r.byRoute !== 'object') return null;
+  const byRoute: Record<string, PartyIndexRoute> = {};
+  for (const [k, v] of Object.entries(r.byRoute)) {
+    if (!v || !Array.isArray(v.members)) continue;
+    const items = v.items && typeof v.items === 'object' ? Object.fromEntries(Object.entries(v.items).filter(([, n]) => Array.isArray(n)).map(([key, n]) => [key, n.filter((x) => typeof x === 'string')])) : {};
+    byRoute[k] = { members: v.members.filter((x) => typeof x === 'string'), items };
+  }
+  return { href: r.href, byRoute };
+}
