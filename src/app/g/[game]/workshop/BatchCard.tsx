@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, ChevronDown, ShieldCheck, Sheet, TriangleAlert, Undo2, X } from 'lucide-react';
+import { Check, ChevronDown, MapPin, ShieldCheck, Sheet, TriangleAlert, Undo2, X } from 'lucide-react';
 import type { Villager } from '@/components/useVillager';
 import { SignInPrompt } from '@/components/SignInPrompt';
 import { Tip } from '@/components/Tip';
@@ -47,17 +47,19 @@ export function BatchCard({ batch, place, routes, me, mod, data, startOpen = fal
   const needsVote = Boolean(me && !mine && !batch.myVote && isOpen);
   const cast = async (v: 0 | 1 | -1) => setError((await data.vote(batch.id, v)) ?? '');
   const live = rows?.filter((r) => r.status !== 'removed') ?? [];
+  // Pins placed on a map go as a batch too (MapSetup); they get a pin mark instead of a sheet.
+  const pins = batch.title.startsWith('Map pins:');
   const counts = rows ? { fresh: live.filter((r) => !r.cardId).length, fixed: live.filter((r) => r.cardId).length } : null;
 
   return (
     <li className={'rise rounded-3xl bg-card p-3 ' + (needsVote ? 'ring-1 ring-ink/40 ' : 'ring-1 ring-line ') + (batch.status === 'removed' ? 'opacity-60' : '')}>
       <button onClick={() => setOpen(!open)} className="flex w-full items-start gap-3 text-left" aria-expanded={open}>
         {/* A batch isn't an entry, so no piece: a sheet mark on the Page's color. */}
-        <span className="grid size-10 shrink-0 place-items-center rounded-2xl text-paper" style={{ background: color }}><Sheet size={20} aria-hidden="true" /></span>
+        <span className="grid size-10 shrink-0 place-items-center rounded-2xl text-paper" style={{ background: color }}>{pins ? <MapPin size={20} aria-hidden="true" /> : <Sheet size={20} aria-hidden="true" />}</span>
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-2">
             <span className="font-display text-lg leading-tight">{batch.title}</span>
-            <Tip text="Rows pasted from a spreadsheet, reviewed together" tint="plum"><span className="rounded-full bg-plum-soft px-2 py-0.5 text-xs font-bold text-plum">batch</span></Tip>
+            <Tip text={pins ? 'Pins placed on the map, reviewed together' : 'Rows pasted from a spreadsheet, reviewed together'} tint="plum"><span className="rounded-full bg-plum-soft px-2 py-0.5 text-xs font-bold text-plum">batch</span></Tip>
             {needsVote && <span className="rounded-full px-2 py-0.5 text-xs font-bold text-ink ring-1 ring-ink">Needs your vote</span>}
           </span>
           <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm text-muted">

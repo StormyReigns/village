@@ -173,6 +173,12 @@ Drafts, and the place form's "Where on the map".
   left for the community rather than guessed.
 - 2026-11-09: the map is the first slice (Matt). Each pin is a Draft (Matt), so the community
   can place and fix pins like any other fact.
+- 2026-11-14: placing pins on desktop (Matt: the list felt randomly sorted, a slip was hard to
+  take back, and 26 pins hit "20 Drafts an hour"). The list is A to Z and doesn't reorder as you
+  place, with the region under each name and a find box; Undo sits beside the instruction and
+  names what it undoes (Ctrl+Z too); "Take it off" removes a pin. Submit sends two or more pins as
+  one batch, which counts as one Draft, and opens it in Drafts. Each pin is still its own Draft
+  inside the batch, so anyone can set a wrong one aside.
 
 ## Open questions (for Matt)
 
@@ -255,9 +261,14 @@ separate page. So it has to work in that space on a computer and on a phone:
 - **"Map"** (in the Workshop's "In the app", beside Add on a map Block; the app's "3 not on the
   map yet: place them" opens it too, `?pins=<block>`): moderators upload the picture (kept up to
   4096 px on its longer side) and write the credit, then "Save map". Anyone can place pins: the
-  places, those not on the map first, in a list; tap a place, tap the map (tap again to move
-  it), Undo per place. "Submit 6 pins" sends one Draft per place. Drafts are limited to 20 an
-  hour, so anything over that stays on the device ("8 wait on this device: send them later").
+  places A to Z (they stay put while you place, with "Find a place" once there are more than 8);
+  tap a place, tap the map (tap again to move it). Placing moves on to the next place down the
+  list that isn't on the map. Undo names the last change ("Undo Aditi's Cave", also Ctrl+Z), each
+  changed row has its own Undo, and "Take it off" takes a pin off the map. "Submit 6 pins" sends
+  two or more as one batch ("Map pins: 6 places", the spreadsheet batches: one Draft per place in
+  a folder, voted once, counts as one Draft an hour), so a whole map fits under the limits. If
+  batches are used up (3 a day) they go one by one; anything over the 20-an-hour limit stays on
+  the device ("8 wait on this device: send them later").
   Places with an open Draft say so, so two Builders don't place the same one.
 - **One place's form** (Fix or Add): a "Where on the map" box with the same map, tap to place.
 - "What changes" says "Put on the map" or "Moved on the map".

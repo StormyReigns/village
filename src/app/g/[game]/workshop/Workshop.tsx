@@ -560,7 +560,8 @@ export function Workshop({ game, pages, routes }: {
                 <WikiCheck gameId={game.id} block={wikiBlock!} mod={live.mod} onClose={() => setWikiFor(null)}
                   onFix={(entryId, wiki) => setForm({ blockId: wikiBlock!.id, entryId, field: 'wiki', wiki })} />
               ) : setupBlock!.look === 'map' ? (
-                <MapSetup gameId={game.id} block={setupBlock!} me={me} mod={live.mod} drafts={drafts} postDraft={live.postDraft} onClose={() => setSetup(null)} />
+                <MapSetup gameId={game.id} block={setupBlock!} me={me} mod={live.mod} drafts={drafts} postDraft={live.postDraft} sendBatch={batchData.send}
+                  onBatch={(id) => { const page = setupBlock!.page.id; setSetup(null); setChip(page); setTab('drafts'); setOpenBatch(id); }} onClose={() => setSetup(null)} />
               ) : (
                 <FieldSetup gameId={game.id} block={setupBlock!} blocks={blocks} routes={routes} canSave={live.mod} onClose={() => setSetup(null)} />
               )}
