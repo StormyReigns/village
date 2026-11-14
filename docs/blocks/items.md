@@ -128,7 +128,11 @@ characters" reads "Other items" in an Items Block (it links to entries in the sa
   get it" (kept under the keys the entries already use, so nothing moves in the database).
 - **Weapons and magic** (32 entries): Rank and Might / Hit / Weight / Crit on the tile;
   "Effect" (shown as "What it does"), "Note" (the "Only Fabio can use it" lines), "Where to
-  get it" and "Used for" in the full view.
+  get it" and "Used for" in the full view. A "Weapon type" tag (Sword, Spear, Axe, Bow,
+  Gauntlet, Black Magic, White Magic, the game's own names, from Game8's list of all weapons
+  and spells) gives each piece its symbol: a sword, a spear (drawn for us; Lucide has none),
+  an axe, a bow, a fist, a wand with sparkles, a sun. The update 1.01 bundle (Chosen Sword,
+  Chosen Lance, Royal Sword, Breidablik) has no one type and keeps its initials.
 
 ## Builders
 
@@ -164,8 +168,16 @@ names offered from the Block, and the live preview. Moderators save setups for n
 - 2026-11-02: built. The item's full view is the Characters card (`CharacterCard`, name kept
   for now) with item touches; Characters renders exactly as before (a test pins its fields
   and sample, and the Units card matched the live site on a production build).
+- 2026-11-14: weapons show their type's symbol in their piece (Matt). A piece now takes a
+  symbol from any of its tags, the Block's first filter first, so weapons stay grouped by Rank
+  while showing a sword or a bow. Why: initials told players nothing, and uploading art for
+  every weapon would leave most tiles as initials for a long time. A picture, once added,
+  still replaces the symbol. Migration `20261119000000_weapon_types.sql`.
 
 ## Open questions
+
+- Builders choosing symbols for their own tags in Set up (today they come from the starter
+  data or a migration).
 
 - A mockup board for Items on the Block Silhouettes canvas.
 - Whether a "Not got yet" filter is worth adding for collectors.

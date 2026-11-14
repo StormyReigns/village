@@ -3,7 +3,7 @@
 import { CARDS } from '../content/fortunes-weave.ts';
 import type { Card, Route } from '../content/types.ts';
 import type { Block, Entry, Page, Section } from './types.ts';
-import { WEAPON_STATS, weapons } from './fortunes-weave-weapons.ts';
+import { TYPE_SOURCE, WEAPON_STATS, WEAPON_TYPE, WEAPON_TYPE_SYMBOLS, weapons } from './fortunes-weave-weapons.ts';
 import { GROWTH_STATS, GROWTHS } from './fortunes-weave-growths.ts';
 import { CLASS_SETUP, classEntries } from './fortunes-weave-classes.ts';
 import { COMMON_FIELDS, ITEM_FIELDS, STATS, withCommon } from '../../lib/fields.ts';
@@ -97,7 +97,9 @@ function weaponItems(): Entry[] {
   return of('items').filter(isWeapon).map((c) => ({
     ...base(c, c.content.name),
     sections: sections(['Where to get it', c.content.where], ['Used for', c.content.use], ['Note', /1\.01/.test(c.content.type ?? '') ? 'Added in update 1.01.' : undefined]),
-    categories: { Rank: 'Unlisted' },
+    // A bundle of several weapons (the update 1.01 set) has no one type.
+    ...(WEAPON_TYPE[c.content.name] && !/Game8/.test(c.source ?? '') ? { source: [c.source, TYPE_SOURCE].filter(Boolean).join(' ') } : {}),
+    categories: { Rank: 'Unlisted', ...(WEAPON_TYPE[c.content.name] ? { 'Weapon type': WEAPON_TYPE[c.content.name] } : {}) },
   }));
 }
 
@@ -183,9 +185,10 @@ const FACTIONS: Record<string, string> = {
 /** Items: the common item fields, with the names our starter cards already use ("Used for"). */
 const ITEMS_FIELDS = ITEM_FIELDS.map((f) => (f.key === 'What it does' ? { ...f, key: 'Used for', label: 'Used for' } : f));
 
-/** Weapons and magic: Rank and the four numbers on the tile; the effect, notes and where to get it in the full view. */
+/** Weapons and magic: Rank and the four numbers on the tile, the weapon type as the piece's symbol; the effect, notes and where to get it in the full view. */
 const WEAPON_FIELDS = withCommon([
   { key: 'Rank', label: 'Rank', kind: 'tag', tile: true },
+  { key: 'Weapon type', label: 'Weapon type', kind: 'tag' },
   { key: STATS, label: 'Stats', kind: 'chart', tile: true, noWeb: true },
   { key: 'Effect', label: 'What it does', kind: 'longtext' },
   { key: 'Note', label: 'Note', kind: 'longtext' },
@@ -243,7 +246,7 @@ export const PAGES: Page[] = [
     blocks: [
       block({ type: 'items', title: 'Items', icon: 'Backpack', filters: ['Type'], symbols: ITEM_TYPES, fields: ITEMS_FIELDS, entries: items(),
         intro: 'What each one is for and where to find it. Tap one for the details.' }),
-      block({ type: 'items', title: 'Weapons and magic', icon: 'Swords', filters: ['Rank'], stats: WEAPON_STATS, fields: WEAPON_FIELDS, entries: [...weapons(), ...weaponItems()],
+      block({ type: 'items', title: 'Weapons and magic', icon: 'Swords', filters: ['Rank'], symbols: WEAPON_TYPE_SYMBOLS, stats: WEAPON_STATS, fields: WEAPON_FIELDS, entries: [...weapons(), ...weaponItems()],
         intro: 'The stronger the color, the better the number. Compare puts every number side by side.' }),
     ],
   },

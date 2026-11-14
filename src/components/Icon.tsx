@@ -3,9 +3,18 @@ import {
   Bird, Castle, Compass, Crown, Droplet, Flame, Flower2, Landmark, Lighthouse, Moon, Star, Tent, Wind,
   BadgeCheck, Gem, KeyRound, Package, ScrollText, Sparkles,
   BedDouble, Building2, Mountain, Pickaxe, Skull, Store, TreePalm, Trees, ClipboardList,
-  type LucideIcon, type LucideProps,
+  Axe, BowArrow, HandFist, Sun, Sword, WandSparkles,
+  createLucideIcon, type LucideIcon, type LucideProps,
 } from 'lucide-react';
 import { Piece, pieceHeight } from './Piece';
+
+/** A spear, which Lucide doesn't have, drawn in its style: a shaft corner to corner, a
+ *  leaf-shaped head and a small guard. */
+const Spear = createLucideIcon('spear', [
+  ['path', { d: 'M3 21 13.5 10.5', key: 'shaft' }],
+  ['path', { d: 'M13.5 10.5 15 5.5 21 3 18.5 9Z', key: 'head' }],
+  ['path', { d: 'm11 8 5 5', key: 'guard' }],
+]);
 
 // Only the icons blocks, navigation and entry symbols use, so the bundle stays small.
 const ICONS: Record<string, LucideIcon> = {
@@ -16,6 +25,8 @@ const ICONS: Record<string, LucideIcon> = {
   BedDouble, Building2, Mountain, Pickaxe, Skull, Store, TreePalm, Trees,
   // The Party Page (the Planner, docs/blocks/planner.md).
   ClipboardList,
+  // Weapon types (docs/blocks/items.md): Sword, Spear, Axe, Bow, Gauntlet, Black and White Magic.
+  Axe, BowArrow, HandFist, Spear, Sun, Sword, WandSparkles,
 };
 
 /** Whether a symbol name is one we can draw. */

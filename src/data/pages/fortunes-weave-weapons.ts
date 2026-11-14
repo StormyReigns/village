@@ -50,6 +50,27 @@ const ROWS: Row[] = [
   ['-', 'Fimbulvetr Night', 30, 80, 28, 10, '', 'Only one scroll in the game.'],
 ];
 
+/** Where the weapon types come from. */
+export const TYPE_SOURCE = "Weapon types: Game8's list of all weapons and spells in Fortune's Weave (game8.co, Nov 2026).";
+
+/** Each weapon's type, as the game names them (Sword, Spear, Axe, Bow, Gauntlet, Black Magic,
+ *  White Magic), from Game8's list of all weapons and spells. */
+export const WEAPON_TYPE: Record<string, string> = {
+  'Levin Sword +1': 'Sword', 'Levin Sword +3': 'Sword', 'Salamander +5': 'Gauntlet', Answerer: 'Sword',
+  Blizzard: 'Black Magic', Fire: 'Black Magic', Thunder: 'Black Magic', Wind: 'Black Magic', Miasma: 'Black Magic',
+  "Earth's Jaws": 'Black Magic', Mire: 'Black Magic', 'Sword of Judgment': 'Black Magic', Swarm: 'Black Magic',
+  Bolganone: 'Black Magic', 'Cutting Gale': 'Black Magic', Death: 'Black Magic', 'Glass Wheel': 'Black Magic',
+  'Ice Blade': 'Black Magic', Thoron: 'Black Magic', Luna: 'Black Magic', Banshee: 'Black Magic', Bolting: 'Black Magic',
+  'Dark Spikes': 'Black Magic', Excalibur: 'Black Magic', Sagittae: 'Black Magic', "Agnea's Arrow": 'Black Magic',
+  'Fimbulvetr Night': 'Black Magic',
+  Nosferatu: 'White Magic', Seraphim: 'White Magic', Starlight: 'White Magic', Aura: 'White Magic',
+};
+
+/** A symbol for each weapon type, shown in the weapon's piece. */
+export const WEAPON_TYPE_SYMBOLS: Record<string, string> = {
+  Sword: 'Sword', Spear: 'Spear', Axe: 'Axe', Bow: 'BowArrow', Gauntlet: 'HandFist', 'Black Magic': 'WandSparkles', 'White Magic': 'Sun',
+};
+
 export function weapons(): Entry[] {
   return ROWS.map(([rank, name, might, hit, weight, crit, effect, note]) => ({
     id: slug(name),
@@ -58,8 +79,8 @@ export function weapons(): Entry[] {
       ...(effect ? [{ label: 'Effect', text: effect }] : []),
       ...(note ? [{ label: 'Note', text: note }] : []),
     ],
-    categories: { Rank: rank === '-' ? 'No rank' : rank || 'Unlisted' },
+    categories: { Rank: rank === '-' ? 'No rank' : rank || 'Unlisted', 'Weapon type': WEAPON_TYPE[name] },
     stats: { might, hit, weight, crit },
-    source: SOURCE,
+    source: `${SOURCE} ${TYPE_SOURCE}`,
   }));
 }
