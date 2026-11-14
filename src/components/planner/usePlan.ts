@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Entry, Route } from '@/data/pages';
 import { browserClient } from '@/lib/supabase/browser';
 import { useVillager } from '@/components/useVillager';
-import { EMPTY_PLAN, fromSaved, planKey, samePlan, tidyPlan, toSaved, type Plan } from '@/lib/planner';
+import { EMPTY_PLAN, fromSaved, planKey, samePlan, tidyPlan, toSaved, type BackRefs, type Known, type Plan, type Refs } from '@/lib/planner';
 
 // One Planner Block's plans (docs/blocks/planner.md): your party for each route, kept on this device
 // for everyone and in your account when signed in (public.party_plans, written only by
@@ -12,7 +12,7 @@ import { EMPTY_PLAN, fromSaved, planKey, samePlan, tidyPlan, toSaved, type Plan 
 
 export type PlanSave = 'device' | 'saving' | 'saved' | 'error';
 
-interface Kept { party: string[]; at: number }
+interface Kept extends Plan { at: number }
 type Store = Record<string, Kept>;
 
 const deviceKey = (gameId: string, block: string) => `village:${gameId}:plan:${block}`;
@@ -36,12 +36,34 @@ export function planError(message: string): string {
   return message;
 }
 
-export function usePlan(gameId: string, blockKey: string, roster: Entry[], route: Route | 'all', size: number) {
+/** What a plan can pick from: the roster, the classes (with each one's tier) and each gear slot's items. */
+export interface PlanSources {
+  roster: Entry[];
+  classes?: { entries: Entry[]; band: (e: Entry) => string };
+  slots?: { key: string; entries: Entry[]; count: number }[];
+}
+
+export function usePlan(gameId: string, blockKey: string, sources: PlanSources, route: Route | 'all', size: number) {
+  const roster = sources.roster;
   const me = useVillager();
   const key = planKey(route);
-  const ids = useMemo(() => new Set(roster.map((e) => e.id)), [roster]);
-  const cardOf = useMemo(() => new Map(roster.map((e) => [e.id, e.ref?.card])), [roster]);
-  const idOf = useMemo(() => new Map(roster.flatMap((e) => (e.ref ? [[e.ref.card, e.id] as const] : []))), [roster]);
+  // Entry ids and cards both ways, per Block, and what a stored plan may hold.
+  const { known, refs, back } = useMemo(() => {
+    const there = (es: Entry[]) => new Map(es.map((e) => [e.id, e.ref?.card]));
+    const backOf = (es: Entry[]) => new Map(es.flatMap((e) => (e.ref ? [[e.ref.card, e.id] as const] : [])));
+    const cls = sources.classes?.entries ?? [];
+    const slots = sources.slots ?? [];
+    const known: Known = {
+      ids: new Set(roster.map((e) => e.id)), size,
+      classBand: new Map(cls.map((e) => [e.id, sources.classes!.band(e)])),
+      slots: Object.fromEntries(slots.map((s) => [s.key, { ids: new Set(s.entries.map((e) => e.id)), count: s.count }])),
+    };
+    const r = there(roster), rb = backOf(roster), c = there(cls), cb = backOf(cls);
+    const items = Object.fromEntries(slots.map((s) => [s.key, { to: there(s.entries), from: backOf(s.entries) }]));
+    const refs: Refs = { roster: (id) => r.get(id), classes: (id) => c.get(id), item: (slot, id) => items[slot]?.to.get(id) };
+    const back: BackRefs = { roster: (card) => rb.get(card), classes: (card) => cb.get(card), item: (slot, card) => items[slot]?.from.get(card) };
+    return { known, refs, back };
+  }, [roster, sources.classes, sources.slots, size]);
   const [store, setStore] = useState<Store>({});
   const [save, setSave] = useState<PlanSave>('device');
   const [error, setError] = useState<string | null>(null);
@@ -59,11 +81,11 @@ export function usePlan(gameId: string, blockKey: string, roster: Entry[], route
     const db = browserClient();
     if (!db || !me) return;
     setSave('saving');
-    const { error: err } = await db.rpc('save_party_plan', { g: gameId, b: blockKey, r: k, p: toSaved(plan, (id) => cardOf.get(id)) });
+    const { error: err } = await db.rpc('save_party_plan', { g: gameId, b: blockKey, r: k, p: toSaved(tidyPlan(plan, known), refs) });
     if (err) { setSave('error'); setError(planError(err.message)); return; }
     setSave('saved');
     setError(null);
-  }, [me, gameId, blockKey, cardOf]);
+  }, [me, gameId, blockKey, refs, known]);
 
   const pending = useRef<{ k: string; timer: ReturnType<typeof setTimeout> } | null>(null);
   const flush = useCallback(async () => {
@@ -72,7 +94,7 @@ export function usePlan(gameId: string, blockKey: string, roster: Entry[], route
     clearTimeout(p.timer);
     pending.current = null;
     const kept = latest.current[p.k];
-    if (kept) await push(p.k, { party: kept.party });
+    if (kept) await push(p.k, kept);
   }, [push]);
   useEffect(() => () => { flush(); }, [flush]);
 
@@ -92,7 +114,7 @@ export function usePlan(gameId: string, blockKey: string, roster: Entry[], route
       const toSend: string[] = [];
       for (const r of (data ?? []) as { route: string; plan: unknown; updated_at: string }[]) {
         const at = Date.parse(r.updated_at) || 0;
-        if (!device[r.route] || device[r.route].at <= at) merged[r.route] = { party: fromSaved(r.plan, (c) => idOf.get(c)).party, at };
+        if (!device[r.route] || device[r.route].at <= at) merged[r.route] = { ...fromSaved(r.plan, back), at };
       }
       for (const [k, kept] of Object.entries(device)) {
         const row = (data ?? []).find((r) => r.route === k);
@@ -100,17 +122,17 @@ export function usePlan(gameId: string, blockKey: string, roster: Entry[], route
       }
       setStore(merged);
       writeDevice(gameId, blockKey, merged);
-      for (const k of toSend) await push(k, { party: merged[k].party });
+      for (const k of toSend) await push(k, merged[k]);
       if (!toSend.length) setSave('saved');
     })().catch(() => { linked.current = null; });
-  }, [me?.id, gameId, blockKey, idOf, roster.length, push]);
+  }, [me?.id, gameId, blockKey, back, roster.length, push]);
 
-  const plan = useMemo(() => tidyPlan(store[key] ?? EMPTY_PLAN, ids, size), [store, key, ids, size]);
+  const plan = useMemo(() => tidyPlan(store[key] ?? EMPTY_PLAN, known), [store, key, known]);
 
   /** Changes this route's plan: kept at once, sent to your account a moment after the last change. */
   const setPlan = useCallback((next: Plan) => {
     if (samePlan(next, plan)) return;
-    const updated = { ...latest.current, [key]: { party: next.party, at: Date.now() } };
+    const updated = { ...latest.current, [key]: { ...next, at: Date.now() } };
     latest.current = updated;
     setStore(updated);
     writeDevice(gameId, blockKey, updated);

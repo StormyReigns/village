@@ -8,12 +8,16 @@ import { BlockIcon } from '@/components/Icon';
 import { EntryPanel, symbolFor } from '@/components/app/EntryPanel';
 import { initials, onRoute, rememberEntry, useOpenEntry, useTicks } from '@/components/app/entries';
 import type { BlockContext } from '@/components/app/blockParts';
-import { addMember, moveMember, nextStep, partySize, removeMember, type NextStep, type Roster } from '@/lib/planner';
-import { usePlan } from './usePlan';
+import { STEP_LABEL, addMember, buildOf, moveMember, nextStep, partySize, removeMember, slotCount, slotsOf, type NextStep, type Roster } from '@/lib/planner';
+import { valueOf, shownFields } from '@/lib/fields';
+import { usePlan, type PlanSources } from './usePlan';
+import { BuildPlan } from './BuildPlan';
+import { ladderOf } from './sources';
 
-// The Planner Block (docs/blocks/planner.md), slice 1: your party for this run, picked from the
-// roster (Units), each with the next step to get them. Saved on this device, and in your account when
-// signed in. Tapping a unit opens their card here, over the Party Page.
+// The Planner Block (docs/blocks/planner.md): your party for this run, picked from the roster (Units),
+// each with the next thing to do for them: recruit, get their gear, reach their next class. Saved on
+// this device, and in your account when signed in. Tapping a unit opens their card over the Party
+// Page, with your plan for them (class steps and gear) at the top.
 
 /** The roster's first tag, which groups the picker (Group, for Fortune's Weave). */
 const groupKey = (b: Block) => b.filters?.[0] ?? b.fields?.find((f) => f.kind === 'tag' && !f.off)?.key;
@@ -47,7 +51,21 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
   const color = `var(--${roster.page.tint})`;
   // Every unit on this route (header cards aside); spoilers stay out of the picker unless shown.
   const onThisRoute = useMemo(() => rb.entries.filter((e) => !e.header && (!rb.byRoute || onRoute(e, ctx.route))), [rb, ctx.route]);
-  const { plan, setPlan, save, error, signedIn } = usePlan(ctx.gameId, block.id, onThisRoute, ctx.route, size);
+  const setup = block.planSetup;
+  const ladder = useMemo(() => ladderOf(roster.classes, ctx.route), [roster.classes, ctx.route]);
+  // Each slot's items, and the field that says where to get one ("Where to get it").
+  const slots = useMemo(() => slotsOf(setup).flatMap((slot) => {
+    const src = roster.slots?.[slot.key];
+    if (!src) return [];
+    const where = shownFields(src.block).find((f) => /where|source|how to get/i.test(`${f.key} ${f.label}`) && f.kind !== 'tag');
+    return [{ slot, src, where, byId: new Map(src.block.entries.map((e) => [e.id, e])) }];
+  }), [setup, roster.slots]);
+  const sources: PlanSources = useMemo(() => ({
+    roster: onThisRoute,
+    classes: ladder && roster.classes ? { entries: [...ladder.byId.values()], band: ladder.bandOf } : undefined,
+    slots: slots.map(({ slot, src }) => ({ key: slot.key, entries: src.block.entries.filter((e) => !e.header), count: slotCount(slot) })),
+  }), [onThisRoute, ladder, roster.classes, slots]);
+  const { plan, setPlan, save, error, signedIn } = usePlan(ctx.gameId, block.id, sources, ctx.route, size);
   const [ticks, toggle] = useTicks(ctx.gameId);
   const recruits = (rb.fields ?? []).some((f) => !f.off && /recruit/i.test(`${f.key} ${f.label}`));
   const byId = useMemo(() => new Map(onThisRoute.map((e) => [e.id, e])), [onThisRoute]);
@@ -57,7 +75,17 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
   const [snapped, setSnapped] = useState<string | null>(null);
   const full = members.length >= size;
   const recruitKey = (e: Entry) => `recruited:${rb.id}.${e.id}`;
-  const stepOf = (e: Entry): NextStep => nextStep(e, rb, ctx.route, recruits ? ticks.has(recruitKey(e)) : undefined, block.planSetup);
+  const stepOf = (e: Entry): NextStep => nextStep(e, {
+    roster: rb, route: ctx.route, recruited: recruits ? ticks.has(recruitKey(e)) : undefined, setup, build: buildOf(plan, e.id), bands: ladder?.bands,
+    classOf: (id) => { const c = ladder?.byId.get(id); return c ? { name: c.name, exam: ladder!.exam(c) } : undefined; },
+    itemOf: (slot, id) => {
+      const s = slots.find((x) => x.slot.key === slot);
+      const item = s?.byId.get(id);
+      if (!s || !item) return undefined;
+      const v = s.where ? valueOf(item, s.where) : undefined;
+      return { name: item.name, where: v?.text ?? '', got: ticks.has(`got:${s.src.block.id}.${id}`) };
+    },
+  });
 
   // The unit's card opens over this Page; its address stays the Party Page's (?e=units.goliath).
   const { open, set, close } = useOpenEntry();
@@ -105,7 +133,7 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
                     <span className="block font-bold leading-tight">{e.name}</span>
                     {step.text && (
                       <span className="mt-0.5 block text-sm leading-snug text-muted">
-                        {step.kind === 'recruit' && <span className="font-bold text-ink">To recruit: </span>}{step.text}
+                        {STEP_LABEL[step.kind] && <span className="font-bold text-ink">{STEP_LABEL[step.kind]}: </span>}{step.text}
                       </span>
                     )}
                   </span>
@@ -151,6 +179,7 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
       {opened && (
         <EntryPanel entry={opened} block={rb} list={members.includes(opened) ? members : [opened]} route={ctx.route} routes={ctx.routes} gameId={ctx.gameId}
           sharePath={`/g/${ctx.gameId}/${roster.page.id}/${rb.id}.${opened.id}`} color={color}
+          lead={(ladder || slots.length > 0) && plan.party.includes(opened.id) ? <BuildPlan unit={opened} roster={roster} setup={setup} ladder={ladder} plan={plan} setPlan={setPlan} ctx={ctx} /> : undefined}
           onGo={(e) => set(`${rb.id}.${e.id}`, 'replace')} onClose={close} />
       )}
     </div>

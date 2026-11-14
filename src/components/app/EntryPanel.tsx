@@ -114,12 +114,14 @@ export function EntryIcon({ entry, block, size = 'md', color }: {
  * An entry's details: a popup in the middle on computers, a sheet from the bottom on phones.
  * Arrows (or ← →) step through the entries the player is looking at.
  */
-export function EntryPanel({ entry, block, list, route, routes, gameId, sharePath, place, color, onGo, onClose }: {
+export function EntryPanel({ entry, block, list, route, routes, gameId, sharePath, place, color, lead, onGo, onClose }: {
   entry: Entry; block: Block; list: Entry[]; route: Route | 'all'; routes: RouteOption[]; gameId: string; sharePath: string;
   /** The Page's color, for the entry's piece. */
   color?: string;
   /** A place on a map Block: its "cleared" mark, and what else in the app mentions it. */
   place?: { clearKey: string; here: Mention[] };
+  /** Shown above the card: a party member's plan on the Party Page (docs/blocks/planner.md). */
+  lead?: React.ReactNode;
   onGo: (e: Entry) => void; onClose: () => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
@@ -179,6 +181,7 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
         </div>
 
         <div className="thin-scroll min-h-0 overflow-y-auto overscroll-contain px-5 pb-6 pt-3">
+          {lead}
           {fixes.length > 0 && (
             <Link href={`/g/${gameId}/workshop?draft=${fixes[0].id}`} className="mb-4 flex items-center gap-2 rounded-2xl bg-sun-soft px-3 py-2 text-sm hover:ring-1 hover:ring-sun">
               <Hourglass size={15} className="shrink-0 text-sun" aria-hidden="true" />

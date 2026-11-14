@@ -1,12 +1,13 @@
 # Block 9: Planner
 
-**Status:** Slice 1 live (2026-11-14) · **Chat:** `Village · Block: Planner` ·
+**Status:** Slice 1 live; slice 2 built, waiting on its SQL (2026-11-14) · **Chat:** `Village · Block: Planner` ·
 **Mockup:** in the chat (2026-11-14) · **Code:** `src/lib/planner.ts` (setup, the party, the next-step
 line, the roster for the Party Page; tested in `planner.test.ts`), `src/components/planner/` (`Planner.tsx`
-the Block and its picker, `usePlan.ts` saving on the device and to the account), the roster handed down by
-the Page route (`plannerRosters`) through `PageView` · **Database:**
-`supabase/migrations/20261115000000_planner.sql` (passed hub review 2026-11-14), then `seed-app.sql` (adds
-Fortune's Weave · Party)
+the Block and its picker, `BuildPlan.tsx` a unit's plan and its class and gear pickers, `sources.ts` the
+Classes ladder as the Planner reads it, `usePlan.ts` saving on the device and to the account), the Blocks it
+picks from handed down by the Page route (`plannerRosters`) through `PageView`, and `lead` on `EntryPanel` ·
+**Database:** `supabase/migrations/20261115000000_planner.sql` (passed hub review 2026-11-14), then
+`seed-app.sql` (adds Fortune's Weave · Party); slice 2: `20261116000000_planner_builds.sql` (sent to the hub)
 
 A player's own plan for their run: who's in their party, what each of them will become, and what
 each one carries. Built from the game's other Blocks (Characters, Classes, Items), so every piece
@@ -136,9 +137,11 @@ shared plans only.
    recruit steps and the Recruited tick; one plan per route; saved on the device and to the
    account (one table, `party_plans`, one row per player, Block and route, the plan as checked
    jsonb; a save function with a rate limit). Migration reviewed by the hub first.
-2. **Slice 2: a member's plan.** Class steps (with "Classes for <name>" as the first picks) and
-   gear slots, the "Your plan" section on the unit's card, the line moving on to gear and class
-   steps, "In your party" marks, the "Your party" card on the game's home, dragging to reorder.
+2. **Slice 2: a member's plan** (built 2026-11-14). Class steps (with "Classes for <name>" as the first
+   picks) and gear slots, the "Your plan" section on the unit's card, the line moving on to gear and
+   class steps. Saving builds to the account needs `20261116000000_planner_builds.sql`.
+2b. **Slice 2b: around the app.** "In your party" marks on Units and on planned items, the "Your party"
+   card on the game's home, dragging to reorder. (Split from slice 2 to keep it reviewable.)
 3. **Slice 3: Set up and sharing.** The Planner's Set up in the Workshop (roster, size, class
    steps, slots); Share with a picture; abilities as a slot (once skills are entries somewhere).
 
@@ -172,6 +175,19 @@ shared plans only.
 - 2026-11-14: with "All" picked in the route switcher, the Block asks "Whose run is it?" rather than
   mixing routes. The sidebar leaves out the Party Page's count (it has no entries).
 
+- 2026-11-14: slice 2, a unit's plan. At the top of their card on the Party Page: one class step per
+  tier of the Classes ladder (the Block's first tag, in its header cards' order), and each gear slot.
+  A step's picker leads with the 3 classes that suit the unit most ("Classes for <name>", by their
+  strengths, with the stats each raises), then every class in that tier on the player's route. Gear
+  pickers group a slot's items like the Items Block (ranks best first), searchable. Planned is the
+  split outline; "Reached" (a class) and "Got it" (the same tick as on the item's card) turn it solid.
+  A tier is hidden as a spoiler when every class in it is one (Master, Divine), with "Show them".
+  Taking a unit out of the party drops their build. Fortune's Weave: class steps from Classes, and
+  "Weapons and magic", up to 3. Why: the spec as agreed; 3 is a starting count builders can change.
+- 2026-11-14: the line's order, slice 2: recruit, then the first planned item not got ("Get: Steel Axe
+  · Hightown armory."), then the first tier not reached ("Next class: Brigand · Axes C"), then
+  "Planned: Brigand · Steel Axe" once everything is done, else "Recruited".
+
 ## Checked (2026-11-14)
 
 On a local dev server with the Party Page fed from the starter data (the SQL isn't run yet), desktop and
@@ -184,9 +200,15 @@ SQL and a signed-in villager: saving to the account, and a plan made on one devi
 Live (2026-11-14, 261c5e2): the Party Page on the live site, Theodora picked, Goliath added with his
 recruit line, no console errors. The SQL and seed were in by then.
 
+Slice 2, on a local dev server with the starter setup (its SQL isn't run yet), desktop and phone: Goliath's
+plan at the top of his card; Master and Divine held back as spoilers; the Beginner picker leading with
+Soldier, Gladiator and Hunter for him; Gladiator picked; Levin Sword +1 added; his row reading "Get: Levin
+Sword +1", then "Next class: Gladiator" once got; the build kept on the device; no sideways scroll. Not
+yet checked: saving builds to the account (needs the slice 2 SQL and a signed-in villager).
+
 ## Open questions
 
-- None open for slice 1.
+- Weapon slot count for Fortune's Weave: 3 to start. Matt can change it.
 
 ## Later
 

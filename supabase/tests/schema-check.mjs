@@ -616,3 +616,27 @@ await expectOk(B, savePlan([], 'dietrich'), 'a negative size still saves an empt
 const logRead = await asUser(B, `select count(*)::int as n from public.party_plan_saves`).catch(() => null);
 !logRead ? ok('the save log is closed to players') : bad('save log readable');
 }
+
+// The Planner, slice 2: each member's build (class steps and gear), checked and rebuilt.
+{
+const CLS = 'cccccccc-0000-0000-0000-000000000001', CLS2 = 'cccccccc-0000-0000-0000-000000000002', WPN = 'dddddddd-0000-0000-0000-000000000001', WPN2 = 'dddddddd-0000-0000-0000-000000000002';
+await db.exec(`
+  insert into public.game_blocks (game_id, block_key, title, type, page_key) values ('fortunes-weave', 'test-classes', 'Classes', 'classes', 'party'), ('fortunes-weave', 'test-weapons', 'Weapons', 'items', 'party');
+  insert into public.cards (id, game_id, block_key, slug) values ('${CLS}', 'fortunes-weave', 'test-classes', 'myrmidon'), ('${CLS2}', 'fortunes-weave', 'test-classes', 'shido'),
+    ('${WPN}', 'fortunes-weave', 'test-weapons', 'iron-sword'), ('${WPN2}', 'fortunes-weave', 'test-weapons', 'levin-sword');
+  update public.game_blocks set plan_setup = '{"roster":"people","size":15,"classes":"test-classes","slots":[{"key":"weapons","label":"Weapons","from":"test-weapons","count":1}]}' where block_key = 'your-party';
+`);
+const build = (member) => `select public.save_party_plan('fortunes-weave', 'your-party', 'cai', '${JSON.stringify({ party: [{ card: CARD, ...member }] })}'::jsonb)`;
+await expectOk(B, build({ classes: [{ band: 'Beginner', card: CLS, done: true }, { band: 'Specialty', card: CLS2 }], gear: [{ slot: 'weapons', cards: [WPN] }], note: 'x' }), 'a member with class steps and gear saves');
+const got = (await db.query(`select plan from public.party_plans where profile_id = '${B}' and route = 'cai'`)).rows[0]?.plan;
+JSON.stringify(got) === JSON.stringify({ party: [{ card: CARD, gear: [{ slot: 'weapons', cards: [WPN] }], classes: [{ band: 'Beginner', card: CLS, done: true }, { band: 'Specialty', card: CLS2, done: false }] }] })
+  ? ok('the build is stored rebuilt, without anything extra') : bad('stored build ' + JSON.stringify(got));
+await expectFail(B, build({ classes: [{ band: 'Beginner', card: WPN }] }), 'a class step must be a class');
+await expectFail(B, build({ classes: [{ band: 'Beginner', card: CLS }, { band: 'Beginner', card: CLS2 }] }), 'one class per tier');
+await expectFail(B, build({ classes: [{ band: 'Beginner', card: CLS, done: 'yes' }] }), 'done is a yes or no');
+await expectFail(B, build({ gear: [{ slot: 'weapons', cards: [WPN, WPN2] }] }), "no more than a slot's count");
+await expectFail(B, build({ gear: [{ slot: 'rings', cards: [WPN] }] }), "only the planner's own slots");
+await expectFail(B, build({ gear: [{ slot: 'weapons', cards: [CLS] }] }), "only items of the slot's Block");
+await expectFail(B, build({ gear: [{ slot: 'weapons', cards: [{ x: 1 }] }] }), 'gear is a list of ids');
+await expectOk(B, build({}), 'a member with no build still saves');
+}

@@ -221,7 +221,9 @@ export const PAGES: Page[] = [
     blurb: 'Your own party for this run, and the next step for each of them.',
     blocks: [
       block({ type: 'planner', title: 'Your party', icon: 'ClipboardList', byRoute: true, entries: [],
-        planSetup: { roster: 'units', size: 15, unlock: ['Recruit', '@description'] },
+        // Class steps from the Classes ladder, and up to 3 weapons (slice 2, Matt, 2026-11-14).
+        planSetup: { roster: 'units', size: 15, unlock: ['Recruit', '@description'], classes: 'classes',
+          slots: [{ key: 'weapons', label: 'Weapons and magic', from: 'weapons-and-magic', count: 3 }] },
         intro: 'Pick who you’ll take. Each one shows what to do next to get them.' }),
     ],
   },
