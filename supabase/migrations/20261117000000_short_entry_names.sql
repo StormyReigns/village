@@ -4,3 +4,6 @@
 
 alter table public.drafts drop constraint if exists drafts_title_check;
 alter table public.drafts add constraint drafts_title_check check (char_length(btrim(title)) between 1 and 120);
+
+-- What the rule is now (should say 1 and 120).
+select pg_get_constraintdef(oid) as drafts_title_rule from pg_constraint where conname = 'drafts_title_check';
