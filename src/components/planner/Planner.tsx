@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Check, GripVertical, Plus, Search, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, GripVertical, Plus, Search, Share2, X } from 'lucide-react';
 import type { Block, Entry } from '@/data/pages';
 import { Piece } from '@/components/Piece';
 import { BlockIcon } from '@/components/Icon';
@@ -45,12 +45,29 @@ export function Planner({ block, ctx }: { block: Block; ctx: BlockContext }) {
 
 function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: BlockContext }) {
   const color = `var(--${roster.page.tint})`;
-  const { plan, setPlan, save, error, signedIn, size, setup, rb, onThisRoute, ladder, slots, ticks, toggle, recruits, recruitKey, byId, members, stepOf } =
+  const { plan, setPlan, save, error, signedIn, shared, share, size, setup, rb, onThisRoute, ladder, slots, ticks, toggle, recruits, recruitKey, byId, members, stepOf } =
     useParty(ctx.gameId, block, roster, ctx.route, `/g/${ctx.gameId}/${ctx.page.id}`);
   const [picking, setPicking] = useState(false);
   const [editing, setEditing] = useState(false);
   const [snapped, setSnapped] = useState<string | null>(null);
   const full = members.length >= size;
+
+  // Share: makes this route's party readable by its link (docs/blocks/planner.md, slice 3), then the
+  // phone's share menu, or the link copied on a computer.
+  const [shareNote, setShareNote] = useState<string | null>(null);
+  const shareParty = async () => {
+    if (!signedIn) { setShareNote('Sign in to share your party: its link shows your name.'); return; }
+    const r = await share(true);
+    if (r.error || !r.id) { setShareNote(r.error ?? 'Couldn’t share it.'); return; }
+    const url = `${window.location.origin}/g/${ctx.gameId}/plans/${r.id}`;
+    const phone = window.matchMedia('(pointer: coarse)').matches;
+    if (phone && navigator.share) {
+      try { await navigator.share({ title: `My party · ${ctx.pageTitle}`, url }); } catch { /* closed the share menu */ }
+      setShareNote(null);
+    } else {
+      try { await navigator.clipboard.writeText(url); setShareNote('Link copied. Anyone with it can see this party.'); } catch { setShareNote(url); }
+    }
+  };
 
   // Dragging a row by its grip (Reorder mode): the row moves as the finger passes its neighbours'
   // middles. Up and down buttons do the same without dragging.
@@ -78,14 +95,30 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
     <div className="mt-4">
       <div className="flex flex-wrap items-center gap-2">
         <p className="font-bold">{block.planSetup?.size ? `${members.length} of ${size}` : members.length} in your party</p>
+        {members.length > 0 && !editing && (
+          <button onClick={shareParty} className="ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold ring-1 ring-line hover:ring-ink">
+            <Share2 size={14} aria-hidden="true" /> Share
+          </button>
+        )}
         {members.length > 1 && (
           <button onClick={() => setEditing(!editing)} aria-pressed={editing}
-            className={'ml-auto rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (editing ? 'bg-ink text-white ring-ink' : 'ring-line hover:ring-ink')}>
+            className={'rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (editing ? 'ml-auto bg-ink text-white ring-ink' : 'ring-line hover:ring-ink')}>
             {editing ? 'Done' : 'Reorder or remove'}
           </button>
         )}
       </div>
       <p className={'text-sm ' + (save === 'error' ? 'text-berry' : 'text-muted')} aria-live="polite">{saveLine}</p>
+      {(shareNote || shared) && (
+        <p className="text-sm text-muted" aria-live="polite">
+          {shareNote && <span className="break-all">{shareNote} </span>}
+          {shared && (
+            <>
+              <a href={`/g/${ctx.gameId}/plans/${shared}`} className="font-bold text-ink underline underline-offset-2">Its link is shared</a>
+              {' · '}<button onClick={async () => { const r = await share(false); setShareNote(r.error ?? 'It’s private again: the link no longer opens it.'); }} className="font-bold underline underline-offset-2 hover:text-ink">Make it private</button>
+            </>
+          )}
+        </p>
+      )}
 
       {members.length === 0 && !picking ? (
         <div className="mt-3 grid justify-items-center gap-2 rounded-2xl bg-card-2 px-4 py-8 text-center">

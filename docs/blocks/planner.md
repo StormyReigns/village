@@ -1,6 +1,6 @@
 # Block 9: Planner
 
-**Status:** Slices 1, 2 and 2b live (2026-11-14); slice 3 (Set up, sharing) next · **Chat:** `Village · Block: Planner` ·
+**Status:** Slices 1, 2 and 2b live; slice 3 built (2026-11-14): Set up, and sharing once its SQL is run · **Chat:** `Village · Block: Planner` ·
 **Mockup:** in the chat (2026-11-14) · **Code:** `src/lib/planner.ts` (setup, the party, the next-step
 line, the roster for the Party Page; tested in `planner.test.ts`), `src/components/planner/` (`Planner.tsx`
 the Block and its picker, `BuildPlan.tsx` a unit's plan and its class and gear pickers, `sources.ts` the
@@ -146,7 +146,7 @@ shared plans only.
 3. **Slice 3: Set up and sharing.** The Planner's Set up in the Workshop (roster, size, class
    steps, slots); Share with a picture; abilities as a slot (once skills are entries somewhere).
 
-## Slice 3 plan (proposed 2026-11-14, for a fresh chat to confirm with Matt)
+## Slice 3 (built 2026-11-14, Matt: "Do it here")
 
 **Set up in the Workshop.** The Workshop leaves Planner Blocks out today (`workshop/page.tsx`). Slice 3 brings the
 Party Page back as a tab there with one thing on it: **Set up** for the Planner, in the shared `EditorShell` on
@@ -163,11 +163,19 @@ so Set up needs no new SQL. Worth asking the hub whether `plan_setup` should get
 
 **Share a party.** A Share button in the Party list's header, like a tier list's: it makes this route's plan
 readable by its link and opens the phone's share menu (or copies the link). The link opens a read-only party in
-Village (`/g/<game>/party/shared/<id>`): "Matt's Theodora run", the units with their class steps and gear, and
+Village (`/g/<game>/plans/<id>`; `src/lib/plan-share.ts`, the share picture `src/lib/og-party.tsx`): "Matt's Theodora run", the units with their class steps and gear, and
 "Make your own". A share picture shows the party's pieces. "Its link is shared · make it private" under the list.
-This needs SQL (hub review): `party_plans.shared`, a select policy for shared rows, `share_party_plan(block, route,
+This needs SQL (`20261118000000_planner_share.sql`, sent to the hub): `party_plans.shared`, a select policy for shared rows, `share_party_plan(block, route,
 on)`, and a way to read a shared plan with its maker's display name. Plans already hold no free text (a step's
 tier is checked against its class), so the only words shown are the maker's display name.
+
+**As built:** Set up is `PlannerSetup.tsx` in the Workshop (the Party Page shows there with only the Planner's Set
+up; it isn't offered as somewhere to add entries). A shared page leaves out spoiler units, classes and items. Share
+for a guest says to sign in, since the link shows your name. Until the sharing SQL runs, the Party list reads plans
+without the shared column, so nothing breaks if the code goes live first. Checked on a local production build: the
+Workshop's Party tab and Set up with its preview, adding a slot (not saved), Share as a guest, and an unknown link
+showing Not found. Not yet checked: saving a setup (needs a moderator signed in) and sharing (needs the SQL and a
+signed-in villager).
 
 **Still later:** abilities as a slot, "most picked" counts from shared plans, a plan per difficulty.
 

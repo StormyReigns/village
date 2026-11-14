@@ -645,3 +645,21 @@ await expectFail(B, build({ gear: [{ slot: 'weapons', cards: [CLS] }] }), "only 
 await expectFail(B, build({ gear: [{ slot: 'weapons', cards: [{ x: 1 }] }] }), 'gear is a list of ids');
 await expectOk(B, build({}), 'a member with no build still saves');
 }
+
+// The Planner, slice 3: sharing a party by its link.
+{
+const share = (route, on) => `select public.share_party_plan('fortunes-weave', 'your-party', '${route}', ${on})`;
+const seenBy = async (uid) => (await asUser(uid, `select count(*)::int as n from public.party_plans where profile_id = '${B}' and route = 'cai'`)).rows[0].n;
+(await seenBy(C)) === 0 ? ok('a private party stays hidden from others') : bad('private party seen');
+await expectOk(B, share('cai', true), 'a villager shares their party');
+(await seenBy(C)) === 1 ? ok('a shared party can be read by others') : bad('shared party not readable');
+try { await db.exec('set role anon'); const r = await db.query(`select count(*)::int as n from public.party_plans where profile_id = '${B}' and route = 'cai'`); r.rows[0].n === 1 ? ok('and by guests, from its link') : bad('guest cannot read shared'); } finally { await db.exec('reset role'); }
+await expectFail(C, `select public.share_party_plan('fortunes-weave', 'your-party', 'cai', false)`, "nobody can unshare someone else's party");
+(await seenBy(C)) === 1 ? ok("someone else's party stays as its maker left it") : bad('unshared by another');
+await expectOk(B, `select public.save_party_plan('fortunes-weave', 'your-party', 'cai', '{"party":[]}'::jsonb)`, 'saving again');
+(await seenBy(C)) === 1 ? ok('saving again keeps it shared') : bad('save reset sharing');
+await expectOk(B, share('cai', false), 'making it private again');
+(await seenBy(C)) === 0 ? ok('a party made private is hidden again') : bad('still shared');
+await expectFail(B, share('nowhere', true), 'only a saved party can be shared');
+try { await db.exec('set role anon'); await db.query(share('cai', true)); bad('a guest cannot share'); } catch { ok('a guest cannot share (refused)'); } finally { await db.exec('reset role'); }
+}
