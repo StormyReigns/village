@@ -119,7 +119,8 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
   gameId: string; pages: Page[]; routes: RouteOption[]; start: FormStart; restore?: Unsent | null; me: Villager | null | undefined;
   postDraft: (d: NewDraft) => Promise<{ error?: string; id?: string }>; onClose: () => void; onPosted: (p: Posted) => void; onDiscard: () => void;
 }) {
-  const blocks = useMemo(() => pages.flatMap((p) => p.blocks.map((b) => ({ ...b, page: p }))), [pages]);
+  // A Planner holds players' plans, not entries, so there's nothing to add to it.
+  const blocks = useMemo(() => pages.flatMap((p) => p.blocks.filter((b) => b.type !== 'planner').map((b) => ({ ...b, page: p }))), [pages]);
   const [blockId, setBlockId] = useState(start.blockId);
   const block = blocks.find((b) => b.id === blockId) ?? blocks[0];
   const [fixing, setFixing] = useState<Entry | undefined>(() => block?.entries.find((e) => e.id === start.entryId));
@@ -237,7 +238,8 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cleaned.name) { setNote('Give it a name first.'); document.getElementById('entry-name')?.focus(); return; }
-    if (cleaned.name.length < 3 || cleaned.name.length > 120) { setNote('Names need 3 to 120 characters.'); return; }
+    // Any length from one letter (characters like Mu and Io have two) up to 120.
+    if (cleaned.name.length > 120) { setNote('Names can be up to 120 characters.'); return; }
     if (unchanged) { setNote("Nothing has changed yet. Edit a field, then submit."); return; }
     setBusy(true);
     const res = await postDraft({

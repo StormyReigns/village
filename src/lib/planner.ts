@@ -404,3 +404,29 @@ export function readPartyIndex(raw: unknown): PartyIndex | null {
   }
   return { href: r.href, byRoute };
 }
+
+// ------------------------------------------------------------------ Set up (the Workshop)
+
+/** A new slot's key from its name, unique among the slots; it never changes after (plans keep it). */
+export function slotKeyFor(label: string, taken: string[]): string {
+  const base = label.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'slot';
+  let key = base, n = 2;
+  while (taken.includes(key)) key = `${base.slice(0, 21)}-${n++}`;
+  return key;
+}
+
+/** A setup as Set up saves it: a whole size within the ceiling (or none), named slots with a count of
+ *  1 to 10 and no empty tag limit, and no empty lists left behind. */
+export function tidySetup(s: PlanSetup): PlanSetup {
+  const out: PlanSetup = { roster: s.roster };
+  if (s.size && s.size > 0) out.size = Math.min(Math.floor(s.size), MAX_PARTY);
+  if (s.unlock?.length) out.unlock = [...new Set(s.unlock)];
+  if (s.classes) out.classes = s.classes;
+  const slots = (s.slots ?? []).filter((x) => x.key && x.from && x.label.trim()).map((x) => ({
+    key: x.key, label: x.label.trim().replace(/\s+/g, ' '), from: x.from,
+    ...(x.tag?.key && x.tag.values.length ? { tag: { key: x.tag.key, values: [...new Set(x.tag.values)] } } : {}),
+    count: slotCount(x),
+  }));
+  if (slots.length) out.slots = slots;
+  return out;
+}

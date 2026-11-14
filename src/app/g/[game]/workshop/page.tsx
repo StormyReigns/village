@@ -34,9 +34,9 @@ export default function WorkshopPage({ params }: PageProps<'/g/[game]/workshop'>
 async function LoadedWorkshop({ params }: { params: PageProps<'/g/[game]/workshop'>['params'] }) {
   const game = getGame((await params).game);
   if (!game) notFound();
-  // Tier list and Planner Blocks have no entries of their own to add or fix, so the Workshop leaves them
-  // out, and a Page left with no Blocks (Party) too.
-  const pages = (await getApp(game.id)).map((p) => ({ ...p, blocks: p.blocks.filter((b) => b.type !== 'tierlist' && b.type !== 'planner') })).filter((p) => p.blocks.length);
+  // A Tier list Block has no entries of its own to add or fix, so the Workshop leaves it out. A Planner
+  // stays, for its Set up (docs/blocks/planner.md), though it has no entries either.
+  const pages = (await getApp(game.id)).map((p) => ({ ...p, blocks: p.blocks.filter((b) => b.type !== 'tierlist') })).filter((p) => p.blocks.length);
   const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
   return (
     // Everything in the Workshop takes the game's genre shade. On wide screens it fills the

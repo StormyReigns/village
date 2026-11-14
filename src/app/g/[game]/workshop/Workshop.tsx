@@ -35,6 +35,7 @@ import { mentionsIn } from '@/lib/refs';
 import { EntryForm, ChangeList, type FormStart, type Posted } from './EntryForm';
 import { FieldSetup } from './FieldSetup';
 import { MapSetup } from './MapSetup';
+import { PlannerSetup } from './PlannerSetup';
 import { PasteSheet } from './PasteSheet';
 import { WikiCheck } from '@/components/wiki/WikiCheck';
 import { BatchCard } from './BatchCard';
@@ -559,6 +560,8 @@ export function Workshop({ game, pages, routes }: {
               ) : editing === 'wiki' ? (
                 <WikiCheck gameId={game.id} block={wikiBlock!} mod={live.mod} onClose={() => setWikiFor(null)}
                   onFix={(entryId, wiki) => setForm({ blockId: wikiBlock!.id, entryId, field: 'wiki', wiki })} />
+              ) : setupBlock!.type === 'planner' ? (
+                <PlannerSetup gameId={game.id} block={setupBlock!} blocks={blocks} canSave={live.mod} onClose={() => setSetup(null)} />
               ) : setupBlock!.look === 'map' ? (
                 <MapSetup gameId={game.id} block={setupBlock!} me={me} mod={live.mod} drafts={drafts} postDraft={live.postDraft} sendBatch={batchData.send}
                   onBatch={(id) => { const page = setupBlock!.page.id; setSetup(null); setChip(page); setTab('drafts'); setOpenBatch(id); }} onClose={() => setSetup(null)} />
@@ -1194,6 +1197,22 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSe
             const list = rank(b.entries, query, entryText);
             if (query && !list.length) return null;
             const isFolded = folded.includes(b.id) && !query;
+            // A Planner has players' plans, not entries: only its Set up here.
+            if (b.type === 'planner') return query ? null : (
+              <section key={b.id} className="min-w-0 rounded-2xl bg-card p-3"
+                style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, var(--${p.tint}) 22%, var(--line))` }}>
+                <div className="flex items-center gap-2">
+                  <BlockIcon name={b.icon} size={17} className="shrink-0" style={{ color: `var(--${p.tint})` }} />
+                  <h4 className="min-w-0 flex-1 truncate font-bold">{b.title}</h4>
+                  <Tip text={`Choose what players build ${b.title} from, how many fit, and the gear slots`} tint={p.tint} className="shrink-0">
+                    <button onClick={() => onSetup(b.id)} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">
+                      <SlidersHorizontal size={13} aria-hidden="true" /> Set up
+                    </button>
+                  </Tip>
+                </div>
+                <p className="mt-2 text-sm text-muted">Players plan their own party here. Their plans are private, so there&apos;s nothing to add or fix: Set up chooses what they pick from.</p>
+              </section>
+            );
             return (
               // A Block of the app: a white panel with a hairline in its Page's color.
               <section key={b.id} className="min-w-0 rounded-2xl bg-card p-3"

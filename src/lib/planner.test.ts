@@ -144,3 +144,15 @@ test('the party index: members and planned items, for marks on other Pages', asy
   assert.deepEqual(readPartyIndex({ href: '/g/x/party', byRoute: { leda: { members: ['units.a', 3], items: { 'w.i': ['A', 1], bad: 'x' } } } }),
     { href: '/g/x/party', byRoute: { leda: { members: ['units.a'], items: { 'w.i': ['A'] } } } });
 });
+
+test('Set up: slot keys are made once from the name, and a setup is tidied before saving', async () => {
+  const { slotKeyFor, tidySetup } = await import('./planner.ts');
+  assert.equal(slotKeyFor('Weapons and magic', []), 'weapons-and-magic');
+  assert.equal(slotKeyFor('Rings!', ['rings']), 'rings-2');
+  assert.equal(slotKeyFor('???', []), 'slot');
+  assert.deepEqual(tidySetup({ roster: 'units', size: 15.7, unlock: ['Recruit', 'Recruit'], classes: '', slots: [
+    { key: 'w', label: ' Weapons  ', from: 'weapons', count: 40, tag: { key: 'Type', values: [] } },
+    { key: 'x', label: '   ', from: 'items' },
+  ] }), { roster: 'units', size: 15, unlock: ['Recruit'], slots: [{ key: 'w', label: 'Weapons', from: 'weapons', count: 10 }] });
+  assert.deepEqual(tidySetup({ roster: 'units', size: 0 }), { roster: 'units' });
+});
