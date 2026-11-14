@@ -1,6 +1,6 @@
 # Block 9: Planner
 
-**Status:** Slice 1 built (2026-11-14), waiting on its SQL · **Chat:** `Village · Block: Planner` ·
+**Status:** Slice 1 live (2026-11-14) · **Chat:** `Village · Block: Planner` ·
 **Mockup:** in the chat (2026-11-14) · **Code:** `src/lib/planner.ts` (setup, the party, the next-step
 line, the roster for the Party Page; tested in `planner.test.ts`), `src/components/planner/` (`Planner.tsx`
 the Block and its picker, `usePlan.ts` saving on the device and to the account), the roster handed down by
@@ -180,6 +180,9 @@ All; picking four units on Theodora's route, grouped by faction, with spoilers h
 the Recruited tick snapping solid; Ninae's card opening over the Page; reorder and remove; the plan kept
 on the device across reloads; no sideways scroll; no console errors. Not yet checked, as it needs the
 SQL and a signed-in villager: saving to the account, and a plan made on one device showing on another.
+
+Live (2026-11-14, 261c5e2): the Party Page on the live site, Theodora picked, Goliath added with his
+recruit line, no console errors. The SQL and seed were in by then.
 
 ## Open questions
 
