@@ -35,7 +35,7 @@ const GAP = PIN + 6;
 /** How far past its edges the map can be dragged, so a pin under the tools can come out. */
 const PAD = 52;
 
-export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, credit, focus, bar, overlay, tray, fullRequest, exitRequest, frameClass }: {
+export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, credit, focus, bar, overlay, tray, fullRequest, exitRequest, onFullChange, frameClass }: {
   src: string;
   pic: Size;
   alt: string;
@@ -60,6 +60,8 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, credit
   fullRequest?: number;
   /** Leaves full screen each time it changes (something opening over the page), without a step back. */
   exitRequest?: number;
+  /** Told when the map goes in or out of full screen. */
+  onFullChange?: (full: boolean) => void;
   /** The frame's height when it isn't full screen. Without it, the picture's own shape (from the
    *  Block's width), at least 15rem so the pin's card fits, at most two thirds of the
    *  screen, so a wide map has few empty bands on a phone. */
@@ -260,6 +262,7 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, credit
     asked.current = fullRequest;
     if (!fullRef.current) open();
   }, [fullRequest]);
+  useEffect(() => { onFullChange?.(full); }, [full]); // eslint-disable-line react-hooks/exhaustive-deps
   const exited = useRef(exitRequest);
   useEffect(() => {
     if (exitRequest === exited.current) return;

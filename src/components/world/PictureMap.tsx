@@ -47,6 +47,9 @@ export function PictureMap({ block, ctx, map, places, onOpenPlace, src: sample }
   const [tray, setTray] = useState<'off' | 'peek' | 'open'>('off');
   // Asks the map to leave full screen (before the place's full panel opens over the page).
   const [exit, setExit] = useState(0);
+  // The tray lines up with this Block on wide screens, unless the map is full screen.
+  const [root, setRoot] = useState<HTMLDivElement | null>(null);
+  const [full, setFull] = useState(false);
   // Groups shown on the map; none picked shows every place. Never remembered: a fresh visit
   // always shows everything, so no place is ever missing without the player knowing why (Matt).
   const [only, setOnly] = useState<string[]>([]);
@@ -89,7 +92,7 @@ export function PictureMap({ block, ctx, map, places, onOpenPlace, src: sample }
   ) : null;
 
   return (
-    <div className="mt-4">
+    <div ref={setRoot} className="mt-4">
       {groups.length > 0 && (
         // The Profiles strip's scroller: arrows at whichever end has more, the wheel scrolls it, no bar.
         <ScrollRow role="group" label="Show on the map" className="-mx-1 mb-1 flex gap-1.5 px-1 py-1 [contain:inline-size]">
@@ -111,9 +114,9 @@ export function PictureMap({ block, ctx, map, places, onOpenPlace, src: sample }
         </ScrollRow>
       )}
       <MapCanvas src={src} pic={map} alt={`Map of ${block.title}`} pins={pins} selected={picked} tint={ctx.tint}
-        onPin={tapPin} focus={focus} overlay={overlay} credit={map.credit} exitRequest={exit} />
+        onPin={tapPin} focus={focus} overlay={overlay} credit={map.credit} exitRequest={exit} onFullChange={setFull} />
       {pick && tray !== 'off' && (
-        <PlaceSheet entry={pick} block={block} ctx={ctx} clearKey={clearKey(block, pick)} open={tray === 'open'}
+        <PlaceSheet entry={pick} block={block} ctx={ctx} clearKey={clearKey(block, pick)} open={tray === 'open'} anchor={full ? null : root}
           onOpenChange={(o) => setTray(o ? 'open' : 'peek')} onClose={() => { setTray('off'); setPicked(null); }}
           onFull={() => { setTray('off'); setExit((n) => n + 1); onOpenPlace(pick); }} />
       )}

@@ -16,7 +16,7 @@ import type { BlockContext } from '@/components/app/blockParts';
 // map stays usable while it peeks. Over the full screen map too.
 
 
-export function PlaceSheet({ entry, block, ctx, clearKey, open, onOpenChange, onClose, onFull }: {
+export function PlaceSheet({ entry, block, ctx, clearKey, open, onOpenChange, onClose, onFull, anchor }: {
   entry: Entry; block: Block; ctx: BlockContext; clearKey: string;
   /** Pulled up to show the whole place. */
   open: boolean;
@@ -24,29 +24,50 @@ export function PlaceSheet({ entry, block, ctx, clearKey, open, onOpenChange, on
   onClose: () => void;
   /** The place's full panel (sharing, fixes). */
   onFull: () => void;
+  /** On wider screens the tray sits centered under this (the map's Block); else across the screen. */
+  anchor?: HTMLElement | null;
 }) {
   const [ticks, toggle] = useTicks(ctx.gameId);
   const [snapped, setSnapped] = useState(false);
-  const sheet = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState(0);
-  // Tucked away, exactly its top shows (handle, name, Cleared).
+  // Tucked away, exactly its top shows (handle, name, Cleared). Its position is worked out from
+  // the tray's own height in CSS, so details loading below never move it.
   const top = useRef<HTMLDivElement>(null);
   const [peek, setPeek] = useState(96);
+  // Lined up with the map's Block on wider screens (the app column isn't the middle of the
+  // screen when the window is wider than the app).
+  const [lane, setLane] = useState<{ left: number; width: number } | null>(null);
   // Dragging: how far the finger has moved from where the sheet sat, in px (down is positive).
   const [drag, setDrag] = useState<number | null>(null);
   const from = useRef<{ y: number; t: number; moved: boolean } | null>(null);
-  // Slides in from below the first time it shows.
-  const [shown, setShown] = useState(false);
-  useEffect(() => { const id = requestAnimationFrame(() => setShown(true)); return () => cancelAnimationFrame(id); }, []);
+  // Slides in from below the first time it shows: the browser's own animation, which ends in
+  // place even if it never gets to play (a tab in the background).
+  const shell = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    const el = sheet.current;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    shell.current?.animate([{ transform: 'translateY(100%)' }, { transform: 'translateY(0)' }], { duration: 260, easing: 'cubic-bezier(.32,.72,0,1)' });
+  }, []);
+  useLayoutEffect(() => {
+    const el = top.current;
     if (!el) return;
-    const measure = () => { setHeight(el.offsetHeight); if (top.current) setPeek(top.current.offsetHeight); };
+    const measure = () => setPeek(el.offsetHeight);
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  useLayoutEffect(() => {
+    const place = () => {
+      if (!anchor || window.innerWidth < 640) { setLane(null); return; }
+      const r = anchor.getBoundingClientRect();
+      const width = Math.min(r.width, 576);
+      setLane({ left: r.left + (r.width - width) / 2, width });
+    };
+    place();
+    window.addEventListener('resize', place);
+    const ro = anchor ? new ResizeObserver(place) : null;
+    if (anchor) ro!.observe(anchor);
+    return () => { window.removeEventListener('resize', place); ro?.disconnect(); };
+  }, [anchor]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
@@ -66,10 +87,10 @@ export function PlaceSheet({ entry, block, ctx, clearKey, open, onOpenChange, on
   const group = entry.categories.Group;
   const here = (ctx.mentions?.[entry.name.toLowerCase()] ?? []).filter((m) => !block.entries.some((e) => e.name === m.name));
 
-  // Where it sits: all the way up, or tucked with only the top showing.
-  const tucked = Math.max(0, height - peek);
-  const rest = !shown ? height || 600 : open ? 0 : tucked;
-  const y = drag == null ? rest : Math.min(height, Math.max(0, rest + drag));
+  // Where it sits: tucked with only its top showing, or all the way up; a drag adds to that, kept
+  // between all the way up and all the way down.
+  const base = open ? '0px' : `calc(100% - ${peek}px)`;
+  const y = `clamp(0px, calc(${base} + ${drag ?? 0}px), 100%)`;
 
   const down = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button, a')) return;
@@ -98,10 +119,12 @@ export function PlaceSheet({ entry, block, ctx, clearKey, open, onOpenChange, on
     <>
       {/* All the way up, the rest of the screen dims; a tap there tucks it away again. */}
       {open && <div className="fixed inset-0 z-[89] bg-ink/25" onClick={() => onOpenChange(false)} aria-hidden="true" />}
-      <div ref={sheet} role="dialog" aria-label={entry.name} aria-modal={open}
-        className={'fixed inset-x-0 bottom-0 z-[90] mx-auto flex max-h-[85dvh] w-full max-w-xl flex-col rounded-t-[1.75rem] bg-card shadow-[0_-6px_24px_rgb(0_0_0/.22)] ring-1 ring-line '
-          + (drag == null ? 'transition-transform duration-300 ease-[cubic-bezier(.2,.8,.2,1)]' : '')}
-        style={{ transform: `translateY(${y}px)` }}>
+      {/* One smooth glide, no overshoot: the curve phones use for sheets. */}
+      <div ref={shell} className={'fixed bottom-0 z-[90] ' + (lane ? '' : 'inset-x-0 mx-auto w-full max-w-xl')} style={lane ? { left: lane.left, width: lane.width } : undefined}>
+      <div role="dialog" aria-label={entry.name} aria-modal={open}
+        className={'flex max-h-[85dvh] flex-col rounded-t-[1.75rem] bg-card shadow-[0_-6px_24px_rgb(0_0_0/.22)] ring-1 ring-line '
+          + (drag == null ? 'transition-transform duration-[260ms] ease-[cubic-bezier(.32,.72,0,1)] motion-reduce:transition-none' : '')}
+        style={{ transform: `translateY(${y})` }}>
         {/* The top: drag it, or tap it. */}
         <div ref={top} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { from.current = null; setDrag(null); }}
           className="shrink-0 cursor-grab touch-none select-none px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 active:cursor-grabbing">
@@ -147,6 +170,7 @@ export function PlaceSheet({ entry, block, ctx, clearKey, open, onOpenChange, on
             Share or fix this place <ChevronRight size={15} aria-hidden="true" />
           </button>
         </div>
+      </div>
       </div>
     </>,
     document.body,
