@@ -41,14 +41,26 @@ Leaner, to spend fewer credits. Matt agreed on 2026-11-12.
 - **Server calls to outside sites:** allow only known hosts, validate ids, cache, use short timeouts.
 - **Community text in downloads:** never let a cell run as a formula.
 
-## State on 2026-11-12
+## State on 2026-11-14
 
-Live: Blocks 1 to 8 (Characters, Items, Guides, Questions, Videos, Tier lists, World map, Classes
-with units linked both ways), and the integrations: the phone app, Discord posts and Communities,
-Spreadsheets download and paste-in batches, and wiki links. The roadmap is in `docs/blocks/README.md`.
+Live: Blocks 1 to 9 (Characters, Items, Guides, Questions, Videos, Tier lists, World map, Classes
+with units linked both ways, Planner with party, builds and sharing), and the integrations: the
+phone app, Discord posts and Communities, Spreadsheets download and paste-in batches, and wiki
+links. The roadmap is in `docs/blocks/README.md`. All migrations up to 20261118000000 are run.
+
+Since 2026-11-12:
+- The bottom bar is one looping, swipeable row of every Page (no More tray).
+- The top of every Page is slim: a title row with the questions bar, then one row for Block
+  tabs, the route drop-down and the spoiler eye. Page and Block descriptions are no longer shown.
+- **No hourly limit on Drafts** (Matt, 2026-11-14; 20261117120000). The "rate limits from day
+  one" rule no longer covers Drafts; batches keep 3 a day. Don't add a Draft limit back without asking.
+- Entry names may be 1 character or more (Mu, Io), in Drafts and batches.
+- The Workshop's "In the app" lists are A to Z.
 
 Open, waiting on Matt:
 - **Tests only Matt can do (signed in or on his phone):**
+  - the new bottom bar and the slim Page top on a real phone, and the iPhone home-swipe gap;
+  - dragging to reorder a party by touch;
   - submitting and withdrawing a tier list, a personal list, and switching the tier badge off;
   - sending a real paste-in batch;
   - the pop-out video player and the chat's bottom bar on an iPhone;
