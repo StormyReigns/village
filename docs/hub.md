@@ -35,7 +35,8 @@ Leaner, to spend fewer credits. Matt agreed on 2026-11-12.
 - **Draft statuses still waiting:** checking, open, approved, preview. A content migration skips
   cards with one waiting, or updates those Drafts too.
 - **Update only untouched starter content** (exact jsonb match), append a revision, move the
-  Stable pointer, and make it safe to run twice.
+  Stable pointer, and make it safe to run twice. A purely additive change (one key that's missing,
+  nothing overwritten) may instead require the starter name plus the key being absent (20261119000000).
 - **The SQL Editor only shows the last result.** Put all the checks Matt should read in one final select.
 - **Say the run order at the top** (this, then `seed-app.sql`), and what happens if it's reversed.
 - **Server calls to outside sites:** allow only known hosts, validate ids, cache, use short timeouts.
