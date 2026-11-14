@@ -609,6 +609,10 @@ mine.rows.length === 3 && mine.rows.find((r) => r.route === 'theodora')?.plan.pa
 const theirs = await asUser(C, `select count(*)::int as n from public.party_plans`);
 theirs.rows[0].n === 0 ? ok("nobody reads someone else's party") : bad('plans seen by another ' + JSON.stringify(theirs.rows));
 await expectOk(B, `delete from public.party_plans where profile_id = '${B}' and route = 'leda'`, 'a player can delete their own party');
+await db.exec(`update public.game_blocks set plan_setup = '{"roster":"people","size":1e30}' where block_key = 'your-party'`);
+await expectOk(B, savePlan([CARD, CARD2], 'dietrich'), 'a huge party size still saves');
+await db.exec(`update public.game_blocks set plan_setup = '{"roster":"people","size":-3}' where block_key = 'your-party'`);
+await expectOk(B, savePlan([], 'dietrich'), 'a negative size still saves an empty party');
 const logRead = await asUser(B, `select count(*)::int as n from public.party_plan_saves`).catch(() => null);
 !logRead ? ok('the save log is closed to players') : bad('save log readable');
 }

@@ -91,7 +91,8 @@ begin
     raise exception 'That isn''t a party.' using errcode = 'P0001';
   end if;
   members := p->'party';
-  cap := least(coalesce(case when jsonb_typeof(setup->'size') = 'number' then (setup->>'size')::numeric::int end, 100), 100);
+  -- Clamped before it becomes a whole number, so a huge or negative size can't break saving.
+  cap := greatest(least(coalesce(case when jsonb_typeof(setup->'size') = 'number' then (setup->>'size')::numeric end, 100), 100), 0)::int;
   if jsonb_array_length(members) > cap then
     raise exception 'Your party is full: swap someone out.' using errcode = 'P0001';
   end if;

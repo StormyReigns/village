@@ -5,7 +5,7 @@
 line, the roster for the Party Page; tested in `planner.test.ts`), `src/components/planner/` (`Planner.tsx`
 the Block and its picker, `usePlan.ts` saving on the device and to the account), the roster handed down by
 the Page route (`plannerRosters`) through `PageView` · **Database:**
-`supabase/migrations/20261115000000_planner.sql` (sent to the hub for review), then `seed-app.sql` (adds
+`supabase/migrations/20261115000000_planner.sql` (passed hub review 2026-11-14), then `seed-app.sql` (adds
 Fortune's Weave · Party)
 
 A player's own plan for their run: who's in their party, what each of them will become, and what
