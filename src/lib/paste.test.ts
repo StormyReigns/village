@@ -71,8 +71,9 @@ test('changes: a new number, a cleared cell, a new row; problems in plain words'
   assert.deepEqual(n.content.stats, { might: 5, hit: 80, weight: 3, crit: 0 });
   assert.equal(bolt.status, 'bad');
   assert.deepEqual(bolt.problems, ['Might isn’t a number: "high"'.replace('’', "'")]);
-  assert.equal(al.status, 'bad');
-  assert.match(al.problems[0], /3 to 120/);
+  // Short names are fine (characters like Mu and Io have two letters).
+  assert.equal(al.status, 'new');
+  assert.deepEqual(al.problems, []);
 });
 
 test('columns the sheet does not have stay as they are', () => {

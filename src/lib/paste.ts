@@ -180,10 +180,9 @@ export function matchRows(block: Block, cols: Column[], table: string[][], picks
     });
     if (!content.name.trim() && !problems.includes('No name')) problems.push('No name');
     const same = !problems.length && entry && stable(content) === stable(contentOf(entry));
-    // A Draft's name needs 3 to 120 characters (as in the form). An unchanged row isn't sent, so an
-    // older short name ("Ty") is fine as long as the row doesn't change it.
+    // A Draft's name can be up to 120 characters (as in the form). Short ones like "Mu" are fine.
     const len = content.name.trim().length;
-    if (!same && len && (len < 3 || len > 120)) problems.push('Names need 3 to 120 characters');
+    if (!same && len > 120) problems.push('Names can be up to 120 characters');
     const status: RowStatus = problems.length ? 'bad' : same ? 'same' : !entry ? 'new' : 'changed';
     return { line: r + 2, status, entry, content, problems };
   });
