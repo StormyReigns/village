@@ -165,7 +165,7 @@ so Set up needs no new SQL. Worth asking the hub whether `plan_setup` should get
 readable by its link and opens the phone's share menu (or copies the link). The link opens a read-only party in
 Village (`/g/<game>/plans/<id>`; `src/lib/plan-share.ts`, the share picture `src/lib/og-party.tsx`): "Matt's Theodora run", the units with their class steps and gear, and
 "Make your own". A share picture shows the party's pieces. "Its link is shared · make it private" under the list.
-This needs SQL (`20261118000000_planner_share.sql`, sent to the hub): `party_plans.shared`, a select policy for shared rows, `share_party_plan(block, route,
+This needs SQL (`20261118000000_planner_share.sql`, passed hub review 2026-11-14): `party_plans.shared`, a select policy for shared rows, `share_party_plan(block, route,
 on)`, and a way to read a shared plan with its maker's display name. Plans already hold no free text (a step's
 tier is checked against its class), so the only words shown are the maker's display name.
 
