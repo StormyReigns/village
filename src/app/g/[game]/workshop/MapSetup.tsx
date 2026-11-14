@@ -28,8 +28,8 @@ const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base'
 /**
  * A Places Block's map (docs/blocks/world.md): moderators set the picture and its credit, and
  * anyone signed in places pins. Each pin is a Draft for its place (Matt), sent together with
- * "Submit": two or more go as one batch (a folder of Drafts voted on once, which counts as one
- * Draft an hour), so a whole map fits under the limits. Pins not sent yet stay on this device.
+ * "Submit": two or more go as one batch (a folder of Drafts voted on once). Pins not sent yet
+ * stay on this device.
  */
 export function MapSetup({ gameId, block, me, mod, drafts, postDraft, sendBatch, onBatch, onClose }: {
   gameId: string; block: Block & { page: Page }; me: Villager | null | undefined; mod: boolean;

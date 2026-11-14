@@ -30,6 +30,8 @@ for (const f of files) {
 }
 // Running the batches SQL a second time must be harmless.
 await db.exec(readFileSync(join(process.argv[2], files.find((f) => f.includes('draft_batches'))), 'utf8'));
+// ...then the later change to it again, so the database ends as the live one does.
+await db.exec(readFileSync(join(process.argv[2], files.find((f) => f.includes('no_hourly_draft_limit'))), 'utf8'));
 ok('migrations applied, and the batches SQL runs twice');
 
 const MOD = '11111111-1111-1111-1111-111111111111', B = '22222222-2222-2222-2222-222222222222', C = '55555555-5555-5555-5555-555555555555';
@@ -72,7 +74,8 @@ await expectFail(B, `insert into public.draft_batches (game_id, block_key, title
 await expectFail(C, send([row('Cai', OTHER, oreRev)]), 'a row cannot point at an entry in another Block', 'isn');
 await expectFail(C, send([row('Cai', CARD, caiRev), row('Cai again', CARD, caiRev)]), 'two rows cannot change the same entry', 'same entry');
 await expectFail(C, send([row('Cai', CARD, null)]), 'a fix needs the version it was based on', 'version');
-await expectFail(C, send([row('Al')]), 'every row needs a proper name', 'name');
+// Short names are fine (Mu, Io: 20261117000000), but a row still needs one.
+await expectFail(C, send([row('   ')]), 'every row needs a name', 'name');
 await expectFail(C, send(Array.from({ length: 201 }, (_, i) => row(`Unit ${i}`))), 'a batch holds 200 rows at most', '200');
 await expectFail(C, `select public.send_batch('fw', 'units', 'No source', ' ', '[{"content":{"name":"Goliath"}}]'::jsonb)`, 'a batch needs a source', 'credited');
 await expectFail(C, `select public.send_batch('fw', 'nowhere', 'Wrong', 'Somewhere', '[{"content":{"name":"Goliath"}}]'::jsonb)`, 'a batch needs a real Block', 'Block');
@@ -88,8 +91,11 @@ third.rows[0].n === 3 ? ok('three batches in a day are fine') : bad('third ' + J
 await expectFail(C, send([row('Fourth batch')], 'Fourth'), 'the 4th batch in a day is refused', '3 batches');
 await db.exec(`update public.draft_batches set created_at = now() - interval '2 hours' where author_id = '${C}'`);
 await db.exec(`update public.drafts set created_at = now() - interval '2 hours' where author_id = '${C}'`);
-for (let i = 0; i < 20; i++) await asUser(C, `insert into public.drafts (game_id, block_key, kind, title, content, author_id) values ('fw', 'units', 'fact', 'Draft ${i}', '{"name":"Draft ${i}"}', '${C}')`);
-await expectFail(C, `insert into public.drafts (game_id, block_key, kind, title, content, author_id) values ('fw', 'units', 'fact', 'Draft 21', '{"name":"Draft 21"}', '${C}')`, 'the hourly limit still holds for single Drafts', '20 Drafts');
+// No hourly limit on Drafts (20261117120000): 25 in a row all go through.
+try {
+  for (let i = 0; i < 25; i++) await asUser(C, `insert into public.drafts (game_id, block_key, kind, title, content, author_id) values ('fw', 'units', 'fact', 'Draft ${i}', '{"name":"Draft ${i}"}', '${C}')`);
+  ok('no hourly limit: 25 single Drafts in an hour are fine');
+} catch (e) { bad('an hourly limit still stops Drafts: ' + e.message); }
 
 // Voting ----------------------------------------------------------------------------------------
 await expectFail(B, `insert into public.batch_votes (batch_id, voter_id, value) values ('${b1}', '${B}', 1)`, 'the sender cannot vote on their own batch');

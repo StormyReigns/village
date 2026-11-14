@@ -1163,6 +1163,9 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
   );
 }
 
+/** A to Z, with numbers in order ("Chapter 2" before "Chapter 10"), ignoring case and accents. */
+const AZ = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
 /**
  * "In the app": what's on the selected Page right now, Block by Block, so villagers can
  * pick something to fix or add to without leaving the Workshop.
@@ -1194,7 +1197,8 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSe
         <div key={p.id} className="grid grid-cols-[minmax(0,1fr)] gap-5">
           {many && <h3 className="flex items-center gap-2 font-display text-lg"><BlockIcon name={p.icon} size={16} /> {p.title}</h3>}
           {p.blocks.map((b) => {
-            const list = rank(b.entries, query, entryText);
+            // A to Z, so an entry is easy to find to fix (Matt); while searching, best matches first.
+            const list = query ? rank(b.entries, query, entryText) : [...b.entries].sort((x, y) => AZ.compare(x.name, y.name));
             if (query && !list.length) return null;
             const isFolded = folded.includes(b.id) && !query;
             // A Planner has players' plans, not entries: only its Set up here.
