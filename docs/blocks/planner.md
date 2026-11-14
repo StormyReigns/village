@@ -148,24 +148,25 @@ shared plans only.
 
 ## Slice 3 plan (proposed 2026-11-14, for a fresh chat to confirm with Matt)
 
-**Set up in the Workshop.** The Workshop leaves Planner Blocks out today (). Slice 3 brings the
-Party Page back as a tab there with one thing on it: **Set up** for the Planner, in the shared  on
+**Set up in the Workshop.** The Workshop leaves Planner Blocks out today (`workshop/page.tsx`). Slice 3 brings the
+Party Page back as a tab there with one thing on it: **Set up** for the Planner, in the shared `EditorShell` on
 the Workbench, with the app's look as the preview (a sample party of three from the roster with their lines, and
-one unit's plan). What it sets, all in :
+one unit's plan). What it sets, all in `plan_setup`:
 - **Roster**: which Characters Block (a list of the game's Characters Blocks).
 - **Party size**: a number, or "No limit".
 - **How to get a unit**: the roster's fields to join on the line, in order (chips to tick and arrows to move).
 - **Class steps**: a Classes Block, or "None".
 - **Gear slots**: add, rename, remove; each with its Items Block, an optional tag limit (Type: Weapon) and a count
   from 1 to 10. A slot's key never changes once made, so renaming keeps everyone's plans.
-Moderators save it, like every setup (they already write  directly, as Field setup and the map do),
-so Set up needs no new SQL. Worth asking the hub whether  should get a shape check in the database.
+Moderators save it, like every setup (they already write `game_blocks` directly, as Field setup and the map do),
+so Set up needs no new SQL. Worth asking the hub whether `plan_setup` should get a shape check in the database.
 
 **Share a party.** A Share button in the Party list's header, like a tier list's: it makes this route's plan
 readable by its link and opens the phone's share menu (or copies the link). The link opens a read-only party in
-Village (): "Matt's Theodora run", the units with their class steps and gear, and
+Village (`/g/<game>/party/shared/<id>`): "Matt's Theodora run", the units with their class steps and gear, and
 "Make your own". A share picture shows the party's pieces. "Its link is shared · make it private" under the list.
-This needs SQL (hub review): , a select policy for shared rows, , and a way to read a shared plan with its maker's display name. Plans already hold no free text (a step's
+This needs SQL (hub review): `party_plans.shared`, a select policy for shared rows, `share_party_plan(block, route,
+on)`, and a way to read a shared plan with its maker's display name. Plans already hold no free text (a step's
 tier is checked against its class), so the only words shown are the maker's display name.
 
 **Still later:** abilities as a slot, "most picked" counts from shared plans, a plan per difficulty.
