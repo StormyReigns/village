@@ -1,6 +1,6 @@
 # Block 9: Planner
 
-**Status:** Slices 1 and 2 live (2026-11-14); slice 2b next · **Chat:** `Village · Block: Planner` ·
+**Status:** Slices 1, 2 and 2b live (2026-11-14); slice 3 (Set up, sharing) next · **Chat:** `Village · Block: Planner` ·
 **Mockup:** in the chat (2026-11-14) · **Code:** `src/lib/planner.ts` (setup, the party, the next-step
 line, the roster for the Party Page; tested in `planner.test.ts`), `src/components/planner/` (`Planner.tsx`
 the Block and its picker, `BuildPlan.tsx` a unit's plan and its class and gear pickers, `sources.ts` the
@@ -141,7 +141,7 @@ shared plans only.
 2. **Slice 2: a member's plan** (built 2026-11-14). Class steps (with "Classes for <name>" as the first
    picks) and gear slots, the "Your plan" section on the unit's card, the line moving on to gear and
    class steps. Saving builds to the account needs `20261116000000_planner_builds.sql`.
-2b. **Slice 2b: around the app** (built 2026-11-14, not yet checked in a browser or pushed). "In your party" marks on Units and on planned items, the "Your party"
+2b. **Slice 2b: around the app** (live 2026-11-14). "In your party" marks on Units and on planned items, the "Your party"
    card on the game's home, dragging to reorder. (Split from slice 2 to keep it reviewable.)
 3. **Slice 3: Set up and sharing.** The Planner's Set up in the Workshop (roster, size, class
    steps, slots); Share with a picture; abilities as a slot (once skills are entries somewhere).
@@ -210,6 +210,11 @@ yet checked: saving builds to the account (needs the slice 2 SQL and a signed-in
 Slice 2 live (2026-11-14, after its SQL and a rebuild, 1750907): Goliath's card on the live Party Page opens
 with his plan, the class steps (Master and Divine held back) and Weapons and magic, 0 of 3; no console errors.
 Saving builds to an account is still for Matt to try signed in.
+
+Slice 2b, on a local production build (desktop and phone): the home card "Your party · Next for 3 of them" with
+each one's step; "In your party" on Goliath's card on Units (opening his plan) and "Planned for Goliath" on
+Levin Sword +1; dragging Ninae to the top by her grip; reorder rows fitting a phone once the step line hides
+while reordering; no sideways scroll. Touch dragging needs a real phone (the browser here sends mouse moves).
 
 ## Open questions
 

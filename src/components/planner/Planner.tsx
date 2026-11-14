@@ -117,7 +117,8 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
                   <span className="min-w-0">
                     <span className="block font-bold leading-tight">{e.name}</span>
                     {step.text && (
-                      <span className="mt-0.5 block text-sm leading-snug text-muted">
+                      // While reordering on a phone, just the name, so the row has room for its buttons.
+                      <span className={'mt-0.5 text-sm leading-snug text-muted ' + (editing ? 'hidden sm:block' : 'block')}>
                         {STEP_LABEL[step.kind] && <span className="font-bold text-ink">{STEP_LABEL[step.kind]}: </span>}{step.text}
                       </span>
                     )}
