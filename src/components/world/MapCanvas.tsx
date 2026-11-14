@@ -71,6 +71,9 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, credit
   const [full, setFull] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const [tools, setTools] = useState(false);
+  // The picture failed to load: say so (with Try again) instead of an empty box. `tries` reloads it.
+  const [broken, setBroken] = useState(false);
+  const [tries, setTries] = useState(0);
   // The latest view, size and full screen, for touch and wheel handlers and glides.
   const viewRef = useRef<View | null>(null);
   const sizeRef = useRef<Size | null>(null);
@@ -321,13 +324,25 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, credit
       <div ref={frame} role="application" aria-label={alt} aria-roledescription="map"
         style={full || frameClass ? undefined : { height: `clamp(15rem, calc(100cqw * ${pic.h / pic.w}), min(66dvh, 40rem))` }}
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onClick={onClick}
-        className={'relative select-none overflow-hidden ' + (full ? 'min-h-0 flex-1 bg-ink [touch-action:none]' : `${frameClass ?? 'w-full'} rounded-2xl bg-card-2 ring-1 ring-line [touch-action:pan-x_pan-y]`)
+        className={'relative isolate select-none overflow-hidden ' + (full ? 'min-h-0 flex-1 bg-ink [touch-action:none]' : `${frameClass ?? 'w-full'} rounded-2xl bg-card-2 ring-1 ring-line [touch-action:pan-x_pan-y]`)
           + (onSpot ? ' cursor-crosshair' : ' cursor-grab active:cursor-grabbing')}>
         {view && (
+          // Drawn at its size on screen, placed with left and top, not moved and scaled with a CSS
+          // transform: on iPhones a big transformed picture inside a rounded box sometimes isn't
+          // drawn at all (Matt, 2026-11-14: the map went blank on his phone and stayed blank).
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={src} alt="" draggable={false} width={pic.w} height={pic.h}
-            className="pointer-events-none absolute left-0 top-0 max-w-none origin-top-left will-change-transform"
-            style={{ width: pic.w, height: pic.h, transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }} />
+          <img key={tries} src={tries ? `${src}${src.includes('?') ? '&' : '?'}try=${tries}` : src} alt="" draggable={false} width={pic.w} height={pic.h}
+            decoding="async" onError={() => setBroken(true)} onLoad={() => setBroken(false)}
+            className="pointer-events-none absolute max-w-none select-none"
+            style={{ left: view.x, top: view.y, width: pic.w * view.scale, height: pic.h * view.scale }} />
+        )}
+        {broken && (
+          <div data-map-ui className="absolute inset-0 grid place-items-center p-4">
+            <p className="grid justify-items-center gap-2 rounded-2xl bg-card px-4 py-3 text-center text-sm shadow-soft ring-1 ring-line">
+              The map picture didn&apos;t load.
+              <button type="button" onClick={() => { setBroken(false); setTries((n) => n + 1); }} className="btn-primary rounded-full px-4 py-1.5 text-sm font-bold">Try again</button>
+            </p>
+          </div>
         )}
         {groups.map((g) => g.ids.length === 1 ? pinButton(byId.get(g.ids[0])!) : (
           <button key={g.ids.join()} type="button" data-map-ui onClick={() => zoomToGroup(g.ids)} aria-label={`${g.ids.length} places here: zoom in`}

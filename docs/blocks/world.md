@@ -158,6 +158,10 @@ Drafts, and the place form's "Where on the map".
   the pin again for the whole place (its details, videos, what's here), drag down to tuck it away
   or further to close. The map stays usable while it peeks. "Share or fix this place" opens the
   usual panel. Code: `src/components/world/PlaceSheet.tsx`.
+- 2026-11-14: the map picture is drawn at its size on screen (left, top, width, height), not moved
+  and scaled with a CSS transform. Why: on Matt's phone the picture sometimes went blank and stayed
+  blank through refreshes, a known iPhone Safari problem with big transformed pictures in rounded
+  boxes. If the picture ever fails to load, the map says so with "Try again" instead of a blank box.
 - 2026-11-09: placing pins in full screen (Matt: "select from list + pin efficiently"): a "Full
   screen" button over the Workshop's map; in full screen the places sit in a strip under the map,
   the picked one in yellow, those not on the map yet first. The editor starts on the first place
