@@ -7,7 +7,8 @@ the Block and its picker, `BuildPlan.tsx` a unit's plan and its class and gear p
 Classes ladder as the Planner reads it, `usePlan.ts` saving on the device and to the account), the Blocks it
 picks from handed down by the Page route (`plannerRosters`) through `PageView`, and `lead` on `EntryPanel` ·
 **Database:** `supabase/migrations/20261115000000_planner.sql` (passed hub review 2026-11-14), then
-`seed-app.sql` (adds Fortune's Weave · Party); slice 2: `20261116000000_planner_builds.sql` (sent to the hub)
+`seed-app.sql` (adds Fortune's Weave · Party); slice 2: `20261116000000_planner_builds.sql` (passed hub review 2026-11-14; a step's tier must be one of its
+class's own tags, so plans hold no player text, ready for sharing later)
 
 A player's own plan for their run: who's in their party, what each of them will become, and what
 each one carries. Built from the game's other Blocks (Characters, Classes, Items), so every piece

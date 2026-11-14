@@ -1,7 +1,8 @@
 -- The Planner (docs/blocks/planner.md), slice 2: each party member's build, saved with the party.
 -- A member can now carry class steps (one class per tier of the game's Classes Block, each with
 -- "done") and gear (items in the slots the builders set, like "Weapons and magic", up to each
--- slot's count). Still private: only the player reads their plans. No player text is stored.
+-- slot's count). Still private: only the player reads their plans. No player text is stored: a
+-- step's tier must be one of its class's own tags.
 --
 -- RUN AFTER 20261115000000_planner.sql. Nothing else is needed: the update near the end gives
 -- Fortune's Weave's Party planner its class steps and weapon slots (seed-app.sql never replaces a
@@ -77,9 +78,15 @@ begin
                     or (s ? 'done' and jsonb_typeof(s->'done') is distinct from 'boolean')) then
         raise exception 'That class plan doesn''t fit this planner.' using errcode = 'P0001';
       end if;
+      -- Each class must be in the planner's Classes Block, and its tier must be one of that class's own
+      -- tags on Stable (Tier: Beginner), so the tier stored is the game's text, never the player's.
       if exists (select 1 from jsonb_array_elements(m->'classes') s
                  left join public.cards c on c.id = (s->>'card')::uuid and c.game_id = g and c.block_key = setup->>'classes'
-                 where c.id is null) then
+                 left join public.card_pointers cp on cp.card_id = c.id and cp.channel = 'stable'
+                 left join public.card_revisions cr on cr.id = cp.revision_id
+                 where c.id is null
+                    or not exists (select 1 from jsonb_each_text(case when jsonb_typeof(cr.content->'categories') = 'object' then cr.content->'categories' else '{}'::jsonb end) cat
+                                   where cat.value = s->>'band')) then
         raise exception 'That class plan doesn''t fit this planner.' using errcode = 'P0001';
       end if;
       if (select count(distinct s->>'band') from jsonb_array_elements(m->'classes') s) <> jsonb_array_length(m->'classes') then
@@ -107,10 +114,19 @@ begin
            or jsonb_array_length(s->'cards') > greatest(least(coalesce(case when jsonb_typeof(slot.sl->'count') = 'number' then (slot.sl->>'count')::numeric end, 1), 10), 0)
            or exists (select 1 from jsonb_array_elements(s->'cards') k
                       where jsonb_typeof(k) is distinct from 'string' or k #>> '{}' !~* uuid_re)
-           or exists (select 1 from jsonb_array_elements_text(s->'cards') k
-                      left join public.cards c on c.id = k::uuid and c.game_id = g and c.block_key = slot.sl->>'from'
-                      where c.id is null)
-           or (select count(distinct k) from jsonb_array_elements_text(s->'cards') k) <> jsonb_array_length(s->'cards')
+           or (select count(distinct k) from jsonb_array_elements(s->'cards') k) <> jsonb_array_length(s->'cards')
+      ) then
+        raise exception 'That gear doesn''t fit this planner.' using errcode = 'P0001';
+      end if;
+      -- Only now, with every id's shape checked, are they read as ids: items of the slot's own Block.
+      if exists (
+        select 1 from jsonb_array_elements(m->'gear') s
+        join lateral (
+          select sl from jsonb_array_elements(setup->'slots') sl where sl->>'key' = s->>'slot' limit 1
+        ) slot on true
+        cross join lateral jsonb_array_elements_text(s->'cards') k
+        left join public.cards c on c.id = k::uuid and c.game_id = g and c.block_key = slot.sl->>'from'
+        where c.id is null
       ) then
         raise exception 'That gear doesn''t fit this planner.' using errcode = 'P0001';
       end if;

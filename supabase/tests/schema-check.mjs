@@ -624,6 +624,8 @@ await db.exec(`
   insert into public.game_blocks (game_id, block_key, title, type, page_key) values ('fortunes-weave', 'test-classes', 'Classes', 'classes', 'party'), ('fortunes-weave', 'test-weapons', 'Weapons', 'items', 'party');
   insert into public.cards (id, game_id, block_key, slug) values ('${CLS}', 'fortunes-weave', 'test-classes', 'myrmidon'), ('${CLS2}', 'fortunes-weave', 'test-classes', 'shido'),
     ('${WPN}', 'fortunes-weave', 'test-weapons', 'iron-sword'), ('${WPN2}', 'fortunes-weave', 'test-weapons', 'levin-sword');
+  insert into public.card_revisions (card_id, content) values ('${CLS}', '{"name":"Myrmidon","sections":[],"categories":{"Tier":"Beginner"}}'), ('${CLS2}', '{"name":"Shido","sections":[],"categories":{"Tier":"Specialty"}}');
+  insert into public.card_pointers (card_id, channel, revision_id) select card_id, 'stable', max(id) from public.card_revisions where card_id in ('${CLS}', '${CLS2}') group by card_id;
   update public.game_blocks set plan_setup = '{"roster":"people","size":15,"classes":"test-classes","slots":[{"key":"weapons","label":"Weapons","from":"test-weapons","count":1}]}' where block_key = 'your-party';
 `);
 const build = (member) => `select public.save_party_plan('fortunes-weave', 'your-party', 'cai', '${JSON.stringify({ party: [{ card: CARD, ...member }] })}'::jsonb)`;
@@ -633,6 +635,9 @@ JSON.stringify(got) === JSON.stringify({ party: [{ card: CARD, gear: [{ slot: 'w
   ? ok('the build is stored rebuilt, without anything extra') : bad('stored build ' + JSON.stringify(got));
 await expectFail(B, build({ classes: [{ band: 'Beginner', card: WPN }] }), 'a class step must be a class');
 await expectFail(B, build({ classes: [{ band: 'Beginner', card: CLS }, { band: 'Beginner', card: CLS2 }] }), 'one class per tier');
+await expectFail(B, build({ classes: [{ band: 'Anything I like', card: CLS }] }), "a step's tier must be its class's own");
+try { await asUser(B, build({ gear: [{ slot: 'weapons', cards: ['not-an-id'] }] })); bad('a bad gear id is refused'); }
+catch (e) { /doesn't fit/.test(e.message) ? ok('a bad gear id is refused with the message, not a raw error') : bad('bad gear id message: ' + e.message); }
 await expectFail(B, build({ classes: [{ band: 'Beginner', card: CLS, done: 'yes' }] }), 'done is a yes or no');
 await expectFail(B, build({ gear: [{ slot: 'weapons', cards: [WPN, WPN2] }] }), "no more than a slot's count");
 await expectFail(B, build({ gear: [{ slot: 'rings', cards: [WPN] }] }), "only the planner's own slots");
