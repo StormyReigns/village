@@ -1,6 +1,6 @@
 # Block 9: Planner
 
-**Status:** Slice 1 live; slice 2 pushed (e6da09e), shows once its SQL is run (2026-11-14) · **Chat:** `Village · Block: Planner` ·
+**Status:** Slices 1 and 2 live (2026-11-14); slice 2b next · **Chat:** `Village · Block: Planner` ·
 **Mockup:** in the chat (2026-11-14) · **Code:** `src/lib/planner.ts` (setup, the party, the next-step
 line, the roster for the Party Page; tested in `planner.test.ts`), `src/components/planner/` (`Planner.tsx`
 the Block and its picker, `BuildPlan.tsx` a unit's plan and its class and gear pickers, `sources.ts` the
@@ -206,6 +206,10 @@ plan at the top of his card; Master and Divine held back as spoilers; the Beginn
 Soldier, Gladiator and Hunter for him; Gladiator picked; Levin Sword +1 added; his row reading "Get: Levin
 Sword +1", then "Next class: Gladiator" once got; the build kept on the device; no sideways scroll. Not
 yet checked: saving builds to the account (needs the slice 2 SQL and a signed-in villager).
+
+Slice 2 live (2026-11-14, after its SQL and a rebuild, 1750907): Goliath's card on the live Party Page opens
+with his plan, the class steps (Master and Divine held back) and Weapons and magic, 0 of 3; no console errors.
+Saving builds to an account is still for Matt to try signed in.
 
 ## Open questions
 
