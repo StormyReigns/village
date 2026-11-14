@@ -101,8 +101,8 @@ export function Characters({ block, ctx }: { block: Block; ctx: BlockContext }) 
 
   return (
     <TagPick.Provider value={showTag}>
-      <div ref={top} className="mt-4 flex scroll-mt-20 flex-wrap items-center gap-2">
-        <label className="flex min-w-48 flex-1 items-center gap-2 rounded-full bg-card-2 px-3 py-2 ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
+      <div ref={top} className="mt-3 flex scroll-mt-20 flex-wrap items-center gap-2">
+        <label className="flex h-9 min-w-40 flex-1 items-center gap-2 rounded-full bg-card-2 px-3 ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
           <Search size={16} className="text-muted" aria-hidden="true" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${block.title.toLowerCase()}`}
             aria-label={`Search ${block.title}`} className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted" />
@@ -110,9 +110,9 @@ export function Characters({ block, ctx }: { block: Block; ctx: BlockContext }) 
         {/* Yellow marks the player's own choice. */}
         <div role="group" aria-label="Show as" className="flex rounded-full bg-card-2 p-0.5 text-sm font-bold ring-1 ring-line">
           {([['profiles', 'Profiles', SquareUser], ['list', 'List', LayoutList]] as const).map(([v, label, Icon]) => (
-            <button key={v} type="button" onClick={() => switchTo(v)} aria-pressed={view === v}
+            <button key={v} type="button" onClick={() => switchTo(v)} aria-pressed={view === v} aria-label={label}
               className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 ' + (view === v ? 'bg-signal text-ink' : 'text-muted hover:text-ink')}>
-              <Icon size={15} aria-hidden="true" /> {label}
+              <Icon size={15} aria-hidden="true" /><span className="hidden sm:inline">{label}</span>
             </button>
           ))}
         </div>
@@ -140,7 +140,7 @@ export function Characters({ block, ctx }: { block: Block; ctx: BlockContext }) 
             <label className="shrink-0">
               <span className="sr-only">Filter by</span>
               <select value={filter} onChange={(e) => chooseGroup(e.target.value)}
-                className="rounded-full bg-card px-2.5 py-1.5 text-sm font-bold text-muted ring-1 ring-line hover:text-ink">
+                className="max-w-32 rounded-full bg-card px-2.5 py-1 text-sm font-bold text-muted ring-1 ring-line hover:text-ink">
                 {tags.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
               </select>
             </label>

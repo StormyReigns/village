@@ -379,7 +379,7 @@ export function QuestionBarView({ gameId, page, pages, links, data }: { gameId: 
   // The bar loads in the browser after the Page is drawn, so its slot is kept from the start
   // and it fades in there: the Blocks never move once someone's reading. Only before the
   // Questions SQL is run (no table yet) does the slot close again.
-  if (data.state === 'loading') return <div className="mt-4 h-[46px]" aria-hidden="true" />;
+  if (data.state === 'loading') return <div className="h-10" aria-hidden="true" />;
   if (data.state !== 'ready') return null;
   const q = open.length ? open[at % open.length] : null;
   const qp: QPage = { id: page.id, title: page.title, short: page.short, tint: page.tint };
@@ -387,12 +387,12 @@ export function QuestionBarView({ gameId, page, pages, links, data }: { gameId: 
 
   return (
     <>
-      <div className="rise relative mt-4 flex h-[46px] items-center gap-1 rounded-full bg-card py-1 pl-1 pr-1 ring-1 ring-line"
+      <div className="rise relative flex h-10 items-center gap-1 rounded-full bg-card py-1 pl-1 pr-1 ring-1 ring-line"
         onMouseEnter={() => setHeld(true)} onMouseLeave={() => setHeld(false)}
         onFocus={() => setHeld(true)} onBlur={() => setHeld(false)}
         onTouchStart={() => setHeld(true)} onTouchEnd={() => setTimeout(() => setHeld(false), 2500)}>
         <button type="button" onClick={() => setSheet('list')} aria-label={q ? `Open questions about ${page.title}` : `Questions about ${page.title}`}
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-full py-1.5 pl-2 pr-1 text-left hover:bg-card-2">
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-full py-1 pl-2 pr-1 text-left hover:bg-card-2">
           <TimerRing slide={`${at}:${q?.id ?? ''}`} animate={!still && open.length > 1} running={!held && !sheet} onDone={next} className={t.text} />
           {q ? (
             <>
@@ -417,7 +417,7 @@ export function QuestionBarView({ gameId, page, pages, links, data }: { gameId: 
             <button type="button" onClick={() => step(1)} aria-label="Next question" className="grid size-8 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink"><ChevronRight size={16} aria-hidden="true" /></button>
           </span>
         )}
-        <button type="button" onClick={() => { setResume(null); setSheet('ask'); }} className="btn-primary shrink-0 rounded-full px-4 py-1.5 text-sm font-bold">Ask</button>
+        <button type="button" onClick={() => { setResume(null); setSheet('ask'); }} className="btn-primary shrink-0 rounded-full px-4 py-1 text-sm font-bold">Ask</button>
       </div>
       {sheet === 'list' && <PageQuestions gameId={gameId} page={qp} data={data} names={names} onAsk={() => setSheet('ask')} onClose={() => setSheet(null)} />}
       {sheet === 'ask' && <AskSheet gameId={gameId} pages={pages} startPage={page.id} start={resume ?? readUnsentQuestion(gameId)} links={links} data={data} onClose={() => setSheet(null)} />}

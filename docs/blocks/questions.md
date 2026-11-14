@@ -187,6 +187,8 @@ Built in `Village · Block: Questions`, one shippable step at a time (2026-11-08
 - 2026-11-08 (Matt): the bar's question isn't bold. Every open question in the app has "Answer it",
   which opens the Workshop's Questions tab with that question brought into view and ringed in
   yellow (`?tab=questions&q=<id>`).
+- 2026-11-14 (Matt, a slimmer Page top): the bar is 40px tall. On wider screens it sits beside the
+  Page's title; on a phone it's the row under it. The Page description is no longer shown.
 
 ## Open questions
 

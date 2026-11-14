@@ -79,7 +79,7 @@ export function FilterChip({ on, tint, onClick, children }: { on: boolean; tint:
   const t = TINT[tint];
   return (
     <button onClick={onClick} aria-pressed={on}
-      className={'shrink-0 rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (on ? `${t.solid} ${t.ring} text-white` : 'bg-card ring-line hover:ring-ink')}>
+      className={'shrink-0 rounded-full px-2.5 py-1 text-sm font-bold ring-1 ' + (on ? `${t.solid} ${t.ring} text-white` : 'bg-card ring-line hover:ring-ink')}>
       {children}
     </button>
   );

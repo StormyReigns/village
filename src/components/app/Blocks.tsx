@@ -42,11 +42,13 @@ export function BlockView({ block, ctx: page }: { block: Block; ctx: BlockContex
   const intro = block.intro && !(block.byRoute && ctx.route !== 'all' && /^pick your/i.test(block.intro)) ? block.intro : null;
   return (
     <section id={block.id} aria-labelledby={`${block.id}-title`} className="app-block min-w-0 scroll-mt-20 rounded-[1.25rem] p-4 sm:p-5" style={{ '--tint': `var(--${ctx.tint})` } as React.CSSProperties}>
-      <div className="flex items-center gap-3">
-        <BlockIcon name={block.icon} size={22} className={`shrink-0 ${t.text}`} />
+      {/* One slim row: the Block's name and its tools. Its intro is read out but not shown, to keep
+          the entries near the top. */}
+      <div className="flex items-center gap-2">
+        <BlockIcon name={block.icon} size={18} className={`shrink-0 ${t.text}`} />
         <div className="min-w-0 flex-1">
-          <h2 id={`${block.id}-title`} className="font-display text-xl leading-tight">{block.title}</h2>
-          {intro && <p className="text-sm text-muted">{intro}</p>}
+          <h2 id={`${block.id}-title`} className="truncate font-display text-lg leading-tight">{block.title}</h2>
+          {intro && <p className="sr-only">{intro}</p>}
         </div>
         {/* Download as a spreadsheet (docs/blocks/spreadsheets.md); not for Guides or Tier lists. */}
         {block.entries.length > 0 && block.type !== 'guide' && block.type !== 'tierlist' && <SheetButton block={block} ctx={ctx} />}
@@ -54,7 +56,7 @@ export function BlockView({ block, ctx: page }: { block: Block; ctx: BlockContex
         {block.entries.length > 0 && (
           <Tip text={`Know something missing from ${block.title}? Add it in the Workshop`} tint={ctx.tint} className="shrink-0">
             <Link href={`/g/${ctx.gameId}/workshop?add=${block.id}`} aria-label={`Add to ${block.title}`}
-              className="inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-muted ring-1 ring-line hover:text-ink hover:ring-ink">
+              className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-sm font-bold text-muted ring-1 ring-line hover:text-ink hover:ring-ink">
               <Plus size={15} aria-hidden="true" /><span className="hidden sm:inline">Add</span>
             </Link>
           </Tip>
@@ -158,8 +160,8 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
   return (
     <>
       {block.entries.length > 8 && (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <label className="flex min-w-48 flex-1 items-center gap-2 rounded-full bg-card-2 px-3 py-2 ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <label className="flex h-9 min-w-40 flex-1 items-center gap-2 rounded-full bg-card-2 px-3 ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
             <Search size={16} className="text-muted" aria-hidden="true" />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${block.title.toLowerCase()}`}
               aria-label={`Search ${block.title}`} className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted" />

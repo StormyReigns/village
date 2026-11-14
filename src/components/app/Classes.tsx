@@ -85,8 +85,8 @@ export function Classes({ block, ctx }: { block: Block; ctx: BlockContext }) {
 
   return (
     <>
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <label className="flex min-w-48 flex-1 items-center gap-2 rounded-full bg-card-2 px-3 py-2 ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <label className="flex h-9 min-w-40 flex-1 items-center gap-2 rounded-full bg-card-2 px-3 ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
           <Search size={16} className="text-muted" aria-hidden="true" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search classes, skills or weapons"
             aria-label={`Search ${block.title}`} className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted" />
@@ -94,7 +94,7 @@ export function Classes({ block, ctx }: { block: Block; ctx: BlockContext }) {
         {/* Yellow marks the player's own choice. */}
         <div role="group" aria-label="Show as" className="flex rounded-full bg-card-2 p-0.5 text-sm font-bold ring-1 ring-line">
           {views.map(([v, label, Icon]) => (
-            <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v}
+            <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v} aria-label={label}
               className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 ' + (view === v ? 'bg-signal text-ink' : 'text-muted hover:text-ink')}>
               <Icon size={15} aria-hidden="true" /> <span className="hidden sm:inline">{label}</span>
             </button>

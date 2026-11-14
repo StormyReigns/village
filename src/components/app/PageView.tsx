@@ -3,7 +3,7 @@
 import type { Roster } from '@/lib/planner';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Clock, Eye, EyeOff, Hourglass, Info, Search } from 'lucide-react';
+import { ArrowRight, ChevronDown, Clock, Eye, EyeOff, Hourglass, Info, Search, Signpost } from 'lucide-react';
 import type { Block, Entry, Page, Route } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
 import { Piece } from '@/components/Piece';
@@ -33,6 +33,28 @@ export interface AppGame {
   routes: RouteOption[];
   /** "Which Flame Lord are you playing?" */
   routeQuestion?: string;
+}
+
+/**
+ * Pick your route on a Page: one small chip that opens the phone's own picker. Yellow once a
+ * Flame Lord is picked (yellow is "your choice"). Remembered on this device.
+ */
+function RouteMenu({ game, route, onPick }: { game: AppGame; route: Route | 'all'; onPick: (r: Route | 'all') => void }) {
+  const picked = route !== 'all' ? game.routes.find((r) => r.key === route) : undefined;
+  return (
+    <label className={'relative inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-sm font-bold ring-1 focus-within:ring-2 focus-within:ring-sky '
+      + (picked ? 'bg-signal text-ink ring-signal' : 'bg-card ring-line hover:ring-ink')}>
+      <Signpost size={14} aria-hidden="true" />
+      <span className="hidden opacity-70 sm:inline">Flame Lord</span>
+      {picked?.label ?? 'All'}
+      <ChevronDown size={14} aria-hidden="true" />
+      <select value={route} onChange={(e) => onPick(e.target.value as Route | 'all')} aria-label={game.routeQuestion ?? 'Route'}
+        className="absolute inset-0 cursor-pointer opacity-0">
+        <option value="all">All</option>
+        {game.routes.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+      </select>
+    </label>
+  );
 }
 
 /** Pick your route: All, or one Flame Lord. Remembered on this device. */
@@ -95,49 +117,52 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [], mention
 
   return (
     // A Page is a field of its color; its Blocks sit on it as white panels (brand rules in CLAUDE.md).
-    <div className={`-mx-4 -mt-4 px-4 pb-6 pt-5 sm:mx-0 sm:mt-0 sm:rounded-3xl sm:p-6 ${t.soft}`}>
+    <div className={`-mx-4 -mt-4 px-4 pb-6 pt-6 sm:mx-0 sm:mt-0 sm:rounded-3xl sm:p-5 ${t.soft}`}>
       {(openOnLoad || scrollTo) && <Welcome game={game} />}
-      <header className="relative px-1 pb-1">
-        <div className="relative flex items-center gap-4">
-          <Piece size={84} color={`var(--${page.tint})`}><BlockIcon name={page.icon} size={24} strokeWidth={2.4} /></Piece>
-          <div className="min-w-0">
-            <h1 className="font-display text-3xl leading-tight">{page.title}</h1>
-            <p className="text-muted">{page.blurb}</p>
+      {/* Kept small so a player reaches the entries fast: the title row (with the questions bar
+          beside it on wider screens), then one row of Block tabs, route and spoilers. */}
+      <header className="relative px-1">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5 sm:flex-nowrap">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <Piece size={44} color={`var(--${page.tint})`}><BlockIcon name={page.icon} size={15} strokeWidth={2.4} /></Piece>
+            <h1 className="truncate font-display text-2xl leading-tight">{page.title}</h1>
+            <p className="sr-only">{page.blurb}</p>
+          </div>
+          {/* What players have asked about this Page, one at a time, and Ask (docs/blocks/questions.md). */}
+          <div className="w-full min-w-0 sm:flex-1">
+            <QuestionBar gameId={game.id} page={page} pages={pages.length ? pages : [{ id: page.id, title: page.title, short: page.short, tint: page.tint }]} links={links} />
           </div>
         </div>
-        {/* What players have asked about this Page, one at a time, and Ask (docs/blocks/questions.md). */}
-        <QuestionBar gameId={game.id} page={page} pages={pages.length ? pages : [{ id: page.id, title: page.title, short: page.short, tint: page.tint }]} links={links} />
-        {(byRoute || hasSpoilers) && (
-          <div className="relative mt-4 flex flex-wrap items-center gap-2">
-            {byRoute && (
-              <Tip text="Pick your Flame Lord to see only your route's units, deadlines and story" tint={page.tint} className="max-w-full">
-                <RoutePicker game={game} route={prefs.route} onPick={(r) => setPrefs({ route: r })} solid="bg-signal text-ink" />
-              </Tip>
-            )}
-            {hasSpoilers && (
-              <Tip text={prefs.spoilers ? 'Spoilers are showing. Tap to hide them again' : 'Story secrets stay hidden until you choose to see them'} tint={page.tint}>
-                <button onClick={() => setPrefs({ spoilers: !prefs.spoilers })} aria-pressed={prefs.spoilers}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-2 text-sm font-bold ring-1 ring-line hover:ring-ink">
-                  {prefs.spoilers ? <Eye size={15} aria-hidden="true" /> : <EyeOff size={15} aria-hidden="true" />}
-                  {prefs.spoilers ? 'Spoilers shown' : 'Spoilers hidden'}
-                </button>
-              </Tip>
-            )}
-          </div>
-        )}
-        {page.blocks.length > 1 && (
-          <p className="relative mt-4 flex flex-wrap gap-2 text-sm">
-            {page.blocks.map((b) => (
-              <a key={b.id} href={`#${b.id}`} className="inline-flex items-center gap-1.5 rounded-full bg-card/80 px-3 py-1 font-bold ring-1 ring-line hover:ring-ink">
-                <BlockIcon name={b.icon} size={14} /> {b.title} <span className="text-muted">{entriesOf(b).filter((e) => onRoute(e, ctx.route) && (prefs.spoilers || !e.spoiler)).length}</span>
+        {(page.blocks.length > 1 || byRoute || hasSpoilers) && (
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+            {page.blocks.length > 1 && page.blocks.map((b) => (
+              <a key={b.id} href={`#${b.id}`} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-card/80 px-2.5 text-sm font-bold ring-1 ring-line hover:ring-ink">
+                {/* Icons only on wider screens, so a phone fits tabs, route and spoilers on one row. */}
+                <span className="hidden sm:inline-flex"><BlockIcon name={b.icon} size={14} /></span>{b.title} <span className="text-muted">{entriesOf(b).filter((e) => onRoute(e, ctx.route) && (prefs.spoilers || !e.spoiler)).length}</span>
               </a>
             ))}
-          </p>
+            <span className="ml-auto flex items-center gap-1.5">
+              {byRoute && (
+                <Tip text="Pick your Flame Lord to see only your route's units, deadlines and story" tint={page.tint}>
+                  <RouteMenu game={game} route={prefs.route} onPick={(r) => setPrefs({ route: r })} />
+                </Tip>
+              )}
+              {hasSpoilers && (
+                <Tip text={prefs.spoilers ? 'Spoilers are showing. Tap to hide them again' : 'Spoilers are hidden. Tap to show story secrets'} tint={page.tint}>
+                  <button onClick={() => setPrefs({ spoilers: !prefs.spoilers })} aria-pressed={prefs.spoilers}
+                    aria-label={prefs.spoilers ? 'Spoilers shown' : 'Spoilers hidden'}
+                    className={'grid size-8 shrink-0 place-items-center rounded-full ring-1 ' + (prefs.spoilers ? 'bg-signal text-ink ring-signal' : 'bg-card text-muted ring-line hover:text-ink hover:ring-ink')}>
+                    {prefs.spoilers ? <Eye size={15} aria-hidden="true" /> : <EyeOff size={15} aria-hidden="true" />}
+                  </button>
+                </Tip>
+              )}
+            </span>
+          </div>
         )}
       </header>
 
       <TextLinksProvider value={textLinks}><KinProvider kin={kin}><LinksProvider links={blockLinks}>
-        <div className="mt-4 grid gap-4">
+        <div className="mt-3 grid gap-3 sm:gap-4">
           {page.blocks.map((b) => <BlockView key={b.id} block={b} ctx={ctx} />)}
           {questionsPage === page.id && <AllQuestions gameId={game.id} pages={pages} allPages={[page]} />}
         </div>
