@@ -1,6 +1,6 @@
 # Block 9: Planner
 
-**Status:** Slice 1 live; slice 2 built, waiting on its SQL (2026-11-14) · **Chat:** `Village · Block: Planner` ·
+**Status:** Slice 1 live; slice 2 pushed (e6da09e), shows once its SQL is run (2026-11-14) · **Chat:** `Village · Block: Planner` ·
 **Mockup:** in the chat (2026-11-14) · **Code:** `src/lib/planner.ts` (setup, the party, the next-step
 line, the roster for the Party Page; tested in `planner.test.ts`), `src/components/planner/` (`Planner.tsx`
 the Block and its picker, `BuildPlan.tsx` a unit's plan and its class and gear pickers, `sources.ts` the
