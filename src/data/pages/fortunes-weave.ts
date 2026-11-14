@@ -215,6 +215,17 @@ export const PAGES: Page[] = [
     ],
   },
   {
+    // The Planner (docs/blocks/planner.md): your own party for each Flame Lord's run, right after
+    // Units (Matt, 2026-11-14); slate is the eighth Page color. 15: the most units that deploy (Part II).
+    id: 'party', title: 'Party', short: 'Party', icon: 'ClipboardList', tint: 'slate',
+    blurb: 'Your own party for this run, and the next step for each of them.',
+    blocks: [
+      block({ type: 'planner', title: 'Your party', icon: 'ClipboardList', byRoute: true, entries: [],
+        planSetup: { roster: 'units', size: 15, unlock: ['Recruit', '@description'] },
+        intro: 'Pick who you’ll take. Each one shows what to do next to get them.' }),
+    ],
+  },
+  {
     // Moved off Units onto a Page of its own (Matt, 2026-11-11); indigo is the seventh Page color.
     id: 'classes', title: 'Classes', short: 'Classes', icon: 'Shield', tint: 'indigo',
     blurb: 'Every class, its tier, and how to reach it.',

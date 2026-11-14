@@ -4,6 +4,7 @@
 // the note about hidden ones, the details panel, and filter chips. Kept apart from
 // Blocks.tsx so Blocks that live in their own files (Characters) can use them too.
 
+import type { Roster } from '@/lib/planner';
 import { useEffect, useMemo } from 'react';
 import type { Block, Entry, Page, Route, Tint } from '@/data/pages';
 import { sharePath, type Mention } from '@/data/pages/links';
@@ -27,6 +28,8 @@ export interface BlockContext {
   onShowAllSpoilers?: () => void;
   /** For map Blocks: other entries that mention each region or place (lowercase name). */
   mentions?: Record<string, Mention[]>;
+  /** For Planner Blocks: the roster each one picks from, which lives on another Page (src/lib/planner.ts). */
+  rosters?: Record<string, Roster>;
 }
 
 /** Entries the player can see: on their route, and no spoilers unless they asked. */

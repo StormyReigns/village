@@ -9,6 +9,7 @@ import { entryLinks, mapMentions, movedPagePath, sharePath } from '@/data/pages/
 import { blockLinks, withLinkMentions } from '@/lib/entry-links';
 import { shadeHex } from '@/lib/shades';
 import { questionsPage } from '@/lib/questions';
+import { plannerRosters } from '@/lib/planner';
 
 export async function generateStaticParams() {
   const all = await Promise.all(GAMES.map(async (g) => (await getApp(g.id)).map((p) => ({ game: g.id, page: p.id }))));
@@ -56,9 +57,13 @@ async function Loaded({ params, searchParams }: { params: PageProps<'/g/[game]/[
     notFound();
   }
   const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
-  const linked = blockLinks(pages, page, (p, b, e) => sharePath(game.id, p, b, e));
+  // A Planner's roster lives on another Page (Party picks from Units): its cards open here too, so
+  // they get their links and class matches as if the roster were on this Page.
+  const rosters = plannerRosters(pages, page);
+  const seen = Object.keys(rosters).length ? { ...page, blocks: [...page.blocks, ...Object.values(rosters).map((r) => r.block)] } : page;
+  const linked = blockLinks(pages, seen, (p, b, e) => sharePath(game.id, p, b, e));
   return (
-    <PageView game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }} page={page} links={entryLinks(game.id, pages)} mentions={withLinkMentions(mapMentions(game.id, pages, page), linked, page)} kin={classKin(game.id, pages, page)} blockLinks={linked}
+    <PageView game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }} page={page} links={entryLinks(game.id, pages)} mentions={withLinkMentions(mapMentions(game.id, pages, page), linked, page)} kin={classKin(game.id, pages, seen)} blockLinks={linked} rosters={rosters}
       pages={pages.map((p) => ({ id: p.id, title: p.title, short: p.short, tint: p.tint }))} questionsPage={questionsPage(pages)?.id} />
   );
 }

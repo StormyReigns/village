@@ -1,5 +1,6 @@
 'use client';
 
+import type { Roster } from '@/lib/planner';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Clock, Eye, EyeOff, Hourglass, Info, Search } from 'lucide-react';
@@ -49,7 +50,7 @@ function RoutePicker({ game, route, onPick, solid }: { game: AppGame; route: Rou
   );
 }
 
-export function PageView({ game, page, openOnLoad, scrollTo, links = [], mentions, pages = [], questionsPage, kin, blockLinks }: {
+export function PageView({ game, page, openOnLoad, scrollTo, links = [], mentions, pages = [], questionsPage, kin, blockLinks, rosters }: {
   game: AppGame; page: Page; openOnLoad?: string; scrollTo?: string; links?: TextLinkData['names'];
   mentions?: Record<string, Mention[]>;
   /** Units and classes: what this Page's cards know about the kin Block (src/lib/class-fit.ts). */
@@ -60,6 +61,8 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [], mention
   pages?: QPage[];
   /** The Page that lists every open question (questionsPage in src/lib/questions.ts). */
   questionsPage?: string;
+  /** Planner Blocks: the roster each picks from (plannerRosters in src/lib/planner.ts). */
+  rosters?: Record<string, Roster>;
 }) {
   const textLinks = useMemo(() => ({ names: links, terms: GLOSSARY[game.id] ?? {}, gameDates: IN_GAME_DATES.has(game.id) }), [links, game.id]);
   // Arriving from a share link: open that entry (or bring that Block into view), then show
@@ -87,6 +90,7 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [], mention
     spoilers: prefs.spoilers,
     onShowSpoilers: () => setPrefs({ spoilers: true }),
     mentions,
+    rosters,
   };
 
   return (

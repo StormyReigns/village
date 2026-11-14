@@ -45,7 +45,7 @@ if (process.argv[3]) {
     entries: await n(`select count(*)::int as n from public.cards c join public.card_pointers p on p.card_id = c.id and p.channel = 'stable'`),
     loose: await n(`select count(*)::int as n from public.game_blocks where page_key is null`),
   };
-  counts.games === 2 && counts.pages === 12 && counts.blocks === 16 && counts.entries === 231 && counts.loose === 0
+  counts.games === 2 && counts.pages === 13 && counts.blocks === 17 && counts.entries === 231 && counts.loose === 0
     ? ok(`seeds applied (${counts.games} games, ${counts.pages} pages, ${counts.blocks} blocks, ${counts.entries} entries on Stable) and safe to re-run`)
     : bad('seeds ' + JSON.stringify(counts));
   const st = await db.query(`select b.stats->0->>'label' as stat, r.content->'stats'->>'might' as might from public.game_blocks b join public.cards c on c.block_key = b.block_key and c.game_id = b.game_id join public.card_pointers p on p.card_id = c.id and p.channel = 'stable' join public.card_revisions r on r.id = p.revision_id where b.block_key = 'weapons-and-magic' and r.content->>'name' = 'Thoron'`);
@@ -572,4 +572,43 @@ await expectFail(A, W({ ...good, article: 'https://fireemblemwiki.org/wiki/' }),
 await expectFail(A, W({ ...good, bracket: 'a|b' }), 'the bracket word has no wiki-breaking characters');
 const gw = await db.query(`select wiki->>'name' as n from public.games where id = 'fortunes-weave'`);
 gw.rows[0]?.n === 'Fire Emblem Wiki' ? ok('the good setting stuck') : bad('wiki ' + JSON.stringify(gw.rows));
+}
+
+// The Planner (docs/blocks/planner.md): a player's party, saved whole through save_party_plan, one
+// per Planner Block and route; only the roster's units, each once, no more than the party size;
+// private to its maker; stored rebuilt from checked ids only.
+{
+await db.exec(`
+  insert into public.app_pages (game_id, page_key, title, short, icon, tint, blurb) values ('fortunes-weave', 'party', 'Party', 'Party', 'ClipboardList', 'slate', 'Your run')
+    on conflict do nothing;
+  insert into public.game_blocks (game_id, block_key, title, type, page_key, plan_setup) values ('fortunes-weave', 'your-party', 'Your party', 'planner', 'party',
+    '{"roster":"people","size":2}');
+`);
+const party = (cards, extra = {}) => `'${JSON.stringify({ party: cards.map((c) => ({ card: c, ...extra })) })}'::jsonb`;
+const savePlan = (cards, route = 'theodora', extra) => `select public.save_party_plan('fortunes-weave', 'your-party', '${route}', ${party(cards, extra)})`;
+try {
+  await db.exec('set role anon');
+  await db.query(savePlan([CARD]));
+  bad('a guest cannot save a party to the village');
+} catch { ok('a guest cannot save a party to the village (refused)'); } finally { await db.exec('reset role'); }
+await expectOk(B, savePlan([CARD, CARD2]), 'villager saves a party');
+await expectOk(B, savePlan([CARD2]), 'saving again replaces it');
+await expectOk(B, savePlan([CARD], 'leda'), 'another route gets its own party');
+await expectFail(B, savePlan([CARD, CARD2, '33333333-3333-3333-3333-333333333334']), 'no more than the party size');
+await expectFail(B, savePlan([CARD, CARD]), 'a unit cannot be in the party twice');
+await expectFail(B, savePlan(['not-an-id']), 'only real ids');
+await expectFail(B, `select public.save_party_plan('fortunes-weave', 'unit-tiers', 'theodora', ${party([CARD])})`, 'only a Planner Block takes parties');
+await expectFail(B, savePlan([CARD], 'Bad Route!'), 'a route is a plain key');
+await expectFail(B, `insert into public.party_plans (game_id, block_key, profile_id, route) values ('fortunes-weave', 'your-party', '${C}', 'cai')`, 'nobody writes a plan row directly');
+await expectFail(B, `update public.party_plans set plan = '{"party":[],"x":1}'::jsonb where profile_id = '${B}'`, 'nobody edits a plan row directly');
+await expectOk(B, savePlan([CARD], 'cai', { note: 'sneaky extra' }), 'a member with extra keys saves');
+const stored = await db.query(`select plan from public.party_plans where profile_id = '${B}' and route = 'cai'`);
+JSON.stringify(stored.rows[0]?.plan) === JSON.stringify({ party: [{ card: CARD }] }) ? ok('only the checked ids are stored') : bad('stored plan ' + JSON.stringify(stored.rows));
+const mine = await asUser(B, `select route, plan from public.party_plans order by route`);
+mine.rows.length === 3 && mine.rows.find((r) => r.route === 'theodora')?.plan.party.length === 1 ? ok('a player reads their own parties, one per route') : bad('own plans ' + JSON.stringify(mine.rows));
+const theirs = await asUser(C, `select count(*)::int as n from public.party_plans`);
+theirs.rows[0].n === 0 ? ok("nobody reads someone else's party") : bad('plans seen by another ' + JSON.stringify(theirs.rows));
+await expectOk(B, `delete from public.party_plans where profile_id = '${B}' and route = 'leda'`, 'a player can delete their own party');
+const logRead = await asUser(B, `select count(*)::int as n from public.party_plan_saves`).catch(() => null);
+!logRead ? ok('the save log is closed to players') : bad('save log readable');
 }

@@ -4,11 +4,12 @@
 
 import type { Route } from '@/data/content/types';
 import type { TierSetup } from '@/lib/tiers';
+import type { PlanSetup } from '@/lib/planner';
 
 export type { Route };
 
 /** A Page's color, from a fixed set. */
-export type Tint = 'leaf' | 'sky' | 'berry' | 'sun' | 'plum' | 'teal' | 'indigo';
+export type Tint = 'leaf' | 'sky' | 'berry' | 'sun' | 'plum' | 'teal' | 'indigo' | 'slate';
 
 /** How a Collection shows its entries: portrait cards, inventory slots, a list, a map of
  *  region tiles (grouped by the Block's first filter, e.g. Region), or a table of its
@@ -24,7 +25,7 @@ export interface StatDef {
 }
 
 /** The preset Block types. New ones come from community requests. */
-export type BlockType = 'collection' | 'guide' | 'checklist' | 'timeline' | 'characters' | 'items' | 'tierlist' | 'classes';
+export type BlockType = 'collection' | 'guide' | 'checklist' | 'timeline' | 'characters' | 'items' | 'tierlist' | 'classes' | 'planner';
 
 /**
  * What kind of thing a field holds, which decides how it's typed in and shown:
@@ -150,6 +151,9 @@ export interface Block {
   /** Tier list only: which Block on this Page it ranks, its tiers, and optional limits
    *  (docs/blocks/tier-lists.md). A Tier list has no entries of its own. */
   tierSetup?: TierSetup;
+  /** Planner only: which Characters Block a party comes from, and its size (docs/blocks/planner.md).
+   *  A Planner has no entries of its own: it holds each player's plan. */
+  planSetup?: PlanSetup;
   /** Places (a "map" Collection): the picture its pins sit on, set by moderators. */
   map?: BlockMap;
   entries: Entry[];

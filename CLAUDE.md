@@ -87,7 +87,7 @@ Integrations (phone app, Discord, Spreadsheets, wiki links) have specs there too
   yellow and violet split, was the old banner logo's look and is unused for now.)
 - **Colors**: ink #15171c and signal yellow #FFC53D frame every screen (ink top bar,
   yellow main button). Yellow means "act on this" or "your choice". One standard color per
-  Page in every game (seven: berry, sun, plum, sky, teal, leaf and indigo, added for Classes 2026-11-11); a game's genre may shift the shade, never the hue. Each game picks a
+  Page in every game (eight: berry, sun, plum, sky, teal, leaf, indigo, added for Classes 2026-11-11, and slate, added for Party 2026-11-14); a game's genre may shift the shade, never the hue. Each game picks a
   `shade` in `src/data/games.ts` (standard, cozy, fantasy, shooter, openworld; table in
   `src/lib/shades.ts`); `GameShade` applies it to that game's screens only, and share
   pictures use it too. Fortune's Weave and Ocarina of Time are fantasy.

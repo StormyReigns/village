@@ -51,6 +51,7 @@ const DEFAULT_LABELS: Record<Block['type'], string[]> = {
   items: [],
   classes: [],
   tierlist: [],
+  planner: [],
 };
 
 const DESCRIPTION_LABEL: Record<Block['type'], string> = {
@@ -62,6 +63,7 @@ const DESCRIPTION_LABEL: Record<Block['type'], string> = {
   items: 'Description',
   classes: 'Description',
   tierlist: 'Description',
+  planner: 'Description',
 };
 
 // Blocks whose entries are pieces a picture can fill: people, classes, items and the like.

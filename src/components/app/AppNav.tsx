@@ -49,7 +49,8 @@ export function AppNav({ game, pages }: { game: NavGame; pages: NavPage[] }) {
                   className={'flex items-center gap-3 rounded-2xl px-2 py-1.5 transition ' + (on ? `${t.soft} font-extrabold` : 'font-bold hover:bg-card-2')}>
                   <NavSymbol name={p.icon} color={`var(--${p.tint})`} on={on} />
                   <span className="min-w-0 flex-1 truncate text-ink">{p.title}</span>
-                  <span className="text-xs text-muted">{p.count}</span>
+                  {/* A Page of the player's own (Party) has no entries to count. */}
+                  {p.count > 0 && <span className="text-xs text-muted">{p.count}</span>}
                 </Link>
               );
             })}

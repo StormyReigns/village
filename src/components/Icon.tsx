@@ -2,7 +2,7 @@ import {
   Backpack, BookOpen, CircleHelp, Flag, Hourglass, House, LayoutGrid, MapPin, Megaphone, Shield, Swords, Trophy, Users,
   Bird, Castle, Compass, Crown, Droplet, Flame, Flower2, Landmark, Lighthouse, Moon, Star, Tent, Wind,
   BadgeCheck, Gem, KeyRound, Package, ScrollText, Sparkles,
-  BedDouble, Building2, Mountain, Pickaxe, Skull, Store, TreePalm, Trees,
+  BedDouble, Building2, Mountain, Pickaxe, Skull, Store, TreePalm, Trees, ClipboardList,
   type LucideIcon, type LucideProps,
 } from 'lucide-react';
 import { Piece, pieceHeight } from './Piece';
@@ -14,6 +14,8 @@ const ICONS: Record<string, LucideIcon> = {
   BadgeCheck, Gem, KeyRound, Package, ScrollText, Sparkles,
   // Places' groups on the World map (src/lib/world-map.ts, groupSymbol).
   BedDouble, Building2, Mountain, Pickaxe, Skull, Store, TreePalm, Trees,
+  // The Party Page (the Planner, docs/blocks/planner.md).
+  ClipboardList,
 };
 
 /** Whether a symbol name is one we can draw. */
