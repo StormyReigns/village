@@ -20,7 +20,7 @@ export default function AppLayout({ children, params }: LayoutProps<'/g/[game]'>
       <Suspense fallback={<TopBar compact />}>
         <Bar params={params} />
       </Suspense>
-      <div className="mx-auto w-full max-w-6xl px-4 pb-28 pt-4 sm:px-6 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-x-8 lg:pb-16 lg:pt-6">
+      <div className="mx-auto w-full max-w-6xl px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-x-8 lg:pb-16 lg:pt-6">
         <Suspense fallback={null}>
           <Nav params={params} />
         </Suspense>

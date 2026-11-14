@@ -20,12 +20,15 @@ export const metadata: Metadata = {
 
 // Always light, even when the device is in dark mode.
 // No site-wide theme color: shared Pages set their own, which Discord uses for the preview edge.
-export const viewport: Viewport = { colorScheme: "light" };
+// "cover" makes iPhones say how much room their home swipe and rounded corners need
+// (env(safe-area-inset-*) in CSS); without it that comes out as zero in the phone app, and
+// the bottom bar sat right on the swipe. The body keeps clear of the sides in landscape.
+export const viewport: Viewport = { colorScheme: "light", viewportFit: "cover" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${rubik.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans">
+      <body className="min-h-full flex flex-col font-sans pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
         {children}
         {/* The one video player, so a video keeps playing while you scroll or change Pages. */}
         <VideoDock />
