@@ -104,7 +104,7 @@ What this means for the design:
 
 - **Ladder** (the default): one band per tier, top to bottom. Each band's header is the tier's
   name, how many classes, and what it takes ("Level 20 · Renown 4 · Specialty License") over a rule
-  in the Page color; tapping it opens the tier's own card. Under it the classes as pieces (initials
+  in the Page color; when the tier's info has more lines, tapping the header shows them. Under it the classes as pieces (initials
   until there's art), their names under them like app icons, then their exam, and a small lock with
   the routes for a route-locked class. Pieces never touch.
 - **Spoilers**: Master and Divine classes (Part III) and Elephant Rider are spoilers. Their bands
@@ -129,7 +129,6 @@ The Characters card, laid out by the class fields, with a smaller picture (as it
 - **How to unlock** (route by route where it differs), **Who can take it** ("Women only", "One unit
   at a time"), **Mastery skill**, **Skills**, the description, then the wiki link and videos as on
   every card.
-- A tier's own card (from its band header) shows what the tier takes and a line about it.
 
 ## Fields
 
@@ -156,13 +155,18 @@ slice 1's seed) keeps its own labels and fields; new common fields, like Leads t
 its Set up switched off, for a moderator to turn on. Re-running seed-app.sql never replaces a saved
 setup.
 
-A tier's header card is an entry with `header: true`, its tier, an `order` (its place on the
-ladder), "How to unlock" (what the tier takes) and a description. Builders can add their own fields
+**The tiers are the band tag's list of choices** (since 2026-11-15): in Set up, a tag's "Make a
+list" opens a panel to type the choices in order, each with optional info. On the band tag, the
+order is the ladder's, and the info's first line heads the band (what the tier takes); more lines
+open with a tap. Whoever adds or fixes a class then picks its tier from the list. Any tag can have a
+list (Moves, say); without one, anything can be typed, as before. Builders can add their own fields
 of any kind, as in Characters and Items.
 
-**Fortune's Weave**: 58 classes and 5 tier cards. The four old tier summaries keep their ids
-(`beginner-classes`...) as the headers, so old links open the tier's card; the eight secret classes
-keep theirs.
+Before lists, a tier was a header card: an entry with `header: true`, its tier and an `order`. The
+code still reads one if a Block has it (a list wins), but nothing makes new ones.
+
+**Fortune's Weave**: 58 classes; its five tiers are its Tier tag's choices (20261121000000 moved them
+from the old tier cards, which Matt removed). The eight secret classes keep their old ids.
 
 ## Builders
 
@@ -208,6 +212,11 @@ context), one line in `CharacterCard.tsx`, and the kin handed down by the Page r
   ranking by one stat".
 
 ## Decisions
+
+- 2026-11-15: tiers are a list of choices on the band tag, not header cards (Matt: removing the
+  "Advanced classes" cards, which sat among the classes as entries, lost what each tier takes). Set
+  up gets a panel to make a tag's list, with optional info per choice; the entry form picks from it;
+  the ladder follows its order and heads each band with its info.
 
 - 2026-11-11: Classes is its own Page (the hub, with Matt); this chat designs the Block.
 - 2026-11-11: one entry per class, all 58; the four tier summaries become the ladder's header cards,

@@ -2,7 +2,7 @@
 // a builder can add, where each value lives on an entry, and the "John Doe" sample the
 // builder's preview fills in. See FieldDef in src/data/pages/types.ts.
 
-import type { Block, BlockType, EntryContent, FieldDef, FieldKind, Route, Section, StatDef } from '@/data/pages/types';
+import type { Block, BlockType, Choice, EntryContent, FieldDef, FieldKind, Route, Section, StatDef } from '@/data/pages/types';
 import { STEPS, TIP, WATCH_OUT, WRITEUP } from './guides.ts';
 
 /** Fields whose values are the entry's own description and stats, not a section. */
@@ -15,7 +15,7 @@ export const TIER = '@tier';
 export const FIELD_KINDS: { kind: FieldKind; label: string; hint: string }[] = [
   { kind: 'text', label: 'Short text', hint: 'A word or two, like a voice actor' },
   { kind: 'number', label: 'Number', hint: 'Like a level or a price' },
-  { kind: 'tag', label: 'Tag', hint: 'A pill under the name, and a filter' },
+  { kind: 'tag', label: 'Tag', hint: 'A pill under the name, and a filter. Give it a list of choices and builders pick from it' },
   { kind: 'place', label: 'Place', hint: 'Shown under the name with a pin' },
   { kind: 'when', label: 'When', hint: 'A chapter, date or time, with a clock' },
   { kind: 'list', label: 'List', hint: 'One per line. "Name: what it does" works' },
@@ -59,6 +59,23 @@ export function toggleOptions(f: Pick<FieldDef, 'options' | 'label'>): [string, 
   const m = f.label.match(/^(.+?)\s+or\s+(.+)$/i);
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
   return m ? [cap(m[1].trim()), cap(m[2].trim())] : ['Yes', 'No'];
+}
+
+/** A tag's list of choices, in order, without blanks or repeats. Empty: any value can be typed. */
+export function choicesOf(f?: Pick<FieldDef, 'choices'>): Choice[] {
+  const seen = new Set<string>();
+  return (f?.choices ?? []).map((c) => ({ ...c, name: c.name.trim() })).filter((c) => {
+    const k = c.name.toLowerCase();
+    if (!k || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+/** A choice's info, split into its short first line (a band's header) and the rest. */
+export function aboutParts(about?: string): { short: string; more: string } {
+  const lines = (about ?? '').split('\n');
+  return { short: lines[0]?.trim() ?? '', more: lines.slice(1).join('\n').trim() };
 }
 
 /** Fields kept as an entry's category (so they can be filtered on), not as a section. */

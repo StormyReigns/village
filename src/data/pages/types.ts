@@ -63,6 +63,10 @@ export interface FieldDef {
   noNumbers?: boolean;
   /** Toggles: the two choices, the first shown green and the second red (Playable or NPC). */
   options?: [string, string];
+  /** Tags: the list builders pick from (Beginner, Specialty, Advanced...), in order, each with
+   *  optional info. On a Classes Block the band tag's choices are the ladder's bands, and their
+   *  info heads each band (what the tier takes). Missing: any value can be typed, as before. */
+  choices?: Choice[];
   /** Items: shown on the item's tile as well as in its full view (three at most). */
   tile?: boolean;
   /** Links: the Block it points at (a Block id in this game). Missing: the Block it's on, as every
@@ -75,6 +79,10 @@ export interface FieldDef {
    *  shows Alice too), instead of an other side. Missing: on for Relationships (`bothOf`). */
   both?: boolean;
 }
+
+/** One choice in a tag's list: its name (the value entries keep), and optional info about it.
+ *  The info's first line is the short version (a band's header shows it). */
+export interface Choice { name: string; about?: string }
 
 /** A "+" section on an entry: a label the Builder chose, and its text. Lines become a list. */
 export interface Section { label: string; text: string }

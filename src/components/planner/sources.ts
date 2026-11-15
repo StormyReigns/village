@@ -25,7 +25,7 @@ export function ladderOf(src: Source | undefined, route: Route | 'all'): ClassLa
   if (!shape.band) return undefined;
   const all = src.block.entries;
   const classes = all.filter((e) => !e.header);
-  const bands = bandOrder(all, shape.band);
+  const bands = bandOrder(all, shape.band, shape.choices);
   if (!bands.length) return undefined;
   return {
     bands,

@@ -213,7 +213,7 @@ function Preview({ setup, roster, classes, itemBlocks, tint }: { setup: PlanSetu
   const sample = (roster?.entries ?? []).filter((e) => !e.header && !e.spoiler).slice(0, 3);
   const color = `var(--${roster?.page.tint ?? tint})`;
   const shape = classes ? classShape(classes) : undefined;
-  const bands = classes && shape?.band ? bandOrder(classes.entries, shape.band).slice(0, 4) : [];
+  const bands = classes && shape?.band ? bandOrder(classes.entries, shape.band, shape.choices).slice(0, 4) : [];
   return (
     <div className="grid gap-3 rounded-[1.25rem] p-3" style={{ background: `var(--${tint}-soft)` }}>
       <div className="rounded-[1.25rem] bg-card p-4">

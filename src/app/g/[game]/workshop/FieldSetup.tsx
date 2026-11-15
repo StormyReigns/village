@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, Info, LayoutGrid, Link2, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, Info, LayoutGrid, Link2, ListPlus, Plus, Trash2 } from 'lucide-react';
 import type { Block, FieldDef, FieldKind, Page, StatDef } from '@/data/pages';
 import type { RouteOption } from '@/components/app/EntryPanel';
 import { CharacterCard } from '@/components/app/CharacterCard';
@@ -13,9 +13,11 @@ import { useWide } from './split';
 import { EditorShell } from './EditorShell';
 import { browserClient } from '@/lib/supabase/browser';
 import { appChanged } from '@/app/actions';
-import { DESCRIPTION, TIER, TILE_MAX, besideText, canTile, toggleOptions, STATS, chartDefs, fieldsOf, hasValue, withCommon, johnDoe, kindLabel, kindsFor, shownFields, spotOf, statKeyFor, valueOf } from '@/lib/fields';
+import { DESCRIPTION, TIER, TILE_MAX, besideText, canTile, choicesOf, toggleOptions, STATS, chartDefs, fieldsOf, hasValue, withCommon, johnDoe, kindLabel, kindsFor, shownFields, spotOf, statKeyFor, valueOf } from '@/lib/fields';
 import { ItemTile } from '@/components/app/Items';
 import { FROM } from '@/lib/fields';
+import { classShape } from '@/lib/classes';
+import { ChoiceList } from './ChoiceList';
 import { backOf, bothOf, incomingFields, pointsAway, withFromRows } from '@/lib/entry-links';
 
 const input = 'w-full rounded-xl bg-card px-2.5 py-1.5 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-sky';
@@ -48,6 +50,8 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
     .map((f) => [f.key, chartDefs(block, f).map((d) => d.label).join(', ')])));
   const [adding, setAdding] = useState<{ label: string; kind: FieldKind }>({ label: '', kind: 'text' });
   const [view, setView] = useState<'profile' | 'row'>('profile');
+  // The tag whose list of choices is open in its panel, by its place in `fields`.
+  const [listing, setListing] = useState<number | null>(null);
   const wide = useWide();
   const [note, setNote] = useState(saved ? 'Picked up the setup you saved as a draft.' : '');
   const [busy, setBusy] = useState(false);
@@ -224,6 +228,23 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
               {(f.kind === 'list' || f.kind === 'links' || f.kind === 'place') && !f.off && !guide && (
                 <LinkSetup f={f} block={block} blocks={blocks} onChange={(p) => patch(i, p)} />
               )}
+              {f.kind === 'tag' && !f.off && (() => {
+                // A tag's list of choices, made in its own panel (ChoiceList.tsx).
+                const list = choicesOf(f);
+                const bands = block.type === 'classes' && classShape({ ...draft, entries: block.entries }).band === f.key;
+                return (
+                  <div className="flex flex-wrap items-center gap-2 pl-11 text-xs">
+                    <span className="min-w-0 flex-1 text-muted">
+                      {list.length
+                        ? <><span className="font-bold text-ink">{bands ? 'Bands' : 'Choices'}:</span> {list.map((c) => c.name).join(' · ')}</>
+                        : bands ? 'The ladder\'s bands. Make a list to put them in order and say what each takes.' : 'Anyone can type anything. Make a list and builders pick from it.'}
+                    </span>
+                    <button type="button" onClick={() => setListing(i)} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 font-bold ring-1 ring-line hover:ring-ink">
+                      <ListPlus size={13} aria-hidden="true" /> {list.length ? 'Edit list' : 'Make a list'}
+                    </button>
+                  </div>
+                );
+              })()}
               {f.kind === 'playable' && !f.off && (
                 <div className="grid gap-1 pl-11 text-xs">
                   <span className="font-bold text-muted">The two choices</span>
@@ -261,6 +282,20 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
           {!canSave && (
             <p className="text-sm text-muted">A Block&apos;s setup changes it for everyone, so a moderator saves it. Try things here and see the preview; suggesting a setup for votes comes later.</p>
           )}
+          {listing !== null && fields[listing] && (() => {
+            const f = fields[listing];
+            const counts = new Map<string, number>();
+            for (const e of block.entries) {
+              const v = !e.header ? e.categories[f.key]?.trim() : '';
+              if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
+            }
+            return (
+              <ChoiceList label={f.label} choices={f.choices} used={[...counts]}
+                bands={block.type === 'classes' && classShape({ ...draft, entries: block.entries }).band === f.key}
+                onClose={() => setListing(null)}
+                onDone={(choices) => { patch(listing, { choices: choices.length ? choices : undefined }); setListing(null); }} />
+            );
+          })()}
         </>
       }
       preview={guide ? (

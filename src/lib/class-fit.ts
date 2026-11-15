@@ -60,7 +60,7 @@ export function classKin(game: string, pages: Page[], page: Page): Kin[] {
       const shape = classShape(classes);
       out.push({
         game, forBlock: here.id, side: here.type === 'characters' ? 'classes' : 'units', page: p.id, block: b.id, title: b.title, tint: p.tint, defs,
-        bands: here.type === 'characters' ? bandOrder(classes.entries, shape.band) : [],
+        bands: here.type === 'characters' ? bandOrder(classes.entries, shape.band, shape.choices) : [],
         rows: entriesOf(b).map((e) => ({ id: e.id, name: e.name, icon: e.icon, stats: statsOf(e, defs), spoiler: e.spoiler, routes: e.routes?.length ? e.routes : undefined,
           band: here.type === 'characters' ? bandOf(e, shape.band) || undefined : undefined }))
           .filter((r) => Object.keys(r.stats).length >= MIN_SHARED),

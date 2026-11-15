@@ -64,6 +64,10 @@ Since 2026-11-12:
   declines fixes still waiting on it. A moderator can "Bring back" from the removal's Draft
   (`restore_entry`, 20261120120000): its newest version returns and the chat says it's back.
   Tests: `supabase/tests/remove-check.mjs`.
+- **A tag can have a list of choices** (Matt, 2026-11-15; `choices` on a tag in `game_blocks.fields`,
+  made in Set up's "Make a list" panel, `ChoiceList.tsx`). The entry form picks from it. On a Classes
+  Block the band tag's list orders the ladder and its info heads each band, replacing tier header
+  cards. 20261121000000 moved Fortune's Weave's five tiers into its Tier list (waits on Matt's run).
 
 Open, waiting on Matt:
 - **Tests only Matt can do (signed in or on his phone):**

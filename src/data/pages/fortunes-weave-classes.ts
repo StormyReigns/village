@@ -1,5 +1,5 @@
-// Fortune's Weave's classes (docs/blocks/classes.md): one entry per class, plus a header card for
-// each tier saying what the tier takes. Matt chose "as much as we find" (2026-11-11), so this
+// Fortune's Weave's classes (docs/blocks/classes.md): one entry per class, and the tiers as the
+// Tier tag's list of choices, each saying what the tier takes (until 2026-11-15, header cards). Matt chose "as much as we find" (2026-11-11), so this
 // gathers what the guides had in the game's first weeks, in our own words:
 //   * exam skill ranks, route and quest locks: gameoverdrive.com.br, "todas as classes e requisitos"
 //   * class skills and how each class moves: Pocket Tactics, "Fire Emblem: Fortune's Weave classes"
@@ -18,8 +18,7 @@ function slug(s: string) {
   return s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_]+/g, '-');
 }
 
-/** The tiers, top of the ladder first, with what each takes. Their ids are the old tier cards'
- *  ("beginner-classes"...), so links to those keep opening the right tier. */
+/** The tiers, top of the ladder first, with what each takes: the Tier tag's choices. */
 const TIERS: { tier: string; name: string; needs: string; about: string; spoiler?: boolean }[] = [
   { tier: 'Beginner', name: 'Beginner classes', needs: 'Level 5 · Renown 1 · Beginner License',
     about: "Every unit's first step. Each class's mastery skill adds +1 to its main stats." },
@@ -233,7 +232,7 @@ const examLines = (exam: string) => exam.split(',').map((p) => p.trim().replace(
  *  unlock, Growth modifiers), plus how a class moves and its mastery skill. The ladder's bands are
  *  Tier (the first tag), and Exam needs, being skill ranks, also draws the path between classes. */
 export const CLASS_SETUP: FieldDef[] = [
-  { key: 'Tier', label: 'Tier', kind: 'tag' },
+  { key: 'Tier', label: 'Tier', kind: 'tag', choices: TIERS.map((t) => ({ name: t.tier, about: `${t.needs}\n${t.about}` })) },
   { key: 'Moves', label: 'Moves', kind: 'tag' },
   { key: TIER, label: 'Community tier', kind: 'tier', off: true },
   { key: STATS, label: 'Growth modifiers', kind: 'chart', noWeb: true },
@@ -247,13 +246,6 @@ export const CLASS_SETUP: FieldDef[] = [
 ];
 
 export function classEntries(): Entry[] {
-  const headers: Entry[] = TIERS.map((t, i) => ({
-    id: slug(t.name), name: t.name, header: true, order: i + 1,
-    description: t.about,
-    sections: [{ label: 'How to unlock', text: t.needs }],
-    categories: { Tier: t.tier },
-    source: SOURCE,
-  }));
   const spoilerTier = new Set(TIERS.filter((t) => t.spoiler).map((t) => t.tier));
   const classes: Entry[] = ROWS.map(([name, tier, moves, exam, growths]) => ({
     id: slug(name), name,
@@ -272,5 +264,5 @@ export function classEntries(): Entry[] {
     stats: Object.fromEntries(GROWTH_KEYS.map((k, i) => [k, growths[i]])),
     source: SOURCE,
   }));
-  return [...headers, ...classes];
+  return classes;
 }

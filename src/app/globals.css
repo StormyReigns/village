@@ -214,6 +214,9 @@ html:has(.thin-scroll), .thin-scroll, .thin-scroll * {
   @keyframes card-in-right { from { opacity: 0; transform: translateX(28%) rotate(1.5deg); } to { opacity: 1; transform: none; } }
   @keyframes card-in-left { from { opacity: 0; transform: translateX(-28%) rotate(-1.5deg); } to { opacity: 1; transform: none; } }
   @keyframes card-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
+  /* A panel sliding out from the right edge (a tag's choices in Set up: ChoiceList.tsx). */
+  .slide-in { animation: slide-in 0.22s cubic-bezier(.2,.8,.2,1); }
+  @keyframes slide-in { from { transform: translateX(100%); } to { transform: none; } }
 }
 
 /* Tooltips (components/Tip.tsx): a flat floating card edged in the trigger's color, with a

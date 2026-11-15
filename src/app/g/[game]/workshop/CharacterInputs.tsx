@@ -3,7 +3,7 @@
 import { Fragment, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, EyeOff, FileText, ImagePlus, ListOrdered, Plus, X } from 'lucide-react';
 import type { Block, EntryContent, FieldDef } from '@/data/pages';
-import { DESCRIPTION, STATS, chartDefs, isCategory, listItems, shownFields, toggleOptions } from '@/lib/fields';
+import { DESCRIPTION, STATS, aboutParts, chartDefs, choicesOf, isCategory, listItems, shownFields, toggleOptions } from '@/lib/fields';
 import { parseSteps, parseWriteup, stepsText, stepsToWriteup, writeupText, writeupToSteps, type Step, type WriteSection } from '@/lib/guides';
 import { pictureUrl } from '@/components/app/Guides';
 import { pointsAway } from '@/lib/entry-links';
@@ -221,6 +221,30 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
                     className={'rounded-full px-3 py-1 ' + (now === o ? 'bg-ink text-paper' : 'text-muted hover:text-ink')}>{o || 'Not sure'}</button>
                 ))}
               </div>
+            </div>
+          );
+        }
+        // A tag with a list of choices (set up in Set up): pick one, so every entry uses the same
+        // words. A value from before the list stays as a choice of its own, so nothing is lost.
+        const choices = f.kind === 'tag' ? choicesOf(f) : [];
+        if (choices.length) {
+          const listed = choices.some((c) => c.name.toLowerCase() === v.trim().toLowerCase());
+          const picked = choices.find((c) => c.name.toLowerCase() === v.trim().toLowerCase());
+          return (
+            <div key={f.key} role="radiogroup" aria-label={f.label} id={fid(part)} className={'grid gap-1.5' + hl(part)}>
+              <span className="text-sm font-bold">{f.label}</span>
+              <div className="flex flex-wrap gap-1.5">
+                {choices.map((c) => (
+                  <button key={c.name} type="button" role="radio" aria-checked={picked === c} onClick={() => put(picked === c ? '' : c.name)}
+                    title={aboutParts(c.about).short || undefined}
+                    className={'rounded-full px-3 py-1 text-sm font-bold ring-1 ' + (picked === c ? 'bg-ink text-paper ring-ink' : 'bg-card ring-line hover:ring-ink')}>{c.name}</button>
+                ))}
+                {v.trim() && !listed && (
+                  <button type="button" role="radio" aria-checked onClick={() => put('')} title="Not on the list. Tap to clear it"
+                    className="rounded-full border border-dashed border-ink bg-card px-3 py-1 text-sm font-bold text-muted">{v} <span className="font-normal">(not on the list)</span></button>
+                )}
+              </div>
+              {picked?.about && <span className="text-xs text-muted">{aboutParts(picked.about).short}</span>}
             </div>
           );
         }

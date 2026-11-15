@@ -1,15 +1,15 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { EyeOff, LayoutGrid, LayoutList, Lock, Search, Table2 } from 'lucide-react';
-import type { Block, Entry, Route } from '@/data/pages';
+import { ChevronDown, EyeOff, LayoutGrid, LayoutList, Lock, Search, Table2 } from 'lucide-react';
+import type { Block, Choice, Entry, Route } from '@/data/pages';
 import { ScrollRow } from '@/components/ScrollRow';
 import { Piece } from '@/components/Piece';
 import { useStored } from '@/components/useStored';
 import { closest, rank } from '@/lib/search';
 import { byStat } from '@/lib/stats';
-import { allStatDefs, isCategory, shownFields, valueOf } from '@/lib/fields';
-import { bandOf, bandOrder, classShape, rankLine } from '@/lib/classes';
+import { aboutParts, allStatDefs, isCategory, shownFields, valueOf } from '@/lib/fields';
+import { bandOf, bandOrder, choiceFor, classShape, rankLine } from '@/lib/classes';
 import { entryText, initials, useOpenEntry } from './entries';
 import { FilterChip, OpenPanel, type BlockContext } from './blockParts';
 import { StatTable, statSort } from './StatTable';
@@ -65,7 +65,7 @@ export function Classes({ block, ctx }: { block: Block; ctx: BlockContext }) {
   }, [shown, pick, chipTag, query, sort, statDef]);
 
   // The ladder: one band per value of the band tag, in the header cards' order, while nothing is searched or ranked.
-  const tiers = useMemo(() => bandOrder(block.entries, shape.band), [block, shape.band]);
+  const tiers = useMemo(() => bandOrder(block.entries, shape.band, shape.choices), [block, shape.band, shape.choices]);
   const banded = !query.trim() && !statDef;
   const bands = useMemo(() => {
     if (!banded) return [{ tier: '', header: undefined, items: list, hidden: 0 }];
@@ -128,7 +128,7 @@ export function Classes({ block, ctx }: { block: Block; ctx: BlockContext }) {
       ) : (
         bands.map((b) => (
           <section key={b.tier || 'all'} className="mt-5" aria-label={b.tier ? `${b.tier} classes` : undefined}>
-            {b.tier && <BandHeader tier={b.tier} header={b.header} block={block} count={b.items.length} tint={ctx.tint} onOpen={open} />}
+            {b.tier && <BandHeader tier={b.tier} header={b.header} choice={choiceFor(b.tier, shape.choices)} block={block} count={b.items.length} tint={ctx.tint} onOpen={open} />}
             {view === 'ladder' ? (
               b.items.length > 0 && (
                 <ul className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-x-2 gap-y-3">
@@ -155,27 +155,40 @@ export function Classes({ block, ctx }: { block: Block; ctx: BlockContext }) {
   );
 }
 
-/** A band's header: its name and how many classes, and the first line of its own card (what the
- *  tier takes, what the role does), as one button that opens that card. */
-function BandHeader({ tier, header, block, count, tint, onOpen }: { tier: string; header?: Entry; block: Block; count: number; tint: BlockContext['tint']; onOpen: (e: Entry) => void }) {
+/** A band's header: its name and how many classes, and what the tier takes (what the role does).
+ *  That comes from the band tag's choice, set up in the Block's Set up: its info's first line, with
+ *  the rest a tap away. Before tags had lists, a band's own header card did this, and tapping
+ *  opened it; a Block that still has one keeps working. */
+function BandHeader({ tier, header, choice, block, count, tint, onOpen }: { tier: string; header?: Entry; choice?: Choice; block: Block; count: number; tint: BlockContext['tint']; onOpen: (e: Entry) => void }) {
+  const [more, setMore] = useState(false);
   // The header card's first filled field in the card's order (Fortune's Weave: "Level 20 · Renown 4 ·
   // Specialty License"), else its description.
   const first = header && shownFields(block).filter((f) => !isCategory(f) && f.kind !== 'chart' && f.kind !== 'tier').map((f) => valueOf(header, f).text).find(Boolean);
-  const needs = first ?? header?.description;
+  const about = aboutParts(choice?.about);
+  const needs = about.short || (first ?? header?.description)?.split('\n')[0];
+  const extra = about.short ? about.more : '';
   const inner = (
     <>
       <span className="flex items-baseline gap-2">
         <span className="font-display text-lg leading-tight">{tier}</span>
         {count > 0 && <span className="text-xs font-bold text-muted">{count}</span>}
+        {extra && <ChevronDown size={15} className={'ml-auto shrink-0 self-center text-muted transition ' + (more ? 'rotate-180' : '')} aria-hidden="true" />}
       </span>
-      {needs && <span className="text-sm text-muted">{needs.split('\n')[0]}</span>}
+      {needs && <span className="text-sm text-muted">{needs}</span>}
     </>
   );
   // The band's rule in the Page color, so the ladder reads as rungs.
   const cls = 'grid w-full gap-0.5 border-b-2 pb-1.5 text-left';
-  return header ? (
-    <button type="button" onClick={() => onOpen(header)} className={cls + ' hover:opacity-80'} style={{ borderColor: `var(--${tint})` }} aria-label={`${tier}: about this group`}>{inner}</button>
-  ) : <div className={cls} style={{ borderColor: `var(--${tint})` }}>{inner}</div>;
+  const rule = { borderColor: `var(--${tint})` };
+  if (extra) return (
+    <div>
+      <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className={cls + ' hover:opacity-80'} style={rule}>{inner}</button>
+      {more && <p className="mt-1.5 whitespace-pre-line text-sm">{extra}</p>}
+    </div>
+  );
+  return header && !about.short ? (
+    <button type="button" onClick={() => onOpen(header)} className={cls + ' hover:opacity-80'} style={rule} aria-label={`${tier}: about this group`}>{inner}</button>
+  ) : <div className={cls} style={rule}>{inner}</div>;
 }
 
 /** One class on the ladder: its piece, its name under it like an app icon, and its exam. */

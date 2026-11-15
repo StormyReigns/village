@@ -3,14 +3,15 @@
 //
 // Nothing here knows a game. A Classes Block's shape comes from its own setup:
 //   * the bands: its first tag (Tier in Fire Emblem, Role in World of Warcraft, the starting
-//     class in Final Fantasy XIV), ordered by the bands' header cards;
+//     class in Final Fantasy XIV), ordered by that tag's list of choices (or, before a list,
+//     by the bands' header cards);
 //   * the path: "Leads to" (promotions, jobs, specs, subclasses), typed by builders, with
 //     "Comes from" worked out on the other side;
 //   * skill ranks, when a list field holds "Swords: B" lines (Fire Emblem's exams): then the path
 //     also follows the skills, a tier at a time, so nobody has to type it.
 
-import type { Block, EntryContent, FieldDef } from '../data/pages/types.ts';
-import { LEADS_TO, isCategory, listItems, shownFields } from './fields.ts';
+import type { Block, Choice, EntryContent, FieldDef } from '../data/pages/types.ts';
+import { LEADS_TO, choicesOf, isCategory, listItems, shownFields } from './fields.ts';
 
 /** Skill ranks, lowest first, as games like Fire Emblem write them. */
 const RANKS = ['E', 'E+', 'D', 'D+', 'C', 'C+', 'B', 'B+', 'A', 'A+', 'S', 'S+'];
@@ -25,9 +26,10 @@ export function needsOf(text: string | undefined): Need[] {
     .map((m) => ({ skill: m[1], rank: m[2].toUpperCase() }));
 }
 
-/** Where a Classes Block keeps what its ladder and paths read: the band tag, the list of skill
- *  ranks (if it has one), and the "Leads to" links (if switched on). */
-export interface ClassShape { band?: string; ranks?: string; leads?: string }
+/** Where a Classes Block keeps what its ladder and paths read: the band tag and its choices (the
+ *  bands in order, with what each takes), the list of skill ranks (if it has one), and the
+ *  "Leads to" links (if switched on). */
+export interface ClassShape { band?: string; choices?: Choice[]; ranks?: string; leads?: string }
 
 type ShapeBlock = Pick<Block, 'fields' | 'filters'> & Partial<Pick<Block, 'type'>> & { entries: Pick<EntryContent, 'sections' | 'header'>[] };
 
@@ -43,8 +45,11 @@ function isRanks(f: FieldDef, entries: Pick<EntryContent, 'sections' | 'header'>
 export function classShape(block: ShapeBlock): ClassShape {
   const fields = shownFields(block);
   const tags = fields.filter((f) => isCategory(f) && f.kind === 'tag');
+  const band = tags.find((f) => f.key === block.filters?.[0]) ?? tags[0];
+  const choices = choicesOf(band);
   return {
-    band: tags.find((f) => f.key === block.filters?.[0])?.key ?? tags[0]?.key,
+    band: band?.key,
+    ...(choices.length ? { choices } : {}),
     ranks: fields.find((f) => isRanks(f, block.entries))?.key,
     leads: fields.find((f) => f.kind === 'links' && f.key === LEADS_TO)?.key,
   };
@@ -57,16 +62,22 @@ export const ranksOf = (e: Pick<EntryContent, 'sections'>, ranks?: string) => (r
 export const rankLine = (e: Pick<EntryContent, 'sections'>, ranks?: string) => ranksOf(e, ranks).map((n) => `${n.skill} ${n.rank}`).join(' · ');
 
 /**
- * The bands in order: the order of their header cards (a header is a band's own card, saying
- * what the tier takes or what the role does), then any band with no header, in the order its
- * classes come.
+ * The bands in order: the band tag's choices, in the list's order (only those with a class, or a
+ * header card); then any header cards' bands (a header is a band's own card, from before tags had
+ * lists); then any other band, in the order its classes come. A choice matches whatever its
+ * classes' capitals.
  */
-export function bandOrder(entries: Pick<EntryContent, 'categories' | 'header' | 'order'>[], band?: string): string[] {
+export function bandOrder(entries: Pick<EntryContent, 'categories' | 'header' | 'order'>[], band?: string, choices: Pick<Choice, 'name'>[] = []): string[] {
   if (!band) return [];
   const headed = entries.filter((e) => e.header && bandOf(e, band)).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((e) => bandOf(e, band));
   const rest = entries.filter((e) => !e.header).map((e) => bandOf(e, band)).filter(Boolean);
-  return [...new Set([...headed, ...rest])];
+  const found = [...new Set([...headed, ...rest])];
+  const listed = choices.flatMap((c) => found.filter((b) => b.trim().toLowerCase() === c.name.trim().toLowerCase()));
+  return [...new Set([...listed, ...found])];
 }
+
+/** A band's choice from the band tag's list (its info heads the band), whatever the capitals. */
+export const choiceFor = (band: string, choices: Choice[] = []) => choices.find((c) => c.name.trim().toLowerCase() === band.trim().toLowerCase());
 
 /** How alike two sets of ranks are: skills in common over skills in either (1 is the same skills). */
 function alike(a: Need[], b: Need[]) {
@@ -99,7 +110,7 @@ export function pathAround<E extends PathEntry>(entry: E, entries: E[], shape: C
   const typedNext = named(entry).flatMap((i) => classes.filter((c) => same(c, i) && !same(c, entry)));
   const typedBefore = classes.filter((c) => !same(c, entry) && named(c).some((i) => same(i, entry)));
 
-  const bands = bandOrder(entries, shape.band);
+  const bands = bandOrder(entries, shape.band, shape.choices);
   const beforeOf = (c: E): E[] => {
     const at = bands.indexOf(bandOf(c, shape.band));
     const mine = ranksOf(c, shape.ranks);

@@ -63,7 +63,7 @@ export async function getSharedPlan(gameId: string, planId: string): Promise<Sha
   const unitById = byId(units), classById = byId(classes);
   const itemById = Object.fromEntries(Object.entries(items).map(([k, m]) => [k, byId(m)]));
   const shape = roster.classes ? classShape(roster.classes.block) : undefined;
-  const bands = roster.classes && shape?.band ? bandOrder(roster.classes.block.entries, shape.band) : [];
+  const bands = roster.classes && shape?.band ? bandOrder(roster.classes.block.entries, shape.band, shape.choices) : [];
 
   // Spoilers stay out of a shared page: a spoiler unit, class or item is left off.
   const members: SharedMember[] = plan.party.flatMap((id) => {

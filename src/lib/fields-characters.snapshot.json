@@ -391,7 +391,7 @@
   {
    "kind": "tag",
    "label": "Tag",
-   "hint": "A pill under the name, and a filter"
+   "hint": "A pill under the name, and a filter. Give it a list of choices and builders pick from it"
   },
   {
    "kind": "place",

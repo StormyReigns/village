@@ -1,8 +1,8 @@
 // Run with: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { bandOrder, classShape, needsOf, pathAround, rankLine } from './classes.ts';
-import { CLASS_FIELDS, LEADS_TO, fieldsOf } from './fields.ts';
+import { bandOrder, choiceFor, classShape, needsOf, pathAround, rankLine } from './classes.ts';
+import { CLASS_FIELDS, LEADS_TO, aboutParts, choicesOf, fieldsOf } from './fields.ts';
 import { CLASS_SETUP, classEntries } from '../data/pages/fortunes-weave-classes.ts';
 import type { EntryContent, FieldDef } from '../data/pages/types.ts';
 
@@ -54,6 +54,24 @@ test('bands go in their header cards’ order, then bands with no header', () =>
   assert.deepEqual(bandOrder([cls('Odd', 'Hidden', ''), head('Specialty', 2), head('Beginner', 1), cls('Archer', 'Specialty', '')], 'Tier'), ['Beginner', 'Specialty', 'Hidden']);
 });
 
+test("the band tag's list of choices sets the order, ahead of header cards; capitals don't matter; unlisted bands come last", () => {
+  const es = [cls('Odd', 'Hidden', ''), head('Advanced', 1), cls('Archer', 'specialty', ''), cls('Fighter', 'Beginner', ''), cls('Knight', 'Advanced', '')];
+  const choices = [{ name: 'Beginner' }, { name: 'Specialty', about: 'Level 20\nTwelve classes.' }, { name: 'Advanced' }, { name: 'Divine' }];
+  assert.deepEqual(bandOrder(es, 'Tier', choices), ['Beginner', 'specialty', 'Advanced', 'Hidden'], 'a choice with no class (Divine) adds no band');
+  const shape = classShape({ fields: [{ ...RANKS[0], choices }], filters: ['Tier'], entries: es });
+  assert.deepEqual(shape.choices?.map((c) => c.name), ['Beginner', 'Specialty', 'Advanced', 'Divine']);
+  assert.equal(choiceFor('SPECIALTY', shape.choices)?.about, 'Level 20\nTwelve classes.');
+  assert.deepEqual(aboutParts('Level 20 · Renown 4\nTwelve classes.\nNone secret.'), { short: 'Level 20 · Renown 4', more: 'Twelve classes.\nNone secret.' });
+  assert.deepEqual(choicesOf({ choices: [{ name: ' Beginner ' }, { name: '' }, { name: 'beginner' }, { name: 'Master' }] }).map((c) => c.name), ['Beginner', 'Master'], 'blanks and repeats are dropped');
+});
+
+test("Fortune's Weave's tiers are its Tier tag's choices now, not header cards", () => {
+  assert.equal(classEntries().filter((e) => e.header).length, 0);
+  const tier = CLASS_SETUP.find((f) => f.key === 'Tier')!;
+  assert.deepEqual(tier.choices?.map((c) => c.name), ['Beginner', 'Specialty', 'Advanced', 'Master', 'Divine']);
+  assert.equal(aboutParts(tier.choices?.[1].about).short, 'Level 20 · Renown 4 · Specialty License');
+});
+
 test('with skill ranks, the path follows the skills: the most alike class a band down, then the ones it builds on', () => {
   assert.deepEqual(names(pathAround(at('Shido'), fe, feShape).before), ['Myrmidon']);
   assert.deepEqual(names(pathAround(at('Dancer'), fe, feShape).before), ['Rogue', 'Archer', 'Myrmidon']);
@@ -93,18 +111,18 @@ test('the common class fields name no game: Fire Emblem words stay in its own se
   assert.ok(CLASS_FIELDS.some((f) => f.key === LEADS_TO && f.kind === 'links'));
 });
 
-test("Fortune's Weave: 58 classes in five tiers, ranks found, old ids kept, every later class has a step before", () => {
+test("Fortune's Weave: 58 classes in five tiers, ranks found, the classes' old ids kept, every later class has a step before", () => {
   const es = classEntries();
   const classes = es.filter((e) => !e.header);
   const shape = classShape({ fields: CLASS_SETUP, filters: ['Tier', 'Moves'], entries: es });
-  assert.deepEqual(shape, { band: 'Tier', ranks: 'Exam needs', leads: LEADS_TO });
+  assert.deepEqual({ ...shape, choices: shape.choices?.length }, { band: 'Tier', choices: 5, ranks: 'Exam needs', leads: LEADS_TO });
   assert.equal(classes.length, 58);
-  assert.deepEqual(bandOrder(es, shape.band), ['Beginner', 'Specialty', 'Advanced', 'Master', 'Divine']);
+  assert.deepEqual(bandOrder(es, shape.band, shape.choices), ['Beginner', 'Specialty', 'Advanced', 'Master', 'Divine']);
   for (const e of classes) assert.ok(rankLine(e, shape.ranks), `${e.name} has an exam`);
   for (const e of classes) assert.equal(Object.keys(e.stats ?? {}).length, 9, `${e.name} has nine growth modifiers`);
   const ids = new Set(es.map((e) => e.id));
   assert.equal(ids.size, es.length, 'no two entries share an id');
-  for (const id of ['beginner-classes', 'specialty-classes', 'advanced-classes', 'master-classes', 'dancer', 'ranger', 'troubadour', 'caladrius', 'dragoon', 'guardian', 'cataphract', 'blacksmith'])
+  for (const id of ['dancer', 'ranger', 'troubadour', 'caladrius', 'dragoon', 'guardian', 'cataphract', 'blacksmith'])
     assert.ok(ids.has(id), `${id} still exists`);
   for (const e of classes.filter((c) => c.categories.Tier !== 'Beginner')) assert.ok(pathAround(e, es, shape).before.length, `${e.name} has a step before`);
 });

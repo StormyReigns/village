@@ -588,7 +588,9 @@ function SystemLine({ m, me, live }: { m: ChatMessage; me: Villager | null | und
       <div className="min-w-0 flex-1 text-[13px] text-muted [@media(hover:none)]:pr-10">
         <button type="button" onClick={() => { if (key) links?.open(key); }} disabled={!title} className="text-left enabled:hover:underline">
           {m.event?.type === 'batch_published' ? <>{title && <b className="text-ink">{title}</b>}{title ? ': ' : ''}{m.body}</>
-            : title ? <><b className="text-ink">{title}</b> {m.event?.restored ? 'is back in the app' : m.event?.removed ? 'was removed from the app' : m.event?.isNew ? 'is new in the app' : 'was updated in the app'}</> : m.body}
+            // A removed entry's thread is titled by its removal Draft ("Remove Archer"), so these name the entry from the note itself.
+            : m.event?.removed || m.event?.restored ? <><b className="text-ink">{m.body.replace(/ (was removed from|is back in) the app\.$/, '')}</b> {m.event.restored ? 'is back in the app' : 'was removed from the app'}</>
+            : title ? <><b className="text-ink">{title}</b> {m.event?.isNew ? 'is new in the app' : 'was updated in the app'}</> : m.body}
         </button>
         <time dateTime={m.createdAt} title={fullTime(m.createdAt)} className="ml-1.5 text-xs">{timeOf(m.createdAt)}</time>
         <Reactions m={m} me={me} live={live} />
