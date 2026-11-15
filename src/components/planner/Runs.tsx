@@ -29,7 +29,7 @@ function sampleOf(units: Entry[], rb: Block, routes: BlockContext['routes'], set
     if (e.spoiler || !onRoute(e, first.key)) continue;
     const step = nextStep(e, { roster: rb, route: first.key, recruited: false, setup });
     // A real step to take, not an avatar or a unit who joins on their own.
-    if (step.kind === 'recruit' && !/automatic|game start|tutorial|joins/i.test(step.text)) return { e, step, route: first };
+    if (step.kind === 'recruit' && !/bautob|automatic|game start|tutorial|joins|off-route/i.test(step.text)) return { e, step, route: first };
   }
   return null;
 }
