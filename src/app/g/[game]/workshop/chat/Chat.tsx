@@ -1021,14 +1021,25 @@ function useStickToBottom(lastId: number | undefined, me: Villager | null | unde
   return { list, onScroll };
 }
 
+/** Folds the chat to a thin bar on the left, at the top right of the chat's heading. */
+function FoldButton({ onFold, className = '' }: { onFold: () => void; className?: string }) {
+  return (
+    <span className={'ml-auto shrink-0 ' + className}>
+      <Tip text="Fold the chat away, for more room">
+        <button onClick={onFold} aria-label="Fold the chat away" className="-mr-1.5 grid size-8 place-items-center rounded-full text-paper/70 hover:bg-white/10 hover:text-paper">
+          <PanelLeftClose size={17} aria-hidden="true" />
+        </button>
+      </Tip>
+    </span>
+  );
+}
+
 /** The game's one chat: messages to everyone, and a card for each thread that's talking. */
-export function Stream({ topic, onAll, onFold, switcher, bar, className = '', messages, me, live, threads, onOpen }: {
+export function Stream({ topic, onAll, onFold, bar, className = '', messages, me, live, threads, onOpen }: {
   /** A Page chosen in the chips: the stream narrows to it. */
   topic: { key: string; label: string } | null; onAll: () => void;
-  /** Wide screens: fold the chat to a thin strip. */
+  /** Folds the chat to a thin bar on the left (on phones, back to the work). */
   onFold?: () => void;
-  /** Phones: the Build / Chat switch, at the top right. */
-  switcher?: React.ReactNode;
   /** Before the heading, like the edit and chat switch over an editor. */
   bar?: React.ReactNode;
   className?: string;
@@ -1046,19 +1057,12 @@ export function Stream({ topic, onAll, onFold, switcher, bar, className = '', me
       <div className="flex min-h-10 flex-wrap items-center gap-x-2 px-3 py-1">
         {bar && <span className="mr-1 shrink-0">{bar}</span>}
         <h2 className="font-display text-base">Chat</h2>
-        {switcher && <span className="ml-auto lg:hidden">{switcher}</span>}
         {topic && (
           <span className="order-last basis-full pb-0.5 text-xs text-paper/70">
             {topic.label} only · <button onClick={onAll} className="font-bold text-signal underline underline-offset-2">show all</button>
           </span>
         )}
-        {onFold && <span className="ml-auto hidden shrink-0 lg:block">
-          <Tip text="Fold the chat away, for more room">
-            <button onClick={onFold} aria-label="Fold the chat away" className="-mr-1.5 grid size-8 place-items-center rounded-full text-paper/70 hover:bg-white/10 hover:text-paper">
-              <PanelLeftClose size={17} aria-hidden="true" />
-            </button>
-          </Tip>
-        </span>}
+        {onFold && <FoldButton onFold={onFold} />}
       </div>
       {live.state === 'loading' ? (
         <div className="grid flex-1 place-items-center bg-card py-10 text-sm text-muted">Opening the workshop doors…</div>
@@ -1107,10 +1111,10 @@ const DRAFT_STATUS: Record<string, string> = {
  * One thread on its own: everything said about the thing, with its Drafts in the timeline so
  * feedback and votes sit beside the talk that led to them.
  */
-export function ThreadPanel({ info, messages, me, live, gameId, onBack, switcher, onDraft, onEdit, bar, className = '' }: {
+export function ThreadPanel({ info, messages, me, live, gameId, onBack, onFold, onDraft, onEdit, bar, className = '' }: {
   info: ThreadInfo; messages: ChatMessage[]; me: Villager | null | undefined; live: WorkshopData; gameId: string;
-  /** Phones: the Build / Chat switch, at the top right. */
-  switcher?: React.ReactNode;
+  /** Phones: folds the chat away, back to the work. */
+  onFold?: () => void;
   /** Back to the stream, where the two don't fit side by side. */
   onBack?: () => void;
   /** Opens a Draft's card, to read it and vote. */
@@ -1146,7 +1150,7 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, switcher
         e.stopPropagation();
         onBack();
       }}>
-      {/* Phones: "← Chat ›" and the switch on the first line, the thread's name on the next. */}
+      {/* Phones: "← Chat ›" and the fold on the first line, the thread's name on the next. */}
       <div className="flex min-h-10 flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1">
         {bar && <span className="shrink-0">{bar}</span>}
         {/* A thread is a part of the main chat, so its heading says so: Chat › Eshmel. */}
@@ -1178,7 +1182,7 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, switcher
             </Tip>
           )}
         </div>
-        {switcher && <span className="ml-auto shrink-0 lg:hidden">{switcher}</span>}
+        {onFold && <FoldButton onFold={onFold} className="lg:hidden" />}
       </div>
       <ul ref={list} onScroll={onScroll} aria-live="polite" className={WALL_LIST}
         style={{ ...THREAD_WALL, boxShadow: `inset 4px 0 0 ${info.block ? 'var(--' + info.block.page.tint + ')' : 'var(--ink)'}` }}>
