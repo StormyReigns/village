@@ -67,14 +67,22 @@ What this means for the design:
 
 ## The tile
 
-Small and tidy, the same size for every item so the grid stays even (pieces never touch):
-- The piece: game art when there is some, else the Type's symbol (a key for key items, a gem
-  for materials), else initials. Never blank.
+Each item is a white card on the shelf (since 2026-11-14), with a clear gap between cards:
+- A **standout badge** on top when the item is the clear best at one of the tile's numbers:
+  "Strongest" (Might, Attack...), "Most accurate" (Hit), "Lightest" (Weight), "Best crit",
+  "Toughest", "Fastest", "Cheapest"... (`standouts` in `src/lib/items.ts`). Ties earn none, it
+  needs three items with the number, and an item keeps its first word. Where any card in the
+  Block has a badge, every card keeps the row, so the pieces line up.
+- The piece: game art when there is some, else the symbol of its Type or weapon type (drawn
+  big, about a third of the piece), else initials. Never blank.
 - The name under it, in ink, like an app-icon label (two lines at most).
 - Up to three things the builders chose to put on the tile, in their order:
-  - a chart: its first four numbers as tiny boxes ("MIG 14 · HIT 70"), heat-colored;
+  - a chart: its first four numbers in two columns, each named in full (Might, Weight) over
+    the number, heat-colored; the stat being sorted by is outlined in ink;
   - a short text or number: one small line ("1,200 G");
   - a tag or a toggle: a small pill.
+- A line on what's special: the start of its first long text ("Heals you for half the damage
+  dealt", "Recruits Ninae"), two lines at most.
 - A spoiler on the tile stays covered; a value for another route shows the player's route.
 
 ## The full view
@@ -173,6 +181,11 @@ names offered from the Block, and the live preview. Moderators save setups for n
   while showing a sword or a bow. Why: initials told players nothing, and uploading art for
   every weapon would leave most tiles as initials for a long time. A picture, once added,
   still replaces the symbol. Migration `20261119000000_weapon_types.sql`.
+- 2026-11-14: tiles became cards (Matt: "I like the cards idea but I also liked the stats"):
+  a white card each, a bigger symbol, all the tile's numbers kept but named in full and in two
+  columns, a standout badge for the clear best at a number, and a line on what's special. Why:
+  the shelf looked like splotches, numbers and some text; players at the armory want "which is
+  better?" and "what does it do?" answered at a glance.
 
 ## Open questions
 

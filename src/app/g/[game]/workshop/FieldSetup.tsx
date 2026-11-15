@@ -272,7 +272,7 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
         <div className="grid gap-3">
           <div className="rounded-2xl bg-card p-3 ring-1 ring-line">
             <p className="text-xs font-bold uppercase tracking-wide text-muted">Tile</p>
-            <ul className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2">
+            <ul className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-2">
               <ItemTile e={{ ...sample, id: 'sample' }} block={draft} among={[]} color="#b8bcc8" got={false} route="all" />
             </ul>
           </div>

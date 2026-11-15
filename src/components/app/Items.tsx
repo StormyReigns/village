@@ -10,7 +10,7 @@ import { useStored } from '@/components/useStored';
 import { closest, rank } from '@/lib/search';
 import { byStat, heatFill, statFacts } from '@/lib/stats';
 import { allStatDefs, besideText, chartDefs, isCategory, shownFields, tileFields, toggleOptions, valueOf } from '@/lib/fields';
-import { groupOrder } from '@/lib/items';
+import { groupOrder, standouts } from '@/lib/items';
 import { symbolFor } from './symbols';
 import { entryText, initials, useOpenEntry, useTicks } from './entries';
 import { FilterChip, HiddenNote, OpenPanel, useVisible, type BlockContext } from './blockParts';
@@ -82,6 +82,8 @@ export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
     return order.map((v) => ({ name: v || 'Other', items: list.filter((e) => (e.categories[filter] ?? '') === v) })).filter((g) => g.items.length);
   }, [list, query, pick, statDef, filter, values]);
 
+  // Standout badges ("Strongest", "Lightest"): the clear best at each number on the tiles.
+  const badges = useMemo(() => standouts(shown, tileFields(block).filter((f) => f.kind === 'chart').flatMap((f) => chartDefs(block, f))), [shown, block]);
   const open = (e: Entry) => set(`${block.id}.${e.id}`);
   const views: [View, string, typeof LayoutGrid][] = [['tiles', 'Tiles', LayoutGrid], ['list', 'List', LayoutList], ...(defs.length ? [['compare', 'Compare', Table2] as [View, string, typeof LayoutGrid]] : [])];
 
@@ -148,8 +150,8 @@ export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
           <section key={g.name} className="mt-4" aria-label={g.name || undefined}>
             {g.name && <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">{g.name} · {g.items.length}</h3>}
             {view === 'tiles' ? (
-              <ul className="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-x-2 gap-y-4">
-                {g.items.map((e) => <ItemTile key={e.id} e={e} block={block} among={shown} color={color} got={ticks.has(gotKey(block, e))} route={ctx.route} hide={g.name ? filter : undefined} onOpen={() => open(e)} />)}
+              <ul className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
+                {g.items.map((e) => <ItemTile key={e.id} e={e} block={block} among={shown} color={color} got={ticks.has(gotKey(block, e))} route={ctx.route} hide={g.name ? filter : undefined} badge={badges.size ? badges.get(e.id) ?? '' : undefined} lead={statDef?.key} onOpen={() => open(e)} />)}
               </ul>
             ) : (
               <ul className="grid">
@@ -183,14 +185,21 @@ function Nothing({ query, shown, onOpen }: { query: string; shown: Entry[]; onOp
 }
 
 /** What's in an item's piece: its picture, else its type's symbol, else initials. */
-function Mark({ e, block, px }: { e: Entry; block: TileBlock; px: number }) {
+function Mark({ e, block, px, big = false }: { e: Entry; block: TileBlock; px: number; big?: boolean }) {
   if (e.icon) return null;
   const symbol = symbolFor(e, block);
-  return symbol ? <BlockIcon name={symbol} size={Math.round(px * 0.24)} strokeWidth={2.4} /> : <>{initials(e.name)}</>;
+  // On a card the symbol is big enough to read as a sword or a spell at a glance.
+  return symbol ? <BlockIcon name={symbol} size={Math.round(px * (big ? 0.36 : 0.24))} strokeWidth={big ? 2.2 : 2.4} /> : <>{initials(e.name)}</>;
+}
+
+/** The start of what an item does or what's special about it (its first long text), for its card. */
+function special(e: Entry, block: TileBlock) {
+  const f = shownFields(block).find((x) => x.kind === 'longtext' && !x.spoiler && valueOf(e, x).text);
+  return f ? valueOf(e, f).text!.split('\n')[0] : undefined;
 }
 
 /** The tile's things, in the builders' order: tiny number boxes for a chart, else a short line or a pill. */
-function TileBits({ e, block, among, color, route, hide, row = false }: { e: Entry; block: TileBlock; among: Entry[]; color: string; route: BlockContext['route']; hide?: string; row?: boolean }) {
+function TileBits({ e, block, among, color, route, hide, lead, row = false }: { e: Entry; block: TileBlock; among: Entry[]; color: string; route: BlockContext['route']; hide?: string; lead?: string; row?: boolean }) {
   const text = (f: FieldDef) => {
     const v = valueOf(e, f);
     return (route !== 'all' ? v.byRoute.find(([r]) => r === route)?.[1] : undefined) ?? v.text ?? v.byRoute[0]?.[1];
@@ -200,6 +209,21 @@ function TileBits({ e, block, among, color, route, hide, row = false }: { e: Ent
     if (f.kind === 'chart') {
       const defs = chartDefs(block, f).filter((d) => typeof e.stats?.[d.key] === 'number').slice(0, 4);
       if (!defs.length) return null;
+      // On a card: two columns of named numbers, heat-colored, the one being sorted by outlined.
+      if (!row) return (
+        <span key={f.key} className="grid grid-cols-2 gap-1" aria-label={defs.map((d) => `${d.label} ${e.stats?.[d.key]}`).join(', ')}>
+          {defs.map((d) => {
+            const facts = statFacts(d, e, among);
+            return (
+              <span key={d.key} className={'grid min-w-0 rounded-lg px-1 py-0.5 leading-tight ' + (d.key === lead ? 'ring-2 ring-ink' : 'ring-1 ring-line')}
+                style={{ background: facts ? heatFill(facts.goodness, color) : 'var(--card-2)' }} title={d.label}>
+                <span className="truncate text-[10px] font-bold text-ink/70">{d.label}</span>
+                <span className="text-sm font-bold tabular-nums">{e.stats?.[d.key]}</span>
+              </span>
+            );
+          })}
+        </span>
+      );
       return (
         <span key={f.key} className={'flex gap-0.5 ' + (row ? 'w-36' : 'justify-center')} aria-label={defs.map((d) => `${d.label} ${e.stats?.[d.key]}`).join(', ')}>
           {defs.map((d) => {
@@ -233,18 +257,32 @@ function GotMark({ size = 20 }: { size?: number }) {
   return <Piece size={size} color="var(--leaf)" label="Got it"><Check size={Math.round(size * 0.5)} strokeWidth={3.5} aria-hidden="true" /></Piece>;
 }
 
-/** One item as a tile: its piece, its name under it like an app icon, and the tile's things.
- *  Also the sample tile in the Workshop's Set up. */
-export function ItemTile({ e, block, among, color, got, route, hide, onOpen }: { e: Entry; block: TileBlock; among: Entry[]; color: string; got: boolean; route: BlockContext['route']; hide?: string; onOpen?: () => void }) {
+/** One item as a card on the shelf: a standout badge if it's the best at something, its piece
+ *  with a big symbol, its name under it like an app icon, the tile's things (named numbers,
+ *  a rank...), and a line on what's special. Also the sample tile in the Workshop's Set up. */
+export function ItemTile({ e, block, among, color, got, route, hide, badge, lead, onOpen }: {
+  e: Entry; block: TileBlock; among: Entry[]; color: string; got: boolean; route: BlockContext['route']; hide?: string;
+  /** "Strongest", "Lightest"...: the clear best at one of the tile's numbers. Empty: no badge
+   *  on this card, but others in the Block have one (so the row keeps its place). */
+  badge?: string;
+  /** The stat being sorted by, outlined on the card. */
+  lead?: string;
+  onOpen?: () => void;
+}) {
+  const note = special(e, block);
   return (
     <li className="min-w-0">
-      <button type="button" onClick={onOpen} className="group relative grid w-full justify-items-center gap-1 rounded-2xl p-1.5 text-center hover:bg-card-2">
-        <span className="transition group-hover:-translate-y-0.5">
-          <Piece size={64} color={color} image={e.icon}><Mark e={e} block={block} px={64} /></Piece>
-        </span>
+      <button type="button" onClick={onOpen} className="group grid h-full w-full content-start justify-items-center gap-1.5 rounded-2xl bg-card p-2.5 text-center ring-1 ring-line transition hover:-translate-y-0.5 hover:ring-ink">
+        {/* Where any card has a badge, the badge row keeps its height on every card, so the
+            pieces line up along a shelf. */}
+        {badge !== undefined && <span className="flex h-5 items-center">
+          {badge && <span className="rounded-full px-2 text-[11px] font-bold leading-5" style={{ background: `color-mix(in srgb, ${color} 16%, white)`, color }}>{badge}</span>}
+        </span>}
+        <Piece size={72} color={color} image={e.icon}><Mark e={e} block={block} px={72} big /></Piece>
         {/* Got it sits by the name, clear of the item's piece (pieces never touch). */}
-        <span className="line-clamp-2 w-full text-xs font-bold leading-tight">{got && <span className="mr-1 inline-block align-[-3px]"><GotMark size={14} /></span>}{e.name}</span>
-        <span className="w-full min-w-0"><TileBits e={e} block={block} among={among} color={color} route={route} hide={hide} /></span>
+        <span className="line-clamp-2 w-full text-[13px] font-bold leading-tight">{got && <span className="mr-1 inline-block align-[-3px]"><GotMark size={14} /></span>}{e.name}</span>
+        <span className="w-full min-w-0"><TileBits e={e} block={block} among={among} color={color} route={route} hide={hide} lead={lead} /></span>
+        {note && <span className="line-clamp-2 w-full text-[11px] leading-snug text-muted">{note}</span>}
       </button>
     </li>
   );

@@ -22,3 +22,44 @@ export function groupOrder(values: string[]): string[] {
   // Within a letter, the plain rank first ("A" before "B–A").
   return [...values].sort((a, b) => at(a) - at(b) || Number(a.length > 1) - Number(b.length > 1) || values.indexOf(a) - values.indexOf(b));
 }
+
+/** A number on an entry, for the standout badges (kept loose so tests need no full Entry). */
+interface Numbered { id: string; stats?: Record<string, number> }
+interface Stat { key: string; label: string; better: 'high' | 'low' }
+
+/** The word for being best at a stat: "Strongest" for Might, "Lightest" for Weight... */
+export function standoutWord(d: Stat): string {
+  const l = d.label.toLowerCase();
+  const words: [RegExp, string, string][] = [
+    [/might|attack|\batk\b|\bstr\b|strength|power|damage|\bdmg\b/, 'Strongest', 'Weakest'],
+    [/\bhit\b|accura|\bacc\b/, 'Most accurate', 'Least accurate'],
+    [/weight|\bwt\b/, 'Heaviest', 'Lightest'],
+    [/crit/, 'Best crit', 'Lowest crit'],
+    [/def|armou?r|protect/, 'Toughest', 'Least armor'],
+    [/speed|\bspd\b|agility/, 'Fastest', 'Slowest'],
+    [/range|reach/, 'Longest reach', 'Shortest reach'],
+    [/uses|durab/, 'Lasts longest', 'Fewest uses'],
+    [/price|cost/, 'Priciest', 'Cheapest'],
+  ];
+  const hit = words.find(([re]) => re.test(l));
+  if (hit) return d.better === 'high' ? hit[1] : hit[2];
+  return d.better === 'high' ? `Best ${l}` : `Lowest ${l}`;
+}
+
+/**
+ * Standout badges: the one entry best at each stat (higher or lower, as the stat says) gets
+ * that stat's word. Only a clear winner counts (no ties), only once at least three entries
+ * have the number, and an entry keeps the first word it earns, in the stats' order.
+ */
+export function standouts(entries: Numbered[], defs: Stat[]): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const d of defs) {
+    const have = entries.filter((e) => typeof e.stats?.[d.key] === 'number');
+    if (have.length < 3) continue;
+    const val = (e: Numbered) => e.stats![d.key] * (d.better === 'high' ? 1 : -1);
+    const best = Math.max(...have.map(val));
+    const top = have.filter((e) => val(e) === best);
+    if (top.length === 1 && !out.has(top[0].id)) out.set(top[0].id, standoutWord(d));
+  }
+  return out;
+}

@@ -48,3 +48,30 @@ test('the Items sample is an item, not John Doe', () => {
   assert.equal(sample.categories.Type, 'Material');
   assert.ok(sample.sections.some((s) => s.label === MADE_FROM));
 });
+
+test('standout badges go to the one clear best at each stat, in words', async () => {
+  const { standouts } = await import('./items.ts');
+  const defs = [
+    { key: 'might', label: 'Might', better: 'high' as const },
+    { key: 'hit', label: 'Hit', better: 'high' as const },
+    { key: 'weight', label: 'Weight', better: 'low' as const },
+    { key: 'luck', label: 'Luck', better: 'high' as const },
+  ];
+  const w = (id: string, might: number, hit: number, weight: number, luck: number) => ({ id, stats: { might, hit, weight, luck } });
+  const got = standouts([w('fimbulvetr', 30, 80, 28, 1), w('excalibur', 15, 100, 10, 1), w('sagittae', 13, 100, 12, 1), w('wind', 3, 100, 3, 5)], defs);
+  // Three share the best Hit, so nobody gets "Most accurate".
+  assert.deepEqual([...got], [['fimbulvetr', 'Strongest'], ['wind', 'Lightest']]);
+  // Wind is also best at Luck, but keeps the first word it earned.
+});
+
+test('stats without a known word still get a plain one', async () => {
+  const { standoutWord } = await import('./items.ts');
+  assert.equal(standoutWord({ key: 'luck', label: 'Luck', better: 'high' }), 'Best luck');
+  assert.equal(standoutWord({ key: 'price', label: 'Price', better: 'low' }), 'Cheapest');
+  assert.equal(standoutWord({ key: 'crit', label: 'Crit', better: 'high' }), 'Best crit');
+});
+
+test('too few numbers means no badges', async () => {
+  const { standouts } = await import('./items.ts');
+  assert.equal(standouts([{ id: 'a', stats: { might: 3 } }, { id: 'b', stats: { might: 5 } }], [{ key: 'might', label: 'Might', better: 'high' }]).size, 0);
+});
