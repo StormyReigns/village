@@ -36,7 +36,8 @@ import { EntryForm, ChangeList, type FormStart, type Posted } from './EntryForm'
 import { FieldSetup } from './FieldSetup';
 import { MapSetup } from './MapSetup';
 import { PlannerSetup } from './PlannerSetup';
-import { AddBlock } from './AddBlock';
+import { AddBlock, StructurePreview, structureOf, type StructureContent } from './AddBlock';
+import { blockTypeInfo } from '@/lib/block-types';
 import { PasteSheet } from './PasteSheet';
 import { WikiCheck } from '@/components/wiki/WikiCheck';
 import { BatchCard } from './BatchCard';
@@ -271,16 +272,24 @@ export function Workshop({ game, pages, routes }: {
   };
 
   const drafts = live.drafts;
-  const pageOf = useMemo(() => new Map(blocks.map((b) => [b.id, b.page.id])), [blocks]);
-  const onPage = (d: LiveDraft) => chip === 'all' || chip === 'notice' || pageOf.get(d.blockKey) === chip;
+  // The Page each Draft is on: its Block's, or for a suggested Block, the Page it's for. A suggested
+  // Page has none yet, so it shows under Everything.
+  const pageOf = useMemo(() => {
+    const m = new Map(blocks.map((b) => [b.id, b.page.id]));
+    return { get: (key: string, d?: LiveDraft) => m.get(key) ?? (d?.action === 'add_block' ? structureOf(d.content)?.pageKey : undefined) };
+  }, [blocks]);
+  const draftPage = (d: LiveDraft) => pageOf.get(d.blockKey, d);
+  const onPage = (d: LiveDraft) => chip === 'all' || chip === 'notice' || draftPage(d) === chip;
   const isOpen = (d: LiveDraft) => d.status === 'open' || d.status === 'checking';
-  const counts = useMemo(() => Object.fromEntries(pages.map((p) => [p.id, drafts.filter((d) => isOpen(d) && pageOf.get(d.blockKey) === p.id).length])), [pages, drafts, pageOf]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- draftPage reads pageOf
+  const counts = useMemo(() => Object.fromEntries(pages.map((p) => [p.id, drafts.filter((d) => isOpen(d) && draftPage(d) === p.id).length])), [pages, drafts, pageOf]);
   const visible = useMemo(() => {
-    const list = drafts.filter((d) => chip === 'all' || pageOf.get(d.blockKey) === chip);
+    const list = drafts.filter((d) => chip === 'all' || draftPage(d) === chip);
     if (sort === 'new') return [...list].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     if (sort === 'needs') return list.filter((d) => d.status === 'open').sort((a, b) => a.viewers - b.viewers);
     if (sort === 'shipped') return list.filter((d) => d.status === 'stable');
     return sortStandouts(list.filter(isOpen));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- draftPage reads pageOf
   }, [drafts, chip, sort, pageOf]);
 
   // Every Draft here, most urgent for you first: ready to publish (moderators), your own,
@@ -438,6 +447,7 @@ export function Workshop({ game, pages, routes }: {
   return (
     <ChatLinks.Provider value={{ gameId: game.id, threads, open: openThread, routes, me: myId, jump }}>
     <AnsweringQuestion.Provider value={questionBody}>
+    <WorkshopGame.Provider value={{ gameId: game.id, pages }}>
     {/* On phones the Chat tab fills the screen like the wide layout: messages scroll inside it
         and the message box stays at the bottom (page.tsx sizes the screen from data-phone-chat). */}
     <main data-phone-chat={phoneTab === 'chat' || undefined}
@@ -543,9 +553,10 @@ export function Workshop({ game, pages, routes }: {
           {editing ? (
             <EditorChat.Provider value={{ count: chatCount, open: () => setChatOver(editKey) }}>
               {editing === 'add' ? (
-                <AddBlock key={editKey} gameId={game.id} pages={pages} routes={routes} mod={live.mod} newPage={Boolean(adding?.newPage)}
-                  startPage={current?.id ?? null} onClose={() => setAdding(null)}
-                  onAdded={(pageId) => { setAdding(null); setChip(pageId); setTab('app'); }} />
+                <AddBlock key={editKey} gameId={game.id} pages={pages} routes={routes} mod={live.mod} signedIn={Boolean(me)} newPage={Boolean(adding?.newPage)}
+                  startPage={current?.id ?? null} postDraft={live.postDraft} onClose={() => setAdding(null)}
+                  onAdded={(pageId) => { setAdding(null); setChip(pageId); setTab('app'); }}
+                  onSubmitted={(draftId, pageId) => { setAdding(null); setChip(pageId ?? 'all'); setTab('drafts'); setDetail(draftId); }} />
               ) : editing === 'form' ? (
                 <EntryForm gameId={game.id} pages={pages} routes={routes} start={form!} restore={restore} me={me} postDraft={live.postDraft}
                   onClose={closeForm}
@@ -851,6 +862,7 @@ export function Workshop({ game, pages, routes }: {
         </Sheet>
       )}
     </main>
+    </WorkshopGame.Provider>
     </AnsweringQuestion.Provider>
     </ChatLinks.Provider>
   );
@@ -956,6 +968,8 @@ function DraftModTools({ draft, live, inApp }: { draft: LiveDraft; live: Worksho
           <>
             {removal
               ? <Tip text="Takes the entry out of the app now. Its versions are kept, so it can come back" tint="berry"><SmallButton tone="bad" disabled={busy} onClick={publish} icon={<Trash2 size={13} aria-hidden="true" />}>{busy ? 'Removing…' : 'Approve and remove'}</SmallButton></Tip>
+              : draft.action === 'add_page' || draft.action === 'add_block'
+              ? <Tip text={draft.action === 'add_page' ? 'Adds the Page and its first Block to the app now' : 'Adds the Block to its Page now'} tint="leaf"><SmallButton tone="good" disabled={busy} onClick={publish} icon={<Check size={13} aria-hidden="true" />}>{busy ? 'Adding…' : 'Approve and add'}</SmallButton></Tip>
               : <Tip text="Puts it in the app now, as the entry's new version. Earlier versions are kept" tint="leaf"><SmallButton tone="good" disabled={busy} onClick={publish} icon={<Check size={13} aria-hidden="true" />}>{busy ? 'Publishing…' : 'Approve and publish'}</SmallButton></Tip>}
             <Tip text={removal ? 'Keep the entry, with a short reason everyone sees' : 'Say no, with a short reason everyone sees'}><SmallButton disabled={busy} onClick={() => setDeclining(!declining)} icon={<X size={13} aria-hidden="true" />}>Decline</SmallButton></Tip>
             {/* For a removal request "Remove" would read as approving it, so hiding spam is "Hide" there. */}
@@ -990,6 +1004,8 @@ function DraftModTools({ draft, live, inApp }: { draft: LiveDraft; live: Worksho
 
 /** The question a Draft answers, from the Workshop's questions (none before the SQL is run). */
 const AnsweringQuestion = createContext<(id: string) => string | undefined>(() => undefined);
+/** The game and its Pages, for a Draft that suggests a Page or Block (its preview reads them). */
+const WorkshopGame = createContext<{ gameId: string; pages: Page[] }>({ gameId: '', pages: [] });
 
 function DraftCard({ draft, place, routes, me, chatCount, onChat, live, startOpen = false }: {
   draft: LiveDraft; place?: Placed; routes: RouteOption[]; me: Villager | null | undefined;
@@ -1001,6 +1017,9 @@ function DraftCard({ draft, place, routes, me, chatCount, onChat, live, startOpe
   const [open, setOpen] = useState(startOpen);
   const [reporting, setReporting] = useState(false);
   const [error, setError] = useState('');
+  // A suggested Page or Block has no entry, and its own card (20261122000000_page_block_drafts.sql).
+  const structure = draft.action === 'add_page' || draft.action === 'add_block' ? structureOf(draft.content) : null;
+  if (structure) return <StructureDraftCard draft={draft} structure={structure} me={me} chatCount={chatCount} onChat={onChat} live={live} startOpen={startOpen} />;
   if (!place) return null;
   const block = place;
   const stable = draft.cardId ? block.entries.find((e) => e.ref?.card === draft.cardId) : undefined;
@@ -1106,6 +1125,98 @@ function DraftCard({ draft, place, routes, me, chatCount, onChat, live, startOpe
       {error && <p role="status" className="mt-2 text-sm text-berry">{error}</p>}
       {reporting && !reported && <ReportForm target={{ draftId: draft.id }} live={live} onDone={() => setReporting(false)} />}
       {live.mod && <DraftModTools draft={draft} live={live} inApp={Boolean(stable)} />}
+    </li>
+  );
+}
+
+/**
+ * A Draft that suggests a new Page (with its first Block) or a Block: what it adds, the same preview
+ * its author saw, up and down votes (whether the app should have it is a matter of opinion), and a
+ * moderator's Approve and add.
+ */
+function StructureDraftCard({ draft, structure, me, chatCount, onChat, live, startOpen }: {
+  draft: LiveDraft; structure: StructureContent; me: Villager | null | undefined;
+  chatCount: number; onChat: () => void; live: WorkshopData; startOpen: boolean;
+}) {
+  const { gameId, pages } = useContext(WorkshopGame);
+  const [open, setOpen] = useState(startOpen);
+  const [reporting, setReporting] = useState(false);
+  const [error, setError] = useState('');
+  const b = structure.block;
+  const info = blockTypeInfo(b.type);
+  const target = structure.pageKey ? pages.find((p) => p.id === structure.pageKey) : undefined;
+  const tint = structure.page?.tint ?? target?.tint ?? 'leaf';
+  const newPage = draft.action === 'add_page';
+  const mine = me?.id === draft.author.id && !me.practice;
+  const reported = live.myReports.has(targetKey({ draftId: draft.id }));
+  const total = draft.ups + draft.downs;
+  const leaning = total === 0 ? 'no votes yet' : draft.ups >= draft.downs ? 'leaning yes' : 'leaning no';
+  const cast = async (v: 0 | 1 | -1) => setError((await live.vote(draft.id, v)) ?? '');
+  const expand = () => { if (!open) live.view(draft.id); setOpen(!open); };
+  const needsVote = Boolean(me && !mine && !draft.myVote && (draft.status === 'open' || draft.status === 'checking'));
+  const where = newPage ? `a new Page, ${structure.page?.title ?? ''}` : target ? `the ${target.title} Page` : 'a Page that\'s no longer in the app';
+
+  return (
+    <li className={'rise rounded-3xl bg-card p-3 ' + (needsVote ? 'ring-1 ring-ink/40 ' : 'ring-1 ring-line ') + (draft.status === 'removed' ? 'opacity-60' : '')}>
+      <button onClick={expand} className="flex w-full items-start gap-3 text-left" aria-expanded={open}>
+        <Piece size={40} color={`var(--${tint})`}><BlockIcon name={newPage ? structure.page?.icon ?? b.icon : b.icon} size={15} strokeWidth={2.4} /></Piece>
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="font-display text-lg leading-tight">{draft.title}</span>
+            <Tip text={newPage ? 'Suggests a new Page for the app, with its first Block' : 'Suggests a new Block for a Page'} tint="plum">
+              <span className="rounded-full bg-plum-soft px-2 py-0.5 text-xs font-bold text-plum">{newPage ? 'new Page' : 'new Block'}</span>
+            </Tip>
+            {needsVote && <span className="rounded-full px-2 py-0.5 text-xs font-bold text-ink ring-1 ring-ink">Needs your vote</span>}
+          </span>
+          <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm text-muted">
+            <Avatar name={draft.author.name} url={draft.author.avatarUrl} size={18} />
+            {info?.name ?? b.type} · {draft.author.name} · {ago(draft.createdAt)} · {STATUS[draft.status] ?? draft.status}
+          </span>
+        </span>
+      </button>
+      {draft.status === 'declined' && draft.declineReason && (
+        <p className="mt-2 rounded-2xl bg-card-2 px-3 py-2 text-sm ring-1 ring-line"><span className="font-bold">Declined:</span> {draft.declineReason}</p>
+      )}
+      {open && (
+        <div className="mt-3 grid gap-2">
+          <p className="text-sm">
+            Adds a <span className="font-bold">{info?.name ?? b.type}</span> Block called <span className="font-bold">{b.title}</span> to {where}.
+            {b.intro && <span className="text-muted"> “{b.intro}”</span>}
+          </p>
+          <div className="rounded-2xl p-3" style={{ background: `var(--${tint}-soft)` }}>
+            <StructurePreview content={structure} pages={pages} gameId={gameId} />
+          </div>
+        </div>
+      )}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {me === null ? <SignInPrompt>Sign in to vote</SignInPrompt> : !me ? null : mine ? (
+          <span className="text-sm text-muted">Your Draft · {total >= 5 ? `${draft.ups} up · ${draft.downs} down` : leaning}</span>
+        ) : (
+          <>
+            <Tip text="The app should have this"><VoteButton on={draft.myVote === 1} onClick={() => cast(draft.myVote === 1 ? 0 : 1)} icon={<ArrowUp size={15} aria-hidden="true" />} label="Vote up" /></Tip>
+            <span className="text-sm text-muted">{total >= 5 ? `${draft.ups} up · ${draft.downs} down` : leaning}</span>
+            <Tip text="Not needed, or not like this"><VoteButton on={draft.myVote === -1} onClick={() => cast(draft.myVote === -1 ? 0 : -1)} icon={<ArrowDown size={15} aria-hidden="true" />} label="Vote down" /></Tip>
+          </>
+        )}
+        <span className="ml-auto flex items-center gap-1">
+          {me && !mine && (reported
+            ? <span className="px-2 text-xs font-bold text-muted">Reported</span>
+            : <Tip text="Report spam or rudeness" tint="berry">
+                <button onClick={() => setReporting(!reporting)} aria-expanded={reporting}
+                  className="grid size-8 place-items-center rounded-full text-muted hover:bg-card hover:text-berry">
+                  <Flag size={15} aria-hidden="true" /><span className="sr-only">Report</span>
+                </button>
+              </Tip>)}
+          <Tip text={`Talk about ${draft.title} with other villagers, in its thread`} tint="sky">
+            <button onClick={onChat} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-muted hover:bg-card hover:text-ink">
+              <MessageCircle size={15} aria-hidden="true" /> Chat · {chatCount}
+            </button>
+          </Tip>
+        </span>
+      </div>
+      {error && <p role="status" className="mt-2 text-sm text-berry">{error}</p>}
+      {reporting && !reported && <ReportForm target={{ draftId: draft.id }} live={live} onDone={() => setReporting(false)} />}
+      {live.mod && <DraftModTools draft={draft} live={live} inApp={false} />}
     </li>
   );
 }

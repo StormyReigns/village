@@ -60,11 +60,14 @@ export interface ChatEvent {
   reason?: string | null;
 }
 
+export type DraftAction = 'edit' | 'remove' | 'add_page' | 'add_block';
+
 export interface LiveDraft extends DraftStats {
   blockKey: string;
   kind: 'fact' | 'opinion';
-  /** 'remove': asks for the entry to leave the app; its source is the reason. */
-  action: 'edit' | 'remove';
+  /** 'remove': asks for the entry to leave the app; its source is the reason. 'add_page' and 'add_block'
+   *  suggest a new Page (with its first Block) or Block; content holds it (20261122000000, AddBlock.tsx). */
+  action: DraftAction;
   title: string;
   content: EntryContent;
   /** The entry it changes, and the revision it started from. Null for a new entry. */
@@ -92,8 +95,9 @@ export interface NewDraft {
   theory: boolean;
   cardId?: string;
   baseRevision?: number;
-  /** Asks for the entry (cardId) to be removed from the app, with the reason as the source. */
-  action?: 'remove';
+  /** 'remove' asks for the entry (cardId) to be removed, with the reason as the source; 'add_page' and
+   *  'add_block' suggest a new Page or Block. */
+  action?: Exclude<DraftAction, 'edit'>;
   /** Answers a question: shipping it closes the question and sends the reply. */
   question?: { id: string; reply: string };
 }
@@ -356,7 +360,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
       const sc = scores.get(r.id as string);
       return {
         id: r.id as string, blockKey: r.block_key as string, kind: r.kind === 'opinion' ? 'opinion' : 'fact',
-        action: r.action === 'remove' ? 'remove' : 'edit',
+        action: r.action === 'remove' || r.action === 'add_page' || r.action === 'add_block' ? r.action : 'edit',
         title: r.title as string, content: ((c: Partial<EntryContent>) => ({ ...c, name: c.name ?? (r.title as string), sections: c.sections ?? [], categories: c.categories ?? {} }))(r.content as Partial<EntryContent>), source: (r.source as string) ?? null,
         cardId: (r.card_id as string) ?? null, baseRevision: (r.base_revision_id as number) ?? null,
         theory: Boolean(r.theory), status: r.status as string, declineReason: (r.decline_reason as string) ?? null,
@@ -544,8 +548,8 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
         card_id: d.cardId ?? null, base_revision_id: d.baseRevision ?? null, author_id: meId, status: 'open',
         // Only sent when it answers a question, so Drafts work before the Questions SQL is run.
         ...(d.question ? { question_id: d.question.id, reply: d.question.reply.trim() || null } : {}),
-        // Likewise only for a removal, so ordinary Drafts work before the removals SQL is run.
-        ...(d.action === 'remove' ? { action: 'remove' } : {}),
+        // Likewise only for a removal or a new Page or Block, so ordinary Drafts work before that SQL is run.
+        ...(d.action ? { action: d.action } : {}),
       })
       .select('id').single();
     if (error) return { error: plainError(error.message) };

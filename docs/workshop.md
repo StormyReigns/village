@@ -41,13 +41,25 @@ of it filled in on the right, and the example takes on your work as you fill it 
 - **Who:** anyone can fill it in. Moderators add it straight away (today's database rules already
   allow it). Others can keep it on their device for now.
 
-### Slice 2 (next): Page and Block Drafts
+### Slice 2: Page and Block Drafts (built 2026-11-15; its SQL waits on the hub and Matt)
 
-Matt chose "any Builder, as a Draft". Drafts get two more actions, "add a Page" and "add a Block",
-following how removal Drafts were added (`20261120000000_remove_requests.sql`). Publishing one creates
-the Page or Block. A Page Draft carries its first Block. The Draft card shows the same preview, so
-voters see the result. Moderators can still publish at once in a brand-new game with no voters. It's a
-migration, so the hub reviews it first.
+Matt chose "any Builder, as a Draft". `20261122000000_page_block_drafts.sql` gives Drafts two more
+actions, `add_page` (a Page with its first Block) and `add_block`, following how removal Drafts were
+added. Tests: `supabase/tests/structure-check.mjs`.
+
+- **Sending:** signed in and not a moderator, Add Block's button is "Submit for votes". The Draft is
+  titled "New Page: Bestiary" or "Rivals on Units", and opens in Drafts once it's sent. Its content is
+  `StructureContent` in `AddBlock.tsx`. Signed out, "Keep on this device" as before. Moderators still
+  add directly.
+- **Voting:** up and down votes (whether the app should have it is an opinion). A Block Draft counts
+  on its Page's tab; a Page Draft shows under Everything.
+- **The card** (`StructureDraftCard` in `Workshop.tsx`) says what it adds and shows the same preview
+  its author saw. Moderators get "Approve and add".
+- **Publishing** (`ship_structure`, called by `ship_draft`) checks everything a player typed: lengths,
+  the type (only the ones Add Block offers), symbols (letters and digits), the color, and that a Tier
+  list ranks a Characters, Items or Classes Block on its Page and a Planner picks from a Characters
+  Block in the game. It builds the Tier list and Planner settings itself rather than copying them, and
+  makes keys that never clash. The chat says "<title> is now in the app."; Discord skips these.
 
 ### Rough spots
 

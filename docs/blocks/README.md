@@ -40,7 +40,7 @@ designed properly), **Idea** (not built).
 | – | Links between Blocks (shared) | Live (2026-11-12): slices 1 to 3 | Every Block with a links field | [entry-links.md](entry-links.md) |
 | – | Wiki links (integration) | Live (2026-11-10) | Every character, item and class card | [wiki-links.md](wiki-links.md) |
 | – | Discord posts and Communities (integration) | Live (2026-11-10) | Notice Board (moderators); each game's home | [discord.md](discord.md) |
-| – | Adding Pages and Blocks (Workshop) | Live, slice 1 (2026-11-15): moderators add; Drafts next | Every game's Workshop | [../workshop.md](../workshop.md) |
+| – | Adding Pages and Blocks (Workshop) | Live, slice 1 (2026-11-15): moderators add. Slice 2 (Drafts) built, SQL waits on review | Every game's Workshop | [../workshop.md](../workshop.md) |
 | – | Spreadsheets (integration) | Live (2026-11-10): download, paste-in batches | Every Block with entries; Workshop | [spreadsheets.md](spreadsheets.md) |
 | – | Phone app (integration) | Live (2026-11-09): install, offline reading | The whole site | |
 | – | Collection: slots and rows | Live, first version | Foes | |

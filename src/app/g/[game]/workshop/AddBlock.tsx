@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, ChevronDown, Info } from 'lucide-react';
-import type { BlockType, Page, Tint } from '@/data/pages';
+import type { BlockType, EntryContent, Page, Tint } from '@/data/pages';
+import type { NewDraft } from './useWorkshop';
 import type { RouteOption } from '@/components/app/EntryPanel';
 import { BlockView, type BlockContext } from '@/components/app/Blocks';
 import { BlockIcon } from '@/components/Icon';
@@ -55,18 +56,21 @@ const forgetForm = (key: string) => { try { localStorage.removeItem(key); } catc
  * The Block type is a dropdown at the top left; moving through it shows each type's example on the
  * right, from a made-up game. Once a type is picked, the example wears the Builder's choices (its
  * name, symbol, intro and the Page's color), so the preview is their work from the first change.
- * Moderators add it straight away. Anyone else can fill it in and keep it on their device:
- * suggesting a Page or Block for votes comes with its database step (slice 2).
+ * Moderators add it straight away. Anyone else signed in sends it as a Draft for votes
+ * (20261122000000_page_block_drafts.sql); signed out, they can keep it on their device.
  */
-export function AddBlock({ gameId, pages, routes, mod, startPage, newPage, onClose, onAdded }: {
+export function AddBlock({ gameId, pages, routes, mod, signedIn, startPage, newPage, postDraft, onClose, onAdded, onSubmitted }: {
   gameId: string; pages: Page[]; routes: RouteOption[];
-  mod: boolean;
+  mod: boolean; signedIn: boolean;
   /** The Page that was open, for a Block. */
   startPage: string | null;
   /** A new Page, with its first Block. */
   newPage: boolean;
+  postDraft: (d: NewDraft) => Promise<{ error?: string; id?: string }>;
   onClose: () => void;
   onAdded: (pageId: string) => void;
+  /** Sent as a Draft: its id, and the Page it's for (null for a new Page). */
+  onSubmitted: (draftId: string, pageId: string | null) => void;
 }) {
   const router = useRouter();
   const draftKey = `village:${newPage ? 'add-page' : 'add-block'}:${gameId}`;
@@ -109,24 +113,7 @@ export function AddBlock({ gameId, pages, routes, mod, startPage, newPage, onClo
 
   // The preview: while moving through the list, that type's plain example; once picked, the example
   // with the Builder's choices on it.
-  const preview = (() => {
-    if (!shownType) return null;
-    const mine = shownType === type;
-    const { page: p, block } = samplePage({
-      type: shownType,
-      title: mine ? form.title || info?.name || '' : shownInfo?.name ?? '',
-      icon: mine ? blockIcon : shownInfo?.icon ?? 'BookOpen',
-      intro: mine ? form.intro : '',
-      tint,
-      pageTitle: pageTitle || 'New Page',
-      pageIcon: newPage ? pageIcon : page?.icon ?? 'BookOpen',
-    });
-    const ctx: BlockContext = {
-      gameId, page: p, pageTitle: p.title, tint, route: 'all', routes: [], spoilers: false,
-      onShowSpoilers: () => {}, rosters: plannerRosters([p], p),
-    };
-    return { block, ctx, page: p };
-  })();
+  const mine = shownType === type;
 
   const dirty = JSON.stringify(form) !== JSON.stringify(saved ?? { ...EMPTY, pageId: form.pageId, tint: form.tint });
 
@@ -197,6 +184,35 @@ export function AddBlock({ gameId, pages, routes, mod, startPage, newPage, onClo
   };
 
   const keep = () => { writeForm(draftKey, form); setNote('Kept on this device. It\'s here the next time you open this.'); };
+
+  // As a Draft: what it would add, checked again (and the keys made) when a moderator publishes it.
+  const submit = async () => {
+    const p = problem();
+    if (p) { setNote(p); return; }
+    const title = form.title.trim() || info!.name;
+    const size = Number(form.size);
+    const content: StructureContent = {
+      name: title, sections: [], categories: {},
+      ...(newPage ? { page: { title: form.pageTitle.trim(), short: short.slice(0, 24), icon: pageIcon, tint } } : { pageKey: page!.id }),
+      block: {
+        title, type: type!, icon: blockIcon, intro: form.intro.trim() || undefined,
+        byRoute: Boolean(routes.length && form.byRoute && type !== 'guide' && type !== 'tierlist'),
+        filters: type === 'characters' ? ['Role or class'] : type === 'items' ? ['Type'] : type === 'classes' ? ['Tier'] : [],
+        ...(type === 'tierlist' ? { ranks } : {}),
+        ...(type === 'planner' ? { roster, ...(form.classes ? { classes: form.classes } : {}), ...(size > 0 ? { size: Math.min(100, Math.round(size)) } : {}) } : {}),
+      },
+    };
+    setBusy(true);
+    const res = await postDraft({
+      blockKey: keyFrom(title).length >= 2 ? keyFrom(title) : 'new-block', kind: 'opinion',
+      title: newPage ? `New Page: ${form.pageTitle.trim()}` : `${title} on ${page!.title}`,
+      content: content as unknown as EntryContent, source: '', theory: false, action: newPage ? 'add_page' : 'add_block',
+    });
+    setBusy(false);
+    if (res.error || !res.id) { setNote(res.error ?? 'Couldn\'t send it. Try again in a moment.'); return; }
+    forgetForm(draftKey);
+    onSubmitted(res.id, newPage ? null : page!.id);
+  };
   const what = newPage ? 'Page' : 'Block';
 
   return (
@@ -213,6 +229,10 @@ export function AddBlock({ gameId, pages, routes, mod, startPage, newPage, onClo
       actions={mod ? (
         <button type="button" onClick={add} disabled={busy} className="btn-primary rounded-full px-4 py-2 text-sm font-bold disabled:opacity-60">
           {busy ? 'Adding…' : newPage ? 'Add Page' : 'Add Block'}
+        </button>
+      ) : signedIn ? (
+        <button type="button" onClick={submit} disabled={busy} className="btn-primary rounded-full px-4 py-2 text-sm font-bold disabled:opacity-60">
+          {busy ? 'Sending…' : <><span className="sm:hidden">Submit</span><span className="hidden sm:inline">Submit for votes</span></>}
         </button>
       ) : (
         <button type="button" onClick={keep} aria-label="Keep on this device" className="rounded-full bg-card px-4 py-2 text-sm font-bold ring-1 ring-line hover:ring-ink">
@@ -337,34 +357,90 @@ export function AddBlock({ gameId, pages, routes, mod, startPage, newPage, onClo
 
           {!mod && (
             <p className="rounded-2xl bg-sky-soft px-3 py-2.5 text-sm">
-              Adding a Page or Block changes the app for everyone, so for now a moderator adds it.{' '}
-              Suggesting one for votes is coming soon. Until then, fill it in, keep it on this device, and share the idea in the chat.
+              {signedIn
+                ? `A new ${what} changes the app for everyone, so it goes in as a Draft. Other Builders vote, and a moderator adds it.`
+                : `A new ${what} goes in as a Draft for others to vote on. Sign in to send it; until then you can keep it on this device.`}
             </p>
           )}
         </>
       }
-      preview={preview ? (
-        <div className="grid gap-3" inert>
-          {/* The Page as players meet it: its symbol in a piece, and its name. */}
-          {newPage && (
-            <div className="flex items-center gap-3">
-              <Piece size={44} color={`var(--${tint})`}><span className="text-white"><BlockIcon name={pageIcon} size={15} strokeWidth={2.4} /></span></Piece>
-              <h3 className="font-display text-xl">{preview.page.title}</h3>
-            </div>
-          )}
-          <div className="rounded-[1.25rem] bg-card ring-1 ring-line">
-            <BlockView block={preview.block} ctx={preview.ctx} />
-          </div>
-          <p className="text-xs text-muted">
-            {shownType === type ? 'Example entries from a made-up game, laid out by your choices. Real entries replace them once they\'re added.' : `${shownInfo?.name}: ${shownInfo?.question}`}
-          </p>
-        </div>
+      preview={shownType ? (
+        <PreviewBody gameId={gameId} type={shownType} tint={tint}
+          title={mine ? form.title || info?.name || '' : shownInfo?.name ?? ''}
+          icon={mine ? blockIcon : shownInfo?.icon ?? 'BookOpen'}
+          intro={mine ? form.intro : ''}
+          page={newPage ? { title: pageTitle || 'New Page', icon: pageIcon } : null}
+          note={mine ? 'Example entries from a made-up game, laid out by your choices. Real entries replace them once they\'re added.' : `${shownInfo?.name}: ${shownInfo?.question}`} />
       ) : (
         <div className="grid min-h-40 place-items-center rounded-2xl bg-card/70 px-4 py-8 text-center text-sm text-muted ring-1 ring-line">
           Pick a Block type, and an example of it shows here.
         </div>
       )}
     />
+  );
+}
+
+/** What a Page or Block Draft carries (read by ship_structure in 20261122000000_page_block_drafts.sql). */
+export interface StructureContent {
+  name: string; sections: []; categories: Record<string, never>;
+  /** A new Page (add_page). */
+  page?: { title: string; short: string; icon: string; tint: Tint };
+  /** The Page it goes on (add_block). */
+  pageKey?: string;
+  block: {
+    title: string; type: BlockType; icon: string; intro?: string; byRoute: boolean; filters: string[];
+    /** Tier list: the Block it ranks. */
+    ranks?: string;
+    /** Planner: its Characters Block, Classes Block and party size. */
+    roster?: string; classes?: string; size?: number;
+  };
+}
+
+/** A Draft's content as a Page or Block, when it is one. */
+export function structureOf(content: unknown): StructureContent | null {
+  const c = content as Partial<StructureContent> | null;
+  return c && typeof c === 'object' && c.block && typeof c.block === 'object' && typeof c.block.type === 'string' ? (c as StructureContent) : null;
+}
+
+/** A Page or Block Draft's preview, the same one its author saw in Add Block. */
+export function StructurePreview({ content, pages, gameId }: { content: StructureContent; pages: Page[]; gameId: string }) {
+  const existing = content.pageKey ? pages.find((p) => p.id === content.pageKey) : undefined;
+  const b = content.block;
+  return (
+    <PreviewBody gameId={gameId} type={b.type} tint={content.page?.tint ?? existing?.tint ?? 'leaf'} title={b.title} icon={b.icon} intro={b.intro ?? ''}
+      page={content.page ? { title: content.page.title, icon: content.page.icon } : null}
+      note="Example entries from a made-up game, laid out as this would be. Real entries come once it's in the app." />
+  );
+}
+
+/**
+ * The example itself: the real app Block filled with the made-up game's entries (src/lib/sample-game.ts),
+ * wearing the given name, symbol, line and color, and for a new Page its symbol and name above.
+ * Nothing in it can be clicked: it's a picture of the app, not the app.
+ */
+function PreviewBody({ gameId, type, tint, title, icon, intro, page, note }: {
+  gameId: string; type: BlockType; tint: Tint; title: string; icon: string; intro: string;
+  page: { title: string; icon: string } | null; note: string;
+}) {
+  const { page: p, block } = samplePage({ type, title, icon, intro, tint, pageTitle: page?.title ?? 'Page', pageIcon: page?.icon ?? icon });
+  const ctx: BlockContext = {
+    gameId, page: p, pageTitle: p.title, tint, route: 'all', routes: [], spoilers: false,
+    onShowSpoilers: () => {}, rosters: plannerRosters([p], p),
+  };
+  return (
+    <div className="grid gap-3" inert>
+      {/* The Page as players meet it: its symbol in a piece, and its name. */}
+      {page && (
+        <div className="flex items-center gap-3">
+          <Piece size={44} color={`var(--${tint})`}><span className="text-white"><BlockIcon name={page.icon} size={15} strokeWidth={2.4} /></span></Piece>
+          <h3 className="font-display text-xl">{page.title}</h3>
+        </div>
+      )}
+      <div className="rounded-[1.25rem] bg-card ring-1 ring-line">
+        <BlockView block={block} ctx={ctx} />
+      </div>
+      <p className="text-xs text-muted">{note}</p>
+    </div>
   );
 }
 
