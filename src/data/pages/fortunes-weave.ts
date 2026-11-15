@@ -6,7 +6,9 @@ import type { Block, Entry, Page, Section } from './types.ts';
 import { TYPE_SOURCE, WEAPON_STATS, WEAPON_TYPE, WEAPON_TYPE_SYMBOLS, weapons } from './fortunes-weave-weapons.ts';
 import { GROWTH_STATS, GROWTHS } from './fortunes-weave-growths.ts';
 import { CLASS_SETUP, classEntries } from './fortunes-weave-classes.ts';
-import { COMMON_FIELDS, ITEM_FIELDS, STATS, withCommon } from '../../lib/fields.ts';
+import { ARSENAL } from './fortunes-weave-arsenal.ts';
+import { GOODS } from './fortunes-weave-goods.ts';
+import { COMMON_FIELDS, ITEM_FIELDS, STATS, UPGRADES_TO, withCommon } from '../../lib/fields.ts';
 import { DEFAULT_TIERS } from '../../lib/tiers.ts';
 
 const ROUTE_NAMES: Record<string, Route> = { Cai: 'cai', Dietrich: 'dietrich', Theodora: 'theodora', Leda: 'leda' };
@@ -100,6 +102,43 @@ function weaponItems(): Entry[] {
     // A bundle of several weapons (the update 1.01 set) has no one type.
     ...(WEAPON_TYPE[c.content.name] && !/Game8/.test(c.source ?? '') ? { source: [c.source, TYPE_SOURCE].filter(Boolean).join(' ') } : {}),
     categories: { Rank: 'Unlisted', ...(WEAPON_TYPE[c.content.name] ? { 'Weapon type': WEAPON_TYPE[c.content.name] } : {}) },
+  }));
+}
+
+/** A name as two lists might each write it: "Miasma Δ" and "Miasma" are one spell. */
+const norm = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, ' ').trim();
+/** The researched entries a Block doesn't have yet (by name; a trailing letter like Δ or B
+ *  aside), so the starter cards and community edits always win. */
+function missing<T extends { name: string }>(have: Entry[], more: T[]): T[] {
+  const names = new Set(have.map((e) => norm(e.name)));
+  return more.filter((m) => {
+    const n = norm(m.name);
+    return !names.has(n) && !names.has(n.replace(/ [a-z]$/, '')) && !names.has(norm(m.name.replace(/\s+\S$/, '')));
+  });
+}
+
+const GAME8 = (page: string) => `Game8's Fortune's Weave guide (Nov 2026): game8.co/games/Fire-Emblem-Fortunes-Weave/archives/${page}`;
+
+/** Every weapon and spell from the research (fortunes-weave-arsenal.ts), after the starter ones. */
+function arsenal(have: Entry[]): Entry[] {
+  return missing(have, ARSENAL).map((a) => ({
+    id: slug(a.name),
+    name: a.name,
+    sections: sections(['Effect', a.effect], ['Note', a.note], ['Where to get it', a.where], [UPGRADES_TO, a.upgrades]),
+    categories: { Rank: a.rank, 'Weapon type': a.type },
+    stats: Object.fromEntries(Object.entries(a.stats).filter(([, v]) => typeof v === 'number')) as Record<string, number>,
+    source: GAME8(a.page) + (/Vandhal/.test(a.where ?? '') ? ". Trades: Raider King's guide to the Vandhal Trading Co. (Nov 2026)" : ''),
+  }));
+}
+
+/** Every other item from the research (fortunes-weave-goods.ts): equipment, consumables, gifts, trade goods... */
+function goods(have: Entry[]): Entry[] {
+  return missing(have, GOODS).map((g) => ({
+    id: slug(g.name),
+    name: g.name,
+    sections: sections(['Where to get it', g.where], ['Used for', g.used]),
+    categories: { Type: g.type },
+    source: g.source,
   }));
 }
 
@@ -199,10 +238,16 @@ const WEAPON_FIELDS = withCommon([
 /** A symbol for each kind of item. */
 const ITEM_TYPES: Record<string, string> = {
   'Key item': 'KeyRound',
-  Material: 'Gem',
+  Material: 'Wheat',
   'Quest item': 'ScrollText',
   License: 'BadgeCheck',
   Resource: 'Sparkles',
+  Equipment: 'Gem',
+  Shield: 'Shield',
+  Consumable: 'FlaskConical',
+  'Spell scroll': 'Scroll',
+  Crate: 'Package',
+  Gift: 'Gift',
 };
 
 export const PAGES: Page[] = [
@@ -244,9 +289,9 @@ export const PAGES: Page[] = [
     id: 'items', title: 'Items', short: 'Items', icon: 'Backpack', tint: 'sun',
     blurb: 'Key items, materials, weapons and magic: where to find them and how they compare.',
     blocks: [
-      block({ type: 'items', title: 'Items', icon: 'Backpack', filters: ['Type'], symbols: ITEM_TYPES, fields: ITEMS_FIELDS, entries: items(),
+      block({ type: 'items', title: 'Items', icon: 'Backpack', filters: ['Type'], symbols: ITEM_TYPES, fields: ITEMS_FIELDS, entries: [...items(), ...goods(items())],
         intro: 'What each one is for and where to find it. Tap one for the details.' }),
-      block({ type: 'items', title: 'Weapons and magic', icon: 'Swords', filters: ['Weapon type', 'Rank'], symbols: WEAPON_TYPE_SYMBOLS, stats: WEAPON_STATS, fields: WEAPON_FIELDS, entries: [...weapons(), ...weaponItems()],
+      block({ type: 'items', title: 'Weapons and magic', icon: 'Swords', filters: ['Weapon type', 'Rank'], symbols: WEAPON_TYPE_SYMBOLS, stats: WEAPON_STATS, fields: WEAPON_FIELDS, entries: [...weapons(), ...weaponItems(), ...arsenal([...weapons(), ...weaponItems()])],
         intro: 'The stronger the color, the better the number. Compare puts every number side by side.' }),
     ],
   },

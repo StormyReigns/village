@@ -3,6 +3,7 @@ import {
   Bird, Castle, Compass, Crown, Droplet, Flame, Flower2, Landmark, Lighthouse, Moon, Star, Tent, Wind,
   BadgeCheck, Gem, KeyRound, Package, ScrollText, Sparkles,
   BedDouble, Building2, Mountain, Pickaxe, Skull, Store, TreePalm, Trees, ClipboardList,
+  FlaskConical, Gift, Scroll, Wheat,
   Axe, BowArrow, HandFist, Sun, Sword, WandSparkles,
   createLucideIcon, type LucideIcon, type LucideProps,
 } from 'lucide-react';
@@ -27,6 +28,8 @@ const ICONS: Record<string, LucideIcon> = {
   ClipboardList,
   // Weapon types (docs/blocks/items.md): Sword, Spear, Axe, Bow, Gauntlet, Black and White Magic.
   Axe, BowArrow, HandFist, Spear, Sun, Sword, WandSparkles,
+  // Item types (Fortune's Weave): consumables, gifts, spell scrolls, trade goods.
+  FlaskConical, Gift, Scroll, Wheat,
 };
 
 /** Whether a symbol name is one we can draw. */

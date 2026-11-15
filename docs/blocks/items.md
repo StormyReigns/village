@@ -148,10 +148,16 @@ switch only on the rest.
 Builders can add their own fields of any kind, the same kinds as Characters. "Other
 characters" reads "Other items" in an Items Block (it links to entries in the same Block).
 
-**Fortune's Weave** today:
-- **Items** (9 entries: key items, materials, quest items, licenses, resources): Type, with
-  a symbol for each (a key, a gem, a scroll, a badge, a sparkle), "Used for" and "Where to
-  get it" (kept under the keys the entries already use, so nothing moves in the database).
+**Fortune's Weave** today (after the item research of 2026-11-15, live once `seed-app.sql` is
+rerun):
+- **Items** (226 entries over 11 types): the 9 starter cards plus 217 researched ones:
+  Equipment 26 (rings, gems, amulets, staves, masks), Shield 5, Consumable 7, Spell scroll 2,
+  Crate 8, Material 64 (trade goods: each lists what it buys from the Vandhal Trading Co. and
+  where, "5 (with 5 Caltrop Flower) buy a Charm Mask at Valley of Black Wings, Idiya"), and
+  Gift 108 (each lists who loves it and who really likes it). Symbols: a key, wheat (trade
+  goods), a scroll, a badge, a sparkle, a gem (equipment), a shield, a flask, a scroll, a box,
+  a gift. "Used for" holds an item's effect, a gift's fans or a trade good's uses; "Where to
+  get it" holds the trades that give it. Data: `src/data/pages/fortunes-weave-goods.ts`.
 - **Weapons and magic** (32 entries): Rank and Might / Hit / Weight / Crit on the tile;
   "Effect" (shown as "What it does"), "Note" (the "Only Fabio can use it" lines), "Where to
   get it" and "Used for" in the full view. A "Weapon type" tag (Sword, Spear, Axe, Bow,
@@ -159,6 +165,21 @@ characters" reads "Other items" in an Items Block (it links to entries in the sa
   and spells) gives each piece its symbol: a sword, a spear (drawn for us; Lucide has none),
   an axe, a bow, a fist, a wand with sparkles, a sun. The update 1.01 bundle (Chosen Sword,
   Chosen Lance, Royal Sword, Breidablik) has no one type and keeps its initials.
+  After the research: **149 entries**, the 32 starter ones plus every other weapon and spell
+  Game8 lists (Sword 24, Spear 26, Axe 20, Gauntlet 17, Bow 16, Black Magic 24, White Magic
+  21). Each new one has Might, Hit, Weight and Crit from its Game8 page, its rank (a spell's is
+  the skill level most of its learners get it at), what it does in our words (range, what it's
+  effective against, its combat art, avoid, curse, a spell's uses and effect), where to get it
+  (shops, crates, chests, quests, trials, trades, "Eshmel's own weapon"), what it upgrades to
+  (The Nameless to Shining Spear) and, for spells, who learns it. A weapon's durability is left
+  out (it only matters for combat arts). Data: `src/data/pages/fortunes-weave-arsenal.ts`.
+- **Research sources** (Nov 2026), named on every entry: Game8's list of all weapons and spells
+  and each one's page; Raider King's guide to the Vandhal Trading Co. (trader items, trades,
+  trade goods); accessory guides from allthings.how and Prodigy Gamers (effects, weights);
+  Game8's gift guide (who likes what; Game8 marks it a work in progress). Spell effects are
+  checked against fortunesweave.co.uk's spell list. Starter cards and community edits always
+  win: the seed only adds what's missing (matched by name, so "Miasma Δ" isn't added beside
+  "Miasma").
 
 ## Builders
 
@@ -213,8 +234,20 @@ names offered from the Block, and the live preview. Moderators save setups for n
 - 2026-11-15: item heatmaps (Compare, and the one a stat opens) can group rows by type, with
   the stat sort kept inside each type (Matt: we need to be able to sort by type). Why: comparing
   a sword with a spell rarely helps; players compare within a weapon type.
+- 2026-11-15: Fortune's Weave's items were researched and added (Matt: find all known items):
+  117 weapons and spells and 217 other items, with numbers from the sources and the rest in our
+  own words, each citing its source; unknown effects are left out rather than guessed. Why: the
+  Blocks only had the starter cards, and players look up items more than anything else.
 
 ## Open questions
+
+- Fortune's Weave gaps after the research (2026-11-15): effects nobody has published yet (the
+  three masks, Challenge Gem, Spirit Gem, Antitoxin, Dew of Protection); where most gifts and
+  trade goods are found; the update 1.01 bundle entry now sits beside separate Chosen Sword,
+  Chosen Lance, Royal Sword and Breidablik entries; the starter Answerer has no numbers, and the
+  starter forged weapons (Levin Sword +1, +3, Salamander +5) come from the player-made table, not
+  Game8. Fixing starter entries needs Drafts or a migration (the seed never changes them).
+- Mounts (Game8 lists about 17) and battalions could be items too.
 
 - Builders choosing symbols for their own tags in Set up (today they come from the starter
   data or a migration).
