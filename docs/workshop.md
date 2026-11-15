@@ -17,7 +17,14 @@ How the Workshop itself works, apart from any one Block. Each Block's own editor
   and Add Block on the right, on every screen size. No "In the app" subtitle. While searching on a
   phone, the view buttons and Add Block step aside so the search box gets the row.
 - **Editors never grow past their column**: a wide row inside (the Page chips) scrolls instead
-  (2026-11-15 fix).
+  (2026-11-15 fix). The preview is drawn at 440px and shrunk to fit, with an "Actual size" switch, and
+  the line before it drags to widen it (remembered per device).
+- **The "+" Page tab** is pinned at the right of the tab row; the tabs scroll behind it.
+- **Arranging Blocks** (Matt, 2026-11-15): with one Page open in "In the app", moderators drag a Block by
+  the grip at its top left (or use the arrow keys on it) to move it up or down the Page. Saving swaps
+  the shown Blocks among the places they hold, so Tier lists (not listed in the Workshop) keep theirs.
+  The drag is `useDragSort.ts`. Set up uses it too: each field row has a grip at its left (the up and
+  down arrows stay, for keyboards). Fix forms don't: a field's order belongs to the Block, not one entry.
 
 ## Adding Pages and Blocks (slice 1 live, 2026-11-15)
 

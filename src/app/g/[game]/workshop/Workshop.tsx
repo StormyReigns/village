@@ -1,9 +1,9 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, CircleHelp, EyeOff, FileText, Flag, Hammer, MapPin, MessageCircle, PanelLeftOpen, Plus, ClipboardPaste,
+  ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, CircleHelp, EyeOff, FileText, Flag, GripVertical, Hammer, MapPin, MessageCircle, PanelLeftOpen, Plus, ClipboardPaste,
   RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, X, BookOpenText,
 } from 'lucide-react';
 import type { Page } from '@/data/pages';
@@ -37,6 +37,9 @@ import { FieldSetup } from './FieldSetup';
 import { MapSetup } from './MapSetup';
 import { PlannerSetup } from './PlannerSetup';
 import { AddBlock, StructurePreview, structureOf, type StructureContent } from './AddBlock';
+import { useDragSort } from './useDragSort';
+import { browserClient } from '@/lib/supabase/browser';
+import { appChanged } from '@/app/actions';
 import { blockTypeInfo } from '@/lib/block-types';
 import { PasteSheet } from './PasteSheet';
 import { WikiCheck } from '@/components/wiki/WikiCheck';
@@ -319,6 +322,26 @@ export function Workshop({ game, pages, routes }: {
   }, [drafts, me, live.mod, chip, pageOf]);
 
   const current = pages.find((p) => p.id === chip);
+
+  // Moderators drag a Page's Blocks into order (AppContents). The Blocks shown swap places among the
+  // places they already hold, so ones the Workshop doesn't list (Tier lists) and other Pages keep theirs.
+  const router = useRouter();
+  const reorderBlocks = async (pageId: string, ids: string[]) => {
+    const db = browserClient();
+    if (!db) return;
+    const fail = (why: string) => { setJumpNote(`Couldn't save the new order: ${why}`); setTimeout(() => setJumpNote(''), 6000); router.refresh(); };
+    const { data, error } = await db.from('game_blocks').select('block_key, position').eq('game_id', game.id).eq('page_key', pageId);
+    if (error) return fail(error.message);
+    const slots = (data ?? []).filter((r) => ids.includes(r.block_key as string)).map((r) => r.position as number).sort((a, b) => a - b);
+    // Two Blocks sharing a place would have no order between them: nudge each one past the last.
+    for (let i = 1; i < slots.length; i++) if (slots[i] <= slots[i - 1]) slots[i] = slots[i - 1] + 1;
+    if (slots.length !== ids.length) return fail('the Page changed. Try again.');
+    const results = await Promise.all(ids.map((id, i) => db.from('game_blocks').update({ position: slots[i] }).eq('game_id', game.id).eq('block_key', id)));
+    const bad = results.find((r) => r.error);
+    if (bad?.error) return fail(bad.error.message);
+    await appChanged(game.id);
+    router.refresh();
+  };
   const chat = useMemo(() => (current ? live.messages.filter((m) => m.blockKey === current.id) : live.messages), [live.messages, current]);
 
   // First steps for a new Builder. Each is one tap to start, and ticks itself off once done.
@@ -829,7 +852,7 @@ export function Workshop({ game, pages, routes }: {
                     reported={new Set(live.reports.flatMap((r) => ('questionId' in r.target ? [r.target.questionId] : [])))}
                     onAnswer={(a) => setForm({ blockId: a.blockId, entryId: a.entryId, question: a.question })} onOpenDraft={setDetail} />
                 ) : (
-                  <AppContents pages={current ? [current] : pages} drafts={drafts} query={query} focus={form?.entryId ? `${form.blockId}.${form.entryId}` : undefined}
+                  <AppContents pages={current ? [current] : pages} drafts={drafts} query={query} onReorder={live.mod ? reorderBlocks : undefined} focus={form?.entryId ? `${form.blockId}.${form.entryId}` : undefined}
                     onFix={(blockId, entryId) => setForm({ blockId, entryId })} onAdd={(blockId) => setForm({ blockId })} onSetup={setSetup} onPaste={setPasting} onWiki={setWikiFor}
                     onDrafts={(cardId) => { const d = drafts.find((x) => x.cardId === cardId && isOpen(x)); if (d) setDetail(d.id); }} />
                 )}
@@ -1350,8 +1373,10 @@ const AZ = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
  * "In the app": what's on the selected Page right now, Block by Block, so villagers can
  * pick something to fix or add to without leaving the Workshop.
  */
-function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSetup, onPaste, onWiki }: {
+function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSetup, onPaste, onWiki, onReorder }: {
   pages: Page[]; drafts: LiveDraft[]; query: string; focus?: string;
+  /** Moderators: saves a new order for a Page's Blocks, dragged by the grip at each Block's top left. */
+  onReorder?: (pageId: string, blockIds: string[]) => void;
   onFix: (blockId: string, entryId: string) => void; onAdd: (blockId: string) => void; onDrafts: (cardId: string) => void;
   /** Characters and Items Blocks: open their field setup. Places Blocks: their map. */
   onSetup: (blockId: string) => void;
@@ -1368,6 +1393,20 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSe
     return n;
   }, [drafts]);
   const many = pages.length > 1;
+  // One Page open, a moderator, and not searching: its Blocks can be dragged into order.
+  const single = pages.length === 1 ? pages[0] : null;
+  const arrange = Boolean(single && onReorder && !query && single.blocks.length > 1);
+  const sort = useDragSort(single ? single.blocks.map((b) => b.id) : [], (ids) => { if (single) onReorder?.(single.id, ids); });
+  const inOrder = (p: Page) => (arrange ? sort.ids.map((id) => p.blocks.find((b) => b.id === id)!).filter(Boolean) : p.blocks);
+  const grip = (b: Page['blocks'][number]) => arrange && (
+    <Tip text="Drag to move this Block up or down the Page" className="shrink-0">
+      <button type="button" aria-label={`Move ${b.title}: drag, or use the up and down arrow keys`} {...sort.handle(b.id)}
+        className="-ml-1 grid size-7 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink">
+        <GripVertical size={16} aria-hidden="true" />
+      </button>
+    </Tip>
+  );
+  const lifted = (b: Page['blocks'][number]) => (arrange && sort.dragging === b.id ? ' relative z-10 shadow-soft ring-2 ring-ink' : '');
   return (
     <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-5">
       {query && !pages.some((p) => p.blocks.some((b) => rank(b.entries, query, entryText).length > 0)) && (
@@ -1376,16 +1415,17 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSe
       {pages.map((p) => (
         <div key={p.id} className="grid grid-cols-[minmax(0,1fr)] gap-5">
           {many && <h3 className="flex items-center gap-2 font-display text-lg"><BlockIcon name={p.icon} size={16} /> {p.title}</h3>}
-          {p.blocks.map((b) => {
+          {inOrder(p).map((b) => {
             // A to Z, so an entry is easy to find to fix (Matt); while searching, best matches first.
             const list = query ? rank(b.entries, query, entryText) : [...b.entries].sort((x, y) => AZ.compare(x.name, y.name));
             if (query && !list.length) return null;
             const isFolded = folded.includes(b.id) && !query;
             // A Planner has players' plans, not entries: only its Set up here.
             if (b.type === 'planner') return query ? null : (
-              <section key={b.id} className="min-w-0 rounded-2xl bg-card p-3"
+              <section key={b.id} ref={arrange ? sort.itemRef(b.id) : undefined} className={'min-w-0 rounded-2xl bg-card p-3' + lifted(b)}
                 style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, var(--${p.tint}) 22%, var(--line))` }}>
                 <div className="flex items-center gap-2">
+                  {grip(b)}
                   <BlockIcon name={b.icon} size={17} className="shrink-0" style={{ color: `var(--${p.tint})` }} />
                   <h4 className="min-w-0 flex-1 truncate font-bold">{b.title}</h4>
                   <Tip text={`Choose what players build ${b.title} from, how many fit, and the gear slots`} tint={p.tint} className="shrink-0">
@@ -1399,9 +1439,10 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSe
             );
             return (
               // A Block of the app: a white panel with a hairline in its Page's color.
-              <section key={b.id} className="min-w-0 rounded-2xl bg-card p-3"
+              <section key={b.id} ref={arrange ? sort.itemRef(b.id) : undefined} className={'min-w-0 rounded-2xl bg-card p-3' + lifted(b)}
                 style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, var(--${p.tint}) 22%, var(--line))` }}>
                 <div className="flex items-center gap-2">
+                  {grip(b)}
                   <button onClick={() => fold(b.id)} aria-expanded={!isFolded} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                     <BlockIcon name={b.icon} size={17} className="shrink-0" style={{ color: `var(--${p.tint})` }} />
                     <h4 className="truncate font-bold">{b.title}</h4>

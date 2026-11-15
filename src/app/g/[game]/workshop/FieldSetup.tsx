@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, Info, LayoutGrid, Link2, ListPlus, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, GripVertical, Info, LayoutGrid, Link2, ListPlus, Plus, Trash2 } from 'lucide-react';
 import type { Block, FieldDef, FieldKind, Page, StatDef } from '@/data/pages';
 import type { RouteOption } from '@/components/app/EntryPanel';
 import { CharacterCard } from '@/components/app/CharacterCard';
@@ -18,6 +18,7 @@ import { ItemTile } from '@/components/app/Items';
 import { FROM } from '@/lib/fields';
 import { classShape } from '@/lib/classes';
 import { ChoiceList } from './ChoiceList';
+import { useDragSort } from './useDragSort';
 import { backOf, bothOf, incomingFields, pointsAway, withFromRows } from '@/lib/entry-links';
 
 const input = 'w-full rounded-xl bg-card px-2.5 py-1.5 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-sky';
@@ -87,6 +88,17 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
     [next[i], next[j]] = [next[j], next[i]];
     setFields(next);
   };
+  // Or drag a field by the grip at its left (useDragSort.ts, as Blocks are arranged on a Page). Rows show
+  // in the dragged order while dragging; each keeps its place in `fields` for its own buttons.
+  const sort = useDragSort(fields.map((f) => f.key), (keys) => setFields(keys.map((k) => fields.find((f) => f.key === k)!)));
+  const rows = sort.ids.flatMap((k) => { const i = fields.findIndex((f) => f.key === k); return i < 0 ? [] : [{ f: fields[i], i }]; });
+  const grip = (f: FieldDef) => (
+    <button type="button" aria-label={`Move ${f.label}: drag, or use the up and down arrow keys`} {...sort.handle(f.key)}
+      className="-ml-1.5 grid size-6 shrink-0 place-items-center rounded-full text-muted/70 hover:bg-card-2 hover:text-ink">
+      <GripVertical size={15} aria-hidden="true" />
+    </button>
+  );
+  const lifted = (f: FieldDef) => (sort.dragging === f.key ? ' relative z-10 bg-card shadow-soft ring-2 ring-ink' : '');
   // A field can go once no character has anything in it; until then it can be switched off.
   const used = (f: FieldDef) => block.entries.some((e) => hasValue(e, f));
   const add = () => {
@@ -149,11 +161,12 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
         <>
         <ul className="grid rounded-2xl bg-card ring-1 ring-line">
           <li className="flex items-center gap-2 rounded-t-2xl bg-card-2 px-3 py-2 text-sm">
-            <span className="w-8" /><span className="font-bold">Name</span><span className="ml-auto text-xs text-muted">{item ? 'Every item has one: under its tile, and the title of its full view' : block.type === 'classes' ? 'Every class has one: under its piece on the ladder, and the title of its card' : guide ? 'Every guide has one: its title in the list and at the top' : 'Every character has one: the big title on their card'}</span>
+            <span className="w-[62px] shrink-0" /><span className="font-bold">Name</span><span className="ml-auto text-xs text-muted">{item ? 'Every item has one: under its tile, and the title of its full view' : block.type === 'classes' ? 'Every class has one: under its piece on the ladder, and the title of its card' : guide ? 'Every guide has one: its title in the list and at the top' : 'Every character has one: the big title on their card'}</span>
           </li>
-          {fields.map((f, i) => f.key.startsWith(FROM) ? (
+          {rows.map(({ f, i }) => f.key.startsWith(FROM) ? (
             // An other side from a links field elsewhere: on or off, and where it sits; named over there.
-            <li key={f.key} className={'flex items-center gap-2 border-t border-line px-3 py-2 last:rounded-b-2xl ' + (f.off ? 'bg-card-2/60' : '')}>
+            <li key={f.key} ref={sort.itemRef(f.key)} className={'flex items-center gap-2 border-t border-line px-3 py-2 last:rounded-b-2xl ' + (f.off ? 'bg-card-2/60' : '') + lifted(f)}>
+              {grip(f)}
               <button type="button" role="switch" aria-checked={!f.off} aria-label={`Show ${f.label}`} onClick={() => patch(i, { off: !f.off || undefined })}
                 className={'relative h-5 w-9 shrink-0 rounded-full transition ' + (f.off ? 'bg-line' : 'bg-ink')}>
                 <span className={'absolute top-0.5 size-4 rounded-full bg-card transition-all ' + (f.off ? 'left-0.5' : 'left-[1.15rem]')} />
@@ -175,8 +188,9 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
               <span className="size-8 shrink-0" />
             </li>
           ) : (
-            <li key={f.key} className={'grid gap-2 border-t border-line px-3 py-2 last:rounded-b-2xl ' + (f.off ? 'bg-card-2/60' : '')}>
+            <li key={f.key} ref={sort.itemRef(f.key)} className={'grid gap-2 border-t border-line px-3 py-2 last:rounded-b-2xl ' + (f.off ? 'bg-card-2/60' : '') + lifted(f)}>
               <div className="flex items-center gap-2">
+                {grip(f)}
                 <button type="button" role="switch" aria-checked={!f.off} aria-label={`Show ${f.label}`} onClick={() => patch(i, { off: !f.off || undefined })}
                   className={'relative h-5 w-9 shrink-0 rounded-full transition ' + (f.off ? 'bg-line' : 'bg-ink')}>
                   <span className={'absolute top-0.5 size-4 rounded-full bg-card transition-all ' + (f.off ? 'left-0.5' : 'left-[1.15rem]')} />
@@ -204,7 +218,7 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
                 )}
               </div>
               {f.kind === 'chart' && !f.off && (
-                <div className="grid gap-1 pl-11 text-xs">
+                <div className="grid gap-1 pl-[70px] text-xs">
                   <div className="flex items-center gap-2">
                     <label htmlFor={`stats-${block.id}-${slug(f.key)}`} className="flex-1 font-bold text-muted">Stat names, in order, separated by commas</label>
                     <StatSuggestions current={names[f.key] ?? ''} onPick={(v) => setNames({ ...names, [f.key]: v })} item={item} />
@@ -233,7 +247,7 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
                 const list = choicesOf(f);
                 const bands = block.type === 'classes' && classShape({ ...draft, entries: block.entries }).band === f.key;
                 return (
-                  <div className="flex flex-wrap items-center gap-2 pl-11 text-xs">
+                  <div className="flex flex-wrap items-center gap-2 pl-[70px] text-xs">
                     <span className="min-w-0 flex-1 text-muted">
                       {list.length
                         ? <><span className="font-bold text-ink">{bands ? 'Bands' : 'Choices'}:</span> {list.map((c) => c.name).join(' · ')}</>
@@ -246,7 +260,7 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
                 );
               })()}
               {f.kind === 'playable' && !f.off && (
-                <div className="grid gap-1 pl-11 text-xs">
+                <div className="grid gap-1 pl-[70px] text-xs">
                   <span className="font-bold text-muted">The two choices</span>
                   <div className="flex gap-2">
                     {toggleOptions(f).map((o, k) => (
@@ -354,7 +368,7 @@ function LinkSetup({ f, block, blocks, onChange }: { f: FieldDef; block: Block &
   const both = at === '@self' && bothOf(f, block.id);
   const fallback = backOf({ ...f, back: undefined, both: false }, block.id);
   return (
-    <div className="grid gap-1.5 pl-11 text-xs">
+    <div className="grid gap-1.5 pl-[70px] text-xs">
       <label className="flex flex-wrap items-center gap-2">
         <span className="font-bold text-muted">{place ? 'The name points at' : 'Names point at'}</span>
         <select value={at} onChange={(e) => pick(e.target.value)} className={input + ' w-auto min-w-0 flex-1 py-1'}>
