@@ -96,7 +96,8 @@ export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const rowTag = tileFields(block).find((f) => f.kind === 'tag' && !f.spoiler && (groups.length < 2 || f.key !== filter));
   // Sections opened past their fold, remembered on this device. Searching shows everything.
   const [opened, setOpened] = useStored<string[]>(`village:${ctx.gameId}:${block.id}:opened`, []);
-  const jumping = groups.length > 1;
+  // Compare is one table, so there the chips filter it rather than jump.
+  const jumping = groups.length > 1 && view !== 'compare';
   const jump = (name: string) => document.getElementById(sectionId(block, name))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const open = (e: Entry) => set(`${block.id}.${e.id}`);
   const views: [View, string, typeof LayoutGrid][] = [['tiles', 'Tiles', LayoutGrid], ['list', 'List', LayoutList], ...(defs.length ? [['compare', 'Compare', Table2] as [View, string, typeof LayoutGrid]] : [])];
@@ -168,7 +169,8 @@ export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
         <Nothing query={query} shown={shown} onOpen={open} />
       ) : view === 'compare' ? (
         <div className="mt-3">
-          <StatTable block={{ ...block, stats: defs }} entries={list} among={shown} sort={sort.startsWith('stat:') ? sort : ''} onSort={setSort} onOpen={open} filter={filter} color={color} />
+          <StatTable block={{ ...block, stats: defs }} entries={list} among={shown} sort={sort.startsWith('stat:') ? sort : ''} onSort={setSort} onOpen={open} filter={filter} color={color}
+            groupBy={filter && values.length > 1 ? { key: filter, label: filterLabel ?? filter, order: values.map(([v]) => v) } : undefined} />
         </div>
       ) : (
         groups.map((g) => {

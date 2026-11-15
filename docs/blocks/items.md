@@ -76,6 +76,10 @@ What this means for the design:
   the player's account when signed in, so the tile and the full view always agree.
 - **Compare**: only when the Block has a chart (weapons). The full heatmap table, the one
   Weapons and magic had: tap a column to sort, tap a row for the full view.
+  A "By type" button beside Name (named after the grouping tag: "By weapon type") groups the
+  rows under their type, each type still in the sort's order, so the best Might among swords is
+  one tap. The same button is on the heatmap a stat opens from an item's full view (under the
+  ticked "Selected items"). In Compare the chips filter the table rather than jump.
 - The address holds the item, so links and share cards open straight to it.
 - Each device remembers the view, the grouping and the sort, per Block.
 
@@ -206,6 +210,9 @@ names offered from the Block, and the live preview. Moderators save setups for n
   overwhelm, for hundreds of items over 3 to 12 types). The compact looks use the plain symbol,
   not a piece (Matt): pieces belong to cards and the full view. Fortune's Weave weapons group by
   Weapon type first, then Rank (starter data; live after seed-app.sql is rerun).
+- 2026-11-15: item heatmaps (Compare, and the one a stat opens) can group rows by type, with
+  the stat sort kept inside each type (Matt: we need to be able to sort by type). Why: comparing
+  a sword with a spell rarely helps; players compare within a weapon type.
 
 ## Open questions
 

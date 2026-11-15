@@ -12,10 +12,13 @@ import { heatFill, placeText, statFacts } from '@/lib/stats';
 // Comparing characters (onPin given) works differently, for thumbs on a phone: rows can be
 // ticked to stay on top, the stat names and the ticked rows stay put while the rest scrolls,
 // and a tap only highlights that row and column. Opening someone takes the arrow by their name.
+//
+// Items (groupBy given) can group the rows under their type (Sword, Black Magic...), each type
+// still in the sort's order, so "best might among swords" is one tap on Might.
 
 export const statSort = (key: string, worst = false) => `stat:${key}${worst ? ':worst' : ''}`;
 
-export function StatTable({ block, entries, among, sort, onSort, onOpen, filter, color, mark, pinned, onPin, pinLabel = 'Selected' }: {
+export function StatTable({ block, entries, among, sort, onSort, onOpen, filter, color, mark, pinned, onPin, pinLabel = 'Selected', groupBy }: {
   block: Block;
   /** The Page's color, for the better end of the heatmap. */
   color: string;
@@ -33,12 +36,16 @@ export function StatTable({ block, entries, among, sort, onSort, onOpen, filter,
   onPin?: (name: string) => void;
   /** What the ticked group is called, over its rows. */
   pinLabel?: string;
+  /** A tag the rows can be grouped by (an item's type), with its groups in order. Adds a
+   *  "By type" button beside Name. */
+  groupBy?: { key: string; label: string; order: string[] };
 }) {
   const defs = block.stats ?? [];
   const lower = defs.filter((d) => d.better === 'low').map((d) => d.label);
   const sorted = defs.find((d) => sort.startsWith(statSort(d.key)));
   const worst = sort.endsWith(':worst');
   const compare = Boolean(onPin);
+  const [grouped, setGrouped] = useState(false);
   // Comparing: the row and column last tapped, highlighted.
   const [focus, setFocus] = useState<{ row: string; col?: string } | null>(null);
   const tap = (row: string, col?: string) => setFocus(focus?.row === row && focus.col === col ? null : { row, col });
@@ -59,6 +66,11 @@ export function StatTable({ block, entries, among, sort, onSort, onOpen, filter,
   const isPinned = (e: Entry) => Boolean(compare && pinned?.has(e.name));
   const top = entries.filter(isPinned);
   const rest = entries.filter((e) => !isPinned(e));
+  // Grouped by type: the rest under one header per type, each in the sort's order; items
+  // without the tag last, under "Other".
+  const sections = grouped && groupBy
+    ? [...groupBy.order, ''].map((v) => ({ name: v || 'Other', rows: rest.filter((e) => (e.categories[groupBy.key] ?? '') === v) })).filter((x) => x.rows.length)
+    : null;
   const groupRow = (text: string, line: boolean) => (
     <tr aria-hidden="true">
       <td colSpan={defs.length + 1} className={'bg-card ' + (line ? 'pt-2 pb-1' : 'pt-0.5')}>
@@ -111,7 +123,7 @@ export function StatTable({ block, entries, among, sort, onSort, onOpen, filter,
                 className="grid size-6 shrink-0 place-items-center rounded-full bg-ink text-paper"><ArrowUpRight size={13} aria-hidden="true" /></button>
             )}
           </span>
-          {filter && e.categories[filter] && <span className="block text-xs text-muted">{e.categories[filter]}</span>}
+          {filter && e.categories[filter] && !(sections && filter === groupBy?.key) && <span className="block text-xs text-muted">{e.categories[filter]}</span>}
           </div>
         </th>
         {defs.map((d) => cell(d, e))}
@@ -127,8 +139,16 @@ export function StatTable({ block, entries, among, sort, onSort, onOpen, filter,
           <thead className={compare ? 'sticky top-0 z-20 bg-card' : ''}>
             <tr>
               <th scope="col" className="sticky left-0 z-10 bg-card px-1 py-1.5 text-left sm:px-2">
-                <button type="button" onClick={() => onSort('az')}
-                  className={'rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wide ' + (sort === 'az' ? 'bg-ink text-white' : 'text-muted hover:text-ink')}>Name</button>
+                <span className="flex flex-wrap items-center gap-1">
+                  <button type="button" onClick={() => onSort('az')}
+                    className={'rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wide ' + (sort === 'az' ? 'bg-ink text-white' : 'text-muted hover:text-ink')}>Name</button>
+                  {groupBy && (
+                    <button type="button" onClick={() => setGrouped(!grouped)} aria-pressed={grouped}
+                      className={'whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wide ring-1 ' + (grouped ? 'bg-ink text-white ring-ink' : 'text-muted ring-line hover:text-ink')}>
+                      By {groupBy.label.toLowerCase()}
+                    </button>
+                  )}
+                </span>
               </th>
               {defs.map((d) => {
                 const on = sorted?.key === d.key;
@@ -150,7 +170,14 @@ export function StatTable({ block, entries, among, sort, onSort, onOpen, filter,
             {top.length > 0 && rest.length > 0 && groupRow(sorted ? `Everyone else, by ${sorted.label}` : 'Everyone else', true)}
           </thead>
           <tbody>
-            {rest.map((e) => <Fragment key={e.id || e.name}>{row(e)}</Fragment>)}
+            {sections
+              ? sections.map((x, i) => (
+                <Fragment key={x.name}>
+                  {groupRow(`${x.name} · ${x.rows.length}`, i > 0 || top.length > 0)}
+                  {x.rows.map(row)}
+                </Fragment>
+              ))
+              : rest.map((e) => <Fragment key={e.id || e.name}>{row(e)}</Fragment>)}
           </tbody>
         </table>
       </div>
@@ -162,7 +189,8 @@ export function StatTable({ block, entries, among, sort, onSort, onOpen, filter,
           Better
         </span>
         {lower.length > 0 && <span>Lower is better for {lower.join(' and ')}.</span>}
-        {sorted && <span>Sorted by {sorted.label.toLowerCase()}, {worst ? 'worst' : 'best'} first.</span>}
+        {sorted && <span>Sorted by {sorted.label.toLowerCase()}, {worst ? 'worst' : 'best'} first{sections ? ` within each ${groupBy!.label.toLowerCase()}` : ''}.</span>}
+        {sections && !sorted && <span>Grouped by {groupBy!.label.toLowerCase()}.</span>}
         {compare && <span>Tap a number to line it up; the arrow opens someone.</span>}
       </div>
     </>

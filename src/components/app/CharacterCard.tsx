@@ -22,6 +22,7 @@ import { WikiLink } from '@/components/wiki/WikiLink';
 import { CommunityTier } from '@/components/tiers/CommunityTier';
 import { PartyMark } from '@/components/planner/PartyMark';
 import { ClassFit } from '@/components/classes/ClassFit';
+import { groupOrder } from '@/lib/items';
 
 /**
  * Set by the Characters Block: tapping a tag on a card (a group, a class, Playable or NPC)
@@ -227,7 +228,7 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
         );
       })}
       {heat && (
-        <HeatMap label={heat.chart.label} defs={chartDefs(block, heat.chart)} entry={entry} among={among} block={block} color={color} sort={heat.sort} pinLabel={klass ? 'Selected classes' : 'Selected characters'}
+        <HeatMap label={heat.chart.label} defs={chartDefs(block, heat.chart)} entry={entry} among={among} block={block} color={color} sort={heat.sort} pinLabel={klass ? 'Selected classes' : block.type === 'items' ? 'Selected items' : 'Selected characters'}
           onSort={(sort) => setHeat({ ...heat, sort })} onClose={() => setHeat(null)} onGo={onGo} />
       )}
 
@@ -463,6 +464,13 @@ function HeatMap({ label, defs, entry, among, block, color, sort, pinLabel, onSo
   const pin = (name: string) => { const next = new Set(pinned); if (next.has(name)) next.delete(name); else next.add(name); setPinned(next); };
   const def = defs.find((d) => sort.startsWith(statSort(d.key)));
   const rows = among.filter((e) => defs.some((d) => typeof e.stats?.[d.key] === 'number'));
+  // Items: the rows can be grouped by the Block's grouping tag (a weapon's type).
+  const typeKey = block.type === 'items' ? block.filters?.find((k) => new Set(rows.map((e) => e.categories[k]).filter(Boolean)).size > 1) : undefined;
+  const groupBy = typeKey ? {
+    key: typeKey,
+    label: block.fields?.find((f) => f.key === typeKey)?.label ?? typeKey,
+    order: groupOrder([...new Set(rows.map((e) => e.categories[typeKey]).filter(Boolean))]),
+  } : undefined;
   if (def) rows.sort(byStat(def, sort.endsWith(':worst')));
   else rows.sort((a, b) => a.name.localeCompare(b.name));
   rows.sort((a, b) => Number(pinned.has(b.name)) - Number(pinned.has(a.name)));
@@ -479,7 +487,7 @@ function HeatMap({ label, defs, entry, among, block, color, sort, pinLabel, onSo
           <button type="button" onClick={onClose} aria-label="Close" className="grid size-9 shrink-0 place-items-center rounded-full bg-card-2 ring-1 ring-line"><X size={18} aria-hidden="true" /></button>
         </div>
         <div className="flex min-h-0 flex-1 flex-col">
-          <StatTable block={{ ...(block as Block), stats: defs }} entries={rows} among={among} sort={sort} onSort={onSort} color={color} mark={entry.name} pinned={pinned} onPin={pin} pinLabel={pinLabel}
+          <StatTable block={{ ...(block as Block), stats: defs }} entries={rows} among={among} sort={sort} onSort={onSort} color={color} mark={entry.name} pinned={pinned} onPin={pin} pinLabel={pinLabel} groupBy={groupBy}
             onOpen={(e) => { onClose(); if (e.name !== entry.name) onGo?.(e); }} />
         </div>
       </div>
