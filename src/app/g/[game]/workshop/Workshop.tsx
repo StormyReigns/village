@@ -106,8 +106,9 @@ export function Workshop({ game, pages, routes }: {
   const [discarded, setDiscarded] = useState<Unsent | null>(null);
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
-  // Wide screens: the chat can fold to a thin strip, to give an editor more room.
-  const [chatFolded, setChatFolded] = useStored('village:workshop:chat-folded', false);
+  // Wide screens: the chat can fold to a thin strip, to give an editor more room. It isn't
+  // remembered: where both fit, the Workshop always opens with the chat beside the work (Matt).
+  const [chatFolded, setChatFolded] = useState(false);
   // Wide screens: how wide the chat is, dragged by the handle beside it (0 is the usual width).
   const [chatWidth, setChatWidth] = useStored('village:workshop:chat-width', 0);
   const columns = useRef<HTMLDivElement>(null);
@@ -417,8 +418,8 @@ export function Workshop({ game, pages, routes }: {
   const shownChatWidth = windowWidth
     ? Math.min(chatWidth || usualChatWidth, Math.max(260, windowWidth - 48 - (editing ? 768 : 480) - 32)) : chatWidth;
   // The chat folds to a thin bar on the left, and opens again from it. Wide screens show the
-  // chat beside the work, so folding is a choice that's remembered; phones show one at a time,
-  // so there folding the chat is how you get back to the work.
+  // chat beside the work, open on each visit; phones show one at a time, so there folding the
+  // chat is how you get back to the work.
   const wideNow = () => window.matchMedia('(min-width: 1024px)').matches;
   const foldChat = () => (wideNow() ? setChatFolded(true) : setPhoneTab('work'));
   const unfoldChat = () => (wideNow() ? setChatFolded(false) : setPhoneTab('chat'));
