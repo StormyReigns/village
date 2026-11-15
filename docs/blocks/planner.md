@@ -249,6 +249,13 @@ each one's step; "In your party" on Goliath's card on Units (opening his plan) a
 Levin Sword +1; dragging Ninae to the top by her grip; reorder rows fitting a phone once the step line hides
 while reordering; no sideways scroll. Touch dragging needs a real phone (the browser here sends mouse moves).
 
+- 2026-11-15: three changes from Matt's first look. **The picker lists units A to Z** in one grid ("too spread
+  out" by faction). **Each row shows what else there is to plan**: "Classes" and gear-slot chips under its line, "+"
+  and dashed while empty, then the last class ("Shido · 2 of 5") or the count ("Weapons and magic · 2 of 3"), each
+  opening the unit's plan, with "Tap a unit to plan their classes and gear" above the list. **All shows "Your runs"**
+  instead of a blank "Whose run is it?": one card per route with that run's party as pieces (or "Start a Leda run"),
+  tapping one picks that route; with nothing planned anywhere, a three-step explainer and a real example line first.
+
 ## Open questions
 
 - Weapon slot count for Fortune's Weave: 3 to start. Matt can change it.

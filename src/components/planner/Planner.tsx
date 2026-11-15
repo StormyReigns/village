@@ -1,24 +1,59 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Check, GripVertical, Plus, Search, Share2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, GripVertical, Plus, Search, Share2, Shield, Swords, X } from 'lucide-react';
 import type { Block, Entry } from '@/data/pages';
 import { Piece } from '@/components/Piece';
 import { BlockIcon } from '@/components/Icon';
 import { EntryPanel, symbolFor } from '@/components/app/EntryPanel';
 import { initials, rememberEntry, useOpenEntry } from '@/components/app/entries';
 import type { BlockContext } from '@/components/app/blockParts';
-import { STEP_LABEL, addMember, moveMember, moveMemberTo, removeMember, type Roster } from '@/lib/planner';
+import { STEP_LABEL, addMember, buildOf, moveMember, moveMemberTo, removeMember, slotCount, type Build, type PlanSlot, type Roster } from '@/lib/planner';
 import { BuildPlan } from './BuildPlan';
 import { useParty } from './useParty';
+import { Runs } from './Runs';
+import type { ClassLadder } from './sources';
 
 // The Planner Block (docs/blocks/planner.md): your party for this run, picked from the roster (Units),
 // each with the next thing to do for them: recruit, get their gear, reach their next class. Saved on
 // this device, and in your account when signed in. Tapping a unit opens their card over the Party
 // Page, with your plan for them (class steps and gear) at the top.
 
-/** The roster's first tag, which groups the picker (Group, for Fortune's Weave). */
-const groupKey = (b: Block) => b.filters?.[0] ?? b.fields?.find((f) => f.kind === 'tag' && !f.off)?.key;
+/**
+ * What else there is to plan for a unit, as chips under their line: their classes and each gear slot,
+ * "+" while nothing's picked (Matt, 2026-11-15: it wasn't clear there was more to do for each one).
+ * A tap opens their card with the plan at the top.
+ */
+function PlanChips({ build, ladder, slots, onOpen, name }: {
+  build: Build; ladder?: ClassLadder; slots: { slot: PlanSlot }[]; onOpen: () => void; name: string;
+}) {
+  const steps = ladder ? ladder.bands.map((b) => build.classes?.[b]).filter(Boolean) : [];
+  const last = steps.length ? ladder?.byId.get(steps[steps.length - 1]!.id)?.name : undefined;
+  const chip = 'inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ';
+  const empty = chip + 'border border-dashed border-ink/40 text-muted hover:border-ink hover:text-ink';
+  const full = chip + 'border border-line bg-card-2 text-ink hover:border-ink';
+  if (!ladder && !slots.length) return null;
+  return (
+    <span className="mt-1.5 flex flex-wrap gap-1.5">
+      {ladder && (
+        <button onClick={onOpen} className={last ? full : empty} aria-label={last ? `${name}'s classes: ${last}` : `Plan ${name}'s classes`}>
+          {last ? <Shield size={12} aria-hidden="true" /> : <Plus size={12} aria-hidden="true" />}
+          <span className="truncate">{last ? `${last} · ${steps.length} of ${ladder.bands.length}` : 'Classes'}</span>
+        </button>
+      )}
+      {slots.map(({ slot }) => {
+        const n = build.gear?.[slot.key]?.length ?? 0;
+        const of = slotCount(slot);
+        return (
+          <button key={slot.key} onClick={onOpen} className={n ? full : empty} aria-label={n ? `${name}'s ${slot.label}: ${n} of ${of}` : `Plan ${name}'s ${slot.label}`}>
+            {n ? <Swords size={12} aria-hidden="true" /> : <Plus size={12} aria-hidden="true" />}
+            <span className="truncate">{slot.label}{n ? ` · ${n} of ${of}` : ''}</span>
+          </button>
+        );
+      })}
+    </span>
+  );
+}
 
 /** A unit as a piece: solid once they're yours, the split outline while they're still to recruit. */
 function UnitPiece({ entry, roster, color, outline, size = 52 }: { entry: Entry; roster: Block; color: string; outline?: boolean; size?: number }) {
@@ -31,15 +66,8 @@ function UnitPiece({ entry, roster, color, outline, size = 52 }: { entry: Entry;
 export function Planner({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const roster = ctx.rosters?.[block.id];
   if (!roster) return <p className="mt-3 text-sm text-muted">This planner picks from a Block that isn’t in the app yet.</p>;
-  if (block.byRoute && ctx.routes.length && ctx.route === 'all') {
-    return (
-      <div className="mt-4 grid justify-items-center gap-2 rounded-2xl bg-card-2 px-4 py-8 text-center">
-        <Piece size={56} outline><BlockIcon name={block.icon} size={16} /></Piece>
-        <p className="font-display text-lg">Whose run is it?</p>
-        <p className="max-w-xs text-sm text-muted">Pick your route at the top of the page. Each route gets its own party, since who can join is different.</p>
-      </div>
-    );
-  }
+  // With All picked: every run at a glance, and a way into each (Matt, 2026-11-15).
+  if (block.byRoute && ctx.routes.length && ctx.route === 'all') return <Runs block={block} roster={roster} ctx={ctx} />;
   return <Party block={block} roster={roster} ctx={ctx} />;
 }
 
@@ -108,6 +136,9 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
         )}
       </div>
       <p className={'text-sm ' + (save === 'error' ? 'text-berry' : 'text-muted')} aria-live="polite">{saveLine}</p>
+      {members.length > 0 && !editing && (ladder || slots.length > 0) && (
+        <p className="mt-1 text-sm font-bold">Tap a unit to plan their {ladder && slots.length ? 'classes and gear' : ladder ? 'classes' : 'gear'}.</p>
+      )}
       {(shareNote || shared) && (
         <p className="text-sm text-muted" aria-live="polite">
           {shareNote && <span className="break-all">{shareNote} </span>}
@@ -145,18 +176,21 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
                     <GripVertical size={18} />
                   </span>
                 )}
-                <button onClick={() => set(`${rb.id}.${e.id}`)} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label={`Open ${e.name}`}>
-                  <UnitPiece entry={e} roster={rb} color={color} outline={step.kind === 'recruit'} size={editing ? 40 : 48} />
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <button onClick={() => set(`${rb.id}.${e.id}`)} className="shrink-0" aria-label={`Open ${e.name}`}>
+                    <UnitPiece entry={e} roster={rb} color={color} outline={step.kind === 'recruit'} size={editing ? 40 : 48} />
+                  </button>
                   <span className="min-w-0">
-                    <span className="block font-bold leading-tight">{e.name}</span>
+                    <button onClick={() => set(`${rb.id}.${e.id}`)} className="block text-left font-bold leading-tight hover:underline">{e.name}</button>
                     {step.text && (
                       // While reordering on a phone, just the name, so the row has room for its buttons.
                       <span className={'mt-0.5 text-sm leading-snug text-muted ' + (editing ? 'hidden sm:block' : 'block')}>
                         {STEP_LABEL[step.kind] && <span className="font-bold text-ink">{STEP_LABEL[step.kind]}: </span>}{step.text}
                       </span>
                     )}
+                    {!editing && <PlanChips build={buildOf(plan, e.id)} ladder={ladder} slots={slots} name={e.name} onOpen={() => set(`${rb.id}.${e.id}`)} />}
                   </span>
-                </button>
+                </div>
                 {editing ? (
                   <span className="flex shrink-0 items-center gap-1">
                     <button onClick={() => setPlan(moveMember(plan, e.id, -1))} disabled={i === 0} aria-label={`Move ${e.name} up`}
@@ -205,7 +239,7 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
   );
 }
 
-/** The roster as pieces to tap in or out of the party, grouped like the Units Page, searchable. */
+/** The roster as pieces to tap in or out of the party, A to Z, searchable (Matt, 2026-11-15: groups spread it out too much). */
 function Picker({ roster, entries, party, size, color, ctx, onToggle, onDone }: {
   roster: Block; entries: Entry[]; party: string[]; size: number; color: string; ctx: BlockContext;
   onToggle: (id: string) => void; onDone: () => void;
@@ -214,12 +248,7 @@ function Picker({ roster, entries, party, size, color, ctx, onToggle, onDone }: 
   const q = query.trim().toLowerCase();
   const shown = entries.filter((e) => (ctx.spoilers || !e.spoiler || party.includes(e.id)) && (!q || e.name.toLowerCase().includes(q)));
   const hidden = entries.filter((e) => e.spoiler && !ctx.spoilers && !party.includes(e.id)).length;
-  const key = groupKey(roster);
-  const groups = useMemo(() => {
-    const out = new Map<string, Entry[]>();
-    for (const e of shown) { const g = (key && e.categories[key]) || 'Others'; out.set(g, [...(out.get(g) ?? []), e]); }
-    return [...out];
-  }, [shown, key]);
+  const sorted = useMemo(() => [...shown].sort((a, b) => a.name.localeCompare(b.name)), [shown]);
   const full = party.length >= size;
 
   return (
@@ -235,12 +264,11 @@ function Picker({ roster, entries, party, size, color, ctx, onToggle, onDone }: 
       <p className="mt-2 px-1 text-sm text-muted" aria-live="polite">
         {full ? 'Your party is full: tap someone in it to take them out.' : `Tap to add, tap again to take out. ${party.length} of ${size < 100 ? size : 'any'} picked.`}
       </p>
-      {groups.length === 0 && <p className="px-1 py-4 text-sm text-muted">Nobody called that on this route.</p>}
-      {groups.map(([g, list]) => (
-        <div key={g} className="mt-3">
-          {key && <h3 className="px-1 text-xs font-bold uppercase tracking-wide text-muted">{g}</h3>}
-          <ul className="mt-1 grid grid-cols-[repeat(auto-fill,minmax(4.75rem,1fr))] gap-x-2 gap-y-3">
-            {list.map((e) => {
+      {sorted.length === 0 && <p className="px-1 py-4 text-sm text-muted">Nobody called that on this route.</p>}
+      {sorted.length > 0 && (
+        <div className="mt-2">
+          <ul className="grid grid-cols-[repeat(auto-fill,minmax(4.25rem,1fr))] gap-x-1.5 gap-y-2">
+            {sorted.map((e) => {
               const on = party.includes(e.id);
               return (
                 <li key={e.id}>
@@ -248,7 +276,7 @@ function Picker({ roster, entries, party, size, color, ctx, onToggle, onDone }: 
                     className="group grid w-full justify-items-center gap-1 rounded-xl p-1 text-center disabled:opacity-40">
                     {/* Yellow marks the player's own choice. */}
                     <span className={'relative rounded-xl p-0.5 ' + (on ? 'bg-signal' : 'group-hover:bg-card')}>
-                      <UnitPiece entry={e} roster={roster} color={color} size={48} />
+                      <UnitPiece entry={e} roster={roster} color={color} size={44} />
                       {on && <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-ink text-white"><Check size={12} strokeWidth={3} aria-hidden="true" /></span>}
                     </span>
                     <span className="line-clamp-2 text-xs font-bold leading-tight">{e.name}</span>
@@ -258,7 +286,7 @@ function Picker({ roster, entries, party, size, color, ctx, onToggle, onDone }: 
             })}
           </ul>
         </div>
-      ))}
+      )}
       {hidden > 0 && (
         <p className="mt-3 px-1 text-sm text-muted">{hidden} hidden as spoilers. <button onClick={ctx.onShowSpoilers} className="font-bold underline underline-offset-2">Show them</button></p>
       )}

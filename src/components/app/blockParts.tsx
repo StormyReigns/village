@@ -30,6 +30,8 @@ export interface BlockContext {
   mentions?: Record<string, Mention[]>;
   /** For Planner Blocks: the roster each one picks from, which lives on another Page (src/lib/planner.ts). */
   rosters?: Record<string, Roster>;
+  /** Picks a route in the Page's switcher (a Planner's runs, when All is picked). */
+  onPickRoute?: (route: Route) => void;
 }
 
 /** Entries the player can see: on their route, and no spoilers unless they asked. */

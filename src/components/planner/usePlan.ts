@@ -169,5 +169,7 @@ export function usePlan(gameId: string, blockKey: string, sources: PlanSources, 
     return { id };
   }, [me, flush, push, key, gameId, blockKey]);
 
-  return { plan, setPlan, ready, save: me ? save : 'device' as PlanSave, error, signedIn: Boolean(me), shared: rows[key]?.shared ? rows[key].id : null, share };
+  return { plan, setPlan, ready, save: me ? save : 'device' as PlanSave, error, signedIn: Boolean(me), shared: rows[key]?.shared ? rows[key].id : null, share,
+    /** Every route's plan as kept (the All view's runs). */
+    all: store as Record<string, Plan> };
 }

@@ -114,6 +114,7 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [], mention
     onShowSpoilers: () => setPrefs({ spoilers: true }),
     mentions,
     rosters,
+    onPickRoute: byRoute ? (r) => setPrefs({ route: r }) : undefined,
   };
 
   return (
