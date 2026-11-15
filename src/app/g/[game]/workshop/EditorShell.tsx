@@ -96,7 +96,9 @@ export function EditorShell({ label, title, titleExtra, actions, note, onClose, 
         {/* The editor and the preview each scroll on their own: in a narrow frame the preview is
             a sheet below, in a wide one a column on the right past a thin line. */}
         <div data-split className="flex min-h-0 flex-1 flex-col @3xl:grid @3xl:grid-cols-[minmax(0,1fr)_23.5rem] @3xl:border-t @3xl:border-line">
-          <div className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto overscroll-contain px-4 pb-4 @3xl:px-6 @3xl:pb-6 @3xl:pt-4">
+          {/* One column that never grows past the frame: a wide row inside (the Page chips)
+              scrolls on its own instead of pushing every field under the preview. */}
+          <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-3 overflow-y-auto overscroll-contain px-4 pb-4 @3xl:px-6 @3xl:pb-6 @3xl:pt-4">
             {editor}
           </div>
           <div data-sheet className="relative z-10 flex shrink-0 flex-col rounded-t-[1.5rem] shadow-[0_-1px_0_var(--line),0_-14px_28px_-8px_rgba(21,23,28,0.38)] @3xl:block @3xl:h-auto @3xl:min-h-0 @3xl:overflow-y-auto @3xl:overscroll-contain @3xl:rounded-none @3xl:border-l @3xl:border-line @3xl:px-6 @3xl:pb-6 @3xl:pt-4 @3xl:shadow-none"

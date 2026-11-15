@@ -44,7 +44,8 @@ export function ScrollRow({ as: Tag = 'div', className = '', label, role, childr
   const arrow = 'absolute top-1/2 z-10 hidden size-9 -translate-y-1/2 place-items-center rounded-full bg-card text-ink shadow-soft ring-1 ring-line hover:ring-ink pointer-fine:grid';
 
   return (
-    <div className="relative">
+    // min-w-0: inside a grid or flex column the row scrolls, rather than widening the column.
+    <div className="relative min-w-0">
       <Tag ref={ref as never} aria-label={label} role={role} className={'chip-strip overflow-x-auto ' + className} style={fadeMask('horizontal', more.left, more.right)}>{children}</Tag>
       {more.left && <button type="button" onClick={() => go(-1)} aria-label="Scroll left" className={arrow + ' -left-2'}><ChevronLeft size={18} aria-hidden="true" /></button>}
       {more.right && <button type="button" onClick={() => go(1)} aria-label="Scroll right" className={arrow + ' -right-2'}><ChevronRight size={18} aria-hidden="true" /></button>}
