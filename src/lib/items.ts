@@ -63,3 +63,12 @@ export function standouts(entries: Numbered[], defs: Stat[]): Map<string, string
   }
   return out;
 }
+
+/** How a section of items is drawn: a few as cards, a medium run as small icon tiles, a long
+ *  run as a list of icon rows (Matt, 2026-11-15: a big shelf of cards falls apart). */
+export type Density = 'cards' | 'tiles' | 'rows';
+export const densityFor = (count: number): Density => (count <= 8 ? 'cards' : count <= 30 ? 'tiles' : 'rows');
+
+/** How many of a section show before "Show all": ten rows of a list; tiles fold at two full
+ *  rows of however many fit across (twelve until measured). */
+export const FOLD_AT: Record<Density, number> = { cards: Infinity, tiles: 12, rows: 10 };

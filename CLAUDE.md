@@ -69,7 +69,8 @@ Integrations (phone app, Discord, Spreadsheets, wiki links) have specs there too
   silhouette, the house in its ring of genre tiles, as one flat shape (Matt's
   `logo-silhouette-*.svg`, agreed 2026-10-31; replaces the cut-corner dovetail block). Only
   scaled, never stretched. It is every entry, every Page symbol's backing, and tick boxes.
-  Pages and Blocks are never pieces. Entries show a group symbol (a Block's `symbols`, e.g.
+  Pages and Blocks are never pieces. Compact views of many items (Items' small tiles and rows)
+  show the plain symbol instead of a piece (Matt, 2026-11-15). Entries show a group symbol (a Block's `symbols`, e.g.
   one per faction) when set, else initials.
 - **Never blank**: a solid piece with no picture, symbol or initials has "village" cut out
   of it (a lone "v" under 64px), plain: the letters just show what's behind, no added

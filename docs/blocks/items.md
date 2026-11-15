@@ -44,16 +44,30 @@ What this means for the design:
 
 ## What a player sees
 
-- **Tiles** (the default): items as tiles in a grid, like an inventory screen. Each tile is
-  the item's piece, its name under it, and whatever the builders put on the tile (Matt,
-  2026-11-02): a row of small heat-colored numbers for basic stats, a price, a Type pill.
-  Tap a tile for the full view.
-- **Organizing**: with nothing typed, tiles are grouped under headers by the Block's first tag
-  (Key items · 3, Materials · 4...), so the grid reads like the game's own inventory tabs.
-  Filter chips (Type, Rank...) narrow it, and any tag can be the grouping, as in Characters.
-  Letter ranks group best first (S, A, B... with a range like "B–A" by its best letter).
-  Sorts: A to Z, Z to A, and "Best <stat>" for each stat (a sort by a stat drops the
-  headers and ranks every item). A tag the tiles are grouped by isn't repeated on them.
+- **Tiles** (the default), a shelf where each section is drawn by how much it holds
+  (`densityFor` in `src/lib/items.ts`; Matt, 2026-11-15, because a big shelf of cards falls
+  apart):
+  - **up to 8 items: cards** (see "The tile" below);
+  - **9 to 30: small icon tiles**: the plain symbol (or picture) in the Page color, the name
+    under it, and the one number that matters now (the stat being sorted by, else the tile's
+    first: "Might 25");
+  - **over 30: icon rows**: symbol, name, the tile's first other tag (a rank) and that one
+    number, in two columns on wider screens, with the number's name over the column.
+  One Block can mix all three, which keeps a big Block from feeling like a wall. Tap any of
+  them for the full view.
+- **Folding**: sections of tiles start at two full rows (however many fit across), rows at
+  ten, with "Show all 42" (and "Show fewer"). Each device remembers what's open. Searching
+  shows everything.
+- **Organizing**: with nothing typed, items are grouped under headers by the Block's first tag
+  (Key items · 3, Materials · 4...), so the shelf reads like the game's own inventory tabs.
+  The headers stay pinned under the top bar while their section scrolls past. Any tag can be
+  the grouping, as in Characters. Letter ranks group best first (S, A, B... with a range like
+  "B–A" by its best letter). Sorts: A to Z, Z to A, and "Best <stat>" for each stat (a sort by
+  a stat drops the headers and ranks every item). A tag the items are grouped by isn't
+  repeated on them.
+- **Jump row**: while grouped, the chips are the sections, each with its symbol and count
+  ("Sword 42"); tapping one scrolls to it and keeps the rest in view. Ranked or searched (one
+  list), the chips filter instead ("Best might" among bows only).
 - **List**: the same items as rows, for scanning: piece, name, the tile's things in one line,
   and the first line of what it does.
 - **Got it**: a tick box on each item's full view (a piece: the split outline until you have
@@ -186,6 +200,12 @@ names offered from the Block, and the live preview. Moderators save setups for n
   columns, a standout badge for the clear best at a number, and a line on what's special. Why:
   the shelf looked like splotches, numbers and some text; players at the armory want "which is
   better?" and "what does it do?" answered at a glance.
+- 2026-11-15: each section is drawn by how much it holds: cards up to 8, small icon tiles to
+  30, icon rows past that; long sections fold, headers stay pinned, and the chips jump between
+  sections (Matt: the cards fall apart with too many items; design variety helps against
+  overwhelm, for hundreds of items over 3 to 12 types). The compact looks use the plain symbol,
+  not a piece (Matt): pieces belong to cards and the full view. Fortune's Weave weapons group by
+  Weapon type first, then Rank (starter data; live after seed-app.sql is rerun).
 
 ## Open questions
 

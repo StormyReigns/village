@@ -10,7 +10,7 @@ import { useStored } from '@/components/useStored';
 import { closest, rank } from '@/lib/search';
 import { byStat, heatFill, statFacts } from '@/lib/stats';
 import { allStatDefs, besideText, chartDefs, isCategory, shownFields, tileFields, toggleOptions, valueOf } from '@/lib/fields';
-import { groupOrder, standouts } from '@/lib/items';
+import { FOLD_AT, densityFor, groupOrder, standouts, type Density } from '@/lib/items';
 import { symbolFor } from './symbols';
 import { entryText, initials, useOpenEntry, useTicks } from './entries';
 import { FilterChip, HiddenNote, OpenPanel, useVisible, type BlockContext } from './blockParts';
@@ -23,12 +23,17 @@ type TileBlock = Pick<Block, 'title' | 'icon'> & Partial<Pick<Block, 'type' | 'f
 /** The device-wide mark for having an item ("Got it"), shared with its full view. */
 export const gotKey = (block: Pick<Block, 'id'>, e: Pick<Entry, 'id'>) => `got:${block.id}.${e.id}`;
 
+/** Where a section starts on the page, for the jump row. */
+const sectionId = (block: Pick<Block, 'id'>, name: string) => `${block.id}--${name.toLowerCase().replace(/[^\w]+/g, '-')}`;
+
 /**
- * Items: tiles in a grid like an inventory screen (the default), grouped under headers by a
- * tag (Type, unless the player picks another), a List to scan, and Compare, the full table of
- * numbers, when the Block has a chart. Each tile shows what the builders put on it (basic
- * stats, a price, a rank); tapping one opens the item's full view. The card is the Characters
- * card (see CharacterCard), laid out by the Block's fields.
+ * Items: a shelf (the default), grouped under pinned headers by a tag (Type, unless the
+ * player picks another), a List to scan, and Compare, the full table of numbers, when the
+ * Block has a chart. Each section is drawn by how much it holds (`densityFor`): a few items
+ * as cards with what the builders put on them, a medium run as small icon tiles, a long run
+ * as icon rows, and long ones start folded. A row of types at the top jumps between sections.
+ * Tapping an item opens its full view: the Characters card (see CharacterCard), laid out by
+ * the Block's fields.
  */
 export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const { shown, offRoute, spoilers } = useVisible(block, ctx);
@@ -83,7 +88,16 @@ export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
   }, [list, query, pick, statDef, filter, values]);
 
   // Standout badges ("Strongest", "Lightest"): the clear best at each number on the tiles.
-  const badges = useMemo(() => standouts(shown, tileFields(block).filter((f) => f.kind === 'chart').flatMap((f) => chartDefs(block, f))), [shown, block]);
+  const tileDefs = useMemo(() => tileFields(block).filter((f) => f.kind === 'chart').flatMap((f) => chartDefs(block, f)), [block]);
+  const badges = useMemo(() => standouts(shown, tileDefs), [shown, tileDefs]);
+  // The one number small tiles and rows show: the stat being sorted by, else the tile's first.
+  const leadDef = statDef ?? tileDefs[0];
+  // The tile's first tag other than the grouping one (a weapon's rank), for the rows.
+  const rowTag = tileFields(block).find((f) => f.kind === 'tag' && !f.spoiler && (groups.length < 2 || f.key !== filter));
+  // Sections opened past their fold, remembered on this device. Searching shows everything.
+  const [opened, setOpened] = useStored<string[]>(`village:${ctx.gameId}:${block.id}:opened`, []);
+  const jumping = groups.length > 1;
+  const jump = (name: string) => document.getElementById(sectionId(block, name))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const open = (e: Entry) => set(`${block.id}.${e.id}`);
   const views: [View, string, typeof LayoutGrid][] = [['tiles', 'Tiles', LayoutGrid], ['list', 'List', LayoutList], ...(defs.length ? [['compare', 'Compare', Table2] as [View, string, typeof LayoutGrid]] : [])];
 
@@ -133,8 +147,19 @@ export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
                 </select>
               </label>
             )}
-            <FilterChip on={!pick} tint={ctx.tint} onClick={() => setPick(null)}>All · {shown.length}</FilterChip>
-            {values.map(([v, n]) => <FilterChip key={v} on={pick === v} tint={ctx.tint} onClick={() => setPick(pick === v ? null : v)}>{v} · {n}</FilterChip>)}
+            {/* Grouped: each type jumps to its section and the rest stay in view. Ranked or
+                searched (one list): each narrows the list, as filters. */}
+            {jumping ? values.map(([v, n]) => (
+              <button key={v} type="button" onClick={() => jump(v)}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-sm font-bold ring-1 ring-line hover:ring-ink">
+                {block.symbols?.[v] && <BlockIcon name={block.symbols[v]} size={15} style={{ color }} />}{v} <span className="font-normal text-muted">{n}</span>
+              </button>
+            )) : (
+              <>
+                <FilterChip on={!pick} tint={ctx.tint} onClick={() => setPick(null)}>All · {shown.length}</FilterChip>
+                {values.map(([v, n]) => <FilterChip key={v} on={pick === v} tint={ctx.tint} onClick={() => setPick(pick === v ? null : v)}>{v} · {n}</FilterChip>)}
+              </>
+            )}
           </ScrollRow>
         </div>
       )}
@@ -146,20 +171,45 @@ export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
           <StatTable block={{ ...block, stats: defs }} entries={list} among={shown} sort={sort.startsWith('stat:') ? sort : ''} onSort={setSort} onOpen={open} filter={filter} color={color} />
         </div>
       ) : (
-        groups.map((g) => (
-          <section key={g.name} className="mt-4" aria-label={g.name || undefined}>
-            {g.name && <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">{g.name} · {g.items.length}</h3>}
-            {view === 'tiles' ? (
-              <ul className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
-                {g.items.map((e) => <ItemTile key={e.id} e={e} block={block} among={shown} color={color} got={ticks.has(gotKey(block, e))} route={ctx.route} hide={g.name ? filter : undefined} badge={badges.size ? badges.get(e.id) ?? '' : undefined} lead={statDef?.key} onOpen={() => open(e)} />)}
-              </ul>
-            ) : (
-              <ul className="grid">
-                {g.items.map((e, i) => <Row key={e.id} e={e} block={block} among={shown} color={color} first={i === 0} got={ticks.has(gotKey(block, e))} route={ctx.route} hide={g.name ? filter : undefined} onOpen={() => open(e)} />)}
-              </ul>
-            )}
-          </section>
-        ))
+        groups.map((g) => {
+          const density: Density = view === 'tiles' ? densityFor(g.items.length) : 'rows';
+          const key = g.name || '@all';
+          const unfolded = Boolean(query.trim()) || view === 'list' || opened.includes(key);
+          const items = unfolded ? g.items : g.items.slice(0, FOLD_AT[density]);
+          const got = (e: Entry) => ticks.has(gotKey(block, e));
+          return (
+            <section key={key} id={g.name ? sectionId(block, g.name) : undefined} className="mt-4 scroll-mt-28" aria-label={g.name || undefined}>
+              {/* Pinned under the top bar while its section scrolls past, so you know where you are. */}
+              {g.name && (
+                <h3 className="sticky top-[3.6rem] z-10 -mx-1 mb-2 flex items-center gap-1.5 bg-card px-1 py-1.5 text-xs font-bold uppercase tracking-wide text-muted">
+                  {block.symbols?.[g.name] && <BlockIcon name={block.symbols[g.name]} size={14} style={{ color }} />}
+                  <span className="text-ink">{g.name}</span> · {g.items.length}
+                  {density === 'rows' && view === 'tiles' && leadDef && <span className="ml-auto normal-case tracking-normal">{leadDef.label}</span>}
+                </h3>
+              )}
+              {view === 'list' ? (
+                <ul className="grid">
+                  {items.map((e, i) => <Row key={e.id} e={e} block={block} among={shown} color={color} first={i === 0} got={got(e)} route={ctx.route} hide={g.name ? filter : undefined} onOpen={() => open(e)} />)}
+                </ul>
+              ) : density === 'cards' ? (
+                <ul className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
+                  {items.map((e) => <ItemTile key={e.id} e={e} block={block} among={shown} color={color} got={got(e)} route={ctx.route} hide={g.name ? filter : undefined} badge={badges.size ? badges.get(e.id) ?? '' : undefined} lead={statDef?.key} onOpen={() => open(e)} />)}
+                </ul>
+              ) : density === 'tiles' ? (
+                <TileGrid items={g.items} folded={!unfolded} canFold={!query.trim()} onToggle={() => setOpened(unfolded ? opened.filter((k) => k !== key) : [...opened, key])}>
+                  {(e) => <SmallTile key={e.id} e={e} block={block} color={color} lead={leadDef} got={got(e)} onOpen={() => open(e)} />}
+                </TileGrid>
+              ) : (
+                <ul className="grid sm:grid-cols-2 sm:gap-x-6">
+                  {items.map((e) => <ItemLine key={e.id} e={e} block={block} color={color} lead={leadDef} tag={rowTag} got={got(e)} onOpen={() => open(e)} />)}
+                </ul>
+              )}
+              {density === 'rows' && g.items.length > FOLD_AT.rows && !query.trim() && view === 'tiles' && (
+                <FoldButton count={g.items.length} unfolded={unfolded} onToggle={() => setOpened(unfolded ? opened.filter((k) => k !== key) : [...opened, key])} />
+              )}
+            </section>
+          );
+        })
       )}
       <HiddenNote offRoute={offRoute} spoilers={spoilers} ctx={ctx} />
       <OpenPanel block={block} list={groups.flatMap((g) => g.items)} ctx={ctx} />
@@ -255,6 +305,94 @@ function TileBits({ e, block, among, color, route, hide, lead, row = false }: { 
 /** The "Got it" mark on a tile or row: a small solid piece with a tick (not got shows nothing). */
 function GotMark({ size = 20 }: { size?: number }) {
   return <Piece size={size} color="var(--leaf)" label="Got it"><Check size={Math.round(size * 0.5)} strokeWidth={3.5} aria-hidden="true" /></Piece>;
+}
+
+/**
+ * An item in the compact looks: its picture small, else its symbol plain in the Page's color
+ * (no piece: Matt, 2026-11-15, pieces belong to cards and the full view), else its initials.
+ */
+function Glyph({ e, block, color, px }: { e: Entry; block: TileBlock; color: string; px: number }) {
+  // eslint-disable-next-line @next/next/no-img-element -- a small uploaded picture, already sized
+  if (e.icon) return <img src={e.icon} alt="" loading="lazy" className="shrink-0 rounded-md object-cover" style={{ width: px, height: px }} />;
+  const symbol = symbolFor(e, block);
+  if (symbol) return <BlockIcon name={symbol} size={px} strokeWidth={2} className="shrink-0" style={{ color }} />;
+  return (
+    <span className="grid shrink-0 place-items-center rounded-md text-[10px] font-bold" style={{ width: px, height: px, background: `color-mix(in srgb, ${color} 14%, white)`, color }}>
+      {initials(e.name)}
+    </span>
+  );
+}
+
+/** "Show all 42" under a folded section, and "Show fewer" once it's open. */
+function FoldButton({ count, unfolded, onToggle }: { count: number; unfolded: boolean; onToggle: () => void }) {
+  return (
+    <button type="button" onClick={onToggle} aria-expanded={unfolded}
+      className="mt-2 rounded-full px-3 py-1 text-sm font-bold text-muted ring-1 ring-line hover:text-ink hover:ring-ink">
+      {unfolded ? 'Show fewer' : `Show all ${count}`}
+    </button>
+  );
+}
+
+/**
+ * A medium section's small tiles. Folded, it shows exactly two full rows, however many tiles
+ * fit across this screen (measured from the grid), so a fold never stops mid-row.
+ */
+function TileGrid({ items, folded, canFold, onToggle, children }: { items: Entry[]; folded: boolean; canFold: boolean; onToggle: () => void; children: (e: Entry) => React.ReactNode }) {
+  const ref = useRef<HTMLUListElement>(null);
+  // Until measured: as many as FOLD_AT says (six across, two rows).
+  const [across, setAcross] = useState(FOLD_AT.tiles / 2);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => setAcross(Math.max(1, getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length));
+    fit();
+    const watch = new ResizeObserver(fit);
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, []);
+  const fold = across * 2;
+  return (
+    <>
+      <ul ref={ref} className="grid grid-cols-[repeat(auto-fill,minmax(5.75rem,1fr))] gap-1">
+        {(folded ? items.slice(0, fold) : items).map(children)}
+      </ul>
+      {canFold && items.length > fold && <FoldButton count={items.length} unfolded={!folded} onToggle={onToggle} />}
+    </>
+  );
+}
+
+type StatDefLike = { key: string; label: string };
+const numberOf = (e: Entry, d?: StatDefLike) => (d && typeof e.stats?.[d.key] === 'number' ? e.stats[d.key] : undefined);
+
+/** One item in a medium section: its symbol, its name under it, and the one number that matters now. */
+function SmallTile({ e, block, color, lead, got, onOpen }: { e: Entry; block: TileBlock; color: string; lead?: StatDefLike; got: boolean; onOpen: () => void }) {
+  const n = numberOf(e, lead);
+  return (
+    <li className="min-w-0">
+      <button type="button" onClick={onOpen} className="grid h-full w-full content-start justify-items-center gap-1 rounded-xl px-1 py-2 text-center hover:bg-card-2">
+        <Glyph e={e} block={block} color={color} px={26} />
+        <span className="line-clamp-2 w-full text-xs font-bold leading-tight">{got && <span className="mr-0.5 inline-block align-[-2px]"><GotMark size={12} /></span>}{e.name}</span>
+        {n !== undefined && <span className="text-[11px] tabular-nums text-muted">{lead!.label} {n}</span>}
+      </button>
+    </li>
+  );
+}
+
+/** One item in a long section: a row with its symbol, name, a tag (a rank) and the one number that matters now. */
+function ItemLine({ e, block, color, lead, tag, got, onOpen }: { e: Entry; block: TileBlock; color: string; lead?: StatDefLike; tag?: FieldDef; got: boolean; onOpen: () => void }) {
+  const n = numberOf(e, lead);
+  const t = tag ? e.categories[tag.key] : undefined;
+  return (
+    <li className="min-w-0 border-b border-line">
+      <button type="button" onClick={onOpen} className="flex w-full items-center gap-2.5 rounded-lg px-1 py-2 text-left hover:bg-card-2">
+        <Glyph e={e} block={block} color={color} px={20} />
+        <span className="min-w-0 flex-1 truncate text-sm font-bold">{e.name}</span>
+        {got && <GotMark size={14} />}
+        {t && <span className="max-w-16 shrink-0 truncate text-[11px] text-muted">{t}</span>}
+        {n !== undefined && <span className="w-9 shrink-0 text-right text-sm font-bold tabular-nums" title={lead!.label}>{n}</span>}
+      </button>
+    </li>
+  );
 }
 
 /** One item as a card on the shelf: a standout badge if it's the best at something, its piece

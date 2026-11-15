@@ -246,7 +246,7 @@ export const PAGES: Page[] = [
     blocks: [
       block({ type: 'items', title: 'Items', icon: 'Backpack', filters: ['Type'], symbols: ITEM_TYPES, fields: ITEMS_FIELDS, entries: items(),
         intro: 'What each one is for and where to find it. Tap one for the details.' }),
-      block({ type: 'items', title: 'Weapons and magic', icon: 'Swords', filters: ['Rank'], symbols: WEAPON_TYPE_SYMBOLS, stats: WEAPON_STATS, fields: WEAPON_FIELDS, entries: [...weapons(), ...weaponItems()],
+      block({ type: 'items', title: 'Weapons and magic', icon: 'Swords', filters: ['Weapon type', 'Rank'], symbols: WEAPON_TYPE_SYMBOLS, stats: WEAPON_STATS, fields: WEAPON_FIELDS, entries: [...weapons(), ...weaponItems()],
         intro: 'The stronger the color, the better the number. Compare puts every number side by side.' }),
     ],
   },
