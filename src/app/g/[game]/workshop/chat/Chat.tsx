@@ -651,18 +651,24 @@ function DraftNote({ m, info, me, live }: { m: ChatMessage; info: ThreadInfo; me
     return () => { gone = true; };
   }, [ev?.before]);
   const published = ev?.type === 'published';
-  const changes = published && draft && info.block && before !== undefined && links
+  // A removal request was approved: the entry left the app (20261120000000_remove_requests.sql).
+  const removed = published && (ev?.removed || draft?.action === 'remove');
+  const changes = published && !removed && draft && info.block && before !== undefined && links
     ? changesBetween(before ?? undefined, draft.content, info.block, links.routes) : [];
   const writer = draft?.author.name;
   return (
     <li className="mx-3 my-0.5 overflow-hidden rounded-xl bg-card ring-1 ring-ink/70">
       <div className="flex items-center gap-2 bg-ink py-1 pl-1 pr-3 text-xs font-bold text-paper">
         <SystemMark />
-        <span>{published ? (ev?.isNew ? 'New in the app' : 'Updated in the app') : 'Declined'}</span>
+        <span>{removed ? 'Removed from the app' : published ? (ev?.isNew ? 'New in the app' : 'Updated in the app') : 'Declined'}</span>
         <time dateTime={m.createdAt} title={fullTime(m.createdAt)} className="ml-auto font-normal opacity-70">{clock(m.createdAt)}</time>
       </div>
       <div className="px-3 py-2 text-sm">
-        {published ? (
+        {removed ? (
+          <p>
+            {writer ? <><b>{writer}</b>&apos;s request</> : 'A request'} to remove {draft?.content.name ?? 'this entry'} was approved by <b>{m.author.name}</b>.
+          </p>
+        ) : published ? (
           <p>
             {writer ? <><b>{writer}</b>&apos;s {ev?.isNew ? 'new entry' : 'fix'}</> : 'A Draft'} was approved by <b>{m.author.name}</b> and is now in the app.
           </p>

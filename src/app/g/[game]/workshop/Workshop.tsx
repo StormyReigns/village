@@ -696,7 +696,9 @@ export function Workshop({ game, pages, routes }: {
                   <div role="status" className="rise mt-3 grid gap-2 rounded-2xl bg-leaf-soft px-3 py-2.5 text-sm text-leaf">
                     <p className="flex items-start gap-2">
                       <Check size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-                      <span className="flex-1">Your Draft for <span className="font-bold">{posted.name}</span> is in. It waits for votes from other Builders, then a moderator publishes it to the app on Market Day.</span>
+                      <span className="flex-1">{posted.removal
+                        ? <>Your request to remove <span className="font-bold">{posted.name}</span> is in. It waits for votes from other Builders, then a moderator decides.</>
+                        : <>Your Draft for <span className="font-bold">{posted.name}</span> is in. It waits for votes from other Builders, then a moderator publishes it to the app on Market Day.</>}</span>
                       <button onClick={() => setPosted(null)} aria-label="Dismiss" className="grid size-6 shrink-0 place-items-center rounded-full hover:bg-card"><X size={14} aria-hidden="true" /></button>
                     </p>
                     <div className="flex flex-wrap gap-2 pl-6">
@@ -914,18 +916,22 @@ function DraftModTools({ draft, live }: { draft: LiveDraft; live: WorkshopData }
     run(() => live.moderate.decide(draft.id, status, why)).then((ok) => { if (ok) { setDeclining(false); setReason(''); } });
   const publish = () => run(() => live.moderate.publish(draft.id));
   const undecided = draft.status === 'open' || draft.status === 'checking';
+  const removal = draft.action === 'remove';
   return (
     <div className="mt-3 rounded-2xl bg-sun-soft/60 p-2.5 ring-1 ring-sun/30">
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="mr-1 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-sun"><ShieldCheck size={14} aria-hidden="true" /> Moderator</span>
         {undecided ? (
           <>
-            <Tip text="Puts it in the app now, as the entry's new version. Earlier versions are kept" tint="leaf"><SmallButton tone="good" disabled={busy} onClick={publish} icon={<Check size={13} aria-hidden="true" />}>{busy ? 'Publishing…' : 'Approve and publish'}</SmallButton></Tip>
-            <Tip text="Say no, with a short reason everyone sees"><SmallButton disabled={busy} onClick={() => setDeclining(!declining)} icon={<X size={13} aria-hidden="true" />}>Decline</SmallButton></Tip>
-            <Tip text="Hide it completely. For spam or abuse" tint="berry"><SmallButton tone="bad" disabled={busy} onClick={() => decide('removed')} icon={<Trash2 size={13} aria-hidden="true" />}>Remove</SmallButton></Tip>
+            {removal
+              ? <Tip text="Takes the entry out of the app now. Its versions are kept, so it can come back" tint="berry"><SmallButton tone="bad" disabled={busy} onClick={publish} icon={<Trash2 size={13} aria-hidden="true" />}>{busy ? 'Removing…' : 'Approve and remove'}</SmallButton></Tip>
+              : <Tip text="Puts it in the app now, as the entry's new version. Earlier versions are kept" tint="leaf"><SmallButton tone="good" disabled={busy} onClick={publish} icon={<Check size={13} aria-hidden="true" />}>{busy ? 'Publishing…' : 'Approve and publish'}</SmallButton></Tip>}
+            <Tip text={removal ? 'Keep the entry, with a short reason everyone sees' : 'Say no, with a short reason everyone sees'}><SmallButton disabled={busy} onClick={() => setDeclining(!declining)} icon={<X size={13} aria-hidden="true" />}>Decline</SmallButton></Tip>
+            {/* For a removal request "Remove" would read as approving it, so hiding spam is "Hide" there. */}
+            <Tip text={removal ? 'Hide this request completely. For spam or abuse' : 'Hide it completely. For spam or abuse'} tint="berry"><SmallButton tone={removal ? undefined : 'bad'} disabled={busy} onClick={() => decide('removed')} icon={removal ? <EyeOff size={13} aria-hidden="true" /> : <Trash2 size={13} aria-hidden="true" />}>{removal ? 'Hide' : 'Remove'}</SmallButton></Tip>
           </>
         ) : draft.status === 'stable' ? (
-          <span className="text-xs text-muted">Published to the app.</span>
+          <span className="text-xs text-muted">{removal ? 'Removed from the app.' : 'Published to the app.'}</span>
         ) : (
           <SmallButton disabled={busy} onClick={() => decide('open')} icon={<RotateCcw size={13} aria-hidden="true" />}>
             {draft.status === 'removed' ? 'Restore' : 'Reopen for votes'}
@@ -960,7 +966,9 @@ function DraftCard({ draft, place, routes, me, chatCount, onChat, live, startOpe
   if (!place) return null;
   const block = place;
   const stable = draft.cardId ? block.entries.find((e) => e.ref?.card === draft.cardId) : undefined;
-  const changes = stable && draft.status !== 'stable' ? changesBetween(stable, draft.content, block, routes) : [];
+  // A removal request (20261120000000_remove_requests.sql) changes nothing: it takes the entry away.
+  const removal = draft.action === 'remove';
+  const changes = stable && draft.status !== 'stable' && !removal ? changesBetween(stable, draft.content, block, routes) : [];
   const mine = me?.id === draft.author.id && !me.practice;
   const practiceVote = Boolean(me?.practice && me.id === draft.author.id);
   const reported = live.myReports.has(targetKey({ draftId: draft.id }));
@@ -973,6 +981,11 @@ function DraftCard({ draft, place, routes, me, chatCount, onChat, live, startOpe
 
   const voting = !me ? null : mine ? (
     <span className="text-sm text-muted">Your Draft · {total >= 5 ? `${draft.ups} yes · ${draft.downs} no` : leaning}{draft.practiceVote ? ' (includes your practice vote)' : ''}</span>
+  ) : removal ? (
+    <>
+      <Tip text="It shouldn't be an entry in the app" tint="berry"><VoteButton on={draft.myVote === 1} onClick={() => cast(draft.myVote === 1 ? 0 : 1)} icon={<Check size={15} aria-hidden="true" />}>Yes, remove it</VoteButton></Tip>
+      <Tip text="It belongs in the app" tint="leaf"><VoteButton on={draft.myVote === -1} onClick={() => cast(draft.myVote === -1 ? 0 : -1)} icon={<X size={15} aria-hidden="true" />}>Keep it</VoteButton></Tip>
+    </>
   ) : draft.kind === 'fact' ? (
     <>
       <Tip text="You've seen this in your own game, and it's right" tint="leaf"><VoteButton on={draft.myVote === 1} onClick={() => cast(draft.myVote === 1 ? 0 : 1)} icon={<Check size={15} aria-hidden="true" />}>I can confirm</VoteButton></Tip>
@@ -993,7 +1006,9 @@ function DraftCard({ draft, place, routes, me, chatCount, onChat, live, startOpe
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-2">
             <span className="font-display text-lg leading-tight">{draft.title}</span>
-            {draft.cardId
+            {removal
+              ? <Tip text="Asks to take this entry out of the app" tint="berry"><span className="rounded-full bg-berry-soft px-2 py-0.5 text-xs font-bold text-berry">remove</span></Tip>
+              : draft.cardId
               ? <Tip text="Changes an entry that's already in the app" tint="sky"><span className="rounded-full bg-sky-soft px-2 py-0.5 text-xs font-bold text-sky">fix</span></Tip>
               : <Tip text="A new entry for the app" tint="leaf"><span className="rounded-full bg-leaf-soft px-2 py-0.5 text-xs font-bold text-leaf">new</span></Tip>}
             {draft.theory && <Tip text="Not confirmed yet. Shown with a Theory label in the app" tint="sun"><span className="rounded-full bg-sun-soft px-2 py-0.5 text-xs font-bold text-sun">Theory</span></Tip>}
@@ -1011,6 +1026,9 @@ function DraftCard({ draft, place, routes, me, chatCount, onChat, live, startOpe
           )}
         </span>
       </button>
+      {removal && draft.source && (
+        <p className="mt-2 rounded-2xl bg-card-2 px-3 py-2 text-sm ring-1 ring-line"><span className="font-bold">Why:</span> {draft.source}</p>
+      )}
       {draft.status === 'declined' && draft.declineReason && (
         <p className="mt-2 rounded-2xl bg-card-2 px-3 py-2 text-sm ring-1 ring-line"><span className="font-bold">Declined:</span> {draft.declineReason}</p>
       )}
@@ -1022,9 +1040,10 @@ function DraftCard({ draft, place, routes, me, chatCount, onChat, live, startOpe
               <ChangeList changes={changes} />
             </div>
           )}
-          {draft.cardId && !stable && draft.status !== 'stable' && <p className="text-sm text-muted">The entry this fixes is no longer in the app.</p>}
+          {draft.cardId && !stable && draft.status !== 'stable' && <p className="text-sm text-muted">{removal ? 'This entry is no longer in the app.' : 'The entry this fixes is no longer in the app.'}</p>}
+          {removal && <p className="text-xs font-bold uppercase tracking-wide text-muted">{draft.status === 'stable' ? 'What was removed' : 'What would be removed'}</p>}
           <div className="rounded-2xl bg-card-2 p-3 ring-1 ring-line"><EntryDetails entry={draft.content} block={block} route="all" routes={routes} color={`var(--${block.page.tint})`} /></div>
-          {draft.source && <p className="text-sm text-muted"><span className="font-bold text-ink">Source:</span> {draft.source}</p>}
+          {draft.source && !removal && <p className="text-sm text-muted"><span className="font-bold text-ink">Source:</span> {draft.source}</p>}
         </div>
       )}
       <div className="mt-3 flex flex-wrap items-center gap-2">

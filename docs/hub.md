@@ -57,6 +57,12 @@ Since 2026-11-12:
   one" rule no longer covers Drafts; batches keep 3 a day. Don't add a Draft limit back without asking.
 - Entry names may be 1 character or more (Mu, Io), in Drafts and batches.
 - The Workshop's "In the app" lists are A to Z.
+- **Asking to remove an entry** (Matt, 2026-11-15; 20261120000000, waits on Matt's run): in an
+  entry's editor, "Shouldn't be in the app? Ask to remove it" sends a Draft with `action = 'remove'`
+  and a reason. Anyone signed in can ask, for anyone's entry; others vote "Yes, remove it" / "Keep it";
+  a moderator approves or declines. Approving drops the entry's pointers (its versions stay) and
+  declines fixes still waiting on it. There's no "bring it back" button yet: a moderator would
+  re-add the Stable pointer in SQL. Tests: `supabase/tests/remove-check.mjs`.
 
 Open, waiting on Matt:
 - **Tests only Matt can do (signed in or on his phone):**

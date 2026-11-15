@@ -53,12 +53,16 @@ export interface ChatEvent {
   /** The revision the Draft started from, to show what changed; null for a new entry. */
   before: number | null;
   isNew?: boolean;
+  /** A removal was published: the entry left the app (20261120000000_remove_requests.sql). */
+  removed?: boolean;
   reason?: string | null;
 }
 
 export interface LiveDraft extends DraftStats {
   blockKey: string;
   kind: 'fact' | 'opinion';
+  /** 'remove': asks for the entry to leave the app; its source is the reason. */
+  action: 'edit' | 'remove';
   title: string;
   content: EntryContent;
   /** The entry it changes, and the revision it started from. Null for a new entry. */
@@ -86,6 +90,8 @@ export interface NewDraft {
   theory: boolean;
   cardId?: string;
   baseRevision?: number;
+  /** Asks for the entry (cardId) to be removed from the app, with the reason as the source. */
+  action?: 'remove';
   /** Answers a question: shipping it closes the question and sends the reply. */
   question?: { id: string; reply: string };
 }
@@ -328,9 +334,12 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     };
     // Before the Questions SQL is run Drafts have no question_id or reply: read without them.
     // Before the batches SQL is run they have no batch_id either.
+    // Before the removals SQL is run they have no action (every Draft is an edit).
     const read = async () => {
-      let first = await drafts(`${DRAFT_COLUMNS}, question_id, reply`);
-      if (first.error && /batch_id/.test(first.error.message)) { batches = false; first = await drafts(`${DRAFT_COLUMNS}, question_id, reply`); }
+      let extra = ', question_id, reply, action';
+      let first = await drafts(DRAFT_COLUMNS + extra);
+      if (first.error && /\baction\b/.test(first.error.message)) { extra = ', question_id, reply'; first = await drafts(DRAFT_COLUMNS + extra); }
+      if (first.error && /batch_id/.test(first.error.message)) { batches = false; first = await drafts(DRAFT_COLUMNS + extra); }
       return first.error && /question_id|reply/.test(first.error.message) ? drafts(DRAFT_COLUMNS) : first;
     };
     const [d, s, v] = await Promise.all([
@@ -345,6 +354,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
       const sc = scores.get(r.id as string);
       return {
         id: r.id as string, blockKey: r.block_key as string, kind: r.kind === 'opinion' ? 'opinion' : 'fact',
+        action: r.action === 'remove' ? 'remove' : 'edit',
         title: r.title as string, content: ((c: Partial<EntryContent>) => ({ ...c, name: c.name ?? (r.title as string), sections: c.sections ?? [], categories: c.categories ?? {} }))(r.content as Partial<EntryContent>), source: (r.source as string) ?? null,
         cardId: (r.card_id as string) ?? null, baseRevision: (r.base_revision_id as number) ?? null,
         theory: Boolean(r.theory), status: r.status as string, declineReason: (r.decline_reason as string) ?? null,
@@ -532,6 +542,8 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
         card_id: d.cardId ?? null, base_revision_id: d.baseRevision ?? null, author_id: meId, status: 'open',
         // Only sent when it answers a question, so Drafts work before the Questions SQL is run.
         ...(d.question ? { question_id: d.question.id, reply: d.question.reply.trim() || null } : {}),
+        // Likewise only for a removal, so ordinary Drafts work before the removals SQL is run.
+        ...(d.action === 'remove' ? { action: 'remove' } : {}),
       })
       .select('id').single();
     if (error) return { error: plainError(error.message) };

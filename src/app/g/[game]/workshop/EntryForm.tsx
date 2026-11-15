@@ -39,7 +39,7 @@ export interface FormStart {
 }
 
 /** What happened when a Draft was sent, for the Workshop's thank-you note. */
-export interface Posted { pageId: string; blockId: string; entryId?: string; draftId?: string; name: string }
+export interface Posted { pageId: string; blockId: string; entryId?: string; draftId?: string; name: string; removal?: boolean }
 
 // Suggested "+" section labels for each Block type, before the Block has its own.
 const DEFAULT_LABELS: Record<Block['type'], string[]> = {
@@ -175,6 +175,10 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
   const [busy, setBusy] = useState(false);
   // A rename sends link fixes along unless the writer says no (below).
   const [fixLinks, setFixLinks] = useState(true);
+  // Asking for the entry to be removed (20261120000000_remove_requests.sql), with a reason.
+  const [removing, setRemoving] = useState(false);
+  const [why, setWhy] = useState('');
+  const [removeNote, setRemoveNote] = useState('');
   if (!block) return null;
   const page = block.page;
   const set = (patch: Partial<EntryContent>) => { setContent((c) => ({ ...c, ...patch })); setNote(''); };
@@ -263,6 +267,20 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
     }
     if (res.error) setNote(res.error);
     else { clearUnsent(gameId); onPosted({ pageId: page.id, blockId: block.id, entryId: fixing?.id, draftId: res.id, name: cleaned.name }); }
+  };
+
+  // A removal is a Draft too: others vote, a moderator decides. Its reason travels as the source.
+  const askRemove = async () => {
+    if (!fixing?.ref) return;
+    if (!why.trim()) { setRemoveNote('Say why it should go, so others can check.'); return; }
+    setBusy(true);
+    const res = await postDraft({
+      blockKey: block.id, kind: 'fact', action: 'remove', title: `Remove ${fixing.name}`.slice(0, 120), content: contentOf(fixing),
+      source: why.trim(), theory: false, cardId: fixing.ref.card, baseRevision: fixing.ref.revision,
+    });
+    setBusy(false);
+    if (res.error) setRemoveNote(res.error);
+    else { clearUnsent(gameId); onPosted({ pageId: page.id, blockId: block.id, entryId: fixing.id, draftId: res.id, name: fixing.name, removal: true }); }
   };
 
   const found = find.trim() ? rank(block.entries, find, entryText).slice(0, 6) : [];
@@ -513,6 +531,36 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
 
       {/* Closing keeps what's written for next time; this throws it away (undoable from the Workshop). */}
       <button type="button" onClick={onDiscard} className="justify-self-start rounded-full px-1 py-1 text-sm font-bold text-muted hover:text-berry">Discard this draft</button>
+
+      {fixing?.ref && me !== undefined && (removing ? (
+        <div className="grid gap-2 rounded-2xl bg-card p-3 ring-1 ring-berry/50">
+          <p className="flex items-center gap-2 font-bold"><Trash2 size={15} className="text-berry" aria-hidden="true" /> Ask to remove {fixing.name}</p>
+          <p className="text-sm text-muted">For something that shouldn&apos;t be an entry at all, like a heading or a copy. Others vote, and a moderator decides. Its history is kept, so it can come back.</p>
+          <label className="grid gap-1">
+            <span className="text-sm font-bold">Why should it go?<span className="text-berry"> *</span></span>
+            <input value={why} autoFocus maxLength={300} onChange={(e) => { setWhy(e.target.value); setRemoveNote(''); }}
+              // Enter sends this request, not the fix above.
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (me) askRemove(); } }}
+              placeholder="It's a heading, not a class" className={input} />
+          </label>
+          {removeNote && <p role="status" className="text-sm text-berry">{removeNote}</p>}
+          <div className="flex flex-wrap gap-2">
+            {me === null ? (
+              <SignInPrompt forWhat={`ask to remove ${fixing.name}`}>Sign in to send</SignInPrompt>
+            ) : (
+              <button type="button" onClick={askRemove} disabled={busy || !why.trim()} className="rounded-full bg-ink px-4 py-2 text-sm font-bold text-paper disabled:opacity-50">
+                {busy ? 'Sending…' : 'Send removal request'}
+              </button>
+            )}
+            <button type="button" onClick={() => { setRemoving(false); setRemoveNote(''); }} className="rounded-full px-3 py-2 text-sm font-bold text-muted hover:text-ink">Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setRemoving(true)}
+          className="inline-flex items-center gap-1.5 justify-self-start rounded-full px-1 py-1 text-sm font-bold text-muted hover:text-berry">
+          <Trash2 size={14} aria-hidden="true" /> Shouldn&apos;t be in the app? Ask to remove it
+        </button>
+      ))}
     </form>
   );
 
