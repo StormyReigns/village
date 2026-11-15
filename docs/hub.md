@@ -61,8 +61,9 @@ Since 2026-11-12:
   entry's editor, "Shouldn't be in the app? Ask to remove it" sends a Draft with `action = 'remove'`
   and a reason. Anyone signed in can ask, for anyone's entry; others vote "Yes, remove it" / "Keep it";
   a moderator approves or declines. Approving drops the entry's pointers (its versions stay) and
-  declines fixes still waiting on it. There's no "bring it back" button yet: a moderator would
-  re-add the Stable pointer in SQL. Tests: `supabase/tests/remove-check.mjs`.
+  declines fixes still waiting on it. A moderator can "Bring back" from the removal's Draft
+  (`restore_entry`, 20261120120000): its newest version returns and the chat says it's back.
+  Tests: `supabase/tests/remove-check.mjs`.
 
 Open, waiting on Matt:
 - **Tests only Matt can do (signed in or on his phone):**

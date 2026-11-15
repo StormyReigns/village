@@ -907,8 +907,9 @@ function Empty({ title, body, action }: { title: string; body: string; action?: 
   );
 }
 
-/** Moderator buttons for a Draft: approve, decline with a reason, remove, or reopen. */
-function DraftModTools({ draft, live }: { draft: LiveDraft; live: WorkshopData }) {
+/** Moderator buttons for a Draft: approve, decline with a reason, remove, or reopen; for a
+ *  published removal, bring the entry back. `inApp`: the entry it's about is in the app now. */
+function DraftModTools({ draft, live, inApp }: { draft: LiveDraft; live: WorkshopData; inApp: boolean }) {
   const [declining, setDeclining] = useState(false);
   const [reason, setReason] = useState('');
   const { run, busy, error } = useAction();
@@ -930,8 +931,15 @@ function DraftModTools({ draft, live }: { draft: LiveDraft; live: WorkshopData }
             {/* For a removal request "Remove" would read as approving it, so hiding spam is "Hide" there. */}
             <Tip text={removal ? 'Hide this request completely. For spam or abuse' : 'Hide it completely. For spam or abuse'} tint="berry"><SmallButton tone={removal ? undefined : 'bad'} disabled={busy} onClick={() => decide('removed')} icon={removal ? <EyeOff size={13} aria-hidden="true" /> : <Trash2 size={13} aria-hidden="true" />}>{removal ? 'Hide' : 'Remove'}</SmallButton></Tip>
           </>
+        ) : draft.status === 'stable' && removal && inApp ? (
+          <span className="text-xs text-muted">Brought back to the app.</span>
+        ) : draft.status === 'stable' && removal ? (
+          <>
+            <span className="mr-1 text-xs text-muted">Removed from the app.</span>
+            <Tip text="Puts the entry back in the app, as its newest version" tint="leaf"><SmallButton disabled={busy} onClick={() => run(() => live.moderate.restore(draft.id))} icon={<RotateCcw size={13} aria-hidden="true" />}>{busy ? 'Bringing back…' : 'Bring back'}</SmallButton></Tip>
+          </>
         ) : draft.status === 'stable' ? (
-          <span className="text-xs text-muted">{removal ? 'Removed from the app.' : 'Published to the app.'}</span>
+          <span className="text-xs text-muted">Published to the app.</span>
         ) : (
           <SmallButton disabled={busy} onClick={() => decide('open')} icon={<RotateCcw size={13} aria-hidden="true" />}>
             {draft.status === 'removed' ? 'Restore' : 'Reopen for votes'}
@@ -1067,7 +1075,7 @@ function DraftCard({ draft, place, routes, me, chatCount, onChat, live, startOpe
       {(practiceVote || draft.practiceVote) && <p className="mt-2 text-xs text-muted">Your own Draft: votes here are practice. They&apos;re saved on this device, show in every view, and only you see them.</p>}
       {error && <p role="status" className="mt-2 text-sm text-berry">{error}</p>}
       {reporting && !reported && <ReportForm target={{ draftId: draft.id }} live={live} onDone={() => setReporting(false)} />}
-      {live.mod && <DraftModTools draft={draft} live={live} />}
+      {live.mod && <DraftModTools draft={draft} live={live} inApp={Boolean(stable)} />}
     </li>
   );
 }

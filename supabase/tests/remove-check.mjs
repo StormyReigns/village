@@ -114,5 +114,18 @@ const declined = (await one(C, draft(C, { card: KEEP, base: await rev(KEEP), act
 await asUser(FWMOD, `update public.drafts set status = 'declined', decline_reason = 'Lord is a real class', decided_by = '${FWMOD}', decided_at = now() where id = '${declined}'`);
 (await rev(KEEP)) ? ok('a declined removal leaves the entry in the app') : bad('Lord gone after decline');
 
+// Bringing it back (20261120120000_bring_back_entries.sql) ----------------------------------------
+await db.exec(readFileSync(join(process.argv[2], files.find((f) => f.includes('bring_back_entries'))), 'utf8'));
+await expectFail(C, `select public.restore_entry('${removal}')`, 'only moderators bring an entry back', 'moderators');
+await expectFail(FWMOD, `select public.restore_entry('${keepFix}')`, 'only a removal can be undone this way', "isn't a removal");
+await expectFail(FWMOD, `select public.restore_entry('${declined}')`, 'a declined removal has nothing to bring back', 'never removed');
+await asUser(FWMOD, `select public.restore_entry('${removal}')`);
+(await rev(CARD)) === advRev ? ok('a moderator brings it back, as its newest version') : bad('restore ' + (await rev(CARD)));
+const back = (await db.query(`select body, event->>'restored' as restored from public.chat_messages where linked_draft_id = '${removal}' order by id desc limit 1`)).rows[0];
+back?.body === 'Advanced classes is back in the app.' && back.restored === 'true' ? ok('the Workshop chat says it is back') : bad('back note ' + JSON.stringify(back));
+await expectFail(FWMOD, `select public.restore_entry('${removal}')`, 'it can only come back once', 'already back');
+const anon = (await db.query(`select has_function_privilege('anon', 'public.restore_entry(uuid)', 'execute') as p`)).rows[0].p;
+anon === false ? ok('signed-out visitors cannot call it') : bad('anon can restore');
+
 const trig = (await db.query(`select pg_get_triggerdef(oid) as d from pg_trigger where tgname = 'drafts_discord'`)).rows[0]?.d ?? '';
 trig.includes("action = 'edit'") ? ok('removals are not posted to Discord') : bad('discord trigger ' + trig);

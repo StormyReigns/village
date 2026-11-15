@@ -55,6 +55,8 @@ export interface ChatEvent {
   isNew?: boolean;
   /** A removal was published: the entry left the app (20261120000000_remove_requests.sql). */
   removed?: boolean;
+  /** A moderator brought a removed entry back (20261120120000_bring_back_entries.sql). */
+  restored?: boolean;
   reason?: string | null;
 }
 
@@ -671,6 +673,17 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     return finish(null);
   }, [meId, gameId, router, finish]);
 
+  /** Brings back an entry a removal took out of the app, as its newest version (20261120120000). */
+  const restore = useCallback(async (draftId: string) => {
+    const db = browserClient();
+    if (!db || !meId) return 'Sign in first.';
+    const { error } = await db.rpc('restore_entry', { draft: draftId });
+    if (error) return plainError(error.message);
+    await appChanged(gameId);
+    router.refresh();
+    return finish(null);
+  }, [meId, gameId, router, finish]);
+
   /** Decline (with a reason), remove, or reopen a Draft. */
   const decide = useCallback(async (draftId: string, status: 'declined' | 'removed' | 'open', reason?: string) => {
     const db = browserClient();
@@ -719,7 +732,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
   return {
     state, messages, reactions, drafts: shownDrafts, reports, myReports, mod,
     send, loadThread, loadMessage, react, postDraft, vote, view, report, loadDrafts,
-    moderate: { removeMessage, markSpoiler, publish, decide, dismissReports, removeQuestion, removeVideo, removeTierReason },
+    moderate: { removeMessage, markSpoiler, publish, restore, decide, dismissReports, removeQuestion, removeVideo, removeTierReason },
   };
 }
 
