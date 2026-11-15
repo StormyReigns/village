@@ -476,23 +476,30 @@ export function Workshop({ game, pages, routes }: {
       {/* The Pages, as folder tabs standing on one edge in the chosen Page's color: the chosen
           tab is the front folder, cut into that edge, with its symbol in a piece. Everything
           (all Pages at once) is its own solid ink folder, set apart from the rest. */}
-      <ScrollRow as="nav" label="Pages" className="-mx-4 mt-3 shrink-0 px-4 pt-1 max-lg:in-data-[phone-chat]:[@media(max-height:560px)]:hidden">
-        <div ref={tabs} className="relative flex w-max min-w-full items-end gap-1">
-          <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5"
-            style={{ background: chip === 'all' ? 'var(--ink)' : chip === 'notice' ? 'var(--muted)' : `var(--${pages.find((p) => p.id === chip)?.tint ?? 'ink'})` }} />
-          {/* A game with no Pages yet shows only the "+", to add the first. */}
-          {pages.length > 0 && <>
-            <FolderTab on={chip === 'all'} everything tint="ink" icon="LayoutGrid" label="Everything" count={drafts.filter(isOpen).length} onClick={() => setChip('all')} />
-            <span aria-hidden="true" className="mx-1 mb-2.5 h-6 w-px shrink-0 bg-line" />
-          </>}
-          {pages.map((p) => (
-            <FolderTab key={p.id} on={chip === p.id} tint={p.tint} icon={p.icon} label={p.title} count={counts[p.id]} onClick={() => setChip(p.id)} />
-          ))}
-          <NewPageTab first={pages.length === 0} on={editing === 'add' && Boolean(adding?.newPage)} onClick={() => setAdding({ newPage: true })} />
-          <span aria-hidden="true" className="mx-1 mb-2.5 h-6 w-px shrink-0 bg-line" />
-          <FolderTab on={chip === 'notice'} tint="muted" icon="Megaphone" label="Notice Board" count={live.mod ? live.reports.length : 0} onClick={() => setChip('notice')} />
+      {/* The "+" for a new Page is pinned on the right, always in view; the tabs scroll behind it. */}
+      <div className="relative -mx-4 mt-3 flex shrink-0 items-end px-4 pt-1 max-lg:in-data-[phone-chat]:[@media(max-height:560px)]:hidden">
+        <span aria-hidden="true" className="pointer-events-none absolute inset-x-4 bottom-0 h-0.5"
+          style={{ background: chip === 'all' ? 'var(--ink)' : chip === 'notice' ? 'var(--muted)' : `var(--${pages.find((p) => p.id === chip)?.tint ?? 'ink'})` }} />
+        <div className="min-w-0 flex-1">
+          <ScrollRow as="nav" label="Pages">
+            <div ref={tabs} className="flex w-max min-w-full items-end gap-1">
+              {/* A game with no Pages yet shows only the "+", to add the first. */}
+              {pages.length > 0 && <>
+                <FolderTab on={chip === 'all'} everything tint="ink" icon="LayoutGrid" label="Everything" count={drafts.filter(isOpen).length} onClick={() => setChip('all')} />
+                <span aria-hidden="true" className="mx-1 mb-2.5 h-6 w-px shrink-0 bg-line" />
+              </>}
+              {pages.map((p) => (
+                <FolderTab key={p.id} on={chip === p.id} tint={p.tint} icon={p.icon} label={p.title} count={counts[p.id]} onClick={() => setChip(p.id)} />
+              ))}
+              <span aria-hidden="true" className="mx-1 mb-2.5 h-6 w-px shrink-0 bg-line" />
+              <FolderTab on={chip === 'notice'} tint="muted" icon="Megaphone" label="Notice Board" count={live.mod ? live.reports.length : 0} onClick={() => setChip('notice')} />
+            </div>
+          </ScrollRow>
         </div>
-      </ScrollRow>
+        <div className="shrink-0 pl-3">
+          <NewPageTab first={pages.length === 0} on={editing === 'add' && Boolean(adding?.newPage)} onClick={() => setAdding({ newPage: true })} />
+        </div>
+      </div>
 
       {jumpNote && <p role="status" className="mt-3 rounded-2xl bg-card-2 px-4 py-2 text-sm ring-1 ring-line">{jumpNote}</p>}
       {live.state === 'offline' && (
