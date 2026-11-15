@@ -36,6 +36,7 @@ import { EntryForm, ChangeList, type FormStart, type Posted } from './EntryForm'
 import { FieldSetup } from './FieldSetup';
 import { MapSetup } from './MapSetup';
 import { PlannerSetup } from './PlannerSetup';
+import { AddBlock } from './AddBlock';
 import { PasteSheet } from './PasteSheet';
 import { WikiCheck } from '@/components/wiki/WikiCheck';
 import { BatchCard } from './BatchCard';
@@ -90,6 +91,8 @@ export function Workshop({ game, pages, routes }: {
   const [pasting, setPasting] = useState<string | null>(() => { const b = params.get('paste'); return b && placeOf(b) ? b : null; });
   // A Block's wiki links: what to check, and the game's wiki (docs/blocks/wiki-links.md).
   const [wikiFor, setWikiFor] = useState<string | null>(null);
+  // Adding a Block to a Page (Add Block), or a new Page with its first Block (the "+" after the tabs).
+  const [adding, setAdding] = useState<{ newPage: boolean } | null>(null);
   // A batch to open in Drafts, once it's sent.
   const [openBatch, setOpenBatch] = useState<string | null>(null);
   // The work column shows Drafts or what's in the app. Until you pick, it opens on Drafts
@@ -303,7 +306,6 @@ export function Workshop({ game, pages, routes }: {
 
   const current = pages.find((p) => p.id === chip);
   const chat = useMemo(() => (current ? live.messages.filter((m) => m.blockKey === current.id) : live.messages), [live.messages, current]);
-  const startNew = () => setForm({ blockId: current?.blocks[0]?.id ?? blocks[0]?.id });
 
   // First steps for a new Builder. Each is one tap to start, and ticks itself off once done.
   const myId = me && !me.practice ? me.id : null;
@@ -350,11 +352,11 @@ export function Workshop({ game, pages, routes }: {
   const setupBlock = setup ? blocks.find((b) => b.id === setup) : undefined;
   const pasteBlock = pasting ? blocks.find((b) => b.id === pasting) : undefined;
   const wikiBlock = wikiFor ? blocks.find((b) => b.id === wikiFor) : undefined;
-  const editing = form && blocks.length > 0 ? 'form' : setupBlock ? 'setup' : pasteBlock ? 'paste' : wikiBlock ? 'wiki' : null;
-  const editLabel = editing === 'form'
+  const editing = adding ? 'add' : form && blocks.length > 0 ? 'form' : setupBlock ? 'setup' : pasteBlock ? 'paste' : wikiBlock ? 'wiki' : null;
+  const editLabel = editing === 'add' ? (adding?.newPage ? 'New Page' : 'Add a Block') : editing === 'form'
     ? (form?.entryId ? `Fix: ${editBlock?.entries.find((e) => e.id === form.entryId)?.name ?? 'an entry'}` : `New in ${editBlock?.title ?? 'the app'}`)
     : setupBlock ? (setupBlock.look === 'map' ? `Map: ${setupBlock.title}` : `Set up ${setupBlock.title}`) : pasteBlock ? `Paste into ${pasteBlock.title}` : wikiBlock ? `Wiki links: ${wikiBlock.title}` : '';
-  const editKey = editing ? `${editing}:${form?.blockId}.${form?.entryId}:${setup}:${pasting}:${wikiFor}` : null;
+  const editKey = editing ? `${editing}:${form?.blockId}.${form?.entryId}:${setup}:${pasting}:${wikiFor}:${adding?.newPage}` : null;
 
   // Threads: what each is about, and the one open beside the chat.
   const threads = useThreads(blocks, drafts, live.messages);
@@ -463,11 +465,15 @@ export function Workshop({ game, pages, routes }: {
         <div ref={tabs} className="relative flex w-max min-w-full items-end gap-1">
           <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5"
             style={{ background: chip === 'all' ? 'var(--ink)' : chip === 'notice' ? 'var(--muted)' : `var(--${pages.find((p) => p.id === chip)?.tint ?? 'ink'})` }} />
-          <FolderTab on={chip === 'all'} everything tint="ink" icon="LayoutGrid" label="Everything" count={drafts.filter(isOpen).length} onClick={() => setChip('all')} />
-          <span aria-hidden="true" className="mx-1 mb-2.5 h-6 w-px shrink-0 bg-line" />
+          {/* A game with no Pages yet shows only the "+", to add the first. */}
+          {pages.length > 0 && <>
+            <FolderTab on={chip === 'all'} everything tint="ink" icon="LayoutGrid" label="Everything" count={drafts.filter(isOpen).length} onClick={() => setChip('all')} />
+            <span aria-hidden="true" className="mx-1 mb-2.5 h-6 w-px shrink-0 bg-line" />
+          </>}
           {pages.map((p) => (
             <FolderTab key={p.id} on={chip === p.id} tint={p.tint} icon={p.icon} label={p.title} count={counts[p.id]} onClick={() => setChip(p.id)} />
           ))}
+          <NewPageTab first={pages.length === 0} on={editing === 'add' && Boolean(adding?.newPage)} onClick={() => setAdding({ newPage: true })} />
           <span aria-hidden="true" className="mx-1 mb-2.5 h-6 w-px shrink-0 bg-line" />
           <FolderTab on={chip === 'notice'} tint="muted" icon="Megaphone" label="Notice Board" count={live.mod ? live.reports.length : 0} onClick={() => setChip('notice')} />
         </div>
@@ -536,7 +542,11 @@ export function Workshop({ game, pages, routes }: {
         <div className={(phoneTab === 'work' ? 'flex' : 'hidden') + ' min-w-0 flex-1 flex-col lg:flex lg:min-h-0'}>
           {editing ? (
             <EditorChat.Provider value={{ count: chatCount, open: () => setChatOver(editKey) }}>
-              {editing === 'form' ? (
+              {editing === 'add' ? (
+                <AddBlock key={editKey} gameId={game.id} pages={pages} routes={routes} mod={live.mod} newPage={Boolean(adding?.newPage)}
+                  startPage={current?.id ?? null} onClose={() => setAdding(null)}
+                  onAdded={(pageId) => { setAdding(null); setChip(pageId); setTab('app'); }} />
+              ) : editing === 'form' ? (
                 <EntryForm gameId={game.id} pages={pages} routes={routes} start={form!} restore={restore} me={me} postDraft={live.postDraft}
                   onClose={closeForm}
                   onPosted={(p) => {
@@ -580,6 +590,18 @@ export function Workshop({ game, pages, routes }: {
                   <Empty title="No reports waiting" body="When players tap “not quite” in the app without signing in, their report waits here until a villager confirms it." />
                 )}
               </>
+            ) : pages.length === 0 ? (
+              // A brand-new game: nothing to vote on or fix yet, only the first Page to add.
+              <div className="grid flex-1 place-items-center py-10">
+                <div className="grid max-w-sm justify-items-center gap-3 text-center">
+                  <Piece size={72} outline><Plus size={22} aria-hidden="true" /></Piece>
+                  <h2 className="font-display text-2xl">No Pages yet</h2>
+                  <p className="text-sm text-muted">A game&apos;s app is made of Pages, like Units or World, and each Page holds Blocks. Start with the first one.</p>
+                  <button onClick={() => setAdding({ newPage: true })} className="btn-primary inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold">
+                    <Plus size={16} aria-hidden="true" /> Add your first Page
+                  </button>
+                </div>
+              </div>
             ) : (
               <>
                 {/* Stays in reach while the column scrolls. */}
@@ -644,9 +666,10 @@ export function Workshop({ game, pages, routes }: {
                         </button>
                       </Tip>
                     </div>
-                    <Tip text="Add something new to the app" tint="leaf" className={'shrink-0' + (searching ? ' max-sm:hidden' : '')}>
-                      <button onClick={startNew} aria-label="New" className="btn-primary inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-2 text-sm font-bold sm:h-9 sm:px-3">
-                        <Plus size={16} aria-hidden="true" /> <span className="hidden sm:inline">New</span>
+                    {/* New entries come from the "+ Add" on each Block; this adds a Block. */}
+                    <Tip text={current ? `Add a Block to ${current.title}` : 'Add a Block to a Page'} tint="leaf" className={'shrink-0' + (searching ? ' max-sm:hidden' : '')}>
+                      <button onClick={() => setAdding({ newPage: false })} aria-label="Add Block" className="btn-primary inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-2 text-sm font-bold sm:h-9 sm:px-3">
+                        <Plus size={16} aria-hidden="true" /> <span className="hidden whitespace-nowrap sm:inline">Add Block</span>
                       </button>
                     </Tip>
                   </div>
@@ -863,6 +886,20 @@ function FolderTab({ on, everything = false, tint, icon, label, count, onClick }
       {label}
       {count ? <span className={'grid min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold ' + (on && everything ? 'bg-signal text-ink' : 'bg-ink text-paper')}>{count}</span> : null}
     </button>
+    </Tip>
+  );
+}
+
+/** The "+" after the Page tabs: a new Page. An outline piece, the "not built yet" look. */
+function NewPageTab({ first, on, onClick }: { first: boolean; on: boolean; onClick: () => void }) {
+  return (
+    <Tip text={first ? 'Add the first Page of this game\'s app' : 'Add a Page'} className="shrink-0">
+      <button onClick={onClick} aria-label={first ? 'Add your first Page' : 'Add a Page'} aria-pressed={on}
+        className={'mb-0.5 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-t-2xl border-x-2 border-t-2 border-dashed pb-1 pl-1.5 pt-1 text-sm font-bold hover:bg-card hover:text-ink '
+          + (on ? 'border-ink bg-card text-ink' : 'border-line text-muted') + (first ? ' pr-3.5' : ' pr-1.5')}>
+        <Piece size={38} outline><Plus size={15} aria-hidden="true" /></Piece>
+        {first && 'Add your first Page'}
+      </button>
     </Tip>
   );
 }
