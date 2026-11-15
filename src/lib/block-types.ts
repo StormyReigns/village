@@ -42,5 +42,10 @@ export const SYMBOLS = [
   'Crown', 'Gem', 'KeyRound', 'Package', 'Sparkles', 'Flame', 'Moon', 'Sun',
 ];
 
+/** Page keys the app's own routes use (src/app/g/[game]/: workshop, and plans, tiers and opengraph-image
+ *  in (app)). A Page named one of these gets "-page" after it, or its address would open that route.
+ *  ship_structure in 20261122000000_page_block_drafts.sql keeps the same list. */
+export const RESERVED_PAGE_KEYS = ['workshop', 'plans', 'tiers', 'opengraph-image'];
+
 /** A key from a name: lowercase words joined by dashes, as Page and Block keys are. */
 export const keyFrom = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_]+/g, '-').replace(/-+/g, '-').slice(0, 40);

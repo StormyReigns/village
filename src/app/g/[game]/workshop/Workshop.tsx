@@ -273,10 +273,15 @@ export function Workshop({ game, pages, routes }: {
 
   const drafts = live.drafts;
   // The Page each Draft is on: its Block's, or for a suggested Block, the Page it's for. A suggested
-  // Page has none yet, so it shows under Everything.
+  // Page has none yet, so it shows under Everything. Until it's published, a suggested Page or Block's
+  // key is only a suggestion and may match a real Block's ("characters"), so it never counts as that.
   const pageOf = useMemo(() => {
     const m = new Map(blocks.map((b) => [b.id, b.page.id]));
-    return { get: (key: string, d?: LiveDraft) => m.get(key) ?? (d?.action === 'add_block' ? structureOf(d.content)?.pageKey : undefined) };
+    return {
+      get: (key: string, d?: LiveDraft) => d?.action === 'add_block' ? structureOf(d.content)?.pageKey
+        : d?.action === 'add_page' ? (d.status === 'stable' ? m.get(key) : undefined)
+        : m.get(key),
+    };
   }, [blocks]);
   const draftPage = (d: LiveDraft) => pageOf.get(d.blockKey, d);
   const onPage = (d: LiveDraft) => chip === 'all' || chip === 'notice' || draftPage(d) === chip;

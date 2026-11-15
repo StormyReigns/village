@@ -13,7 +13,7 @@ import { Tip } from '@/components/Tip';
 import { EditorShell } from './EditorShell';
 import { browserClient } from '@/lib/supabase/browser';
 import { appChanged } from '@/app/actions';
-import { BLOCK_TYPES, RANKABLE, SYMBOLS, blockTypeInfo, keyFrom } from '@/lib/block-types';
+import { BLOCK_TYPES, RANKABLE, RESERVED_PAGE_KEYS, SYMBOLS, blockTypeInfo, keyFrom } from '@/lib/block-types';
 import { samplePage } from '@/lib/sample-game';
 import { plannerRosters } from '@/lib/planner';
 import { DEFAULT_TIERS } from '@/lib/tiers';
@@ -149,7 +149,8 @@ export function AddBlock({ gameId, pages, routes, mod, signedIn, startPage, newP
 
     let pageKey = page?.id ?? '';
     if (newPage) {
-      pageKey = unique(keyFrom(form.pageTitle), new Set((pg.data ?? []).map((r) => r.page_key as string)));
+      const pageBase = keyFrom(form.pageTitle);
+      pageKey = unique(RESERVED_PAGE_KEYS.includes(pageBase) ? `${pageBase}-page` : pageBase, new Set((pg.data ?? []).map((r) => r.page_key as string)));
       const { error } = await db.from('app_pages').insert({
         game_id: gameId, page_key: pageKey, title: form.pageTitle.trim(), short: short.slice(0, 24), icon: pageIcon, tint, blurb: '', position: last(pg.data ?? []),
       });

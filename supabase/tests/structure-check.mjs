@@ -89,6 +89,16 @@ await ship(plan);
 const pl = (await db.query(`select plan_setup from public.game_blocks where block_key = 'your-party'`)).rows[0];
 JSON.stringify(pl?.plan_setup) === JSON.stringify({ size: 100, roster: 'units', classes: 'classes' }) ? ok('a Planner keeps only its roster, classes and a size of 100 at most') : bad('plan ' + JSON.stringify(pl));
 
+// Keys stay clear of the app's own routes, and a huge size can't overflow ---------------------------
+const tiersPage = await send('add_page', { page: { title: 'Tiers', icon: 'Trophy', tint: 'sun' }, block: { title: 'Best units', type: 'items', icon: 'Trophy' } }, { key: 'best-units', title: 'New Page: Tiers' });
+await ship(tiersPage);
+const tk = (await db.query(`select page_key from public.app_pages where game_id = 'fw' and title = 'Tiers'`)).rows[0];
+tk?.page_key === 'tiers-page' ? ok('a Page called "Tiers" gets the key tiers-page, not the tier list route') : bad('tiers key ' + JSON.stringify(tk));
+const huge = await send('add_block', { pageKey: 'units', block: { title: 'Big party', type: 'planner', icon: 'Users', roster: 'units', size: 1e12 } }, { key: 'big-party', title: 'Big party on Units' });
+await ship(huge);
+const hp = (await db.query(`select plan_setup from public.game_blocks where block_key = 'big-party'`)).rows[0];
+hp?.plan_setup?.size === 100 ? ok('a party size of a trillion is clamped to 100, not an error') : bad('huge ' + JSON.stringify(hp));
+
 // What a player typed is checked ------------------------------------------------------------------
 const refused = async (content, label, word, opts = {}) => {
   const id = await send(opts.action ?? 'add_block', content, opts);
@@ -106,7 +116,7 @@ await refused({ pageKey: 'units', block: { title: 'Party', type: 'planner', icon
 await refused({ page: { title: 'Loot', icon: 'Gem', tint: 'pink' }, block: { title: 'Loot', type: 'items', icon: 'Gem' } }, 'a Page takes one of the eight colors', 'color', { action: 'add_page' });
 await refused({ page: { title: '', icon: 'Gem', tint: 'sun' }, block: { title: 'Loot', type: 'items', icon: 'Gem' } }, 'a Page needs a name', 'Page needs a name', { action: 'add_page' });
 const before = (await db.query(`select count(*)::int as n from public.app_pages`)).rows[0].n;
-before === 3 + 1 ? ok('nothing half-made is left behind by a refused Draft') : bad('pages ' + before);
+before === 3 + 2 ? ok('nothing half-made is left behind by a refused Draft') : bad('pages ' + before);
 
 // Another game's moderator, and the action rules ------------------------------------------------------
 const elsewhere = await send('add_block', { pageKey: 'items', block: { title: 'Masks', type: 'items', icon: 'Gem' } }, { game: 'oot', key: 'masks', title: 'Masks on Items' });

@@ -95,6 +95,9 @@ export function useThreads(blocks: Placed[], drafts: LiveDraft[], messages: Chat
   return useMemo(() => {
     const byId = new Map(drafts.map((d) => [d.id, d]));
     const placeOf = (id: string) => blocks.find((b) => b.id === id);
+    // A suggested Page or Block (20261122000000): its key is only a suggestion until it's published and
+    // may match a real Block's, so it's never placed on one.
+    const suggested = (d: LiveDraft) => (d.action === 'add_page' ? 'New Page' : d.action === 'add_block' ? 'New Block' : undefined);
     const byCard = new Map<string, { block: Placed; entry: Entry }>();
     for (const b of blocks) for (const e of b.entries) if (e.ref) byCard.set(e.ref.card, { block: b, entry: e });
 
@@ -116,7 +119,7 @@ export function useThreads(blocks: Placed[], drafts: LiveDraft[], messages: Chat
         return { key, title: `Setting up ${block.title}`, where: block.page.title, kind: 'setup', block, drafts: own, storedKeys };
       }
       const d = kind === 'draft' ? byId.get(id) : own.at(-1);
-      if (d) return { key, title: d.title, where: whereOf(placeOf(d.blockKey)), kind: 'new', block: placeOf(d.blockKey), drafts: own.length ? own : [d], storedKeys };
+      if (d) return { key, title: d.title, where: suggested(d) ?? whereOf(placeOf(d.blockKey)), kind: 'new', block: suggested(d) ? undefined : placeOf(d.blockKey), drafts: own.length ? own : [d], storedKeys };
       return { key, title: 'A Draft', where: 'No longer in the Workshop', kind: 'unknown', drafts: own, storedKeys };
     };
 
@@ -134,8 +137,8 @@ export function useThreads(blocks: Placed[], drafts: LiveDraft[], messages: Chat
       ...blocks.flatMap((b) => b.entries.map((e) => ({ key: entryThread(b.id, e), label: e.name, where: whereOf(b), search: { name: e.name, text: `${b.title} ${b.page.title}` } }))),
       ...blocks.filter(byFields).map((b) => ({ key: blockThread(b.id), label: `Setting up ${b.title}`, where: b.page.title, search: { name: `${b.title} setup`, text: b.page.title } })),
       ...drafts.filter((d) => !d.cardId && (d.status === 'open' || d.status === 'checking')).map((d) => {
-        const b = placeOf(d.blockKey);
-        return { key: draftThread(d), label: d.title, where: `New Draft${b ? ` · ${whereOf(b)}` : ''}`, search: { name: d.title, text: b?.title ?? '' } };
+        const b = suggested(d) ? undefined : placeOf(d.blockKey);
+        return { key: draftThread(d), label: d.title, where: suggested(d) ?? `New Draft${b ? ` · ${whereOf(b)}` : ''}`, search: { name: d.title, text: b?.title ?? '' } };
       }),
     ];
     /** The thread of the entry a Village address points at (/g/game/page/eshmel), or null. */

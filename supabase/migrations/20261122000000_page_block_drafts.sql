@@ -14,7 +14,8 @@
 -- 2. ship_draft: publishing one of them creates the Page and/or Block. Everything comes from what a
 --    player typed, so it's all checked here: lengths, the Block type (only the ones Add Block
 --    offers), symbols (letters and digits only), the color, and what a Tier list ranks or a Planner
---    picks from (real Blocks of the right type, in this game). Keys are made here and never clash.
+--    picks from (real Blocks of the right type, in this game). Keys are made here and never clash,
+--    with each other or with the app's own routes (a Page called "Tiers" gets the key tiers-page).
 --    The Draft's block_key becomes the new Block's key, so its chat note finds the Page.
 -- 3. Nothing else: the chat note already reads "<title> is now in the app.", and Discord already
 --    skips Drafts that aren't edits.
@@ -87,6 +88,9 @@ begin
     if ptint is null or ptint not in ('leaf', 'sky', 'berry', 'sun', 'plum', 'teal', 'indigo', 'slate') then raise exception 'That isn''t one of the Page colors.'; end if;
     pshort := left(coalesce(nullif(btrim(coalesce(pg ->> 'short', '')), ''), split_part(ptitle, ' ', 1)), 24);
     base := public.key_from(ptitle, 'new-page');
+    -- The app's own routes beside Pages (src/app/g/[game]/, and RESERVED_PAGE_KEYS in src/lib/block-types.ts):
+    -- a Page called "Tiers" at /g/<game>/tiers would open the tier list route instead.
+    if base in ('workshop', 'plans', 'tiers', 'opengraph-image') then base := base || '-page'; end if;
     pkey := base; n := 1;
     while exists (select 1 from public.app_pages where game_id = d.game_id and page_key = pkey) loop
       n := n + 1; pkey := base || '-' || n;
@@ -122,7 +126,8 @@ begin
       plan := plan || jsonb_build_object('classes', b ->> 'classes');
     end if;
     if jsonb_typeof(b -> 'size') = 'number' then
-      size := least(100, greatest(1, round((b ->> 'size')::numeric)::int));
+      -- Clamped before it becomes a whole number, so a huge one can't overflow.
+      size := least(100, greatest(1, round((b ->> 'size')::numeric)))::int;
       plan := plan || jsonb_build_object('size', size);
     end if;
   end if;
