@@ -37,6 +37,8 @@ Leaner, to spend fewer credits. Matt agreed on 2026-11-12.
 - **Update only untouched starter content** (exact jsonb match), append a revision, move the
   Stable pointer, and make it safe to run twice. A purely additive change (one key that's missing,
   nothing overwritten) may instead require the starter name plus the key being absent (20261119000000).
+  For entries a seed added recently, "exactly one revision" also proves nobody touched them
+  (20261119120000): every publish appends one.
 - **The SQL Editor only shows the last result.** Put all the checks Matt should read in one final select.
 - **Say the run order at the top** (this, then `seed-app.sql`), and what happens if it's reversed.
 - **Server calls to outside sites:** allow only known hosts, validate ids, cache, use short timeouts.
