@@ -238,6 +238,9 @@ names offered from the Block, and the live preview. Moderators save setups for n
   117 weapons and spells and 217 other items, with numbers from the sources and the rest in our
   own words, each citing its source; unknown effects are left out rather than guessed. Why: the
   Blocks only had the starter cards, and players look up items more than anything else.
+- 2026-11-15: healing spells (Heal, Laia, Physic, Recover, Fortify) have no numbers; their heal
+  power sits in the text ("with a heal power of 30") (Matt). Why: Game8 keeps it in the Might box,
+  so Recover ranked third-strongest of all weapons. Migration `20261119120000_heal_power.sql`.
 
 ## Open questions
 
