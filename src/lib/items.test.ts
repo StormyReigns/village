@@ -77,8 +77,6 @@ test('too few numbers means no badges', async () => {
 });
 
 test('a section is drawn smaller the more it holds', async () => {
-  const { densityFor, FOLD_AT } = await import('./items.ts');
-  assert.deepEqual([1, 8, 9, 30, 31, 300].map(densityFor), ['cards', 'cards', 'tiles', 'tiles', 'rows', 'rows']);
-  assert.equal(FOLD_AT.cards, Infinity);
-  assert.ok(FOLD_AT.rows < 31 && FOLD_AT.tiles < 31);
+  const { densityFor } = await import('./items.ts');
+  assert.deepEqual([1, 16, 17, 60, 61, 300].map(densityFor), ['cards', 'cards', 'tiles', 'tiles', 'rows', 'rows']);
 });

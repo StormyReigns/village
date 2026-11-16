@@ -47,17 +47,17 @@ What this means for the design:
 - **Tiles** (the default), a shelf where each section is drawn by how much it holds
   (`densityFor` in `src/lib/items.ts`; Matt, 2026-11-15, because a big shelf of cards falls
   apart):
-  - **up to 8 items: cards** (see "The tile" below);
-  - **9 to 30: small icon tiles**: the plain symbol (or picture) in the Page color, the name
-    under it, and the one number that matters now (the stat being sorted by, else the tile's
-    first: "Might 25");
-  - **over 30: icon rows**: symbol, name, the tile's first other tag (a rank) and that one
-    number, in two columns on wider screens, with the number's name over the column.
-  One Block can mix all three, which keeps a big Block from feeling like a wall. Tap any of
-  them for the full view.
-- **Folding**: sections of tiles start at two full rows (however many fit across), rows at
-  ten, with "Show all 42" (and "Show fewer"). Each device remembers what's open. Searching
-  shows everything.
+  - **up to 16 items: cards** (see "The tile" below; 8 until 2026-11-16);
+  - **17 to 60: small icon tiles**, in two rows that scroll sideways: the plain symbol (or
+    picture) in the Page color, the name under it, and its numbers (the tile's first chart, up
+    to four) as small heat-colored boxes, the one being sorted by outlined;
+  - **over 60: icon rows**, in columns of eight that scroll sideways: symbol, name, the tile's
+    first other tag (a rank) and the same small numbers.
+  The header names the small numbers once ("Might · Hit · Weight · Crit"). One Block can mix
+  all three, which keeps a big Block from feeling like a wall. Tap any of them for the full
+  view.
+- **Sideways, not folded** (Matt, 2026-11-16): tiles and rows scroll sideways (with arrows on
+  a computer, and the mouse wheel moving them) instead of "Show all".
 - **Organizing**: with nothing typed, items are grouped under headers by the Block's first tag
   (Key items · 3, Materials · 4...), so the shelf reads like the game's own inventory tabs.
   The headers stay pinned under the top bar while their section scrolls past. Any tag can be
@@ -65,9 +65,8 @@ What this means for the design:
   "B–A" by its best letter). Sorts: A to Z, Z to A, and "Best <stat>" for each stat (a sort by
   a stat drops the headers and ranks every item). A tag the items are grouped by isn't
   repeated on them.
-- **Jump row**: while grouped, the chips are the sections, each with its symbol and count
-  ("Sword 42"); tapping one scrolls to it and keeps the rest in view. Ranked or searched (one
-  list), the chips filter instead ("Best might" among bows only).
+- **Type chips**: each with its symbol and count ("Sword · 42"); tapping one shows only that
+  type, and All brings the whole shelf back (Matt, 2026-11-16; they jumped to sections before).
 - **List**: the same items as rows, for scanning: piece, name, the tile's things in one line,
   and the first line of what it does.
 - **Got it**: a tick box on each item's full view (a piece: the split outline until you have
@@ -79,7 +78,7 @@ What this means for the design:
   A "By type" button beside Name (named after the grouping tag: "By weapon type") groups the
   rows under their type, each type still in the sort's order, so the best Might among swords is
   one tap. The same button is on the heatmap a stat opens from an item's full view (under the
-  ticked "Selected items"). In Compare the chips filter the table rather than jump.
+  ticked "Selected items").
 - The address holds the item, so links and share cards open straight to it.
 - Each device remembers the view, the grouping and the sort, per Block.
 
@@ -234,6 +233,9 @@ names offered from the Block, and the live preview. Moderators save setups for n
 - 2026-11-15: item heatmaps (Compare, and the one a stat opens) can group rows by type, with
   the stat sort kept inside each type (Matt: we need to be able to sort by type). Why: comparing
   a sword with a spell rarely helps; players compare within a weapon type.
+- 2026-11-16: cards for up to 16 items, tiles up to 60, rows past that; tiles and rows scroll
+  sideways instead of "Show all"; the type chips show one type instead of jumping; and the
+  compact looks show all the tile's numbers small, in the room "Might 11" took (Matt).
 - 2026-11-15: Fortune's Weave's items were researched and added (Matt: find all known items):
   117 weapons and spells and 217 other items, with numbers from the sources and the rest in our
   own words, each citing its source; unknown effects are left out rather than guessed. Why: the

@@ -10,7 +10,7 @@ import { useStored } from '@/components/useStored';
 import { closest, rank } from '@/lib/search';
 import { byStat, heatFill, statFacts } from '@/lib/stats';
 import { allStatDefs, besideText, chartDefs, isCategory, shownFields, tileFields, toggleOptions, valueOf } from '@/lib/fields';
-import { FOLD_AT, densityFor, groupOrder, standouts, type Density } from '@/lib/items';
+import { densityFor, groupOrder, standouts, type Density } from '@/lib/items';
 import { symbolFor } from './symbols';
 import { entryText, initials, useOpenEntry, useTicks } from './entries';
 import { FilterChip, HiddenNote, OpenPanel, useVisible, type BlockContext } from './blockParts';
@@ -23,15 +23,13 @@ type TileBlock = Pick<Block, 'title' | 'icon'> & Partial<Pick<Block, 'type' | 'f
 /** The device-wide mark for having an item ("Got it"), shared with its full view. */
 export const gotKey = (block: Pick<Block, 'id'>, e: Pick<Entry, 'id'>) => `got:${block.id}.${e.id}`;
 
-/** Where a section starts on the page, for the jump row. */
-const sectionId = (block: Pick<Block, 'id'>, name: string) => `${block.id}--${name.toLowerCase().replace(/[^\w]+/g, '-')}`;
-
 /**
  * Items: a shelf (the default), grouped under pinned headers by a tag (Type, unless the
  * player picks another), a List to scan, and Compare, the full table of numbers, when the
- * Block has a chart. Each section is drawn by how much it holds (`densityFor`): a few items
- * as cards with what the builders put on them, a medium run as small icon tiles, a long run
- * as icon rows, and long ones start folded. A row of types at the top jumps between sections.
+ * Block has a chart. Each section is drawn by how much it holds (`densityFor`): up to 16
+ * items as cards with what the builders put on them, more as small icon tiles in two rows,
+ * many as columns of icon rows; tiles and rows scroll sideways, each with its numbers small.
+ * The chips above show one type at a time.
  * Tapping an item opens its full view: the Characters card (see CharacterCard), laid out by
  * the Block's fields.
  */
@@ -90,15 +88,13 @@ export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
   // Standout badges ("Strongest", "Lightest"): the clear best at each number on the tiles.
   const tileDefs = useMemo(() => tileFields(block).filter((f) => f.kind === 'chart').flatMap((f) => chartDefs(block, f)), [block]);
   const badges = useMemo(() => standouts(shown, tileDefs), [shown, tileDefs]);
-  // The one number small tiles and rows show: the stat being sorted by, else the tile's first.
-  const leadDef = statDef ?? tileDefs[0];
+  // The numbers small tiles and rows show, small: the tile's first chart, at most four.
+  const miniDefs = useMemo(() => {
+    const first = tileFields(block).find((f) => f.kind === 'chart');
+    return first ? chartDefs(block, first).slice(0, 4) : [];
+  }, [block]);
   // The tile's first tag other than the grouping one (a weapon's rank), for the rows.
   const rowTag = tileFields(block).find((f) => f.kind === 'tag' && !f.spoiler && (groups.length < 2 || f.key !== filter));
-  // Sections opened past their fold, remembered on this device. Searching shows everything.
-  const [opened, setOpened] = useStored<string[]>(`village:${ctx.gameId}:${block.id}:opened`, []);
-  // Compare is one table, so there the chips filter it rather than jump.
-  const jumping = groups.length > 1 && view !== 'compare';
-  const jump = (name: string) => document.getElementById(sectionId(block, name))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   const open = (e: Entry) => set(`${block.id}.${e.id}`);
   const views: [View, string, typeof LayoutGrid][] = [['tiles', 'Tiles', LayoutGrid], ['list', 'List', LayoutList], ...(defs.length ? [['compare', 'Compare', Table2] as [View, string, typeof LayoutGrid]] : [])];
 
@@ -148,19 +144,13 @@ export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
                 </select>
               </label>
             )}
-            {/* Grouped: each type jumps to its section and the rest stay in view. Ranked or
-                searched (one list): each narrows the list, as filters. */}
-            {jumping ? values.map(([v, n]) => (
-              <button key={v} type="button" onClick={() => jump(v)}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-sm font-bold ring-1 ring-line hover:ring-ink">
-                {block.symbols?.[v] && <BlockIcon name={block.symbols[v]} size={15} style={{ color }} />}{v} <span className="font-normal text-muted">{n}</span>
-              </button>
-            )) : (
-              <>
-                <FilterChip on={!pick} tint={ctx.tint} onClick={() => setPick(null)}>All · {shown.length}</FilterChip>
-                {values.map(([v, n]) => <FilterChip key={v} on={pick === v} tint={ctx.tint} onClick={() => setPick(pick === v ? null : v)}>{v} · {n}</FilterChip>)}
-              </>
-            )}
+            {/* Each type shows only that type (Matt, 2026-11-16); All brings the shelf back. */}
+            <FilterChip on={!pick} tint={ctx.tint} onClick={() => setPick(null)}>All · {shown.length}</FilterChip>
+            {values.map(([v, n]) => (
+              <FilterChip key={v} on={pick === v} tint={ctx.tint} onClick={() => setPick(pick === v ? null : v)}>
+                <span className="inline-flex items-center gap-1.5">{block.symbols?.[v] && <BlockIcon name={block.symbols[v]} size={14} />}{v} · {n}</span>
+              </FilterChip>
+            ))}
           </ScrollRow>
         </div>
       )}
@@ -176,38 +166,37 @@ export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
         groups.map((g) => {
           const density: Density = view === 'tiles' ? densityFor(g.items.length) : 'rows';
           const key = g.name || '@all';
-          const unfolded = Boolean(query.trim()) || view === 'list' || opened.includes(key);
-          const items = unfolded ? g.items : g.items.slice(0, FOLD_AT[density]);
           const got = (e: Entry) => ticks.has(gotKey(block, e));
+          // Tiles and rows name their small numbers once, in the header.
+          const legend = view === 'tiles' && density !== 'cards' && miniDefs.length > 0;
           return (
-            <section key={key} id={g.name ? sectionId(block, g.name) : undefined} className="mt-4 scroll-mt-28" aria-label={g.name || undefined}>
+            <section key={key} className="mt-4" aria-label={g.name || undefined}>
               {/* Pinned under the top bar while its section scrolls past, so you know where you are. */}
-              {g.name && (
+              {(g.name || legend) && (
                 <h3 className="sticky top-[3.6rem] z-10 -mx-1 mb-2 flex items-center gap-1.5 bg-card px-1 py-1.5 text-xs font-bold uppercase tracking-wide text-muted">
-                  {block.symbols?.[g.name] && <BlockIcon name={block.symbols[g.name]} size={14} style={{ color }} />}
-                  <span className="text-ink">{g.name}</span> · {g.items.length}
-                  {density === 'rows' && view === 'tiles' && leadDef && <span className="ml-auto normal-case tracking-normal">{leadDef.label}</span>}
+                  {g.name && block.symbols?.[g.name] && <BlockIcon name={block.symbols[g.name]} size={14} style={{ color }} />}
+                  {g.name && <><span className="text-ink">{g.name}</span> · {g.items.length}</>}
+                  {legend && <span className="ml-auto normal-case tracking-normal">{miniDefs.map((d) => d.label).join(' · ')}</span>}
                 </h3>
               )}
               {view === 'list' ? (
                 <ul className="grid">
-                  {items.map((e, i) => <Row key={e.id} e={e} block={block} among={shown} color={color} first={i === 0} got={got(e)} route={ctx.route} hide={g.name ? filter : undefined} onOpen={() => open(e)} />)}
+                  {g.items.map((e, i) => <Row key={e.id} e={e} block={block} among={shown} color={color} first={i === 0} got={got(e)} route={ctx.route} hide={g.name ? filter : undefined} onOpen={() => open(e)} />)}
                 </ul>
               ) : density === 'cards' ? (
                 <ul className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
-                  {items.map((e) => <ItemTile key={e.id} e={e} block={block} among={shown} color={color} got={got(e)} route={ctx.route} hide={g.name ? filter : undefined} badge={badges.size ? badges.get(e.id) ?? '' : undefined} lead={statDef?.key} onOpen={() => open(e)} />)}
+                  {g.items.map((e) => <ItemTile key={e.id} e={e} block={block} among={shown} color={color} got={got(e)} route={ctx.route} hide={g.name ? filter : undefined} badge={badges.size ? badges.get(e.id) ?? '' : undefined} lead={statDef?.key} onOpen={() => open(e)} />)}
                 </ul>
               ) : density === 'tiles' ? (
-                <TileGrid items={g.items} folded={!unfolded} canFold={!query.trim()} onToggle={() => setOpened(unfolded ? opened.filter((k) => k !== key) : [...opened, key])}>
-                  {(e) => <SmallTile key={e.id} e={e} block={block} color={color} lead={leadDef} got={got(e)} onOpen={() => open(e)} />}
-                </TileGrid>
+                // Two rows that scroll sideways, however many there are (Matt, 2026-11-16).
+                <ScrollRow as="ul" label={g.name || block.title} className="-mx-1 grid grid-flow-col grid-rows-2 auto-cols-[6.75rem] gap-1 px-1 pb-1">
+                  {g.items.map((e) => <SmallTile key={e.id} e={e} block={block} among={shown} color={color} defs={miniDefs} lead={statDef?.key} got={got(e)} onOpen={() => open(e)} />)}
+                </ScrollRow>
               ) : (
-                <ul className="grid sm:grid-cols-2 sm:gap-x-6">
-                  {items.map((e) => <ItemLine key={e.id} e={e} block={block} color={color} lead={leadDef} tag={rowTag} got={got(e)} onOpen={() => open(e)} />)}
-                </ul>
-              )}
-              {density === 'rows' && g.items.length > FOLD_AT.rows && !query.trim() && view === 'tiles' && (
-                <FoldButton count={g.items.length} unfolded={unfolded} onToggle={() => setOpened(unfolded ? opened.filter((k) => k !== key) : [...opened, key])} />
+                // Columns of eight rows that scroll sideways.
+                <ScrollRow as="ul" label={g.name || block.title} className="-mx-1 grid grid-flow-col grid-rows-[repeat(8,auto)] auto-cols-[min(21rem,88%)] gap-x-6 px-1 pb-1">
+                  {g.items.map((e) => <ItemLine key={e.id} e={e} block={block} among={shown} color={color} defs={miniDefs} lead={statDef?.key} tag={rowTag} got={got(e)} onOpen={() => open(e)} />)}
+                </ScrollRow>
               )}
             </section>
           );
@@ -325,73 +314,49 @@ function Glyph({ e, block, color, px }: { e: Entry; block: TileBlock; color: str
   );
 }
 
-/** "Show all 42" under a folded section, and "Show fewer" once it's open. */
-function FoldButton({ count, unfolded, onToggle }: { count: number; unfolded: boolean; onToggle: () => void }) {
+type StatDefLike = { key: string; label: string; better: 'high' | 'low' };
+
+/** The item's numbers, small and heat-colored against the rest, in the order the header names
+ *  them; the stat being sorted by is outlined. */
+function MiniStats({ e, defs, among, color, lead, className = '' }: { e: Entry; defs: StatDefLike[]; among: Entry[]; color: string; lead?: string; className?: string }) {
+  if (!defs.some((d) => typeof e.stats?.[d.key] === 'number')) return null;
   return (
-    <button type="button" onClick={onToggle} aria-expanded={unfolded}
-      className="mt-2 rounded-full px-3 py-1 text-sm font-bold text-muted ring-1 ring-line hover:text-ink hover:ring-ink">
-      {unfolded ? 'Show fewer' : `Show all ${count}`}
-    </button>
+    <span className={'flex gap-0.5 ' + className} aria-label={defs.map((d) => `${d.label} ${e.stats?.[d.key] ?? 'none'}`).join(', ')}>
+      {defs.map((d) => {
+        const facts = typeof e.stats?.[d.key] === 'number' ? statFacts(d, e, among) : null;
+        return (
+          <span key={d.key} title={d.label} className={'min-w-6 rounded px-0.5 text-center text-[10px] font-bold leading-4 tabular-nums ' + (d.key === lead ? 'ring-2 ring-ink' : 'ring-1 ring-line')}
+            style={{ background: facts ? heatFill(facts.goodness, color) : 'var(--card-2)' }}>{e.stats?.[d.key] ?? '–'}</span>
+        );
+      })}
+    </span>
   );
 }
 
-/**
- * A medium section's small tiles. Folded, it shows exactly two full rows, however many tiles
- * fit across this screen (measured from the grid), so a fold never stops mid-row.
- */
-function TileGrid({ items, folded, canFold, onToggle, children }: { items: Entry[]; folded: boolean; canFold: boolean; onToggle: () => void; children: (e: Entry) => React.ReactNode }) {
-  const ref = useRef<HTMLUListElement>(null);
-  // Until measured: as many as FOLD_AT says (six across, two rows).
-  const [across, setAcross] = useState(FOLD_AT.tiles / 2);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const fit = () => setAcross(Math.max(1, getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length));
-    fit();
-    const watch = new ResizeObserver(fit);
-    watch.observe(el);
-    return () => watch.disconnect();
-  }, []);
-  const fold = across * 2;
-  return (
-    <>
-      <ul ref={ref} className="grid grid-cols-[repeat(auto-fill,minmax(5.75rem,1fr))] gap-1">
-        {(folded ? items.slice(0, fold) : items).map(children)}
-      </ul>
-      {canFold && items.length > fold && <FoldButton count={items.length} unfolded={!folded} onToggle={onToggle} />}
-    </>
-  );
-}
-
-type StatDefLike = { key: string; label: string };
-const numberOf = (e: Entry, d?: StatDefLike) => (d && typeof e.stats?.[d.key] === 'number' ? e.stats[d.key] : undefined);
-
-/** One item in a medium section: its symbol, its name under it, and the one number that matters now. */
-function SmallTile({ e, block, color, lead, got, onOpen }: { e: Entry; block: TileBlock; color: string; lead?: StatDefLike; got: boolean; onOpen: () => void }) {
-  const n = numberOf(e, lead);
+/** One item in a medium section: its symbol, its name under it, and its numbers, small. */
+function SmallTile({ e, block, among, color, defs, lead, got, onOpen }: { e: Entry; block: TileBlock; among: Entry[]; color: string; defs: StatDefLike[]; lead?: string; got: boolean; onOpen: () => void }) {
   return (
     <li className="min-w-0">
       <button type="button" onClick={onOpen} className="grid h-full w-full content-start justify-items-center gap-1 rounded-xl px-1 py-2 text-center hover:bg-card-2">
         <Glyph e={e} block={block} color={color} px={26} />
         <span className="line-clamp-2 w-full text-xs font-bold leading-tight">{got && <span className="mr-0.5 inline-block align-[-2px]"><GotMark size={12} /></span>}{e.name}</span>
-        {n !== undefined && <span className="text-[11px] tabular-nums text-muted">{lead!.label} {n}</span>}
+        <MiniStats e={e} defs={defs} among={among} color={color} lead={lead} className="justify-center" />
       </button>
     </li>
   );
 }
 
-/** One item in a long section: a row with its symbol, name, a tag (a rank) and the one number that matters now. */
-function ItemLine({ e, block, color, lead, tag, got, onOpen }: { e: Entry; block: TileBlock; color: string; lead?: StatDefLike; tag?: FieldDef; got: boolean; onOpen: () => void }) {
-  const n = numberOf(e, lead);
+/** One item in a long section: a row with its symbol, name, a tag (a rank) and its numbers, small. */
+function ItemLine({ e, block, among, color, defs, lead, tag, got, onOpen }: { e: Entry; block: TileBlock; among: Entry[]; color: string; defs: StatDefLike[]; lead?: string; tag?: FieldDef; got: boolean; onOpen: () => void }) {
   const t = tag ? e.categories[tag.key] : undefined;
   return (
     <li className="min-w-0 border-b border-line">
-      <button type="button" onClick={onOpen} className="flex w-full items-center gap-2.5 rounded-lg px-1 py-2 text-left hover:bg-card-2">
+      <button type="button" onClick={onOpen} className="flex w-full items-center gap-2 rounded-lg px-1 py-2 text-left hover:bg-card-2">
         <Glyph e={e} block={block} color={color} px={20} />
         <span className="min-w-0 flex-1 truncate text-sm font-bold">{e.name}</span>
         {got && <GotMark size={14} />}
-        {t && <span className="max-w-16 shrink-0 truncate text-[11px] text-muted">{t}</span>}
-        {n !== undefined && <span className="w-9 shrink-0 text-right text-sm font-bold tabular-nums" title={lead!.label}>{n}</span>}
+        {t && <span className="max-w-12 shrink-0 truncate text-[11px] text-muted">{t}</span>}
+        <MiniStats e={e} defs={defs} among={among} color={color} lead={lead} className="shrink-0" />
       </button>
     </li>
   );
