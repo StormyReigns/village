@@ -177,14 +177,16 @@ export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
             // Each type is its own band, a light wash of the Page color with a faint edge and a
             // gap between, so on a phone it's clear where one type ends and the next begins.
             <section key={key} className={g.name ? 'mt-3 rounded-2xl p-2 sm:p-3' : 'mt-4'} aria-label={g.name || undefined}
-              style={g.name ? { background: band(color), boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${color} 22%, transparent)` } : undefined}>
+              style={g.name ? { background: band(color), boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${color} 30%, transparent)` } : undefined}>
               {/* Pinned under the top bar while its section scrolls past, so you know where you are. */}
               {(g.name || legend) && (
-                <h3 className={'sticky top-[3.6rem] z-10 mb-2 flex items-center gap-1.5 py-1.5 text-xs font-bold text-muted '
-                  + (g.name ? '-mx-2 -mt-2 rounded-t-2xl px-2 sm:-mx-3 sm:-mt-3 sm:px-3 sm:pt-2.5' : '-mx-1 bg-card px-1')} style={g.name ? { background: band(color) } : undefined}>
-                  {g.name && block.symbols?.[g.name] && <BlockIcon name={block.symbols[g.name]} size={17} style={{ color }} />}
-                  {g.name && <><span className="text-sm text-ink">{g.name}</span><span>{g.items.length}</span></>}
-                  {legend && <span className="ml-auto">{miniDefs.map((d) => d.label).join(' · ')}</span>}
+                // A named set starts with a solid strip in the Page color, like a tab, so each set's
+                // start stands out at a glance.
+                <h3 className={'sticky top-[3.6rem] z-10 mb-2 flex items-center gap-1.5 py-2 text-xs font-bold '
+                  + (g.name ? '-mx-2 -mt-2 rounded-t-2xl px-3 text-white sm:-mx-3 sm:-mt-3 sm:px-4' : '-mx-1 bg-card px-1 text-muted')} style={g.name ? { background: color } : undefined}>
+                  {g.name && block.symbols?.[g.name] && <BlockIcon name={block.symbols[g.name]} size={17} />}
+                  {g.name && <><span className="text-sm">{g.name}</span><span className="opacity-80">{g.items.length}</span></>}
+                  {legend && <span className={'ml-auto ' + (g.name ? 'opacity-80' : '')}>{miniDefs.map((d) => d.label).join(' · ')}</span>}
                 </h3>
               )}
               {view === 'list' ? (
@@ -197,12 +199,12 @@ export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
                 </ul>
               ) : density === 'tiles' ? (
                 // Two rows that scroll sideways, however many there are (Matt, 2026-11-16).
-                <ScrollRow as="ul" label={g.name || block.title} className="-mx-1 grid grid-flow-col grid-rows-2 auto-cols-[6.75rem] gap-1 px-1 pb-1">
+                <ScrollRow as="ul" label={g.name || block.title} touchArrows progress className="-mx-1 grid grid-flow-col grid-rows-2 auto-cols-[6.75rem] gap-1 px-1 pb-1">
                   {g.items.map((e) => <SmallTile key={e.id} e={e} block={block} among={shown} color={color} defs={miniDefs} lead={statDef?.key} got={got(e)} onOpen={() => open(e)} />)}
                 </ScrollRow>
               ) : (
                 // Columns of eight rows that scroll sideways.
-                <ScrollRow as="ul" label={g.name || block.title} className="-mx-1 grid grid-flow-col grid-rows-[repeat(8,auto)] auto-cols-[min(21rem,88%)] gap-x-6 px-1 pb-1">
+                <ScrollRow as="ul" label={g.name || block.title} touchArrows progress className="-mx-1 grid grid-flow-col grid-rows-[repeat(8,auto)] auto-cols-[min(21rem,88%)] gap-x-6 px-1 pb-1">
                   {g.items.map((e) => <ItemLine key={e.id} e={e} block={block} among={shown} color={color} defs={miniDefs} lead={statDef?.key} tag={rowTag} got={got(e)} onOpen={() => open(e)} />)}
                 </ScrollRow>
               )}
