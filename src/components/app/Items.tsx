@@ -20,6 +20,10 @@ type View = 'tiles' | 'list' | 'compare';
 /** What a tile needs from its Block (a Workshop sample has no entries or id). */
 type TileBlock = Pick<Block, 'title' | 'icon'> & Partial<Pick<Block, 'type' | 'fields' | 'stats' | 'symbols' | 'filters'>>;
 
+/** A type's band behind its section: the Page color, faint, over the white Block (opaque, so
+ *  the pinned header hides what scrolls under it). */
+const band = (color: string) => `color-mix(in srgb, ${color} 7%, var(--card))`;
+
 /** The device-wide mark for having an item ("Got it"), shared with its full view. */
 export const gotKey = (block: Pick<Block, 'id'>, e: Pick<Entry, 'id'>) => `got:${block.id}.${e.id}`;
 
@@ -170,13 +174,17 @@ export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
           // Tiles and rows name their small numbers once, in the header.
           const legend = view === 'tiles' && density !== 'cards' && miniDefs.length > 0;
           return (
-            <section key={key} className="mt-4" aria-label={g.name || undefined}>
+            // Each type is its own band, a light wash of the Page color with a faint edge and a
+            // gap between, so on a phone it's clear where one type ends and the next begins.
+            <section key={key} className={g.name ? 'mt-3 rounded-2xl p-2 sm:p-3' : 'mt-4'} aria-label={g.name || undefined}
+              style={g.name ? { background: band(color), boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${color} 22%, transparent)` } : undefined}>
               {/* Pinned under the top bar while its section scrolls past, so you know where you are. */}
               {(g.name || legend) && (
-                <h3 className="sticky top-[3.6rem] z-10 -mx-1 mb-2 flex items-center gap-1.5 bg-card px-1 py-1.5 text-xs font-bold uppercase tracking-wide text-muted">
-                  {g.name && block.symbols?.[g.name] && <BlockIcon name={block.symbols[g.name]} size={14} style={{ color }} />}
-                  {g.name && <><span className="text-ink">{g.name}</span> · {g.items.length}</>}
-                  {legend && <span className="ml-auto normal-case tracking-normal">{miniDefs.map((d) => d.label).join(' · ')}</span>}
+                <h3 className={'sticky top-[3.6rem] z-10 mb-2 flex items-center gap-1.5 py-1.5 text-xs font-bold text-muted '
+                  + (g.name ? '-mx-2 -mt-2 rounded-t-2xl px-2 sm:-mx-3 sm:-mt-3 sm:px-3 sm:pt-2.5' : '-mx-1 bg-card px-1')} style={g.name ? { background: band(color) } : undefined}>
+                  {g.name && block.symbols?.[g.name] && <BlockIcon name={block.symbols[g.name]} size={17} style={{ color }} />}
+                  {g.name && <><span className="text-sm text-ink">{g.name}</span><span>{g.items.length}</span></>}
+                  {legend && <span className="ml-auto">{miniDefs.map((d) => d.label).join(' · ')}</span>}
                 </h3>
               )}
               {view === 'list' ? (

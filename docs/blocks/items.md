@@ -60,7 +60,9 @@ What this means for the design:
   a computer, and the mouse wheel moving them) instead of "Show all".
 - **Organizing**: with nothing typed, items are grouped under headers by the Block's first tag
   (Key items · 3, Materials · 4...), so the shelf reads like the game's own inventory tabs.
-  The headers stay pinned under the top bar while their section scrolls past. Any tag can be
+  Each group is its own band: a light wash of the Page color with a faint edge, a gap before
+  the next, and its symbol and name in a header that stays pinned under the top bar while the
+  band scrolls past. Any tag can be
   the grouping, as in Characters. Letter ranks group best first (S, A, B... with a range like
   "B–A" by its best letter). Sorts: A to Z, Z to A, and "Best <stat>" for each stat (a sort by
   a stat drops the headers and ranks every item). A tag the items are grouped by isn't
@@ -236,6 +238,8 @@ names offered from the Block, and the live preview. Moderators save setups for n
 - 2026-11-16: cards for up to 16 items, tiles up to 60, rows past that; tiles and rows scroll
   sideways instead of "Show all"; the type chips show one type instead of jumping; and the
   compact looks show all the tile's numbers small, in the room "Might 11" took (Matt).
+- 2026-11-16: each type is its own tinted, outlined band with a gap between (Matt: on a phone
+  it was hard to tell where one set ends and the next starts).
 - 2026-11-15: Fortune's Weave's items were researched and added (Matt: find all known items):
   117 weapons and spells and 217 other items, with numbers from the sources and the rest in our
   own words, each citing its source; unknown effects are left out rather than guessed. Why: the
