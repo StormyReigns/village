@@ -10,13 +10,14 @@ import { BlockIcon } from '@/components/Icon';
 import { Piece } from '@/components/Piece';
 import { ScrollRow } from '@/components/ScrollRow';
 import { browserClient } from '@/lib/supabase/browser';
-import { closest, rank } from '@/lib/search';
+import { closest, nameSearch, rank, words } from '@/lib/search';
 import { DESCRIPTION, besideText, hasValue, isCategory, listItems, shownFields, spotOf, valueOf, type FieldValue } from '@/lib/fields';
 import { GUIDE_PICTURES, STEPS, TIP, WATCH_OUT, WRITEUP, paragraphs, parseSteps, parseWriteup, stepCount, type Step, type WriteSection } from '@/lib/guides';
 import type { RouteOption } from './EntryPanel';
 import { symbolFor } from './symbols';
 import { entryText, onRoute, rememberEntry, useOpenEntry } from './entries';
-import { RichText } from './TextLinks';
+import { RichText, useEntryNames } from './TextLinks';
+import { AskFromSearch } from '@/components/questions/Questions';
 import { FilterChip, HiddenNote, useVisible, type BlockContext } from './blockParts';
 import { Videos, cardIdOf } from '@/components/videos/Videos';
 
@@ -59,14 +60,20 @@ export function Guides({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const chips = tag ? [...new Set(shown.map((e) => e.categories[tag.key]).filter(Boolean))] : [];
   const picked = tag && pick && chips.includes(pick) ? shown.filter((e) => e.categories[tag.key] === pick) : shown;
   const list = query.trim() ? rank(picked, query, entryText) : picked;
+  const names = useEntryNames();
+  const own = useMemo(() => new Set(block.entries.map((e) => e.name)), [block.entries]);
   const top = useRef<HTMLDivElement>(null);
+  // The row under the guide, where "Add a video" waits until a guide has one.
+  const [after, setAfter] = useState<HTMLSpanElement | null>(null);
 
   useEffect(() => {
     if (!entry) return;
     rememberEntry(ctx.gameId, { href: `${window.location.pathname}?e=${block.id}.${entry.id}`, name: entry.name, where: `${ctx.pageTitle} · ${block.title}` });
-    // Opening a guide (or stepping to the next) starts at its top.
-    const box = document.getElementById(block.id);
-    if (box && box.getBoundingClientRect().top < 0) box.scrollIntoView({ block: 'start' });
+    // Opening a guide (or stepping to the next) brings its top up under the top bar, so on a
+    // phone "In short" and the first steps fill the screen instead of the Page's header.
+    const el = top.current;
+    const y = el?.getBoundingClientRect().top ?? 0;
+    if (el && (y < 0 || y > 140)) el.scrollIntoView({ block: 'start' });
   }, [entry, block.id, block.title, ctx.gameId, ctx.pageTitle]);
 
   if (entry) {
@@ -77,7 +84,7 @@ export function Guides({ block, ctx }: { block: Block; ctx: BlockContext }) {
     const go = (e: Entry) => set(`${block.id}.${e.id}`, 'replace');
     const hidden = entry.spoiler && !ctx.spoilers;
     return (
-      <div ref={top} className="mt-3">
+      <div ref={top} className="mt-3 scroll-mt-16">
         <div className="flex items-center gap-1">
           <button type="button" onClick={close} className="-ml-1 inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-sm font-bold text-muted hover:bg-card-2 hover:text-ink">
             <ArrowLeft size={16} aria-hidden="true" /> All guides
@@ -98,7 +105,7 @@ export function Guides({ block, ctx }: { block: Block; ctx: BlockContext }) {
               <button type="button" onClick={ctx.onShowSpoilers} className="rounded-full px-4 py-2 text-sm font-bold ring-1 ring-line hover:ring-ink">Show it</button>
             </div>
           ) : (
-            <GuideCard entry={entry} block={block} route={ctx.route} routes={ctx.routes} color={`var(--${ctx.tint})`} spoilers={ctx.spoilers} />
+            <GuideCard entry={entry} block={block} route={ctx.route} routes={ctx.routes} color={`var(--${ctx.tint})`} spoilers={ctx.spoilers} videoAddTo={after} />
           )}
         </article>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
@@ -106,6 +113,7 @@ export function Guides({ block, ctx }: { block: Block; ctx: BlockContext }) {
             className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-bold text-muted ring-1 ring-line hover:text-ink hover:ring-ink">
             <Pencil size={14} aria-hidden="true" /> Fix this guide
           </Link>
+          <span ref={setAfter} className="contents" />
           {next && (
             <button type="button" onClick={() => go(next)} className="ml-auto inline-flex min-w-0 items-center gap-1 rounded-full px-3 py-1.5 font-bold hover:bg-card-2">
               <span className="truncate">Next: {next.name}</span> <ChevronRight size={16} aria-hidden="true" />
@@ -116,16 +124,42 @@ export function Guides({ block, ctx }: { block: Block; ctx: BlockContext }) {
     );
   }
 
-  const near = query.trim() && !list.length ? closest(picked, query, entryText) : [];
-  const offRouteHits = query.trim() && !list.length && !ctx.spoilers
+  const searching = query.trim().length >= 2;
+  const near = searching && !list.length ? closest(picked, query, entryText) : [];
+  const offRouteHits = searching && !list.length && !ctx.spoilers
     ? rank(block.entries.filter((e) => e.spoiler && onRoute(e, ctx.route)), query, entryText).length : 0;
+  // The answer often lives on another card ("how does Anna join?" is on Anna's): names only, so
+  // only entries the player named turn up, never everything that mentions a word.
+  const named = searching ? nameSearch(query) : '';
+  // A word of the name must start with a word typed ("anna" finds Anna and Anna's Paralogue, not Fianna).
+  const typed = words(named);
+  const elsewhere = named ? rank(names.filter((n) => !own.has(n.name) && words(n.name).some((w) => typed.some((t) => w.startsWith(t)))),
+    named, (n) => ({ name: n.name, text: '' })).slice(0, 3) : [];
+  const pageOf = (href: string) => ctx.pages?.find((p) => p.id === href.split('/')[3])?.title;
+  const askPages = [{ id: ctx.page.id, title: ctx.page.title, short: ctx.page.short, tint: ctx.page.tint }, ...(ctx.pages ?? []).filter((p) => p.id !== ctx.page.id)];
+  const alsoHere = elsewhere.length > 0 && (
+    <div className="mt-3">
+      <p className="text-xs font-bold uppercase tracking-wide text-muted">{list.length ? 'Also in the app' : 'In the app'}</p>
+      <ul className="mt-1 space-y-0.5">
+        {elsewhere.map((n) => (
+          <li key={n.href}>
+            <Link href={n.href} className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-card-2">
+              <span className="min-w-0 flex-1 truncate"><span className="font-bold">{n.name}</span>{pageOf(n.href) && <span className="text-muted"> · {pageOf(n.href)}</span>}</span>
+              <ChevronRight size={16} className="shrink-0 text-muted" aria-hidden="true" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
   return (
     <div className="mt-3">
       {shown.length > 3 && (
         <label className="flex items-center gap-2 rounded-full bg-card px-3 py-2 ring-1 ring-line focus-within:ring-2 focus-within:ring-ink">
           <Search size={16} className="shrink-0 text-muted" aria-hidden="true" />
+          {/* The browser's own clear button is hidden: ours is the one X. */}
           <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="What are you stuck on?"
-            aria-label={`Search ${block.title}`} className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted" />
+            aria-label={`Search ${block.title}`} className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted [&::-webkit-search-cancel-button]:appearance-none" />
           {query && <button type="button" onClick={() => setQuery('')} aria-label="Clear the search" className="text-muted hover:text-ink"><X size={16} aria-hidden="true" /></button>}
         </label>
       )}
@@ -138,16 +172,25 @@ export function Guides({ block, ctx }: { block: Block; ctx: BlockContext }) {
       <ul className="mt-2 grid gap-2">
         {list.map((e) => <GuideRow key={e.id} entry={e} block={block} color={`var(--${ctx.tint})`} onOpen={() => set(`${block.id}.${e.id}`)} />)}
       </ul>
-      {query.trim() && !list.length && (
-        <div className="mt-4 text-center text-sm text-muted">
-          <p>No guide matches &ldquo;{query}&rdquo; yet.</p>
+      {searching && !list.length && <p className="mt-3 text-sm text-muted">No guide for &ldquo;{query.trim()}&rdquo; yet.</p>}
+      {alsoHere}
+      {/* Nothing here: a stuck player wants an answer, so asking comes first and writing is the quiet way. */}
+      {searching && list.length > 0 && (
+        // A search's best match can still be the wrong guide: asking stays one tap away.
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted">
+          Not it? <AskFromSearch gameId={ctx.gameId} pages={askPages} links={names} query={query} />
+        </div>
+      )}
+      {searching && !list.length && (
+        <div className="mt-3 grid justify-items-start gap-2 text-sm text-muted">
           {near.length > 0 && (
-            <p className="mt-1">Did you mean {near.map((e, i) => (
+            <p>Did you mean {near.map((e, i) => (
               <span key={e.id}>{i > 0 && ', '}<button type="button" onClick={() => set(`${block.id}.${e.id}`)} className="font-bold text-ink underline underline-offset-2">{e.name}</button></span>
             ))}?</p>
           )}
-          {offRouteHits > 0 && <p className="mt-1">{offRouteHits} more hidden as spoilers.</p>}
-          <Link href={`/g/${ctx.gameId}/workshop?add=${block.id}`} className="mt-2 inline-block font-bold text-ink underline underline-offset-2">Write this guide in the Workshop</Link>
+          {offRouteHits > 0 && <p>{offRouteHits} more hidden as spoilers.</p>}
+          <AskFromSearch gameId={ctx.gameId} pages={askPages} links={names} query={query} />
+          <Link href={`/g/${ctx.gameId}/workshop?add=${block.id}`} className="font-bold text-muted underline underline-offset-2 hover:text-ink">Know the answer? Write this guide</Link>
         </div>
       )}
       <HiddenNote offRoute={offRoute} spoilers={spoilers} ctx={ctx} />
@@ -169,7 +212,8 @@ function GuideRow({ entry, block, color, onOpen }: { entry: Entry; block: Block;
         <Piece size={46} color={color} image={entry.icon}>{entry.icon ? null : <BlockIcon name={symbol} size={16} strokeWidth={2.4} />}</Piece>
         <span className="grid min-w-0 flex-1 gap-0.5">
           <span className="font-display text-lg leading-tight">{entry.name}</span>
-          {line && <span className="line-clamp-1 text-sm text-muted">{line}</span>}
+          {/* Two lines, so the row itself answers ("Give them a gift to unlock Recruit, then…"). */}
+          {line && <span className="line-clamp-2 text-sm text-muted">{line}</span>}
           {meta && <span className="text-xs font-bold text-muted">{meta}</span>}
         </span>
         <ChevronRight size={18} className="shrink-0 text-muted" aria-hidden="true" />
@@ -183,9 +227,11 @@ function GuideRow({ entry, block, color, onOpen }: { entry: Entry; block: Block;
  * other field in the builders' order. The starter order is "In short", "Watch out", the steps
  * and the tip. Also the Workshop's preview, so it must look exactly like the app.
  */
-export function GuideCard({ entry, block, route, routes, color = 'var(--ink)', spoilers = false, sample = false }: {
+export function GuideCard({ entry, block, route, routes, color = 'var(--ink)', spoilers = false, sample = false, videoAddTo }: {
   entry: EntryContent; block: GuideBlock; route: Route | 'all'; routes: RouteOption[];
   color?: string;
+  /** In the app: where "Add a video" goes while the guide has none (under the guide). */
+  videoAddTo?: Element | null;
   /** Show spoiler steps and fields without a tap (the player turned spoilers on). */
   spoilers?: boolean;
   /** The builders' made-up sample. */
@@ -195,7 +241,7 @@ export function GuideCard({ entry, block, route, routes, color = 'var(--ink)', s
   const at = (...spots: ReturnType<typeof spotOf>[]) => fields.filter((f) => spots.includes(spotOf(f)));
   const routeName = (r: Route) => routes.find((o) => o.key === r)?.label ?? r;
   const parts = at('body', 'section', 'chart');
-  const videos = <Videos cardId={sample ? undefined : cardIdOf(entry)} size="big" name={entry.name} />;
+  const videos = <Videos cardId={sample ? undefined : cardIdOf(entry)} size="big" name={entry.name} addTo={videoAddTo} />;
   return (
     <div className="grid gap-4">
       <header>

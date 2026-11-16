@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ExternalLink, Flag, MoreHorizontal, PictureInPicture2, Play, Plus, ThumbsDown, ThumbsUp, Trash2, X } from 'lucide-react';
 import { canModerate, useVillager } from '@/components/useVillager';
 import { REMOVAL_NOTE, deleteMinutesLeft, embedUrl, formatTime, parseTime, parseVideoLink, tallyText, thumbUrl, watchUrl, type VideoInfo, type VideoLink } from '@/lib/videos';
@@ -32,7 +33,7 @@ export const cardIdOf = (entry: object) => ('ref' in entry ? (entry as { ref?: {
 /** How many rows a small part shows before "N more". */
 const SMALL_SHOWN = 3;
 
-export function Videos({ cardId, size, name, label, color, className = '' }: {
+export function Videos({ cardId, size, name, label, color, className = '', addTo }: {
   /** The entry's id in the database. Samples and starter entries without one show nothing. */
   cardId?: string;
   size: 'big' | 'small';
@@ -43,6 +44,9 @@ export function Videos({ cardId, size, name, label, color, className = '' }: {
   /** The heading's color: the Page color on cards, like their other parts. */
   color?: string;
   className?: string;
+  /** Where "Add a video" goes while there are no videos yet, instead of in place. An open guide
+   *  puts it beside "Fix this guide", so a writers' prompt stays out of what players read. */
+  addTo?: Element | null;
 }) {
   const me = useVillager();
   const data = useVideos(cardId, me?.id);
@@ -55,6 +59,20 @@ export function Videos({ cardId, size, name, label, color, className = '' }: {
   const videos = data.videos.filter((v) => !gone(infos[v.youtubeId]));
   // Nothing yet while loading, so the card doesn't show "Add a video" and then jump.
   if (data.state === 'loading') return null;
+
+  const adder = adding && <AddVideo name={name} signedIn={Boolean(me)} already={videos.map((v) => v.youtubeId)} onAdd={data.add} onClose={() => setAdding(false)} />;
+  if (addTo !== undefined && !videos.length) {
+    return addTo && createPortal(
+      <>
+        <button type="button" onClick={() => setAdding(true)}
+          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-bold text-muted ring-1 ring-line hover:text-ink hover:ring-ink">
+          <Plus size={14} aria-hidden="true" /> Add a video
+        </button>
+        {adder}
+      </>,
+      addTo,
+    );
+  }
 
   const heading = label ?? (size === 'big' ? 'See it done' : 'Videos');
   // Moderators take any video down; whoever added it gets their first hour (VideoCard).
@@ -90,7 +108,7 @@ export function Videos({ cardId, size, name, label, color, className = '' }: {
           <Plus size={14} aria-hidden="true" /> Add a video
         </button>
       </div>
-      {adding && <AddVideo name={name} signedIn={Boolean(me)} already={videos.map((v) => v.youtubeId)} onAdd={data.add} onClose={() => setAdding(false)} />}
+      {adder}
     </section>
   );
 }

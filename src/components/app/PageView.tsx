@@ -115,6 +115,7 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [], mention
     mentions,
     rosters,
     onPickRoute: byRoute ? (r) => setPrefs({ route: r }) : undefined,
+    pages: pages.length ? pages : undefined,
   };
 
   return (

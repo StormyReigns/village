@@ -2,12 +2,26 @@
 // ("giant meat") and typos ("golath"), so:
 //   - filler words (how, do, i, get, where...) are ignored,
 //   - results are ranked by how many words matched instead of needing every word,
-//   - a name can be one letter off (an extra, missing, wrong or swapped letter).
+//   - a name can be one letter off (an extra, missing, wrong or swapped letter),
+//   - a few game words count as the same ("join" finds "Recruit", "defeat" finds "beat").
 
 const FILLER = new Set([
   'how', 'do', 'does', 'did', 'i', 'get', 'got', 'where', 'find', 'to', 'the', 'is', 'are', 'a', 'an', 'can',
   'you', 'what', 'whats', 'of', 'in', 'for', 'my', 'me', 'on', 'with', 'and', 'who', 'when', 'which', 'it', 'at',
 ]);
+
+/** Words players use for the same thing: each finds the others. Kept to ones that mean the same
+ *  in any game, so a search never pulls in something unrelated. */
+const SAME_WORDS = [
+  ['join', 'joins', 'joined', 'joining', 'recruit', 'recruits', 'recruited', 'recruiting', 'recruitment'],
+  // Not "kill": weapon names ("Killing Edge") would turn up for every "how do I beat…".
+  ['beat', 'beating', 'defeat', 'defeating'],
+  ['money', 'gold', 'funds', 'cash'],
+  ['xp', 'exp', 'experience'],
+  ['job', 'jobs', 'class', 'classes'],
+  ['promote', 'promotion', 'promoting'],
+];
+const SAME = new Map(SAME_WORDS.flatMap((group) => group.map((w) => [w, group] as const)));
 
 /** Lowercase words, without accents or apostrophes ("Giant's" becomes "giants"). */
 export function words(text: string) {
@@ -20,6 +34,12 @@ export function searchWords(query: string) {
   const all = words(query);
   const kept = all.filter((w) => !FILLER.has(w));
   return kept.length ? kept : all;
+}
+
+/** The words that name something: no filler and none of the shared game verbs ("join", "beat"),
+ *  so "how does anna join" looks for Anna, not for "Joint-Relief Gloves". */
+export function nameSearch(query: string) {
+  return searchWords(query).filter((w) => !SAME.has(w)).join(' ');
 }
 
 /** Are two words at most one letter apart? */
@@ -53,13 +73,16 @@ export interface Searchable { name: string; text: string }
 
 /** How well one thing fits the search words: how many matched, and a score to sort by. */
 function score(q: string[], item: Searchable) {
-  const nameWords = words(item.name), name = nameWords.join(' '), hay = words(item.text).join(' ');
+  const nameWords = words(item.name), name = nameWords.join(' '), hayWords = words(item.text), hay = hayWords.join(' ');
+  const fit = (w: string) => nameWords.some((n) => n.startsWith(w)) ? 4 : name.includes(w) ? 3
+    : w.length >= 4 && nameWords.some((n) => oneOff(n, w)) ? 2 : hay.includes(w) ? 1 : 0;
+  // A word that means the same counts only where a whole word starts with it, never as a typo.
+  const fitSame = (w: string) => nameWords.some((n) => n.startsWith(w)) ? 3.5 : hayWords.some((h) => h.startsWith(w)) ? 0.5 : 0;
   let matched = 0, points = 0;
   for (const w of q) {
-    if (nameWords.some((n) => n.startsWith(w))) { matched++; points += 4; }
-    else if (name.includes(w)) { matched++; points += 3; }
-    else if (w.length >= 4 && nameWords.some((n) => oneOff(n, w))) { matched++; points += 2; }
-    else if (hay.includes(w)) { matched++; points += 1; }
+    // The word as typed, or one that means the same (a little less, so the typed word wins a tie).
+    const best = Math.max(fit(w), ...(SAME.get(w) ?? []).filter((s) => s !== w).map(fitSame));
+    if (best > 0) { matched++; points += best; }
   }
   return { matched, points: points + (matched === q.length ? 2 : 0) };
 }

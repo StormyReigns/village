@@ -60,18 +60,27 @@ What this means for the design:
 
 - **The list** (the default): one row per guide, in the builders' order. Each row: the
   guide's piece (the Block's symbol, or a group symbol when a Kind is set up with symbols),
-  its name, the first line of "In short" (or of the first step that isn't a spoiler), and a
+  its name, up to two lines of "In short" (or of the first step that isn't a spoiler), and a
   quiet line like "Chapter 9 · 5 steps". With more than three guides, a search box ("What are
-  you stuck on?") sits on top; it looks in names and text. When a tag (Kind, Difficulty) has
-  two or more values, chips under it narrow the list. A search that finds nothing offers
-  close names and "Write this guide in the Workshop".
+  you stuck on?") sits on top; it looks in names and text, and knows a few game words that
+  mean the same (join = recruit, beat = defeat, gold = money, job = class; `src/lib/search.ts`).
+  When a tag (Kind, Difficulty) has two or more values, chips under it narrow the list.
+  Under a search's results: "Also in the app", up to three entries from other Blocks whose
+  names the player typed ("how does Anna join" shows Anna · Units), then "Not it? Ask the
+  village". A search that finds nothing says so, shows those entries and close names, then
+  "Ask the village" (the main button, the question filled in) and a quiet "Know the answer?
+  Write this guide".
 - **One guide**: tapping a row opens the guide in place of the list, and the address holds it
-  (`?e=how-to.change-class`), so links, share cards and the phone's back button work. On top:
+  (`?e=how-to.change-class`), so links, share cards and the phone's back button work. The
+  guide scrolls up to just under the top bar, and the Block's own share and + step aside, so
+  there's one share button and a short guide fits one phone screen. On top:
   "All guides", "2 of 5", share, and arrows to the previous and next guide. Then the guide:
   its name (with any short fields beside it, tags and when under it), then every part in the
   builders' order. The starter order: "In short" in a box tinted the Page color, "Watch out"
   in a red box, the numbered steps down a line in the Page color, and the tip as the sticky
-  note. Under the guide: "Fix this guide" (opens the Workshop form) and "Next: <name>".
+  note. "See it done" (videos) sits under "In short" only once the guide has a video. Under
+  the guide: "Fix this guide" (opens the Workshop form), "Add a video" while it has none, and
+  "Next: <name>".
 - **Steps**: a spoiler step shows as the chat's "Spoiler · tap to show" until tapped, its
   picture included. A picture sits under its step; tapping it shows it over the whole screen.
 - Spoiler fields are covered until tapped; a whole-guide spoiler opened from a link asks
@@ -188,6 +197,15 @@ empty for now.
   the share button was hidden until pointed at; fixed). Why: Matt wants guides attached to
   other Blocks later (Esmeralda's recruitment guide on her profile), and a guide's own link
   is what gets pasted or attached.
+
+- 2026-11-16: a design review (intuitive-design) walked the moments on a phone. Fixed (Matt):
+  a search in the player's words ("how does Anna join?") found nothing, though the answer was
+  on Anna's card and in "Recruit a unit"; the empty search offered only writing a guide, so
+  asking now comes first; the open guide started halfway down the screen under two share
+  buttons; an empty "See it done · Add a video" sat between "In short" and the steps; list rows
+  cut "In short" to about 25 characters. Why: a stuck player wants the answer in a glance, and
+  is not there to write. Still open from the review: ticking off steps (in Later), and "In
+  short" that just repeats a three-step guide (a wording hint for writers).
 
 ## Open questions
 

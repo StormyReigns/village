@@ -40,6 +40,11 @@ export function BlockView({ block, ctx: page }: { block: Block; ctx: BlockContex
   }), [page, revealed]);
   // An intro that asks you to pick a Flame Lord is done once you have.
   const intro = block.intro && !(block.byRoute && ctx.route !== 'all' && /^pick your/i.test(block.intro)) ? block.intro : null;
+  // A guide open in its Guides Block has its own share and "Fix this guide": the Block's tools
+  // step aside so there's one share button and the guide starts higher.
+  const { open } = useOpenEntry();
+  const reading = block.type === 'guide' && Boolean(open?.startsWith(`${block.id}.`));
+  const tools = block.entries.length > 0 && !reading;
   return (
     <section id={block.id} aria-labelledby={`${block.id}-title`} className="app-block min-w-0 scroll-mt-20 rounded-[1.25rem] p-4 sm:p-5" style={{ '--tint': `var(--${ctx.tint})` } as React.CSSProperties}>
       {/* One slim row: the Block's name and its tools. Its intro is read out but not shown, to keep
@@ -51,9 +56,9 @@ export function BlockView({ block, ctx: page }: { block: Block; ctx: BlockContex
           {intro && <p className="sr-only">{intro}</p>}
         </div>
         {/* Download as a spreadsheet (docs/blocks/spreadsheets.md); not for Guides or Tier lists. */}
-        {block.entries.length > 0 && block.type !== 'guide' && block.type !== 'tierlist' && <SheetButton block={block} ctx={ctx} />}
-        {block.entries.length > 0 && <ShareButton path={sharePath(ctx.gameId, ctx.page, block)} title={`${block.title} · ${ctx.pageTitle}`} what="Block" tint={ctx.tint} />}
-        {block.entries.length > 0 && (
+        {tools && block.type !== 'guide' && block.type !== 'tierlist' && <SheetButton block={block} ctx={ctx} />}
+        {tools && <ShareButton path={sharePath(ctx.gameId, ctx.page, block)} title={`${block.title} · ${ctx.pageTitle}`} what="Block" tint={ctx.tint} />}
+        {tools && (
           <Tip text={`Know something missing from ${block.title}? Add it in the Workshop`} tint={ctx.tint} className="shrink-0">
             <Link href={`/g/${ctx.gameId}/workshop?add=${block.id}`} aria-label={`Add to ${block.title}`}
               className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-sm font-bold text-muted ring-1 ring-line hover:text-ink hover:ring-ink">

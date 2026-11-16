@@ -5,6 +5,7 @@
 // Blocks.tsx so Blocks that live in their own files (Characters) can use them too.
 
 import type { Roster } from '@/lib/planner';
+import type { QPage } from '@/components/questions/Questions';
 import { useEffect, useMemo } from 'react';
 import type { Block, Entry, Page, Route, Tint } from '@/data/pages';
 import { sharePath, type Mention } from '@/data/pages/links';
@@ -32,6 +33,8 @@ export interface BlockContext {
   rosters?: Record<string, Roster>;
   /** Picks a route in the Page's switcher (a Planner's runs, when All is picked). */
   onPickRoute?: (route: Route) => void;
+  /** Every Page in the game, for "Ask the village" and saying which Page a found entry is on. */
+  pages?: QPage[];
 }
 
 /** Entries the player can see: on their route, and no spoilers unless they asked. */

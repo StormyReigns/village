@@ -34,3 +34,14 @@ test('nothing found still suggests close names', () => {
   assert.deepEqual(names('glimrosaa'), []);
   assert.equal(closest(items, 'glimrosaa', view)[0]?.name, 'Glirmosa');
 });
+
+test('words that mean the same find each other', () => {
+  const guides = [
+    { name: 'Recruit a unit', text: 'Give them a gift, then raise your Support.' },
+    { name: 'Change class', text: 'Buy the license in Hightown.' },
+  ];
+  assert.equal(rank(guides, 'how does anna join', view)[0]?.name, 'Recruit a unit');
+  assert.equal(rank(guides, 'change job', view)[0]?.name, 'Change class');
+  // The word as typed still beats one that only means the same.
+  assert.equal(names('joins')[0], 'Goliath');
+});

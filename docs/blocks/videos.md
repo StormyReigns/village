@@ -75,6 +75,9 @@ appropriate depending on when and where"):
 - **Under the card**: "This helped" and "Didn't help" (signed in, one vote each, changeable;
   your choice shows in yellow), a report flag, and "2 more videos", which opens the rest, best
   first. Then "Add a video".
+- **A guide with no videos yet** (2026-11-16, from the Guides design review): no "See it done"
+  part; "Add a video" sits under the guide beside "Fix this guide" (`addTo` on `Videos`), so a
+  writers' prompt stays out of what players read mid-game.
 - **Removing** (Matt, 2026-11-08):
   - **Players** report a video with the flag ("Wrong or out of date", "Unmarked spoiler", "Spam or
     off topic", "Rude or hurtful", "Something else"); it then says "Reported".

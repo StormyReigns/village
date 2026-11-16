@@ -23,6 +23,10 @@ const markGameDates = (t: string) => t
 const TextLinks = createContext<TextLinkData | null>(null);
 export const TextLinksProvider = TextLinks.Provider;
 
+const NO_NAMES: TextLinkData['names'] = [];
+/** Every entry in the game the player can see (no spoilers), with where it opens. */
+export const useEntryNames = () => useContext(TextLinks)?.names ?? NO_NAMES;
+
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** Text with names linked and game words explained. `skip` is the entry's own name. */
