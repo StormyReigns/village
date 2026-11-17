@@ -140,17 +140,23 @@ function TabBar({ home, pages, path, current }: { home: string; pages: NavPage[]
     if (row.current) centre(row.current, el, true);
   };
 
-  // When the bar first shows: straight to the middle, no slide. After that, a smooth slide
-  // whenever the Page changes some other way (the back button, a link inside a Page). A tab
-  // that was tapped is already sliding, so it's left to finish rather than started again.
-  const shown = useRef(false);
+  // Whenever the bar shows: straight to the middle, no slide. That's the first time, and also
+  // coming back to the game from elsewhere on the site: Next.js keeps the game's screens
+  // hidden meanwhile, and a hidden row forgets how far it was scrolled, so it would come back
+  // at the far start (Home on the left, with nothing to swipe to). React runs the effects
+  // again when it's shown, after first tidying up the old ones, which is how `live` knows.
+  // After that, a smooth slide whenever the Page changes some other way (the back button, a
+  // link inside a Page). A tab that was tapped is already sliding, so it's left to finish.
+  const live = useRef(false);
+  useLayoutEffect(() => () => { live.current = false; }, []);
   useLayoutEffect(() => {
     const r = row.current;
-    const slid = tapped.current === current;
+    const fresh = !live.current;
+    live.current = true;
+    const slid = !fresh && tapped.current === current;
     tapped.current = null;
-    const el = !r ? null : shown.current ? nearest(r, current) : r.querySelector<HTMLElement>('[aria-current="page"]');
-    if (r && el && !slid) centre(r, el, shown.current);
-    shown.current = true;
+    const el = !r ? null : fresh ? r.querySelector<HTMLElement>('[aria-current="page"]') : nearest(r, current);
+    if (r && el && !slid) centre(r, el, !fresh);
   }, [current]);
 
   // When the bar changes width (the phone turned sideways), the current tab goes straight
