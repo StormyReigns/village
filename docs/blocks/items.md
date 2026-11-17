@@ -263,12 +263,16 @@ names offered from the Block, and the live preview. Moderators save setups for n
   rename it), and so does a shelf where every type is small. The chips still filter to any
   single type (Matt). Why: a row of tiny bands, one or two items each, read as clutter.
 
+- 2026-11-16: the starter card "Chosen Sword, Chosen Lance, Royal Sword, Breidablik" leaves the app
+  (Matt: it showed as one item but is four weapons). Each has its own entry from the research,
+  which now says where it comes from ("Arrives on its own in Part I, Chapter 4, on every route").
+  Migration `20261123000000_retire_weapon_bundle.sql`; the bundle's versions are kept.
+
 ## Open questions
 
 - Fortune's Weave gaps after the research (2026-11-15): effects nobody has published yet (the
   three masks, Challenge Gem, Spirit Gem, Antitoxin, Dew of Protection); where most gifts and
-  trade goods are found; the update 1.01 bundle entry now sits beside separate Chosen Sword,
-  Chosen Lance, Royal Sword and Breidablik entries; the starter Answerer has no numbers, and the
+  trade goods are found; the starter Answerer has no numbers, and the
   starter forged weapons (Levin Sword +1, +3, Salamander +5) come from the player-made table, not
   Game8. Fixing starter entries needs Drafts or a migration (the seed never changes them).
 - Mounts (Game8 lists about 17) and battalions could be items too.

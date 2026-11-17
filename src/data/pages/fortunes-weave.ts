@@ -96,7 +96,9 @@ function items(): Entry[] {
 }
 
 function weaponItems(): Entry[] {
-  return of('items').filter(isWeapon).map((c) => ({
+  // The update 1.01 bundle ("Chosen Sword, Chosen Lance, Royal Sword, Breidablik") is four
+  // weapons, each with its own entry from the research (arsenal), so it isn't a card of its own.
+  return of('items').filter(isWeapon).filter((c) => !c.content.name.includes(', ')).map((c) => ({
     ...base(c, c.content.name),
     sections: sections(['Where to get it', c.content.where], ['Used for', c.content.use], ['Note', /1\.01/.test(c.content.type ?? '') ? 'Added in update 1.01.' : undefined]),
     // A bundle of several weapons (the update 1.01 set) has no one type.
