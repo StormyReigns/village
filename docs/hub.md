@@ -38,7 +38,9 @@ Leaner, to spend fewer credits. Matt agreed on 2026-11-12.
   Stable pointer, and make it safe to run twice. A purely additive change (one key that's missing,
   nothing overwritten) may instead require the starter name plus the key being absent (20261119000000).
   For entries a seed added recently, "exactly one revision" also proves nobody touched them
-  (20261119120000): every publish appends one.
+  (20261119120000): every publish appends one. For older entries that earlier migrations changed,
+  use "no revision with a `draft_id` or `created_by`" (20261123000000): every player publish goes
+  through `ship_draft`, which sets both, and migrations set neither.
 - **The SQL Editor only shows the last result.** Put all the checks Matt should read in one final select.
 - **Say the run order at the top** (this, then `seed-app.sql`), and what happens if it's reversed.
 - **Server calls to outside sites:** allow only known hosts, validate ids, cache, use short timeouts.
