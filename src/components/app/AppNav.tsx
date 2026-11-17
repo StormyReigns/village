@@ -76,10 +76,14 @@ export function AppNav({ game, pages }: { game: NavGame; pages: NavPage[] }) {
 // every copy looks the same, so the hop can't be seen. Three copies each side is more than
 // one fling can cross.
 const COPIES = 7, MID = 3;
-// The widest a tab gets (5.5rem), and the bar's padding at the sides: with these, the width
-// at which every tab fits on screen is known in advance (and then the row doesn't loop).
+// A phone shows six tab widths: five whole tabs with the current one in the middle, and half
+// a tab cut off at each edge, its symbol fading out, so it's plain the row goes on. The widest
+// a tab gets is 5.5rem; with that and the bar's padding at the sides, the width at which every
+// tab fits on screen is known in advance (and then the row doesn't loop).
 const TAB_MAX = 88, SIDES = 16;
-const TAB_WIDTH = 'w-[clamp(3.75rem,calc((100vw_-_1rem)/5.5),5.5rem)]';
+const TAB_WIDTH = 'w-[clamp(3.5rem,calc((100vw_-_1rem)/6),5.5rem)]';
+// Once per device, the first time the row loops, it gives a little nudge sideways and back.
+const NUDGED = 'village:tabs-nudged';
 
 // Slides the current tab to the middle of the row. This runs as a tiny script in the server's
 // HTML, so the tab is already in the middle before the app has started. The bar can arrive a
@@ -108,7 +112,7 @@ interface Tab { id: string; href: string; label: string; icon: string; color: st
 
 /**
  * Phones: Home and every Page in one row that you swipe sideways, round and round, with the
- * current Page slid to the middle. About five tabs show on a phone, with the next ones
+ * current Page slid to the middle. Five tabs show on a phone, with half of the next ones
  * peeking in faded at the edges. When every tab fits (a tablet, say), there's one row, sitting
  * in the middle, that doesn't scroll. It keeps clear of the iPhone's home swipe at the bottom.
  */
@@ -117,8 +121,8 @@ function TabBar({ home, pages, path, current }: { home: string; pages: NavPage[]
     { id: '', href: home, label: 'Home', icon: 'House', color: 'var(--ink)' },
     ...pages.map((p) => ({ id: p.id, href: `${home}/${p.id}`, label: p.short, icon: p.icon, color: `var(--${p.tint})` })),
   ];
-  // Five or fewer always fit on a phone.
-  const loops = tabs.length > 5;
+  // Six or fewer always fit on a phone.
+  const loops = tabs.length > 6;
   const copies = loops ? COPIES : 1, mid = loops ? MID : 0;
   const fitsFrom = tabs.length * TAB_MAX + SIDES;
 
@@ -205,13 +209,35 @@ function TabBar({ home, pages, path, current }: { home: string; pages: NavPage[]
     };
   }, [loops, tabs.length]);
 
+  // The first time this device sees the row loop: a moment after the page shows, it slides
+  // along about half a tab and back, a hint that it moves. Never for people who turn motion
+  // down on their phone.
+  useEffect(() => {
+    const r = row.current;
+    if (!r || !loops || !(r.children[0] as HTMLElement)?.offsetWidth) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    try { if (localStorage.getItem(NUDGED)) return; } catch { return; }
+    let start = 0;
+    const timers = [
+      window.setTimeout(() => {
+        try { localStorage.setItem(NUDGED, '1'); } catch { /* still nudge this once */ }
+        start = r.scrollLeft;
+        r.style.scrollSnapType = 'none';
+        r.scrollTo({ left: start + r.clientWidth / 10, behavior: 'smooth' });
+      }, 900),
+      window.setTimeout(() => r.scrollTo({ left: start, behavior: 'smooth' }), 1350),
+      window.setTimeout(() => { r.style.scrollSnapType = ''; }, 1900),
+    ];
+    return () => { timers.forEach(clearTimeout); r.style.scrollSnapType = ''; };
+  }, [loops]);
+
   // True only while the server's HTML is what's on screen (and while the app takes it over).
   const firstPaint = useSyncExternalStore(noChange, () => false, () => true);
 
   return (
     <nav aria-label="Pages" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-card/95 pb-[max(0.25rem,env(safe-area-inset-bottom))] pl-[max(0.5rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] backdrop-blur lg:hidden">
       {/* While it loops, both edges fade (there's always more). Once every tab fits, the copies go. */}
-      {loops && <style>{`.app-tabs{mask-image:linear-gradient(to right,transparent,#000 24px,#000 calc(100% - 24px),transparent)}@media (min-width:${fitsFrom}px){.app-tab-copy{display:none}.app-tabs{mask-image:none}}`}</style>}
+      {loops && <style>{`.app-tabs{mask-image:linear-gradient(to right,transparent,#000 40px,#000 calc(100% - 40px),transparent)}@media (min-width:${fitsFrom}px){.app-tab-copy{display:none}.app-tabs{mask-image:none}}`}</style>}
       <ul ref={row} className="app-tabs chip-strip flex snap-x snap-proximity overflow-x-auto pt-1.5 pointer-fine:snap-none">
         {Array.from({ length: copies }, (_, c) => tabs.map((t, i) => (
           <TabLink key={`${c}:${t.id}`} tab={t} on={on === t.id} copy={c !== mid}
