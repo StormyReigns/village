@@ -24,6 +24,10 @@ type TileBlock = Pick<Block, 'title' | 'icon'> & Partial<Pick<Block, 'type' | 'f
  *  the pinned header hides what scrolls under it). */
 const band = (color: string) => `color-mix(in srgb, ${color} 7%, var(--card))`;
 
+/** The background of a compact item in its strip of three rows: white, the set's shade, white.
+ *  Items fill the strip column by column, so the item's place in its column picks its row. */
+const stripe = (i: number, color: string) => (i % 3 === 1 ? band(color) : 'var(--card)');
+
 /** The device-wide mark for having an item ("Got it"), shared with its full view. */
 export const gotKey = (block: Pick<Block, 'id'>, e: Pick<Entry, 'id'>) => `got:${block.id}.${e.id}`;
 
@@ -202,14 +206,15 @@ export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
                   {g.items.map((e) => <ItemTile key={e.id} e={e} block={block} among={shown} color={color} got={got(e)} route={ctx.route} hide={g.name ? filter : undefined} badge={badges.size ? badges.get(e.id) ?? '' : undefined} lead={statDef?.key} onOpen={() => open(e)} />)}
                 </ScrollRow>
               ) : density === 'tiles' ? (
-                // Two rows that scroll sideways, however many there are (Matt, 2026-11-16).
-                <ScrollRow as="ul" label={g.name || block.title} touchArrows progress className="-mx-1 grid grid-flow-col grid-rows-2 auto-cols-[6.75rem] gap-1 px-1 pb-1">
-                  {g.items.map((e) => <SmallTile key={e.id} e={e} block={block} among={shown} color={color} defs={miniDefs} lead={statDef?.key} got={got(e)} onOpen={() => open(e)} />)}
+                // Three rows that scroll sideways, striped white, the set's shade, white, so each
+                // row reads across (Matt, 2026-11-16).
+                <ScrollRow as="ul" label={g.name || block.title} touchArrows progress className="grid grid-flow-col grid-rows-3 auto-cols-[6.75rem] rounded-xl">
+                  {g.items.map((e, i) => <SmallTile key={e.id} e={e} block={block} among={shown} color={color} defs={miniDefs} lead={statDef?.key} got={got(e)} shade={stripe(i, color)} onOpen={() => open(e)} />)}
                 </ScrollRow>
               ) : (
-                // Columns of eight rows that scroll sideways.
-                <ScrollRow as="ul" label={g.name || block.title} touchArrows progress className="-mx-1 grid grid-flow-col grid-rows-[repeat(8,auto)] auto-cols-[min(21rem,88%)] gap-x-6 px-1 pb-1">
-                  {g.items.map((e) => <ItemLine key={e.id} e={e} block={block} among={shown} color={color} defs={miniDefs} lead={statDef?.key} tag={rowTag} got={got(e)} onOpen={() => open(e)} />)}
+                // The same for long sets, as rows: three high, striped, scrolling sideways.
+                <ScrollRow as="ul" label={g.name || block.title} touchArrows progress className="grid grid-flow-col grid-rows-3 auto-cols-[min(21rem,88%)] rounded-xl">
+                  {g.items.map((e, i) => <ItemLine key={e.id} e={e} block={block} among={shown} color={color} defs={miniDefs} lead={statDef?.key} tag={rowTag} got={got(e)} shade={stripe(i, color)} onOpen={() => open(e)} />)}
                 </ScrollRow>
               )}
             </section>
@@ -348,10 +353,10 @@ function MiniStats({ e, defs, among, color, lead, className = '' }: { e: Entry; 
 }
 
 /** One item in a medium section: its symbol, its name under it, and its numbers, small. */
-function SmallTile({ e, block, among, color, defs, lead, got, onOpen }: { e: Entry; block: TileBlock; among: Entry[]; color: string; defs: StatDefLike[]; lead?: string; got: boolean; onOpen: () => void }) {
+function SmallTile({ e, block, among, color, defs, lead, got, shade, onOpen }: { e: Entry; block: TileBlock; among: Entry[]; color: string; defs: StatDefLike[]; lead?: string; got: boolean; shade: string; onOpen: () => void }) {
   return (
-    <li className="min-w-0">
-      <button type="button" onClick={onOpen} className="grid h-full w-full content-start justify-items-center gap-1 rounded-xl px-1 py-2 text-center hover:bg-card-2">
+    <li className="min-w-0" style={{ background: shade }}>
+      <button type="button" onClick={onOpen} className="grid h-full w-full content-start justify-items-center gap-1 px-1 py-2 text-center hover:bg-ink/5">
         <Glyph e={e} block={block} color={color} px={26} />
         <span className="line-clamp-2 w-full text-xs font-bold leading-tight">{got && <span className="mr-0.5 inline-block align-[-2px]"><GotMark size={12} /></span>}{e.name}</span>
         <MiniStats e={e} defs={defs} among={among} color={color} lead={lead} className="justify-center" />
@@ -361,11 +366,11 @@ function SmallTile({ e, block, among, color, defs, lead, got, onOpen }: { e: Ent
 }
 
 /** One item in a long section: a row with its symbol, name, a tag (a rank) and its numbers, small. */
-function ItemLine({ e, block, among, color, defs, lead, tag, got, onOpen }: { e: Entry; block: TileBlock; among: Entry[]; color: string; defs: StatDefLike[]; lead?: string; tag?: FieldDef; got: boolean; onOpen: () => void }) {
+function ItemLine({ e, block, among, color, defs, lead, tag, got, shade, onOpen }: { e: Entry; block: TileBlock; among: Entry[]; color: string; defs: StatDefLike[]; lead?: string; tag?: FieldDef; got: boolean; shade: string; onOpen: () => void }) {
   const t = tag ? e.categories[tag.key] : undefined;
   return (
-    <li className="min-w-0 border-b border-line">
-      <button type="button" onClick={onOpen} className="flex w-full items-center gap-2 rounded-lg px-1 py-2 text-left hover:bg-card-2">
+    <li className="min-w-0" style={{ background: shade }}>
+      <button type="button" onClick={onOpen} className="flex h-full w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-ink/5">
         <Glyph e={e} block={block} color={color} px={20} />
         <span className="min-w-0 flex-1 truncate text-sm font-bold">{e.name}</span>
         {got && <GotMark size={14} />}

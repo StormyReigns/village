@@ -49,10 +49,10 @@ What this means for the design:
   apart):
   - **up to 16 items: cards** in one row that scrolls sideways (see "The tile" below; 8 until
     2026-11-16);
-  - **17 to 60: small icon tiles**, in two rows that scroll sideways: the plain symbol (or
+  - **17 to 60: small icon tiles**, in three rows that scroll sideways (striped white, the set's shade, white): the plain symbol (or
     picture) in the Page color, the name under it, and its numbers (the tile's first chart, up
     to four) as small heat-colored boxes, the one being sorted by outlined;
-  - **over 60: icon rows**, in columns of eight that scroll sideways: symbol, name, the tile's
+  - **over 60: icon rows**, in three rows that scroll sideways, striped the same way: symbol, name, the tile's
     first other tag (a rank) and the same small numbers.
   The header names the small numbers once ("Might · Hit · Weight · Crit"). One Block can mix
   all three, which keeps a big Block from feeling like a wall. Tap any of them for the full
@@ -249,6 +249,8 @@ names offered from the Block, and the live preview. Moderators save setups for n
 - 2026-11-16: card sections are one row high and scroll sideways; stat names, wherever they
   are shortened, use one rule (`statAbbr` in `src/lib/stats.ts`): MT, HIT, WT, CRT for weapons,
   STR, DEF, SPD... for characters (Matt). Cards keep the full words, which fit.
+- 2026-11-16: tiles and rows are three rows high, each row a stripe: white, the set's shade,
+  white (Matt).
 - 2026-11-15: Fortune's Weave's items were researched and added (Matt: find all known items):
   117 weapons and spells and 217 other items, with numbers from the sources and the rest in our
   own words, each citing its source; unknown effects are left out rather than guessed. Why: the
