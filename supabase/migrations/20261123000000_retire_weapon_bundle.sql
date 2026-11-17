@@ -10,7 +10,9 @@
 -- Run order: just this. seed-app.sql no longer has the bundle, and never re-adds a card that
 -- exists. Safe to run twice: done steps find nothing left to do.
 -- Only touched where nobody has: a weapon with one revision (as the seed made it), the bundle
--- still under its starter name, and nothing with a Draft waiting.
+-- still under its starter name with no version from a Draft or a person, and nothing with a
+-- Draft waiting. If the bundle was edited, it stays (the final select says "true"): remove it
+-- in the Workshop with "Ask to remove" instead.
 
 do $$
 declare
@@ -53,6 +55,9 @@ begin
       and c.slug = 'chosen-sword-chosen-lance-royal-sword-breidablik'
       and v.card_id = c.id and v.id = (select x.revision_id from public.card_pointers x where x.card_id = c.id and x.channel = 'stable')
       and v.content->>'name' = 'Chosen Sword, Chosen Lance, Royal Sword, Breidablik'
+      -- Untouched by players: every version came from the seed or a migration (the bundle has
+      -- two, "Starter content" and October's "Moved to Weapons and magic"), none from a Draft.
+      and not exists (select 1 from public.card_revisions x where x.card_id = c.id and (x.draft_id is not null or x.created_by is not null))
       and not exists (select 1 from public.drafts d where d.card_id = c.id and d.status in ('checking', 'open', 'approved', 'preview'));
   end if;
 end $$;
