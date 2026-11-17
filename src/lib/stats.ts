@@ -69,3 +69,24 @@ export function byStat(def: StatDef, worst = false) {
     return worst ? -d : d;
   };
 }
+
+/** Short forms for stat names where space is tight, the ones players know from the games:
+ *  MT, HIT, WT and CRT for weapons (Matt, 2026-11-16), STR, DEF, SPD... for characters. */
+const ABBREVIATIONS: [RegExp, string][] = [
+  [/^might$/i, 'MT'], [/^hit$/i, 'HIT'], [/^weight$/i, 'WT'], [/^crit(ical)?$/i, 'CRT'],
+  [/^avoid$/i, 'AVO'], [/^range$/i, 'RNG'], [/^uses$/i, 'USE'], [/^hp$/i, 'HP'],
+  [/^str(ength)?$/i, 'STR'], [/^mag(ic)?$/i, 'MAG'], [/^def(en[cs]e)?$/i, 'DEF'], [/^res(istance)?$/i, 'RES'],
+  [/^(spd|speed)$/i, 'SPD'], [/^(lck|luck)$/i, 'LCK'], [/^(skl|skill)$/i, 'SKL'], [/^dex(terity)?$/i, 'DEX'],
+  [/^cha(rm|risma)?$/i, 'CHA'], [/^(mov|move|movement)$/i, 'MOV'],
+];
+
+/** A stat's short form: a known one, else the name itself up to four letters, else the
+ *  first letters of its words ("Magic defense": MD), else its first three letters. */
+export function statAbbr(label: string) {
+  const t = label.trim();
+  const known = ABBREVIATIONS.find(([re]) => re.test(t));
+  if (known) return known[1];
+  if (t.length <= 4) return t.toUpperCase();
+  const words = t.split(/\s+/).filter(Boolean);
+  return (words.length > 1 ? words.map((w) => w[0]).join('') : t.slice(0, 3)).toUpperCase();
+}

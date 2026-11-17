@@ -8,7 +8,7 @@ import { Piece } from '@/components/Piece';
 import { BlockIcon } from '@/components/Icon';
 import { useStored } from '@/components/useStored';
 import { closest, rank } from '@/lib/search';
-import { byStat, heatFill, statFacts } from '@/lib/stats';
+import { byStat, heatFill, statFacts, statAbbr } from '@/lib/stats';
 import { allStatDefs, besideText, chartDefs, isCategory, shownFields, tileFields, toggleOptions, valueOf } from '@/lib/fields';
 import { densityFor, foldSmall, groupOrder, standouts, type Density } from '@/lib/items';
 import { symbolFor } from './symbols';
@@ -189,7 +189,7 @@ export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
                   {g.name && <><span className="text-sm">{g.name}</span><span className="opacity-80">{g.items.length}</span></>}
                   {/* A folded "Other" says which small types it holds; each item keeps its type's symbol. */}
                   {g.holds?.length ? <span className="min-w-0 truncate font-normal opacity-80">· {g.holds.join(', ')}</span> : null}
-                  {legend && <span className={'ml-auto ' + (g.name ? 'opacity-80' : '')}>{miniDefs.map((d) => d.label).join(' · ')}</span>}
+                  {legend && <span className={'ml-auto ' + (g.name ? 'opacity-80' : '')}>{miniDefs.map((d) => statAbbr(d.label)).join(' · ')}</span>}
                 </h3>
               )}
               {view === 'list' ? (
@@ -197,9 +197,10 @@ export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
                   {g.items.map((e, i) => <Row key={e.id} e={e} block={block} among={shown} color={color} first={i === 0} got={got(e)} route={ctx.route} hide={g.name ? filter : undefined} onOpen={() => open(e)} />)}
                 </ul>
               ) : density === 'cards' ? (
-                <ul className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3">
+                // One row of cards that scrolls sideways (Matt, 2026-11-16).
+                <ScrollRow as="ul" label={g.name || block.title} touchArrows progress className="-mx-1 grid grid-flow-col auto-cols-[9.5rem] gap-3 px-1 pb-1">
                   {g.items.map((e) => <ItemTile key={e.id} e={e} block={block} among={shown} color={color} got={got(e)} route={ctx.route} hide={g.name ? filter : undefined} badge={badges.size ? badges.get(e.id) ?? '' : undefined} lead={statDef?.key} onOpen={() => open(e)} />)}
-                </ul>
+                </ScrollRow>
               ) : density === 'tiles' ? (
                 // Two rows that scroll sideways, however many there are (Matt, 2026-11-16).
                 <ScrollRow as="ul" label={g.name || block.title} touchArrows progress className="-mx-1 grid grid-flow-col grid-rows-2 auto-cols-[6.75rem] gap-1 px-1 pb-1">
@@ -284,7 +285,7 @@ function TileBits({ e, block, among, color, route, hide, lead, row = false }: { 
             const facts = statFacts(d, e, among);
             return (
               <span key={d.key} className="grid min-w-0 flex-1 text-center" title={d.label}>
-                <span className="truncate text-[9px] font-bold uppercase leading-tight text-muted">{d.label.slice(0, 3)}</span>
+                <span className="truncate text-[9px] font-bold uppercase leading-tight text-muted">{statAbbr(d.label)}</span>
                 <span className="rounded-md text-[10px] font-bold tabular-nums leading-snug ring-1 ring-line" style={{ background: facts ? heatFill(facts.goodness, color) : 'var(--card-2)' }}>{e.stats?.[d.key]}</span>
               </span>
             );

@@ -10,6 +10,7 @@ import { usePlayerPrefs } from '@/components/usePlayerPrefs';
 import { initials } from '@/components/app/entries';
 import { classesFor, inClass, whoSuits, type Kin, type KinRow } from '@/lib/class-fit';
 import { useKin } from './kin';
+import { statAbbr } from '@/lib/stats';
 
 // Units and classes, linked both ways (docs/blocks/classes.md, slice 2): on a unit's card, the
 // classes that suit them; on a class's card, the units it suits and any unit's numbers in it. Shown
@@ -176,7 +177,7 @@ function UnitsFor({ kin, rows, entry, color }: { kin: Kin; rows: KinRow[]; entry
                 const mod = entry.stats?.[d.key] ?? 0;
                 return (
                   <span key={d.key} className="grid gap-0.5 text-center" title={hereText(d, picked.stats, entry.stats)}>
-                    <span className="text-[10px] font-bold uppercase text-muted">{d.label.slice(0, 4)}</span>
+                    <span className="text-[10px] font-bold uppercase text-muted">{statAbbr(d.label)}</span>
                     <span className="rounded-lg py-1 text-sm font-bold tabular-nums ring-1 ring-line"
                       style={{ background: mod > 0 ? `color-mix(in srgb, ${color} ${Math.min(45, 10 + mod)}%, white)` : 'var(--card-2)' }}>
                       {inClass(picked.stats, entry.stats, d.key) ?? '–'}

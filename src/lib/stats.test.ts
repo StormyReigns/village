@@ -35,3 +35,13 @@ test('worst is plain gray and best is the most Page color', () => {
   assert.equal(heatFill(1, 'var(--sun)'), 'color-mix(in srgb, var(--sun) 55%, var(--card-2))');
   assert.equal(heatFill(2, 'red'), heatFill(1, 'red'));
 });
+
+test('stat names shorten the way players know them', async () => {
+  const { statAbbr } = await import('./stats.ts');
+  assert.deepEqual(['Might', 'Hit', 'Weight', 'Crit'].map(statAbbr), ['MT', 'HIT', 'WT', 'CRT']);
+  // Characters' short names stay as they were.
+  assert.deepEqual(['HP', 'Str', 'Mag', 'Spd', 'Dex', 'Def', 'Res', 'Lck', 'Cha'].map(statAbbr), ['HP', 'STR', 'MAG', 'SPD', 'DEX', 'DEF', 'RES', 'LCK', 'CHA']);
+  assert.equal(statAbbr('Strength'), 'STR');
+  assert.equal(statAbbr('Magic defense'), 'MD');
+  assert.equal(statAbbr('Durability'), 'DUR');
+});

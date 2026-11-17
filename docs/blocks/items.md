@@ -47,7 +47,8 @@ What this means for the design:
 - **Tiles** (the default), a shelf where each section is drawn by how much it holds
   (`densityFor` in `src/lib/items.ts`; Matt, 2026-11-15, because a big shelf of cards falls
   apart):
-  - **up to 16 items: cards** (see "The tile" below; 8 until 2026-11-16);
+  - **up to 16 items: cards** in one row that scrolls sideways (see "The tile" below; 8 until
+    2026-11-16);
   - **17 to 60: small icon tiles**, in two rows that scroll sideways: the plain symbol (or
     picture) in the Page color, the name under it, and its numbers (the tile's first chart, up
     to four) as small heat-colored boxes, the one being sorted by outlined;
@@ -245,6 +246,9 @@ names offered from the Block, and the live preview. Moderators save setups for n
 - 2026-11-16: the band headers became solid Page-color strips, and sideways strips got arrows
   on phones and a progress bar (Matt: still hard to tell sets apart at a glance, and hard to
   tell it scrolls on a phone).
+- 2026-11-16: card sections are one row high and scroll sideways; stat names, wherever they
+  are shortened, use one rule (`statAbbr` in `src/lib/stats.ts`): MT, HIT, WT, CRT for weapons,
+  STR, DEF, SPD... for characters (Matt). Cards keep the full words, which fit.
 - 2026-11-15: Fortune's Weave's items were researched and added (Matt: find all known items):
   117 weapons and spells and 217 other items, with numbers from the sources and the rest in our
   own words, each citing its source; unknown effects are left out rather than guessed. Why: the

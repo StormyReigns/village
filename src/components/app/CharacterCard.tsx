@@ -15,7 +15,7 @@ import { classShape, pathAround } from '@/lib/classes';
 import { backOf, bothOf, linesOf, mirrored, otherSides, placedFrom, pointsAway } from '@/lib/entry-links';
 import { LinkChip, LinkRow, onRoute, useBlockLinks } from './EntryLinks';
 import { STATS, amountText, besideText, toggleOptions, chartDefs, listItems, shownFields, showsTier, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
-import { byStat, heatFill, placeText, rangeOf, statFacts } from '@/lib/stats';
+import { byStat, heatFill, placeText, rangeOf, statFacts, statAbbr } from '@/lib/stats';
 import { StatTable, statSort } from './StatTable';
 import { Videos, cardIdOf } from '@/components/videos/Videos';
 import { WikiLink } from '@/components/wiki/WikiLink';
@@ -413,7 +413,7 @@ function Web({ defs, entry, among, color, size, style }: { defs: StatDef[]; entr
       <polygon points={defs.map((d, i) => point(i, Math.max(0.04, at(d))).join(',')).join(' ')} fill={color} fillOpacity={0.35} stroke={color} strokeWidth={1.4} strokeLinejoin="round" />
       {defs.map((d, i) => {
         const [x, y] = point(i, 1.2);
-        return <text key={d.key} x={x} y={y} textAnchor="middle" dominantBaseline="middle" fontSize={7} fontWeight={700} fill="var(--muted)">{d.label.slice(0, 4).toUpperCase()}</text>;
+        return <text key={d.key} x={x} y={y} textAnchor="middle" dominantBaseline="middle" fontSize={7} fontWeight={700} fill="var(--muted)">{statAbbr(d.label)}</text>;
       })}
     </svg>
   );
@@ -434,7 +434,7 @@ function StatBoxes({ defs, entry, among, color, signed = false, onOpen }: { defs
         return (
           <button key={d.key} type="button" onClick={() => onOpen(d)} title={f && !few ? `${d.label} ${f.value}: ${placeText(f)}. Tap to compare` : `${d.label}. Tap to compare`}
             className="grid gap-0.5 text-center hover:opacity-80">
-            <span className="text-[10px] font-bold uppercase text-muted">{d.label.slice(0, 4)}</span>
+            <span className="text-[10px] font-bold uppercase text-muted">{statAbbr(d.label)}</span>
             <span className="rounded-lg py-1 text-sm font-bold tabular-nums ring-1 ring-line"
               style={{ background: f && !few ? heatFill(f.goodness, color) : 'var(--card-2)' }}>{signed ? signedText(entry.stats?.[d.key]) : entry.stats?.[d.key]}</span>
           </button>
