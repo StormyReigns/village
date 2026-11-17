@@ -24,9 +24,14 @@ type TileBlock = Pick<Block, 'title' | 'icon'> & Partial<Pick<Block, 'type' | 'f
  *  the pinned header hides what scrolls under it). */
 const band = (color: string) => `color-mix(in srgb, ${color} 7%, var(--card))`;
 
-/** The background of a compact item in its strip of three rows: white, the set's shade, white.
- *  Items fill the strip column by column, so the item's place in its column picks its row. */
-const stripe = (i: number, color: string) => (i % 3 === 1 ? band(color) : 'var(--card)');
+/** The background of a compact item in its strip: rows alternate white and the set's shade
+ *  (white, shade, white for three rows). Items fill the strip column by column, so the item's
+ *  place in its column picks its row. */
+const stripe = (i: number, rows: number, color: string) => ((i % rows) % 2 === 1 ? band(color) : 'var(--card)');
+
+/** How many rows a strip has: three for tiles; eight for long sets as rows, so a set of a
+ *  hundred (Gift) doesn't run off for dozens of screens (Matt, 2026-11-16). */
+const STRIP_ROWS = { tiles: 3, rows: 8 } as const;
 
 /** The device-wide mark for having an item ("Got it"), shared with its full view. */
 export const gotKey = (block: Pick<Block, 'id'>, e: Pick<Entry, 'id'>) => `got:${block.id}.${e.id}`;
@@ -209,12 +214,12 @@ export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
                 // Three rows that scroll sideways, striped white, the set's shade, white, so each
                 // row reads across (Matt, 2026-11-16).
                 <ScrollRow as="ul" label={g.name || block.title} touchArrows progress className="grid grid-flow-col grid-rows-3 auto-cols-[6.75rem] rounded-xl">
-                  {g.items.map((e, i) => <SmallTile key={e.id} e={e} block={block} among={shown} color={color} defs={miniDefs} lead={statDef?.key} got={got(e)} shade={stripe(i, color)} onOpen={() => open(e)} />)}
+                  {g.items.map((e, i) => <SmallTile key={e.id} e={e} block={block} among={shown} color={color} defs={miniDefs} lead={statDef?.key} got={got(e)} shade={stripe(i, STRIP_ROWS.tiles, color)} onOpen={() => open(e)} />)}
                 </ScrollRow>
               ) : (
-                // The same for long sets, as rows: three high, striped, scrolling sideways.
-                <ScrollRow as="ul" label={g.name || block.title} touchArrows progress className="grid grid-flow-col grid-rows-3 auto-cols-[min(21rem,88%)] rounded-xl">
-                  {g.items.map((e, i) => <ItemLine key={e.id} e={e} block={block} among={shown} color={color} defs={miniDefs} lead={statDef?.key} tag={rowTag} got={got(e)} shade={stripe(i, color)} onOpen={() => open(e)} />)}
+                // Long sets as rows: eight high, striped, scrolling sideways.
+                <ScrollRow as="ul" label={g.name || block.title} touchArrows progress className="grid grid-flow-col grid-rows-[repeat(8,auto)] auto-cols-[min(21rem,88%)] rounded-xl">
+                  {g.items.map((e, i) => <ItemLine key={e.id} e={e} block={block} among={shown} color={color} defs={miniDefs} lead={statDef?.key} tag={rowTag} got={got(e)} shade={stripe(i, STRIP_ROWS.rows, color)} onOpen={() => open(e)} />)}
                 </ScrollRow>
               )}
             </section>
