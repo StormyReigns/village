@@ -80,3 +80,19 @@ test('a section is drawn smaller the more it holds', async () => {
   const { densityFor } = await import('./items.ts');
   assert.deepEqual([1, 16, 17, 60, 61, 300].map(densityFor), ['cards', 'cards', 'tiles', 'tiles', 'rows', 'rows']);
 });
+
+test('sections under five items fold into one Other at the end', async () => {
+  const { foldSmall } = await import('./items.ts');
+  const g = (name: string, n: number) => ({ name, items: Array.from({ length: n }, (_, i) => `${name}${i}`) });
+  const out = foldSmall([g('Quest item', 1), g('Equipment', 26), g('License', 1), g('Gift', 108), g('Spell scroll', 2), g('Other', 3)]);
+  assert.deepEqual(out.map((x) => x.name), ['Equipment', 'Gift', 'Other']);
+  assert.deepEqual(out[2].holds, ['Quest item', 'License', 'Spell scroll']);
+  assert.deepEqual(out[2].items, ['Quest item0', 'License0', 'Spell scroll0', 'Spell scroll1', 'Other0', 'Other1', 'Other2']);
+});
+
+test('a lone small section, or a shelf of only small ones, stays as it is', async () => {
+  const { foldSmall } = await import('./items.ts');
+  const g = (name: string, n: number) => ({ name, items: Array.from({ length: n }, () => name) });
+  assert.deepEqual(foldSmall([g('Sword', 24), g('Gauntlet', 4)]).map((x) => x.name), ['Sword', 'Gauntlet']);
+  assert.deepEqual(foldSmall([g('A', 2), g('B', 3)]).map((x) => x.name), ['A', 'B']);
+});

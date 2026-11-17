@@ -253,6 +253,12 @@ names offered from the Block, and the live preview. Moderators save setups for n
   power sits in the text ("with a heal power of 30") (Matt). Why: Game8 keeps it in the Might box,
   so Recover ranked third-strongest of all weapons. Migration `20261119120000_heal_power.sql`.
 
+- 2026-11-16: types with fewer than five items fold into one "Other" section at the end of the
+  shelf (`foldSmall` in `src/lib/items.ts`), with its header naming the types inside; each item
+  keeps its type's symbol. A lone small type stays as it is (an Other of one type would only
+  rename it), and so does a shelf where every type is small. The chips still filter to any
+  single type (Matt). Why: a row of tiny bands, one or two items each, read as clutter.
+
 ## Open questions
 
 - Fortune's Weave gaps after the research (2026-11-15): effects nobody has published yet (the

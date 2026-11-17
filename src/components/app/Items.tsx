@@ -10,7 +10,7 @@ import { useStored } from '@/components/useStored';
 import { closest, rank } from '@/lib/search';
 import { byStat, heatFill, statFacts } from '@/lib/stats';
 import { allStatDefs, besideText, chartDefs, isCategory, shownFields, tileFields, toggleOptions, valueOf } from '@/lib/fields';
-import { densityFor, groupOrder, standouts, type Density } from '@/lib/items';
+import { densityFor, foldSmall, groupOrder, standouts, type Density } from '@/lib/items';
 import { symbolFor } from './symbols';
 import { entryText, initials, useOpenEntry, useTicks } from './entries';
 import { FilterChip, HiddenNote, OpenPanel, useVisible, type BlockContext } from './blockParts';
@@ -82,11 +82,12 @@ export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
   }, [shown, pick, filter, query, sort, statDef]);
 
   // Grouped under headers when nothing is typed, picked or ranked, like the game's own
-  // inventory tabs. Items without the tag go last, under "Other".
-  const groups = useMemo(() => {
+  // inventory tabs. Items without the tag, and types with fewer than five items, go last,
+  // together under "Other" (foldSmall).
+  const groups = useMemo((): { name: string; items: Entry[]; holds?: string[] }[] => {
     if (query.trim() || pick || statDef || !filter || values.length < 2) return [{ name: '', items: list }];
     const order = [...values.map(([v]) => v), ''];
-    return order.map((v) => ({ name: v || 'Other', items: list.filter((e) => (e.categories[filter] ?? '') === v) })).filter((g) => g.items.length);
+    return foldSmall(order.map((v) => ({ name: v || 'Other', items: list.filter((e) => (e.categories[filter] ?? '') === v) })).filter((g) => g.items.length));
   }, [list, query, pick, statDef, filter, values]);
 
   // Standout badges ("Strongest", "Lightest"): the clear best at each number on the tiles.
@@ -186,6 +187,8 @@ export function Items({ block, ctx }: { block: Block; ctx: BlockContext }) {
                   + (g.name ? '-mx-2 -mt-2 rounded-t-2xl px-3 text-white sm:-mx-3 sm:-mt-3 sm:px-4' : '-mx-1 bg-card px-1 text-muted')} style={g.name ? { background: color } : undefined}>
                   {g.name && block.symbols?.[g.name] && <BlockIcon name={block.symbols[g.name]} size={17} />}
                   {g.name && <><span className="text-sm">{g.name}</span><span className="opacity-80">{g.items.length}</span></>}
+                  {/* A folded "Other" says which small types it holds; each item keeps its type's symbol. */}
+                  {g.holds?.length ? <span className="min-w-0 truncate font-normal opacity-80">· {g.holds.join(', ')}</span> : null}
                   {legend && <span className={'ml-auto ' + (g.name ? 'opacity-80' : '')}>{miniDefs.map((d) => d.label).join(' · ')}</span>}
                 </h3>
               )}

@@ -71,3 +71,18 @@ export type Density = 'cards' | 'tiles' | 'rows';
 export const CARDS_UP_TO = 16;
 export const TILES_UP_TO = 60;
 export const densityFor = (count: number): Density => (count <= CARDS_UP_TO ? 'cards' : count <= TILES_UP_TO ? 'tiles' : 'rows');
+
+/** Sections with fewer items than this fold into one "Other" section (Matt, 2026-11-16). */
+export const SMALL_SECTION = 5;
+
+/**
+ * Folds the small sections (and any untagged "Other") into one "Other" at the end, keeping
+ * their order inside it and naming the types it holds. Left alone when only one section is
+ * small (an "Other" of one type would just rename it) or when every section is small.
+ */
+export function foldSmall<T>(groups: { name: string; items: T[] }[], min = SMALL_SECTION, other = 'Other'): { name: string; items: T[]; holds?: string[] }[] {
+  const small = groups.filter((g) => g.items.length < min || g.name === other);
+  const big = groups.filter((g) => !small.includes(g));
+  if (small.length < 2 || !big.length) return groups;
+  return [...big, { name: other, items: small.flatMap((g) => g.items), holds: small.map((g) => g.name).filter((n) => n !== other) }];
+}
