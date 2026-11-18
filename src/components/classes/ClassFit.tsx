@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
+import { EntryLink } from '@/components/app/Peek';
 import { EyeOff } from 'lucide-react';
 import type { EntryContent, StatDef } from '@/data/pages';
 import { Piece } from '@/components/Piece';
@@ -103,7 +103,7 @@ function ClassesFor({ kin, rows, routed, entry, cast, color }: { kin: Kin; rows:
         <ul className="mt-2 grid gap-2">
           {shown.map((f) => (
             <li key={f.row.id}>
-              <Link href={href(kin, f.row)} className="flex items-center gap-3 rounded-xl hover:bg-card-2" title={f.reason.map((d) => `${name}: ${hereText(d, entry.stats, f.row.stats)}`).join(', ')}>
+              <EntryLink href={href(kin, f.row)} className="flex items-center gap-3 rounded-xl hover:bg-card-2" title={f.reason.map((d) => `${name}: ${hereText(d, entry.stats, f.row.stats)}`).join(', ')}>
                 <Mini r={f.row} kin={kin} />
                 <span className="grid min-w-0 leading-tight">
                   <span className="truncate text-sm font-bold">{f.row.name}</span>
@@ -113,7 +113,7 @@ function ClassesFor({ kin, rows, routed, entry, cast, color }: { kin: Kin; rows:
                     {stat ? hereText(stat, entry.stats, f.row.stats) : f.reason.map((d) => `${d.label} ${signed(f.row.stats[d.key] ?? 0)}`).join(' · ')}
                   </span>
                 </span>
-              </Link>
+              </EntryLink>
             </li>
           ))}
         </ul>
@@ -150,10 +150,10 @@ function UnitsFor({ kin, rows, entry, color }: { kin: Kin; rows: KinRow[]; entry
           <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-2">
             {suits.map((f) => (
               <li key={f.row.id}>
-                <Link href={href(kin, f.row)} className="flex items-center gap-2 rounded-xl hover:bg-card-2" title={`Boosts their ${and(f.reason)}`}>
+                <EntryLink href={href(kin, f.row)} className="flex items-center gap-2 rounded-xl hover:bg-card-2" title={`Boosts their ${and(f.reason)}`}>
                   <Mini r={f.row} kin={kin} />
                   <span className="grid text-left leading-tight"><span className="text-sm font-bold">{f.row.name}</span><span className="text-xs text-muted">{and(f.reason)}</span></span>
-                </Link>
+                </EntryLink>
               </li>
             ))}
           </ul>
@@ -187,7 +187,7 @@ function UnitsFor({ kin, rows, entry, color }: { kin: Kin; rows: KinRow[]; entry
                 );
               })}
             </div>
-            <p className="mt-1 text-xs text-muted">{picked.name}&apos;s numbers plus this class&apos;s. <Link href={href(kin, picked)} className="font-bold underline underline-offset-2 hover:text-ink">Open {picked.name}</Link></p>
+            <p className="mt-1 text-xs text-muted">{picked.name}&apos;s numbers plus this class&apos;s. <EntryLink href={href(kin, picked)} className="font-bold underline underline-offset-2 hover:text-ink">Open {picked.name}</EntryLink></p>
           </>
         ) : (
           <p className="mt-1 text-sm text-muted">See any {one}&apos;s numbers in this class. This device remembers who you picked.</p>

@@ -16,6 +16,7 @@ import { KinProvider } from '@/components/classes/kin';
 import type { Kin } from '@/lib/class-fit';
 import type { BlockLinks } from '@/lib/entry-links';
 import { LinksProvider } from './EntryLinks';
+import { PeekProvider } from './Peek';
 import { HelpSolve, NewInVillage, Welcome } from './HomeHooks';
 import { GLOSSARY, IN_GAME_DATES } from '@/data/glossary';
 import type { Mention } from '@/data/pages/links';
@@ -165,10 +166,12 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [], mention
       </header>
 
       <TextLinksProvider value={textLinks}><KinProvider kin={kin}><LinksProvider links={blockLinks}>
+      <PeekProvider gameId={game.id} page={page} route={ctx.route} routes={game.routes} spoilers={prefs.spoilers}>
         <div className="mt-3 grid gap-3 sm:gap-4">
           {page.blocks.map((b) => <BlockView key={b.id} block={b} ctx={ctx} />)}
           {questionsPage === page.id && <AllQuestions gameId={game.id} pages={pages} allPages={[page]} />}
         </div>
+      </PeekProvider>
       </LinksProvider></KinProvider></TextLinksProvider>
     </div>
   );

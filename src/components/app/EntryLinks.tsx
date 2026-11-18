@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState } from 'react';
-import Link from 'next/link';
+import { EntryLink } from './Peek';
 import type { Route } from '@/data/pages';
 import type { BlockLinks, LinkRow } from '@/lib/entry-links';
 import { Piece } from '@/components/Piece';
@@ -55,6 +55,6 @@ export function LinkChip({ name, note, row, color, amounts = false }: { name: st
       <span className="grid text-left leading-tight"><span className="text-sm font-bold">{name}</span>{text && <span className="text-xs text-muted">{text}</span>}</span>
     </>
   );
-  return row ? <Link href={row.href} className="flex items-center gap-2 rounded-xl hover:bg-card-2">{inner}</Link>
+  return row ? <EntryLink href={row.href} className="flex items-center gap-2 rounded-xl hover:bg-card-2">{inner}</EntryLink>
     : <span className="flex items-center gap-2">{inner}</span>;
 }

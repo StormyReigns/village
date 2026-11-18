@@ -14,6 +14,7 @@ import { symbolFor } from './symbols';
 import { classShape, pathAround } from '@/lib/classes';
 import { backOf, bothOf, linesOf, mirrored, otherSides, placedFrom, pointsAway } from '@/lib/entry-links';
 import { LinkChip, LinkRow, onRoute, useBlockLinks } from './EntryLinks';
+import { EntryLink } from './Peek';
 import { STATS, amountText, besideText, toggleOptions, chartDefs, listItems, shownFields, showsTier, spotOf, valueOf, hasValue, type FieldValue } from '@/lib/fields';
 import { byStat, heatFill, placeText, rangeOf, statFacts, statAbbr } from '@/lib/stats';
 import { StatTable, statSort } from './StatTable';
@@ -192,7 +193,7 @@ export function CharacterCard({ entry, block, route, routes, color = 'var(--ink)
                 <Spoiler key={f.key} f={f} on={spoilers} small>
                   <span className="inline-flex items-center gap-1" title={f.label}>
                     <Icon size={14} style={{ color }} aria-label={f.label} />{' '}
-                    {row && one ? <><Link href={row.href} className="font-bold underline decoration-line underline-offset-2 hover:decoration-current">{one.name}</Link>{one.note && <span className="text-muted">{one.note}</span>}</>
+                    {row && one ? <><EntryLink href={row.href} className="font-bold underline decoration-line underline-offset-2 hover:decoration-current">{one.name}</EntryLink>{one.note && <span className="text-muted">{one.note}</span>}</>
                       : <RichText text={text} skip={entry.name} />}
                   </span>
                 </Spoiler>

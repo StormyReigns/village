@@ -18,6 +18,7 @@ import { CharacterCard } from './CharacterCard';
 import { GuideCard } from './Guides';
 import { Videos, cardIdOf } from '@/components/videos/Videos';
 import { WikiLink } from '@/components/wiki/WikiLink';
+import { EntryLink } from './Peek';
 
 interface OpenFix { id: string; theory: boolean; text: string; who: string }
 type Profile = { display_name?: string; username?: string } | null;
@@ -158,6 +159,9 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // With a pop-up opened on top (src/components/app/Peek.tsx), only the top one listens.
+      const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
+      if (dialogs.length && dialogs[dialogs.length - 1] !== box.current) return;
       if (e.key === 'Escape') onClose();
       if (e.key === 'ArrowLeft' && prev) onGo(prev);
       if (e.key === 'ArrowRight' && next) onGo(next);
@@ -203,9 +207,9 @@ export function EntryPanel({ entry, block, list, route, routes, gameId, sharePat
                   <ul className="mt-1.5 grid gap-1">
                     {place.here.map((m) => (
                       <li key={m.href}>
-                        <Link href={m.href} className="flex items-center justify-between gap-2 rounded-xl px-2 py-1.5 hover:bg-card-2">
+                        <EntryLink href={m.href} className="flex items-center justify-between gap-2 rounded-xl px-2 py-1.5 hover:bg-card-2">
                           <span className="font-bold">{m.name}</span><span className="truncate text-xs text-muted">{m.where}</span>
-                        </Link>
+                        </EntryLink>
                       </li>
                     ))}
                   </ul>

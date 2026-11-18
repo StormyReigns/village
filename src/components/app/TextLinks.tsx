@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { EntryLink } from './Peek';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 // Entry text that helps you along: another entry's name becomes a link to it, and a game
@@ -54,7 +54,7 @@ export function RichText({ text: raw, skip }: { text: string; skip?: string }) {
     out.push(text.slice(at, i));
     const href = found.names.get(key);
     out.push(href
-      ? <Link key={i} href={href} className="font-bold text-ink underline decoration-line decoration-2 underline-offset-4 hover:decoration-ink">{word}</Link>
+      ? <EntryLink key={i} href={href} className="font-bold text-ink underline decoration-line decoration-2 underline-offset-4 hover:decoration-ink">{word}</EntryLink>
       : <Term key={i} word={word} explain={found.terms.get(key) ?? ''} />);
     at = i + word.length;
   }
