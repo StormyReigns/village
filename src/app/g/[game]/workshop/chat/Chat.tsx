@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { createContext, Fragment, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Check, CornerUpLeft, Link2, EyeOff, FileText, Flag, ImagePlus, MessageCircle, MoreHorizontal, PanelLeftClose, PanelRight, PenLine, Play, ExternalLink, RotateCcw, Send, SmilePlus, Sparkles, Trash2, X } from 'lucide-react';
 import type { Block, Entry, EntryContent, Page } from '@/data/pages';
@@ -499,7 +500,9 @@ export function Message({ m, me, live, compact = false, small = false, grouped =
       <div className="min-w-0 flex-1 [@media(hover:none)]:pr-20">
         {!grouped && (
           <p className="flex flex-wrap items-baseline gap-x-2">
-            <span className={'font-extrabold ' + (small ? 'text-[13px]' : 'text-sm')}>{own ? 'You' : m.author.name}</span>
+            {/* A name opens that villager's public page (/u/name). */}
+            {own ? <span className={'font-extrabold ' + (small ? 'text-[13px]' : 'text-sm')}>You</span>
+              : <Link href={`/u/${m.author.username}`} className={'font-extrabold hover:underline ' + (small ? 'text-[13px]' : 'text-sm')}>{m.author.name}</Link>}
             <time dateTime={m.createdAt} title={fullTime(m.createdAt)} className="text-xs text-muted">{timeOf(m.createdAt)}</time>
             {m.removed && <span className="rounded-full bg-berry-soft px-2 py-0.5 text-xs font-bold text-berry">Removed · only moderators see it</span>}
           </p>

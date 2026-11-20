@@ -1,54 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { ArrowLeft, Leaf, LogOut, Moon, Sparkles, Star } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Inbox, LogOut, Moon } from 'lucide-react';
 import { GAMES } from '@/data/games';
 import { Avatar } from '@/components/Avatar';
 import { ProfileForm } from '@/components/ProfileDialog';
 import { SignInPrompt } from '@/components/SignInPrompt';
 import { Tip } from '@/components/Tip';
-import { Piece } from '@/components/Piece';
-import { signOut, useVillager, type Villager } from '@/components/useVillager';
+import { GameBadges, TitleChip, titleOf, useStanding } from '@/components/profile/standing';
+import { signOut, useVillager } from '@/components/useVillager';
 import { browserClient } from '@/lib/supabase/browser';
-import { ROLE, TENURE, activeWeeks, keeperStars, leaves, pips, standing, type Step } from '@/lib/ranks';
-
-interface MyDraft { id: string; game_id: string; title: string; status: string; created_at: string; card_id: string | null }
-interface Data { drafts: MyDraft[]; weeks: number; votes: number; live: Set<string>; hidePlanted: boolean }
+import { ROLE, TENURE, pips, standing, type Step } from '@/lib/ranks';
 
 const STATUS: Record<string, string> = {
   checking: 'Being checked', open: 'Open for votes', approved: 'Approved', preview: 'In Preview', stable: 'In the app', declined: 'Declined', removed: 'Removed',
 };
-
-/** Everything the profile shows, read from the village's records. */
-function useMyData(me: Villager | null | undefined) {
-  const [data, setData] = useState<Data | null>(null);
-  useEffect(() => {
-    const db = browserClient();
-    if (!db || !me) return;
-    let cancelled = false;
-    (async () => {
-      const [d, v, c, p] = await Promise.all([
-        db.from('drafts').select('id, game_id, title, status, created_at, card_id').eq('author_id', me.id).order('created_at', { ascending: false }).limit(500),
-        db.from('draft_votes').select('created_at').eq('voter_id', me.id).limit(2000),
-        db.from('chat_messages').select('created_at').eq('author_id', me.id).limit(2000),
-        db.from('profiles').select('hide_planted').eq('id', me.id).maybeSingle(),
-      ]);
-      const drafts = (d.data ?? []) as MyDraft[];
-      // Which published Drafts are still the live version in the app ("in season").
-      const shipped = drafts.filter((x) => x.status === 'stable' && x.card_id);
-      const live = new Set<string>();
-      if (shipped.length) {
-        const ptr = await db.from('card_pointers').select('revision:card_revisions(draft_id)').eq('channel', 'stable').in('card_id', shipped.map((x) => x.card_id!));
-        for (const r of (ptr.data ?? []) as unknown as { revision: { draft_id: string | null } | null }[]) if (r.revision?.draft_id) live.add(r.revision.draft_id);
-      }
-      const times = [...drafts.map((x) => x.created_at), ...((v.data ?? []) as { created_at: string }[]).map((x) => x.created_at), ...((c.data ?? []) as { created_at: string }[]).map((x) => x.created_at)];
-      if (!cancelled) setData({ drafts, weeks: activeWeeks(times), votes: v.data?.length ?? 0, live, hidePlanted: Boolean(p.data?.hide_planted) });
-    })();
-    return () => { cancelled = true; };
-  }, [me]);
-  return [data, setData] as const;
-}
 
 /** A part of the profile: a flat white panel (only pieces get the brand's shape). */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -96,7 +62,7 @@ function Ladder({ ladder, value, unit, tint, extra }: { ladder: Step[]; value: n
 
 export function Profile() {
   const me = useVillager();
-  const [data, setData] = useMyData(me);
+  const [data, setData] = useStanding(me?.id);
 
   if (me === undefined) return <div className="mt-6 h-64 animate-pulse rounded-2xl bg-card" />;
   if (me === null) {
@@ -109,11 +75,8 @@ export function Profile() {
     );
   }
 
-  const harvests = data?.drafts.filter((d) => d.status === 'stable').length ?? 0;
+  const { harvests, role } = titleOf(data);
   const weeks = data?.weeks ?? 0;
-  const role = standing(ROLE, harvests).now.name;
-  const title = `${standing(TENURE, weeks).now.name} ${role}`;
-  const stars = keeperStars(harvests);
 
   const setHidePlanted = async (hide: boolean) => {
     setData((d) => (d ? { ...d, hidePlanted: hide } : d));
@@ -128,13 +91,12 @@ export function Profile() {
         <div className="min-w-0 flex-1">
           <h1 className="font-display text-3xl leading-tight">{me.displayName}</h1>
           <p className="text-muted">@{me.username}</p>
+          <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm font-bold">
+            <Link href={`/u/${me.username}`} className="inline-flex items-center gap-1 underline hover:text-ink">How others see you <ArrowUpRight size={14} aria-hidden="true" /></Link>
+            <Link href="/inbox" className="inline-flex items-center gap-1 underline hover:text-ink"><Inbox size={14} aria-hidden="true" /> Your inbox</Link>
+          </p>
           <p className="mt-2 flex flex-wrap items-center gap-2">
-            <Tip text="Your title: how long you've been around, then what you've built" tint="leaf">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1 text-sm font-bold text-white">
-                <Sparkles size={14} className="text-signal" aria-hidden="true" /> {data ? title : '…'}
-                {stars > 0 && Array.from({ length: stars }, (_, i) => <Star key={i} size={12} aria-hidden="true" />)}
-              </span>
-            </Tip>
+            <TitleChip data={data} tip="Your title: how long you've been around, then what you've built" />
             {me.isFounder && (
               <Tip text="Matt, who started the village. He earns his title like everyone else" tint="sun">
                 <span className="rounded-full bg-sun-soft px-2.5 py-1 text-xs font-bold text-sun">Founder</span>
@@ -172,47 +134,7 @@ export function Profile() {
 
       <Section title="Badges">
         <p className="text-sm text-muted">One badge per game. It&apos;s gray once something of yours reaches the Workshop, colored once something reaches the app, and glows while it&apos;s live there now.</p>
-        <ul className="mt-4 grid gap-4 pt-2 sm:grid-cols-2">
-          {GAMES.map((g) => {
-            const mine = data?.drafts.filter((d) => d.game_id === g.id && d.status !== 'removed') ?? [];
-            const shipped = mine.filter((d) => d.status === 'stable');
-            const isLive = shipped.some((d) => data?.live.has(d.id));
-            const state = isLive ? 'In season' : shipped.length ? 'Harvested' : mine.length ? 'Planted' : 'Not started';
-            const why = {
-              'In season': 'Something of yours is live in the app right now.',
-              Harvested: 'Something of yours reached the app.',
-              Planted: 'Your Drafts are in the Workshop, waiting to reach the app.',
-              'Not started': 'Nothing added to this game yet.',
-            }[state];
-            const n = leaves(shipped.length);
-            return (
-              <li key={g.id}>
-                <Tip text={why} tint={g.hue}>
-                  {/* The badge is a piece: an empty split outline before you start, gray once
-                      planted, the game's color once harvested, glowing while in season. */}
-                  <span className="flex w-full items-center gap-3 rounded-2xl bg-card-2 p-3 ring-1 ring-line">
-                    <Piece size={60} outline={state === 'Not started'} color={shipped.length ? `var(--${g.hue})` : '#9aa0ad'}
-                      style={isLive ? { filter: `drop-shadow(0 0 8px var(--${g.hue}))` } : undefined}>
-                      {g.shortTitle.slice(0, 1)}
-                    </Piece>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-bold">{g.shortTitle}</span>
-                      <span className="block text-xs text-muted">
-                        {state}
-                        {state === 'Planted' && !data?.hidePlanted && ` · Planted ${mine.length}`}
-                      </span>
-                    </span>
-                    {n > 0 && (
-                      <span className="flex gap-0.5" aria-label={`${n} of 4 leaves`}>
-                        {Array.from({ length: 4 }, (_, i) => <Leaf key={i} size={14} className={i < n ? '' : 'opacity-25'} aria-hidden="true" />)}
-                      </span>
-                    )}
-                  </span>
-                </Tip>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="mt-4"><GameBadges data={data} planted={!data?.hidePlanted} /></div>
       </Section>
 
       <Section title="What you've added">

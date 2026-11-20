@@ -201,9 +201,12 @@ const in2 = await db.query(`select profile_id from public.inbox where payload->>
 in2.rows.length === 1 && in2.rows[0].profile_id === C ? ok('linking sends the reply too, but not to whoever answered') : bad('inbox 2 ' + JSON.stringify(in2.rows));
 
 // The inbox is private and written only by the database.
+// (Other news, like a Draft published, lands too since 20261124000000, so it compares with what's there.)
 const mine = await asUser(C, `select count(*)::int as n from public.inbox`);
 const theirs = await asUser(B, `select count(*)::int as n from public.inbox`);
-mine.rows[0].n === 2 && theirs.rows[0].n === 1 ? ok('each villager sees only their own inbox') : bad('inbox privacy ' + JSON.stringify([mine.rows, theirs.rows]));
+const owned = async (who) => (await db.query(`select count(*)::int as n from public.inbox where profile_id = '${who}'`)).rows[0].n;
+const [cOwns, bOwns] = [await owned(C), await owned(B)];
+mine.rows[0].n === cOwns && theirs.rows[0].n === bOwns && cOwns >= 2 && bOwns >= 1 ? ok('each villager sees only their own inbox') : bad('inbox privacy ' + JSON.stringify([mine.rows, theirs.rows, cOwns, bOwns]));
 await expectFail(B, `insert into public.inbox (profile_id, type, payload) values ('${C}', 'question_answered', '{}')`, 'nobody can write to an inbox by hand');
 await expectFail(B, `select public.send_question_reply('${Q1}')`, 'villagers cannot resend replies');
 await expectOk(C, `update public.inbox set read_at = now() where profile_id = '${C}'`, 'villager can mark their inbox read');

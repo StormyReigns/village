@@ -117,7 +117,8 @@ a.stable === 2 && a.cards === 2 && a.cai === 'Fixed' && a.status === 'stable' ? 
 const notes = await db.query(`select event->>'type' as type, thread_key from public.chat_messages where kind = 'system'`);
 notes.rows.length === 1 && notes.rows[0].type === 'batch_published' && notes.rows[0].thread_key === 'block:units'
   ? ok('one chat note for the batch, none per row') : bad('notes ' + JSON.stringify(notes.rows));
-const inbox = await db.query(`select type, payload->>'title' as title from public.inbox where profile_id = '${B}'`);
+// (A first harvest also brings "You're a Builder" since 20261124000000: that's title news, not about the rows.)
+const inbox = await db.query(`select type, payload->>'title' as title from public.inbox where profile_id = '${B}' and type not in ('title_up', 'badge_up')`);
 inbox.rows.length === 1 && inbox.rows[0].type === 'batch_published' ? ok('the sender hears: ' + inbox.rows[0].title) : bad('inbox ' + JSON.stringify(inbox.rows));
 await expectFail(MOD, `select public.ship_batch('${b1}')`, 'a batch is published only once', 'already');
 
