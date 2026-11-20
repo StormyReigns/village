@@ -50,7 +50,7 @@ What this means for the design:
   fills it in.
 - **The best rises.** Players vote on whether a video helped; the list is sorted by Standouts,
   so a video most watchers found helpful beats an old one many people skipped.
-- **Credit on every video.** Its thumbnail and title, "by <channel>" linking to the channel,
+- **Credit on every video.** The channel name in a bar centered across the top, linking to the channel, its thumbnail and title,
   and "Watch on YouTube". It plays in YouTube's own player, so the creator gets the view.
 - **Fast and private.** Only the thumbnail picture shows until a player taps play (YouTube's
   image server, which sets no cookies); the player loads only then, and it's YouTube's
@@ -207,6 +207,11 @@ Go-ahead for all of these from the hub, 2026-11-08.
 
 - 2026-11-09: the creator stands out (Matt): YouTube's red play mark and the channel name in heavy type,
   on its own line under the title; the start time and votes follow, quieter.
+- 2026-11-20: the creator's name heads every video (Matt: "stand out more, centered at the top"): an
+  ink bar across the top, YouTube's red mark and the channel name centered in heavy white type,
+  linking to their channel. On a big card it joins the player as one dark block; on a small row
+  (and the "Is this the one?" preview) it's a slim band over the row. The start time and votes
+  moved to their own quiet line under the title. Ink, not yellow, since yellow means "act on this".
 - 2026-11-09: a small row has a "⋯" (signed in) that opens Report, Delete, Request removal or Take it
   down without playing the video. Before, those only showed once a row was playing, so Matt couldn't
   find how to remove one from a character.

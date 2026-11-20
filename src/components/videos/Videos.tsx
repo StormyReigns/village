@@ -117,7 +117,7 @@ type Shared = { me: ReturnType<typeof useVillager>; data: ReturnType<typeof useV
 
 /** The thumbnail with a play button. Once tapped, the site's one player (VideoDock) sits over
  *  this spot; while it's in the corner, the spot says so and can bring it back. */
-function Player({ v, title }: { v: LiveVideo; title: string }) {
+function Player({ v, title, underBar = false }: { v: LiveVideo; title: string; underBar?: boolean }) {
   const dock = useDock();
   const playing = dock.now?.id === v.id;
   // React 19 ref cleanup: the spot is handed to the player while it's on the page.
@@ -127,7 +127,8 @@ function Player({ v, title }: { v: LiveVideo; title: string }) {
     return () => removeSlot(el);
   }, []);
   return (
-    <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-ink">
+    // Under the creator's bar it joins it as one dark block, rounded only at the bottom.
+    <div className={'relative aspect-video w-full overflow-hidden bg-ink ' + (underBar ? 'rounded-b-2xl' : 'rounded-2xl')}>
       {playing && !dock.host ? (
         // No VideoDock on this page: play in place, as before.
         <iframe src={embedUrl(v.youtubeId, v.start)} title={title} className="absolute inset-0 size-full" loading="lazy"
@@ -161,20 +162,26 @@ function Player({ v, title }: { v: LiveVideo; title: string }) {
   );
 }
 
-/** Who made it: the channel's name, heavy, after YouTube's mark, linking to their channel.
- *  The creator is the point of the credit, so it stands on its own (Matt, 2026-11-09). */
-function Credit({ info, small = false }: { info: Extract<VideoInfo, { ok: true }>; small?: boolean }) {
+/** Who made it: an ink bar across the top of the video with the channel's name centered in it,
+ *  heavy, after YouTube's mark, linking to their channel. The creator is the point of the credit,
+ *  so their name heads every video (Matt, 2026-11-20). `info` undefined is still loading. */
+function CreatorBar({ info, small = false }: { info: VideoInfo | null | undefined; small?: boolean }) {
+  const ok = info && info.ok ? info : null;
+  const bar = 'flex min-w-0 items-center justify-center gap-1.5 bg-ink px-3 text-paper '
+    + (small ? 'h-7 rounded-t-xl text-[13px]' : 'h-10 rounded-t-2xl text-base');
+  if (!ok) {
+    return <div className={bar} aria-hidden="true"><span className={'rounded bg-white/15 ' + (small ? 'h-2.5 w-24' : 'h-3 w-32')} /></div>;
+  }
   const body = (
     <>
       <YouTubeMark small={small} />
-      <span className="truncate font-extrabold text-ink">{info.channel}</span>
+      <span className="truncate font-extrabold">{ok.channel}</span>
     </>
   );
-  const cls = 'inline-flex min-w-0 items-center gap-1.5 ' + (small ? 'text-[13px]' : 'text-[15px]');
-  return info.channelUrl ? (
-    <a href={info.channelUrl} target="_blank" rel="noopener noreferrer" title={`${info.channel} on YouTube`}
-      className={cls + ' underline-offset-2 hover:underline'}>{body}</a>
-  ) : <span className={cls}>{body}</span>;
+  return ok.channelUrl ? (
+    <a href={ok.channelUrl} target="_blank" rel="noopener noreferrer" title={`${ok.channel} on YouTube`} aria-label={`By ${ok.channel}, on YouTube`}
+      className={bar + ' underline-offset-2 hover:underline'}>{body}</a>
+  ) : <div className={bar} aria-label={`By ${ok.channel}`}>{body}</div>;
 }
 
 /** YouTube's play mark, so it's clear the name is a YouTube channel. */
@@ -188,9 +195,9 @@ function YouTubeMark({ small }: { small: boolean }) {
 }
 
 /** "from 0:43 · Helped 23 players", quieter than the credit. */
-function Meta({ v }: { v: LiveVideo }) {
+function Meta({ v, className = '' }: { v: LiveVideo; className?: string }) {
   const parts = [v.start > 0 ? `from ${formatTime(v.start)}` : '', tallyText(v)].filter(Boolean);
-  return parts.length ? <span className="shrink-0 text-muted">· {parts.join(' · ')}</span> : null;
+  return parts.length ? <p className={'text-muted ' + className}>{parts.join(' · ')}</p> : null;
 }
 
 /** YouTube couldn't be reached: say so, with the link. A video YouTube says is gone or only
@@ -219,15 +226,17 @@ function VideoCard({ v, me, data, canRemove, onClose }: Shared & { v: LiveVideo;
 
   return (
     <div className="grid gap-2">
-      {info === null ? <Unreachable v={v} /> : <Player v={v} title={title} />}
+      {info === null ? <Unreachable v={v} /> : (
+        <div>
+          <CreatorBar info={info} />
+          <Player v={v} title={title} underBar />
+        </div>
+      )}
       {ok && (
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <p className="line-clamp-2 font-bold leading-snug">{ok.title}</p>
-            <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-sm">
-              <Credit info={ok} />
-              <Meta v={v} />
-            </p>
+            <Meta v={v} className="mt-0.5 text-sm" />
           </div>
           {inPlace && (
             // Keeps playing in a corner while you scroll on, or open another Page.
@@ -370,7 +379,9 @@ function VideoRow({ v, ...shared }: Shared & { v: LiveVideo }) {
   const canManage = Boolean(shared.me);
   return (
     <div className="grid gap-1.5">
-      <div className="flex items-center gap-3">
+      <div>
+      <CreatorBar info={info} small />
+      <div className="flex items-center gap-3 rounded-b-xl p-2 ring-1 ring-inset ring-line">
       <button type="button" onClick={onPlay} aria-label={`Play ${ok?.title ?? 'the video'}`}
         className="group relative aspect-video w-[120px] shrink-0 overflow-hidden rounded-xl bg-ink">
         {/* eslint-disable-next-line @next/next/no-img-element -- YouTube's own thumbnail, shown as YouTube serves it */}
@@ -385,10 +396,7 @@ function VideoRow({ v, ...shared }: Shared & { v: LiveVideo }) {
         {ok ? (
           <>
             <button type="button" onClick={onPlay} className="line-clamp-2 text-left text-sm font-bold leading-snug hover:underline">{ok.title}</button>
-            <p className="mt-0.5 flex min-w-0 items-center gap-x-1.5 text-xs">
-              <Credit info={ok} small />
-              <Meta v={v} />
-            </p>
+            <Meta v={v} className="mt-0.5 text-xs" />
           </>
         ) : (
           <div className="grid gap-1.5" aria-hidden="true"><div className="h-3.5 w-3/4 rounded bg-card-2" /><div className="h-3 w-1/2 rounded bg-card-2" /></div>
@@ -400,6 +408,7 @@ function VideoRow({ v, ...shared }: Shared & { v: LiveVideo }) {
           <MoreHorizontal size={16} aria-hidden="true" />
         </button>
       )}
+      </div>
     </div>
     {managing && <Manage v={v} {...shared} />}
     </div>
@@ -470,12 +479,12 @@ function AddVideo({ name, signedIn, already, onAdd, onClose }: {
           {link && info && info.ok && (
             <div className="grid gap-2 rounded-2xl bg-card-2 p-3">
               <span className="text-xs font-bold uppercase tracking-wide text-muted">Is this the one?</span>
-              <div className="flex items-center gap-3">
-                {/* eslint-disable-next-line @next/next/no-img-element -- YouTube's own thumbnail */}
-                <img src={thumbUrl(link.id)} alt="" className="aspect-video w-[120px] shrink-0 rounded-xl object-cover" />
-                <div className="min-w-0">
-                  <p className="line-clamp-2 text-sm font-bold leading-snug">{info.title}</p>
-                  <p className="truncate text-xs text-muted"><Credit info={info} /></p>
+              <div>
+                <CreatorBar info={info} small />
+                <div className="flex items-center gap-3 rounded-b-xl bg-card p-2 ring-1 ring-inset ring-line">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- YouTube's own thumbnail */}
+                  <img src={thumbUrl(link.id)} alt="" className="aspect-video w-[120px] shrink-0 rounded-xl object-cover" />
+                  <p className="line-clamp-2 min-w-0 text-sm font-bold leading-snug">{info.title}</p>
                 </div>
               </div>
               {isAlready && <p className="text-sm font-bold">It’s already on {name}.</p>}
