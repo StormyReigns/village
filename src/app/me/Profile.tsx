@@ -8,7 +8,7 @@ import { ProfileForm } from '@/components/ProfileDialog';
 import { SignInPrompt } from '@/components/SignInPrompt';
 import { Tip } from '@/components/Tip';
 import { PicturePicker } from '@/components/profile/PicturePicker';
-import { GameBadges, TitleChip, titleOf, useStanding } from '@/components/profile/standing';
+import { GameBadges, TitleChip, draftHref, titleOf, useStanding } from '@/components/profile/standing';
 import { signOut, useVillager } from '@/components/useVillager';
 import { browserClient } from '@/lib/supabase/browser';
 import { ROLE, TENURE, pips, standing, type Step } from '@/lib/ranks';
@@ -148,7 +148,7 @@ export function Profile() {
             <ul className="mt-3 grid gap-1.5">
               {data.drafts.slice(0, 12).map((d) => (
                 <li key={d.id}>
-                  <Link href={`/g/${d.game_id}/workshop`} className="flex items-center gap-3 rounded-2xl bg-card-2 px-3 py-2 ring-1 ring-line hover:ring-ink">
+                  <Link href={draftHref(d, data)} className="flex items-center gap-3 rounded-2xl bg-card-2 px-3 py-2 ring-1 ring-line hover:ring-ink">
                     <span className="min-w-0 flex-1 truncate font-bold">{d.title}</span>
                     <span className="shrink-0 text-xs text-muted">{GAMES.find((g) => g.id === d.game_id)?.shortTitle}</span>
                     <span className={'shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ' + (d.status === 'stable' ? 'bg-leaf-soft text-leaf' : d.status === 'declined' ? 'bg-berry-soft text-berry' : 'bg-sky-soft text-sky')}>

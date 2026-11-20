@@ -238,7 +238,11 @@ export async function uploadPicture(bucket: 'chat-images' | 'guide-pictures' | '
 /** Puts a picture in the chat-images bucket, under game/you/, ready to send. Returns it, or an error in plain words. */
 export const uploadChatImage = (gameId: string, meId: string, file: File) => uploadPicture('chat-images', gameId, meId, file);
 
-export function useWorkshop(gameId: string, me: Villager | null | undefined) {
+/**
+ * `want` is a Draft a link asked to open (?draft=…). If it's older than the newest 200 Drafts,
+ * it's read on its own so the link still opens it (a profile links to every Draft of yours).
+ */
+export function useWorkshop(gameId: string, me: Villager | null | undefined, want?: string | null) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [drafts, setDrafts] = useState<LiveDraft[]>([]);
   const [reports, setReports] = useState<ReportGroup[]>([]);
@@ -331,6 +335,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
     });
   }, [gameId, mod]);
 
+  const wantRef = useRef<string | null>(want ?? null);
   const loadDrafts = useCallback(async () => {
     const db = browserClient();
     if (!db) return;
@@ -357,9 +362,18 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
       meId ? db.from('draft_votes').select('draft_id, value').eq('voter_id', meId) : Promise.resolve({ data: [] as Row[] }),
     ]);
     if (d.error) throw d.error;
+    let rows = (d.data ?? []) as unknown as Row[];
+    const w = wantRef.current;
+    if (w && !rows.some((r) => r.id === w)) {
+      // A row of a pasted batch shows inside its batch, so it's left out here too.
+      const byId = (columns: string) => db.from('drafts').select(columns).eq('id', w).eq('game_id', gameId);
+      let one = await byId(DRAFT_COLUMNS + ', question_id, reply, action, batch_id');
+      if (one.error) one = await byId(DRAFT_COLUMNS);
+      if (!one.error) rows = [...rows, ...((one.data ?? []) as unknown as Row[]).filter((r) => !r.batch_id && (mod || r.status !== 'removed'))];
+    }
     const scores = new Map((s.data ?? []).map((r: Row) => [r.draft_id as string, r]));
     const mine = new Map((v.data ?? []).map((r: Row) => [r.draft_id as string, r.value as number]));
-    setDrafts(((d.data ?? []) as unknown as Row[]).map((r: Row) => {
+    setDrafts(rows.map((r: Row) => {
       const sc = scores.get(r.id as string);
       return {
         id: r.id as string, blockKey: r.block_key as string, kind: r.kind === 'opinion' ? 'opinion' : 'fact',
@@ -374,6 +388,15 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined) {
       };
     }));
   }, [gameId, meId, mod]);
+
+  // A newly linked Draft that isn't loaded yet: load it (once per link).
+  const tried = useRef<string | null>(null);
+  useEffect(() => {
+    wantRef.current = want ?? null;
+    if (!want || tried.current === want) return;
+    tried.current = want;
+    if (state === 'ready' && !drafts.some((d) => d.id === want)) loadDrafts().catch(() => {});
+  }, [want, state, drafts, loadDrafts]);
 
   /** Your own reports (so buttons can say "Reported"), and for moderators, every open one. */
   const loadReports = useCallback(async () => {

@@ -232,7 +232,7 @@ export function Workshop({ game, pages, routes }: {
   // A moderator seeing the site as someone else has a reminder pinned at the bottom; the
   // phone chat leaves room for it, so it never covers the message box.
   const viewingAs = useViewAsSetting() !== 'self';
-  const live = useWorkshop(game.id, me);
+  const live = useWorkshop(game.id, me, detail);
   const batchData = useBatches(game.id, me?.id ?? null, live.mod, live.loadDrafts);
   const questions = useQuestions(game.id, me?.id);
   const questionBody = useMemo(() => {

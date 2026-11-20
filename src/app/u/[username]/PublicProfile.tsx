@@ -7,7 +7,7 @@ import { GAMES } from '@/data/games';
 import { Avatar } from '@/components/Avatar';
 import { Tip } from '@/components/Tip';
 import { useVillager } from '@/components/useVillager';
-import { GameBadges, TitleChip, titleOf, useStanding, type TheirDraft } from '@/components/profile/standing';
+import { GameBadges, TitleChip, draftHref, titleOf, useStanding, type Standing, type TheirDraft } from '@/components/profile/standing';
 import { browserClient } from '@/lib/supabase/browser';
 import { AVATAR_BUCKET, avatarOf } from '@/lib/avatar';
 
@@ -36,13 +36,13 @@ function usePerson(username: string) {
 
 const gameName = (id: string) => GAMES.find((g) => g.id === id)?.shortTitle ?? id;
 
-/** A short list of Drafts, each opening in its game's Workshop. */
-function DraftList({ drafts, tag }: { drafts: TheirDraft[]; tag: (d: TheirDraft) => React.ReactNode }) {
+/** A short list of Drafts: published ones open their entry in the app, others the Draft itself. */
+function DraftList({ drafts, data, tag }: { drafts: TheirDraft[]; data: Standing | null; tag: (d: TheirDraft) => React.ReactNode }) {
   return (
     <ul className="mt-3 grid gap-1.5">
       {drafts.map((d) => (
         <li key={d.id}>
-          <Link href={`/g/${d.game_id}/workshop?draft=${d.id}`} className="flex items-center gap-3 rounded-2xl bg-card-2 px-3 py-2 ring-1 ring-line hover:ring-ink">
+          <Link href={draftHref(d, data)} className="flex items-center gap-3 rounded-2xl bg-card-2 px-3 py-2 ring-1 ring-line hover:ring-ink">
             <span className="min-w-0 flex-1 truncate font-bold">{d.title}</span>
             <span className="shrink-0 text-xs text-muted">{gameName(d.game_id)}</span>
             {tag(d)}
@@ -190,7 +190,7 @@ export function PublicProfile({ username }: { username: string }) {
         <section className="surface rounded-2xl p-5 sm:p-6">
           <h2 className="font-display text-2xl">In the app</h2>
           <p className="text-sm text-muted">Their newest changes that reached a game&apos;s app.</p>
-          <DraftList drafts={shipped.slice(0, 10)} tag={(d) => data?.live.has(d.id) && (
+          <DraftList drafts={shipped.slice(0, 10)} data={data} tag={(d) => data?.live.has(d.id) && (
             <Tip text="This version is the one in the app right now" tint="leaf"><span className="shrink-0 rounded-full bg-leaf-soft px-2 py-0.5 text-xs font-bold text-leaf">Live</span></Tip>
           )} />
         </section>
@@ -200,7 +200,7 @@ export function PublicProfile({ username }: { username: string }) {
         <section className="surface rounded-2xl p-5 sm:p-6">
           <h2 className="font-display text-2xl">Waiting in the Workshop</h2>
           <p className="text-sm text-muted">Drafts open for votes. A vote or a source helps them along.</p>
-          <DraftList drafts={waiting.slice(0, 10)} tag={() => <span className="shrink-0 rounded-full bg-sky-soft px-2 py-0.5 text-xs font-bold text-sky">Open</span>} />
+          <DraftList drafts={waiting.slice(0, 10)} data={data} tag={() => <span className="shrink-0 rounded-full bg-sky-soft px-2 py-0.5 text-xs font-bold text-sky">Open</span>} />
         </section>
       )}
 

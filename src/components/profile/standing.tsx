@@ -7,12 +7,21 @@ import { Piece } from '@/components/Piece';
 import { Tip } from '@/components/Tip';
 import { browserClient } from '@/lib/supabase/browser';
 import { ROLE, TENURE, activeWeeks, keeperStars, leaves, standing } from '@/lib/ranks';
+import { answerHref, type AnswerPlace } from '@/lib/questions';
 
 // A villager's standing, shared by your own profile (/me) and everyone's public one (/u/name):
 // their Drafts, active weeks and votes, the title those make, and a badge per game.
 
 export interface TheirDraft { id: string; game_id: string; title: string; status: string; created_at: string; card_id: string | null; action?: string | null }
-export interface Standing { drafts: TheirDraft[]; weeks: number; votes: number; live: Set<string>; hidePlanted: boolean }
+export interface Standing {
+  drafts: TheirDraft[]; weeks: number; votes: number; live: Set<string>; hidePlanted: boolean;
+  /** Where published Drafts' entries are in the app, by Draft (the newest ones). */
+  entries: Map<string, string>;
+}
+
+/** Where a Draft on a profile opens: its entry in the app once published, else the Draft itself. */
+export const draftHref = (d: TheirDraft, data: Standing | null) =>
+  data?.entries.get(d.id) ?? `/g/${d.game_id}/workshop?draft=${d.id}`;
 
 /** Everything a profile shows, read from the village's records (all of it is public). */
 export function useStanding(profileId: string | null | undefined) {
@@ -36,8 +45,24 @@ export function useStanding(profileId: string | null | undefined) {
         const ptr = await db.from('card_pointers').select('revision:card_revisions(draft_id)').eq('channel', 'stable').in('card_id', shipped.map((x) => x.card_id!));
         for (const r of (ptr.data ?? []) as unknown as { revision: { draft_id: string | null } | null }[]) if (r.revision?.draft_id) live.add(r.revision.draft_id);
       }
+      // Each published entry's place in the app, for the newest 60 (what the lists show).
+      const entries = new Map<string, string>();
+      const placed = shipped.filter((x) => x.action !== 'remove').slice(0, 60);
+      if (placed.length) {
+        const [cards, blocks] = await Promise.all([
+          db.from('cards').select('id, block_key, slug').in('id', placed.map((x) => x.card_id!)),
+          db.from('game_blocks').select('game_id, block_key, page_key, type').in('game_id', [...new Set(placed.map((x) => x.game_id))]),
+        ]);
+        const card = new Map(((cards.data ?? []) as { id: string; block_key: string; slug: string }[]).map((c) => [c.id, c]));
+        const block = new Map(((blocks.data ?? []) as { game_id: string; block_key: string; page_key: string; type: string }[]).map((b) => [`${b.game_id}:${b.block_key}`, b]));
+        for (const x of placed) {
+          const c = card.get(x.card_id!), b = c && block.get(`${x.game_id}:${c.block_key}`);
+          const href = c && b ? answerHref(x.game_id, { page: b.page_key, block: c.block_key, slug: c.slug, blockType: b.type } as AnswerPlace) : null;
+          if (href) entries.set(x.id, href);
+        }
+      }
       const times = [...drafts.map((x) => x.created_at), ...((v.data ?? []) as { created_at: string }[]).map((x) => x.created_at), ...((c.data ?? []) as { created_at: string }[]).map((x) => x.created_at)];
-      if (!cancelled) setData({ drafts, weeks: activeWeeks(times), votes: v.data?.length ?? 0, live, hidePlanted: Boolean(p.data?.hide_planted) });
+      if (!cancelled) setData({ drafts, weeks: activeWeeks(times), votes: v.data?.length ?? 0, live, hidePlanted: Boolean(p.data?.hide_planted), entries });
     })();
     return () => { cancelled = true; };
   }, [profileId]);
