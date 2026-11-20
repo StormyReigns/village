@@ -121,6 +121,9 @@ export function describe(item: InboxItem, ctx: InboxContext, plain: Plain): Desc
       };
     }
   }
+  if (item.type === 'picture_removed') {
+    return { icon: 'news', title: 'A moderator took down your profile picture', body: s(p.reason) ? `“${s(p.reason)}”` : undefined, href: '/me', link: 'choose another' };
+  }
   const icon: Icon = item.type.startsWith('batch_') ? 'batch' : item.type.startsWith('community_') ? 'community' : 'news';
   return { icon, title: s(p.title) ?? 'News from the village', body: s(p.body), href: s(p.href) };
 }

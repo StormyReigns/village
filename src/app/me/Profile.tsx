@@ -7,6 +7,7 @@ import { Avatar } from '@/components/Avatar';
 import { ProfileForm } from '@/components/ProfileDialog';
 import { SignInPrompt } from '@/components/SignInPrompt';
 import { Tip } from '@/components/Tip';
+import { PicturePicker } from '@/components/profile/PicturePicker';
 import { GameBadges, TitleChip, titleOf, useStanding } from '@/components/profile/standing';
 import { signOut, useVillager } from '@/components/useVillager';
 import { browserClient } from '@/lib/supabase/browser';
@@ -106,8 +107,9 @@ export function Profile() {
         </div>
       </section>
 
-      <Section title="Your name">
-        <ProfileForm villager={me} />
+      <Section title="Your picture and name">
+        <PicturePicker me={me} />
+        <div className="mt-6"><ProfileForm villager={me} /></div>
       </Section>
 
       <Section title="Your title">

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { browserClient } from '@/lib/supabase/browser';
+import { avatarOf } from '@/lib/avatar';
 import type { EntryContent } from '@/data/pages';
 import { appChanged } from '@/app/actions';
 import { plainError, type Author } from './useWorkshop';
@@ -47,10 +48,12 @@ export interface NewBatch {
   rows: { content: EntryContent; card?: string; revision?: number; source?: string }[];
 }
 
-const PROFILE = 'id, username, display_name, avatar_url';
+// Every column (all public): `picture` (20261125000000) comes along once that SQL is run, and
+// nothing breaks before it is.
+const PROFILE = '*';
 const author = (p: Row | null | undefined, id: string): Author => {
   const username = (p?.username as string) ?? 'villager';
-  return { id, username, name: (p?.display_name as string) || username, avatarUrl: (p?.avatar_url as string) ?? null };
+  return { id, username, name: (p?.display_name as string) || username, avatarUrl: avatarOf(p) };
 };
 /** The batch tables aren't there until Matt runs the SQL; until then batches simply don't show. */
 const missingTable = (e: { message?: string; code?: string } | null) => Boolean(e && (e.code === '42P01' || e.code === 'PGRST205' || /draft_batches|batch_votes|batch_scores|send_batch|batch_id/.test(e.message ?? '')));

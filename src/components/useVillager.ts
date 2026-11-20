@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { browserClient } from '@/lib/supabase/browser';
+import { avatarOf } from '@/lib/avatar';
 import { useViewAsSetting, type ViewAs } from './viewAs';
 
 export interface Villager {
@@ -10,6 +11,10 @@ export interface Villager {
   username: string;
   displayName: string;
   avatarUrl?: string;
+  /** The profile's picture setting: null (Discord picture), 'none' (initials), or an uploaded file. */
+  picture?: string | null;
+  /** Their Discord picture, if they signed in with Discord (offered back on the profile). */
+  discordUrl?: string;
   isFounder: boolean;
   /** A moderator for any game, or the whole village. */
   isModerator: boolean;
@@ -37,7 +42,7 @@ export function useAccount(): Villager | null | undefined {
     const load = async (user: User | null) => {
       if (!user) { if (!cancelled) setVillager(null); return; }
       const [{ data }, mods] = await Promise.all([
-        db.from('profiles').select('username, display_name, is_founder, avatar_url').eq('id', user.id).maybeSingle(),
+        db.from('profiles').select('*').eq('id', user.id).maybeSingle(),
         db.from('moderators').select('game_id').eq('profile_id', user.id),
       ]);
       const meta = user.user_metadata ?? {};
@@ -45,7 +50,9 @@ export function useAccount(): Villager | null | undefined {
         id: user.id,
         username: data?.username ?? 'villager',
         displayName: data?.display_name || meta.full_name || meta.name || data?.username || 'Villager',
-        avatarUrl: data?.avatar_url || meta.avatar_url,
+        avatarUrl: avatarOf(data, meta.avatar_url) ?? undefined,
+        picture: (data?.picture as string | null) ?? null,
+        discordUrl: (data?.avatar_url as string) || meta.avatar_url || undefined,
         isFounder: Boolean(data?.is_founder),
         isModerator: Boolean(mods.data?.length),
         modGames: (mods.data ?? []).map((m) => m.game_id as string | null),

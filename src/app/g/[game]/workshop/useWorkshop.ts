@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { browserClient } from '@/lib/supabase/browser';
+import { avatarOf } from '@/lib/avatar';
 import { canModerate, type Villager } from '@/components/useVillager';
 import type { EntryContent } from '@/data/pages';
 import { appChanged } from '@/app/actions';
@@ -136,7 +137,9 @@ export interface ReportGroup {
 }
 
 type Row = Record<string, unknown>;
-const PROFILE = 'id, username, display_name, avatar_url';
+// Every column (all public): `picture` (20261125000000) comes along once that SQL is run, and
+// nothing breaks before it is.
+const PROFILE = '*';
 const MESSAGE_COLUMNS = 'id, body, block_key, linked_draft_id, thread_key, spoiler, removed_at, created_at, author_id';
 const MESSAGE = `${MESSAGE_COLUMNS}, kind, event, attachments, reply_to, author:profiles!chat_messages_author_id_fkey(${PROFILE})`;
 // Until the system-notes SQL (20261101120000_chat_reactions_system.sql) is run, the database
@@ -147,7 +150,7 @@ const missingColumn = (e: { message?: string } | null) => Boolean(e && /(kind|ev
 
 function toAuthor(p: Row | null | undefined, id: string): Author {
   const username = (p?.username as string) ?? 'villager';
-  return { id, username, name: (p?.display_name as string) || username, avatarUrl: (p?.avatar_url as string) ?? null };
+  return { id, username, name: (p?.display_name as string) || username, avatarUrl: avatarOf(p) };
 }
 
 function toMessage(r: Row, author: Author): ChatMessage {

@@ -2,15 +2,16 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Pencil } from 'lucide-react';
+import { ArrowLeft, Pencil, ShieldCheck } from 'lucide-react';
 import { GAMES } from '@/data/games';
 import { Avatar } from '@/components/Avatar';
 import { Tip } from '@/components/Tip';
 import { useVillager } from '@/components/useVillager';
 import { GameBadges, TitleChip, titleOf, useStanding, type TheirDraft } from '@/components/profile/standing';
 import { browserClient } from '@/lib/supabase/browser';
+import { AVATAR_BUCKET, avatarOf } from '@/lib/avatar';
 
-interface Person { id: string; username: string; name: string; avatarUrl: string | null; isFounder: boolean; joined: string }
+interface Person { id: string; username: string; name: string; avatarUrl: string | null; picture: string | null; isFounder: boolean; joined: string }
 
 /** Who has this username, or null if nobody does (undefined while looking). */
 function usePerson(username: string) {
@@ -20,12 +21,12 @@ function usePerson(username: string) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- no database configured: nobody to find
     if (!db) { setPerson(null); return; }
     let cancelled = false;
-    db.from('profiles').select('id, username, display_name, avatar_url, is_founder, created_at').eq('username', username.toLowerCase()).maybeSingle()
+    db.from('profiles').select('*').eq('username', username.toLowerCase()).maybeSingle()
       .then(({ data: p }) => {
         if (cancelled) return;
         setPerson(p ? {
           id: p.id as string, username: p.username as string, name: (p.display_name as string) || (p.username as string),
-          avatarUrl: (p.avatar_url as string) ?? null, isFounder: Boolean(p.is_founder), joined: p.created_at as string,
+          avatarUrl: avatarOf(p), picture: (p.picture as string) ?? null, isFounder: Boolean(p.is_founder), joined: p.created_at as string,
         } : null);
       });
     return () => { cancelled = true; };
@@ -53,6 +54,52 @@ function DraftList({ drafts, tag }: { drafts: TheirDraft[]; tag: (d: TheirDraft)
 }
 
 /**
+ * For moderators: take down someone's picture, with a reason they'll read in their inbox. Their
+ * initials show instead, and they can upload another (remove_picture, 20261125000000).
+ */
+function TakeDown({ person, onDone }: { person: Person; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const go = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const db = browserClient();
+    if (!db) return;
+    setBusy(true);
+    const { error: err } = await db.rpc('remove_picture', { who: person.id, reason });
+    if (!err && person.picture && person.picture !== 'none') await db.storage.from(AVATAR_BUCKET).remove([person.picture]);
+    setBusy(false);
+    // PGRST202: the function isn't there yet (its SQL hasn't been run).
+    if (err) setError(err.code === 'PGRST202' ? 'Taking pictures down is almost ready: the database needs one more update.' : err.message);
+    else onDone();
+  };
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="btn-quiet inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold">
+        <ShieldCheck size={15} aria-hidden="true" /> Take down picture
+      </button>
+    );
+  }
+  return (
+    <form onSubmit={go} className="grid w-full gap-2 rounded-2xl bg-card-2 p-3 ring-1 ring-line">
+      <label className="grid gap-1 text-sm">
+        <span className="font-bold">Why? {person.name} will read this in their inbox.</span>
+        <input autoFocus value={reason} onChange={(e) => { setReason(e.target.value); setError(''); }} maxLength={300}
+          placeholder="Not suitable for everyone" className="rounded-2xl bg-card px-3 py-2 ring-1 ring-line outline-none focus:ring-2 focus:ring-ink" />
+      </label>
+      {error && <p role="alert" className="text-sm text-berry">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={() => setOpen(false)} className="btn-quiet rounded-full px-4 py-1.5 text-sm font-bold">Cancel</button>
+        <button disabled={busy || reason.trim().length < 3} className="btn-primary rounded-full px-4 py-1.5 text-sm font-bold disabled:opacity-60">
+          {busy ? 'Taking it down…' : 'Take it down'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/**
  * A villager's public page: who they are, their title and badges, and what they've built. Anyone
  * can open it, signed in or not, by tapping a name in a Workshop chat. Your own shows a way to
  * edit it (on /me, which also has your settings).
@@ -62,6 +109,8 @@ export function PublicProfile({ username }: { username: string }) {
   const me = useVillager();
   const [data] = useStanding(person?.id);
   const [joined, setJoined] = useState('');
+  // A moderator just took their picture down.
+  const [takenDown, setTakenDown] = useState(false);
   // Dates are worked out in the browser, so the page can be prerendered.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- formatting a date in the visitor's language
@@ -90,7 +139,7 @@ export function PublicProfile({ username }: { username: string }) {
   return (
     <div className="mt-4 grid gap-7">
       <section className="surface flex flex-wrap items-center gap-4 rounded-2xl p-5 sm:p-6">
-        <Avatar name={person.name} url={person.avatarUrl} size={72} />
+        <Avatar name={person.name} url={takenDown ? null : person.avatarUrl} size={72} />
         <div className="min-w-0 flex-1">
           <h1 className="font-display text-3xl leading-tight">{person.name}</h1>
           <p className="text-muted">@{person.username}{joined && ` · in the village since ${joined}`}</p>
@@ -107,6 +156,9 @@ export function PublicProfile({ username }: { username: string }) {
           <Link href="/me" className="btn-quiet inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold">
             <Pencil size={15} aria-hidden="true" /> Edit your profile
           </Link>
+        )}
+        {me?.isModerator && !you && person.avatarUrl && !takenDown && (
+          <TakeDown person={person} onDone={() => setTakenDown(true)} />
         )}
       </section>
 

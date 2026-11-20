@@ -1,7 +1,8 @@
 # Inbox and profiles
 
-**Status:** Built 2026-11-20: news kinds, the inbox page, public profiles. The SQL
-(`20261124000000_inbox_news.sql`) waits on the hub's review and Matt's run · **Code:**
+**Status:** Built 2026-11-20: news kinds, the inbox page, public profiles, profile pictures. The
+SQL (`20261124000000_inbox_news.sql`, `20261125000000_profile_pictures.sql`) waits on the hub's
+review and Matt's run · **Code:**
 `src/lib/inbox.ts` (what each kind says and links to), `src/components/inbox/` (`useInbox`, `InboxRow`),
 `src/components/Inbox.tsx` (the bell), `src/app/inbox/` (the page), `src/app/u/[username]/` (public
 profile), `src/components/profile/standing.tsx` (title and badges, shared with `/me`) · **Database:**
@@ -48,11 +49,19 @@ News is written only by the database. Kinds (`type`), and the filter each sits u
 
 ## Profiles
 
-- `/me` is yours: name, title ladders, badges, what you've added, settings. It links to how others
+- **Pictures** work like any forum (Matt, 2026-11-20): on `/me`, upload a PNG, JPG or WebP and crop
+  it to a circle (drag, zoom), go back to your Discord picture, or remove it for your initials. The
+  browser redraws it as a 400px square (dropping hidden photo details) into the public `avatars`
+  bucket under your own folder, 2 MB at most. `profiles.picture` is null (Discord), `'none'`, or
+  that file, and the database refuses anything else, so nobody can point a picture at an outside
+  site. Everything that shows a villager reads it through `src/lib/avatar.ts`. A moderator can
+  "Take down picture" on a public profile with a reason; the person reads it in their inbox
+  (`picture_removed`) and can upload another. Tests: `supabase/tests/pictures-check.mjs`.
+- `/me` is yours: picture, name, title ladders, badges, what you've added, settings. It links to how others
   see you and to your inbox.
 - `/u/<username>` is public: name, title, Founder, when they joined, three counts (changes in the app,
-  active weeks, votes), badges for the games they've started, their newest changes in the app (Live or
-  Updated since), and Drafts waiting (hidden from others by "Hide my Planted count"). Tapping a name
+  active weeks, votes), badges for the games they've started, their newest changes in the app ("Live"
+  when that version is the current one; removals left out), and Drafts waiting (hidden from others by "Hide my Planted count"). Tapping a name
   in a Workshop chat message opens it. Moderators aren't marked: who moderates isn't public data.
 
 ## Later
@@ -60,3 +69,5 @@ News is written only by the database. Kinds (`type`), and the filter each sits u
 - Muting kinds of news, and email or phone notifications for mentions.
 - Names on Draft cards and in thread previews linking to profiles (they sit inside buttons today).
 - A short bio, and a favorite game, on the public profile.
+- Reporting a profile (picture or name) from the profile page, into the moderators' queue.
+- An automatic image check on uploads, like the chat's spam check.
