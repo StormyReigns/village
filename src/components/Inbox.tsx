@@ -51,7 +51,7 @@ export function InboxBell({ dark = false }: { dark?: boolean }) {
         )}
       </button>
       {open && (
-        <div className="surface pop absolute right-0 z-40 mt-2 w-[min(24rem,calc(100vw-2rem))] rounded-2xl p-2 text-sm text-ink">
+        <div className="surface pop absolute right-0 top-full z-40 mt-2 w-[min(24rem,calc(100vw-2rem))] rounded-2xl p-2 text-sm text-ink">
           <p className="flex items-center gap-1.5 px-2 pb-1.5 pt-1 text-xs font-bold uppercase tracking-wide text-muted">
             <InboxIcon size={13} aria-hidden="true" /> Inbox
             <Link href="/inbox" onClick={() => setOpen(false)} className="ml-auto rounded-full px-2 py-1 normal-case tracking-normal text-ink underline hover:bg-card-2">See all</Link>
