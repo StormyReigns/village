@@ -41,8 +41,9 @@ export function TopBar({ children, actions, compact = false, wide = false }: { c
     <header className="sticky top-0 z-30 bg-ink text-white">
       <div className={`mx-auto flex w-full ${wide ? "max-w-screen-2xl" : "max-w-6xl"} items-center gap-3 px-4 py-2.5 sm:px-6`}>
         <Link href="/" aria-label="Village square" className="flex shrink-0 items-center rounded-lg">
-          {/* Takes 38px of the bar's height, so the bar stays the same size. */}
-          <LogoMark height={68} className="-mb-[26px] -mt-1 drop-shadow-[0_3px_4px_rgb(0_0_0/0.3)]" />
+          {/* On wider screens it hangs below the bar, taking 38px of its height. On phones it sits inside
+              the bar, where hanging over the Page looked like a mistake (review, 2026-11-20). */}
+          <LogoMark height={68} className="-my-1 h-[42px] w-auto drop-shadow-[0_3px_4px_rgb(0_0_0/0.3)] sm:-mb-[26px] sm:-mt-1 sm:h-[68px]" />
           {/* Nudged down toward the logo's middle (which sits below the bar's), but only
               so far that the "g" stays inside the bar. */}
           <span className={`relative ml-1 translate-y-[4px] ${compact ? 'hidden sm:flex' : 'flex'}`}>

@@ -13,6 +13,8 @@ const DEFAULTS: PlayerPrefs = { route: 'all', spoilers: false };
 export function usePlayerPrefs(gameId: string) {
   const key = `village:${gameId}:prefs`;
   const [prefs, setPrefs] = useState<PlayerPrefs>(DEFAULTS);
+  // False until this device's choice is read, so screens can wait instead of flashing "All".
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     try {
@@ -20,6 +22,7 @@ export function usePlayerPrefs(gameId: string) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reading device storage after hydration
       if (saved) setPrefs({ ...DEFAULTS, ...saved });
     } catch { /* storage unavailable: keep defaults */ }
+    setReady(true);
   }, [key]);
 
   const update = useCallback((patch: Partial<PlayerPrefs>) => {
@@ -30,5 +33,5 @@ export function usePlayerPrefs(gameId: string) {
     });
   }, [key]);
 
-  return [prefs, update] as const;
+  return [prefs, update, ready] as const;
 }

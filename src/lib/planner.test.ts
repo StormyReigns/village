@@ -136,13 +136,13 @@ test('dragging moves a unit to a place', async () => {
 
 test('the party index: members and planned items, for marks on other Pages', async () => {
   const { partyIndexRoute, readPartyIndex } = await import('./planner.ts');
-  const plan: Plan = { party: ['goliath', 'ninae'], builds: { goliath: { gear: { weapons: ['steel-axe'] } }, ninae: { gear: { weapons: ['steel-axe', 'levin'] } } } };
+  const plan: Plan = { party: ['goliath', 'ninae'], builds: { goliath: { gear: { weapons: ['steel-axe'] }, classes: { Specialty: { id: 'brigand' }, Beginner: { id: 'fighter', done: true } } }, ninae: { gear: { weapons: ['steel-axe', 'levin'] } } } };
   const names: Record<string, string> = { goliath: 'Goliath', ninae: 'Ninae' };
   const idx = partyIndexRoute(plan, 'units', (id) => names[id], (s) => (s === 'weapons' ? 'weapons-and-magic' : undefined));
-  assert.deepEqual(idx, { members: ['units.goliath', 'units.ninae'], items: { 'weapons-and-magic.steel-axe': ['Goliath', 'Ninae'], 'weapons-and-magic.levin': ['Ninae'] } });
+  assert.deepEqual(idx, { members: ['units.goliath', 'units.ninae'], items: { 'weapons-and-magic.steel-axe': ['Goliath', 'Ninae'], 'weapons-and-magic.levin': ['Ninae'] }, bands: { Specialty: ['Goliath'] } });
   assert.equal(readPartyIndex({ href: 'https://evil.example', byRoute: {} }), null, 'only paths in Village');
   assert.deepEqual(readPartyIndex({ href: '/g/x/party', byRoute: { leda: { members: ['units.a', 3], items: { 'w.i': ['A', 1], bad: 'x' } } } }),
-    { href: '/g/x/party', byRoute: { leda: { members: ['units.a'], items: { 'w.i': ['A'] } } } });
+    { href: '/g/x/party', byRoute: { leda: { members: ['units.a'], items: { 'w.i': ['A'] }, bands: {} } } });
 });
 
 test('Set up: slot keys are made once from the name, and a setup is tidied before saving', async () => {
@@ -155,4 +155,17 @@ test('Set up: slot keys are made once from the name, and a setup is tidied befor
     { key: 'x', label: '   ', from: 'items' },
   ] }), { roster: 'units', size: 15, unlock: ['Recruit'], slots: [{ key: 'w', label: 'Weapons', from: 'weapons', count: 10 }] });
   assert.deepEqual(tidySetup({ roster: 'units', size: 0 }), { roster: 'units' });
+});
+
+test('the party picker says when a unit can join', async () => {
+  const { joinKind } = await import('./planner.ts');
+  const d = (description: string, perRoute?: Entry['perRoute']) => ({ description, perRoute });
+  assert.equal(joinKind(d('Flame Lord of the Wolf Obelisk.'), 'theodora').kind, 'lord');
+  assert.equal(joinKind(d('Joins automatically in the Prologue, and again in Part III.'), 'theodora').kind, 'auto');
+  assert.equal(joinKind(d('Your avatar (male or female), created in the Prologue.'), 'theodora').kind, 'auto');
+  assert.deepEqual(joinKind(d('Joins automatically early in Part III. Clear Talimun\'s Paralogue in Part I to be safe.'), 'theodora'), { kind: 'later', label: 'Joins in Part III' });
+  assert.deepEqual(joinKind(d('Guest in Part II, joins fully in Part III.'), 'cai'), { kind: 'later', label: 'Joins in Part II' });
+  assert.equal(joinKind(d('Cai\'s father. Only playable in limited situations.'), 'cai').kind, 'unplannable');
+  assert.equal(joinKind(d('Listed as playable on the wiki. How to get Long isn\'t known yet.'), 'cai').kind, 'unplannable');
+  assert.equal(joinKind(d('Appears around 5/29.', { theodora: [{ label: 'Recruit', text: 'Support 1, Renown 6' }] }), 'theodora').kind, 'none');
 });

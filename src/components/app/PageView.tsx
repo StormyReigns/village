@@ -17,6 +17,7 @@ import type { Kin } from '@/lib/class-fit';
 import type { BlockLinks } from '@/lib/entry-links';
 import { LinksProvider } from './EntryLinks';
 import { PeekProvider } from './Peek';
+import { byDeadline, deadlineText } from '@/lib/deadline';
 import { HelpSolve, NewInVillage, Welcome } from './HomeHooks';
 import { GLOSSARY, IN_GAME_DATES } from '@/data/glossary';
 import type { Mention } from '@/data/pages/links';
@@ -100,7 +101,7 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [], mention
       document.getElementById(scrollTo!)?.scrollIntoView({ block: 'start' });
     }
   }, [openOnLoad, scrollTo, game.id, page.id]);
-  const [prefs, setPrefs] = usePlayerPrefs(game.id);
+  const [prefs, setPrefs, ready] = usePlayerPrefs(game.id);
   const byRoute = game.routes.length > 0 && page.blocks.some((b) => b.byRoute);
   const hasSpoilers = page.blocks.some((b) => b.entries.some((e) => e.spoiler));
   const t = TINT[page.tint];
@@ -142,13 +143,15 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [], mention
             {page.blocks.length > 1 && page.blocks.map((b) => (
               <a key={b.id} href={`#${b.id}`} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-card/80 px-2.5 text-sm font-bold ring-1 ring-line hover:ring-ink">
                 {/* Icons only on wider screens, so a phone fits tabs, route and spoilers on one row. */}
-                <span className="hidden sm:inline-flex"><BlockIcon name={b.icon} size={14} /></span>{b.title} <span className="text-muted">{entriesOf(b).filter((e) => onRoute(e, ctx.route) && (prefs.spoilers || !e.spoiler)).length}</span>
+                <span className="hidden sm:inline-flex"><BlockIcon name={b.icon} size={14} /></span>{b.title} {(ready || !b.byRoute) && <span className="text-muted">{entriesOf(b).filter((e) => onRoute(e, ctx.route) && (prefs.spoilers || !e.spoiler)).length}</span>}
               </a>
             ))}
             <span className="ml-auto flex items-center gap-1.5">
               {byRoute && (
                 <Tip text="Pick your Flame Lord to see only your route's units, deadlines and story" tint={page.tint}>
-                  <RouteMenu game={game} route={prefs.route} onPick={(r) => setPrefs({ route: r })} />
+                  {/* Until this device's route is read, a quiet placeholder rather than a flash of "All". */}
+                  {ready ? <RouteMenu game={game} route={prefs.route} onPick={(r) => setPrefs({ route: r })} />
+                    : <span className="inline-block h-8 w-24 animate-pulse rounded-full bg-card ring-1 ring-line" aria-hidden="true" />}
                 </Tip>
               )}
               {hasSpoilers && (
@@ -168,7 +171,10 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [], mention
       <TextLinksProvider value={textLinks}><KinProvider kin={kin}><LinksProvider links={blockLinks}>
       <PeekProvider gameId={game.id} page={page} route={ctx.route} routes={game.routes} spoilers={prefs.spoilers}>
         <div className="mt-3 grid gap-3 sm:gap-4">
-          {page.blocks.map((b) => <BlockView key={b.id} block={b} ctx={ctx} />)}
+          {/* A Block that differs by route waits for the saved route, so it never shows All's view first. */}
+          {page.blocks.map((b) => byRoute && b.byRoute && !ready
+            ? <div key={b.id} role="status" aria-label="Loading" className="h-72 animate-pulse rounded-2xl bg-card ring-1 ring-line" />
+            : <BlockView key={b.id} block={b} ctx={ctx} />)}
           {questionsPage === page.id && <AllQuestions gameId={game.id} pages={pages} allPages={[page]} />}
         </div>
       </PeekProvider>
@@ -242,7 +248,7 @@ function AppSearch({ gameId, pages }: { gameId: string; pages: Page[] }) {
  * you left off, your next deadline, then every Page.
  */
 export function AppHome({ game, pages }: { game: AppGame; pages: Page[] }) {
-  const [prefs, setPrefs] = usePlayerPrefs(game.id);
+  const [prefs, setPrefs, ready] = usePlayerPrefs(game.id);
   const recent = useRecent(game.id);
   const [ticks] = useTicks(game.id);
 
@@ -250,9 +256,9 @@ export function AppHome({ game, pages }: { game: AppGame; pages: Page[] }) {
   const next = (() => {
     for (const p of pages) for (const b of p.blocks) {
       if (b.type !== 'checklist') continue;
-      const e = b.entries.find((x) => onRoute(x, prefs.route) && !ticks.has(`${b.id}.${x.id}`) && (prefs.spoilers || !x.spoiler));
+      const e = byDeadline(b.entries, prefs.route).find((x) => onRoute(x, prefs.route) && !ticks.has(`${b.id}.${x.id}`) && (prefs.spoilers || !x.spoiler));
       if (e) {
-        const when = prefs.route !== 'all' ? e.perRoute?.[prefs.route]?.[0]?.text : e.sections.find((s) => s.label === 'Before')?.text;
+        const when = prefs.route !== 'all' ? deadlineText(e, prefs.route) : e.sections.find((s) => s.label === 'Before')?.text;
         return { p, b, e, when };
       }
     }
@@ -276,7 +282,8 @@ export function AppHome({ game, pages }: { game: AppGame; pages: Page[] }) {
           {game.routes.length > 0 && (
             <div className="mt-4">
               <p className="mb-1.5 text-sm font-bold text-white/85">{game.routeQuestion}</p>
-              <RoutePicker game={game} route={prefs.route} onPick={(r) => setPrefs({ route: r })} solid="bg-signal text-ink" />
+              {ready ? <RoutePicker game={game} route={prefs.route} onPick={(r) => setPrefs({ route: r })} solid="bg-signal text-ink" />
+                : <span className="block h-11 max-w-md animate-pulse rounded-full bg-white/15" aria-hidden="true" />}
             </div>
           )}
         </div>
@@ -288,9 +295,9 @@ export function AppHome({ game, pages }: { game: AppGame; pages: Page[] }) {
           lately and where you left off. Two to a row; a card left on its own fills the row. */}
       <div className="grid gap-3 md:grid-cols-2 md:[&>*:last-child:nth-child(odd)]:col-span-2">
         {/* Your party for this run and what to do next for them (docs/blocks/planner.md). */}
-        <PartyHome gameId={game.id} pages={pages} route={prefs.route} />
+        {ready && <PartyHome gameId={game.id} pages={pages} route={prefs.route} />}
         <HelpSolve gameId={game.id} pages={pages} />
-          {next && (
+          {ready && next && (
             <Link href={`/g/${game.id}/${next.p.id}`} className="lift flex items-center gap-3 rounded-2xl bg-card p-4 ring-1 ring-line">
               <Piece size={56} color={`var(--${next.p.tint})`}><Hourglass size={17} strokeWidth={2.4} aria-hidden="true" /></Piece>
               <span className="min-w-0 flex-1">

@@ -256,6 +256,15 @@ while reordering; no sideways scroll. Touch dragging needs a real phone (the bro
   instead of a blank "Whose run is it?": one card per route with that run's party as pieces (or "Start a Leda run"),
   tapping one picks that route; with nothing planned anywhere, a three-step explainer and a real example line first.
 
+- 2026-11-20: from a review of a second playthrough (Theodora, desktop and phone; Matt: "Do it here"). **The picker**
+  shows each unit's group (and class, when the roster has a class tag) under the name, and a note when they don't join by
+  ordinary recruiting: "Your Flame Lord", "Joins automatically", "Joins in Part II/III", or grayed "Only now and then" /
+  "Not known how" (`joinKind` in `src/lib/planner.ts`, read from the unit's text). Filters: Everyone, You recruit, Join
+  automatically, Join later, plus group and class. **Party rows**: the Recruited tick has its word under it ("Recruited" /
+  "Recruited?"), and a unit still to recruit shows their portrait inside the split outline (bare outlines all looked alike on
+  a phone). The party index now also keeps who still has a class to reach in each tier (`bands`), so Last chances can say
+  which party members a reward helps.
+
 ## Open questions
 
 - Weapon slot count for Fortune's Weave: 3 to start. Matt can change it.

@@ -79,8 +79,10 @@ export function CommunityTier({ cardId, entryId, size, demo = false }: { cardId?
     <Tip text={tip} className="absolute -bottom-3 -left-3 z-10">
       <Link href={`/g/${found.gameId}/${found.page}?t=${found.block}.${entryId}#${found.block}`}
         aria-label={found.leaning ? `Community tier: leaning ${found.label}` : `Community tier: ${found.label}`}
-        className="block -rotate-6 select-none transition hover:-rotate-3 hover:scale-105" style={letterStyle(found.index, px)}>
-        {found.label}
+        className="group grid select-none justify-items-start">
+        <span className="block -rotate-6 transition group-hover:-rotate-3 group-hover:scale-105" style={letterStyle(found.index, px)}>{found.label}</span>
+        {/* A word under the letter, so a lone "D" reads as a tier at a glance (review, 2026-11-20). */}
+        <span className="-mt-1 ml-1 rounded-full bg-ink px-1.5 py-px text-[10px] font-bold uppercase leading-tight tracking-wide text-white">{found.leaning ? 'Tier, so far' : 'Tier list'}</span>
       </Link>
     </Tip>
   );

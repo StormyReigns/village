@@ -374,21 +374,24 @@ export function moveMemberTo(plan: Plan, id: string, to: number): Plan {
 
 /** What other Pages need to mark a party: who's in it ("units.goliath") and which items are planned
  *  for whom ("weapons-and-magic.levin-sword-plus-1": ["Goliath"]). Kept on the device per route. */
-export interface PartyIndexRoute { members: string[]; items: Record<string, string[]> }
+/** `bands`: by class tier, who still has a class to reach there (for "helps Goliath" on Last chances). */
+export interface PartyIndexRoute { members: string[]; items: Record<string, string[]>; bands?: Record<string, string[]> }
 export interface PartyIndex { href: string; byRoute: Record<string, PartyIndexRoute> }
 
 export function partyIndexRoute(plan: Plan, rosterBlock: string, nameOf: (id: string) => string | undefined, slotBlock: (slot: string) => string | undefined): PartyIndexRoute {
   const items: Record<string, string[]> = {};
+  const bands: Record<string, string[]> = {};
   for (const id of plan.party) {
     const name = nameOf(id);
     if (!name) continue;
+    for (const [band, step] of Object.entries(plan.builds?.[id]?.classes ?? {})) if (step && !step.done) (bands[band] ??= []).push(name);
     for (const [slot, ids] of Object.entries(plan.builds?.[id]?.gear ?? {})) {
       const block = slotBlock(slot);
       if (!block) continue;
       for (const item of ids) (items[`${block}.${item}`] ??= []).push(name);
     }
   }
-  return { members: plan.party.map((id) => `${rosterBlock}.${id}`), items };
+  return { members: plan.party.map((id) => `${rosterBlock}.${id}`), items, bands };
 }
 
 /** Reads a stored index, keeping only what has the right shape. */
@@ -400,7 +403,8 @@ export function readPartyIndex(raw: unknown): PartyIndex | null {
   for (const [k, v] of Object.entries(r.byRoute)) {
     if (!v || !Array.isArray(v.members)) continue;
     const items = v.items && typeof v.items === 'object' ? Object.fromEntries(Object.entries(v.items).filter(([, n]) => Array.isArray(n)).map(([key, n]) => [key, n.filter((x) => typeof x === 'string')])) : {};
-    byRoute[k] = { members: v.members.filter((x) => typeof x === 'string'), items };
+    const bands = v.bands && typeof v.bands === 'object' ? Object.fromEntries(Object.entries(v.bands).filter(([, n]) => Array.isArray(n)).map(([key, n]) => [key, n.filter((x) => typeof x === 'string')])) : {};
+    byRoute[k] = { members: v.members.filter((x) => typeof x === 'string'), items, bands };
   }
   return { href: r.href, byRoute };
 }
@@ -429,4 +433,23 @@ export function tidySetup(s: PlanSetup): PlanSetup {
   }));
   if (slots.length) out.slots = slots;
   return out;
+}
+
+/**
+ * When a unit can join, in a word for the party picker (review, 2026-11-20): the Flame Lord whose run
+ * it is, someone who joins by themselves, someone who only joins in a later Part, or someone who
+ * can't be planned for (only playable now and then, or nobody knows how yet). Read from the unit's
+ * text, so builders' words keep working. `none` is an ordinary recruit with steps on this route.
+ */
+export type JoinKind = 'lord' | 'auto' | 'later' | 'unplannable' | 'none';
+export function joinKind(entry: Pick<Entry, 'description' | 'perRoute'>, route: string): { kind: JoinKind; label?: string } {
+  const routeLine = route !== 'all' ? Object.values(entry.perRoute?.[route as Route] ?? []).map((s) => s.text).join(' ') : '';
+  const text = `${routeLine} ${entry.description ?? ''}`;
+  if (/\bFlame Lord of\b/i.test(text)) return { kind: 'lord', label: 'Your Flame Lord' };
+  if (/\bonly playable in limited\b/i.test(text)) return { kind: 'unplannable', label: 'Only now and then' };
+  if (/\bisn'?t known yet\b|\bunknown\b/i.test(text)) return { kind: 'unplannable', label: 'Not known how' };
+  if (/^\s*joins automatically\b/i.test(routeLine) || /\bjoins automatically in the Prologue\b/i.test(text) || /\byour avatar\b/i.test(text)) return { kind: 'auto', label: 'Joins automatically' };
+  const m = text.match(/\b(?:joins?|guest)\b[^.]*?\bPart\s+(III|II)\b/i);
+  if (m && !routeLine.trim()) return { kind: 'later', label: `Joins in Part ${m[1].toUpperCase()}` };
+  return { kind: 'none' };
 }

@@ -73,6 +73,11 @@ Since 2026-11-12:
   Block the band tag's list orders the ladder and its info heads each band, replacing tier header
   cards. 20261121000000 moved Fortune's Weave's five tiers into its Tier list (waits on Matt's run).
 
+- **Last chances sort by deadline** (2026-11-20): the chapter is read from each deadline's words (`src/lib/deadline.ts`),
+  so community edits keep sorting; choose-one items list each option, what it gives and who in your party it helps. Route-based
+  screens wait for the saved route instead of flashing "All". 20261126000000 gives Theodora's real dates for Talimun's
+  Paralogue (waits on Matt's run).
+
 Open, waiting on Matt:
 - **Tests only Matt can do (signed in or on his phone):**
   - the new bottom bar and the slim Page top on a real phone, and the iPhone home-swipe gap;

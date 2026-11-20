@@ -8,7 +8,7 @@ import { BlockIcon } from '@/components/Icon';
 import { EntryPanel, symbolFor } from '@/components/app/EntryPanel';
 import { initials, rememberEntry, useOpenEntry } from '@/components/app/entries';
 import type { BlockContext } from '@/components/app/blockParts';
-import { STEP_LABEL, addMember, buildOf, moveMember, moveMemberTo, removeMember, slotCount, type Build, type PlanSlot, type Roster } from '@/lib/planner';
+import { STEP_LABEL, addMember, buildOf, joinKind, moveMember, moveMemberTo, removeMember, slotCount, type Build, type PlanSlot, type Roster } from '@/lib/planner';
 import { BuildPlan } from './BuildPlan';
 import { useParty } from './useParty';
 import { Runs } from './Runs';
@@ -59,6 +59,16 @@ function PlanChips({ build, ladder, slots, onOpen, name }: {
 function UnitPiece({ entry, roster, color, outline, size = 52 }: { entry: Entry; roster: Block; color: string; outline?: boolean; size?: number }) {
   const symbol = symbolFor(entry, roster);
   const inside = symbol ? <BlockIcon name={symbol} size={Math.round(size * 0.22)} strokeWidth={2.4} /> : initials(entry.name);
+  // Still to recruit: the split outline, with their portrait inside it when they have one (review, 2026-11-20:
+  // rows of bare outlines all looked alike on a phone).
+  if (outline && entry.icon) {
+    return (
+      <span className="relative inline-grid shrink-0 place-items-center">
+        <Piece size={size} outline />
+        <span className="absolute inset-0 grid place-items-center"><Piece size={Math.round(size * 0.74)} image={entry.icon} className="opacity-90" /></span>
+      </span>
+    );
+  }
   if (outline) return <Piece size={size} outline>{inside}</Piece>;
   return <Piece size={size} color={color} image={entry.icon}>{entry.icon ? null : inside}</Piece>;
 }
@@ -202,10 +212,12 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
                   </span>
                 ) : recruits && (
                   // The Recruited tick, the same one as on the unit's card: a piece that snaps solid.
+                  // Its word under it, so it reads as "Recruited" without a hover (review, 2026-11-20).
                   <button onClick={() => { if (!got) setSnapped(e.id); toggle(recruitKey(e)); }} aria-pressed={got} aria-label={`${e.name} recruited`}
-                    className="grid size-11 shrink-0 place-items-center" title={got ? 'Recruited' : 'Mark as recruited'}>
+                    className="grid w-16 shrink-0 justify-items-center gap-0.5 py-1" title={got ? 'Recruited. Tap to undo' : 'Mark as recruited'}>
                     {got ? <Piece size={30} color={color} snap={snapped === e.id}><Check size={13} strokeWidth={3} aria-hidden="true" /></Piece>
                       : <Piece size={30} outline />}
+                    <span className={'text-[11px] font-bold leading-tight ' + (got ? 'text-ink' : 'text-muted')}>{got ? 'Recruited' : 'Recruited?'}</span>
                   </button>
                 )}
               </li>
@@ -239,17 +251,44 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
   );
 }
 
-/** The roster as pieces to tap in or out of the party, A to Z, searchable (Matt, 2026-11-15: groups spread it out too much). */
+/**
+ * The roster as pieces to tap in or out of the party, A to Z, searchable (Matt, 2026-11-15: groups spread
+ * it out too much). Each shows its group and class, and when they join if that's not the usual recruiting
+ * (review, 2026-11-20): the Flame Lord whose run it is, someone who joins by themselves, someone who only
+ * joins in a later Part. Units that can't be planned for (only playable now and then, or nobody knows how)
+ * are grayed. Filters: group, class, and how they join.
+ */
+type JoinFilter = 'all' | 'recruit' | 'auto' | 'later';
+const JOIN_FILTERS: { key: JoinFilter; label: string }[] = [
+  { key: 'all', label: 'Everyone' }, { key: 'recruit', label: 'You recruit' }, { key: 'auto', label: 'Join automatically' }, { key: 'later', label: 'Join later' },
+];
+
 function Picker({ roster, entries, party, size, color, ctx, onToggle, onDone }: {
   roster: Block; entries: Entry[]; party: string[]; size: number; color: string; ctx: BlockContext;
   onToggle: (id: string) => void; onDone: () => void;
 }) {
   const [query, setQuery] = useState('');
+  const [join, setJoin] = useState<JoinFilter>('all');
+  const [group, setGroup] = useState('');
+  const [cls, setCls] = useState('');
   const q = query.trim().toLowerCase();
-  const shown = entries.filter((e) => (ctx.spoilers || !e.spoiler || party.includes(e.id)) && (!q || e.name.toLowerCase().includes(q)));
+  const groupKey = roster.filters?.[0] ?? 'Group';
+  const classKey = (roster.fields ?? []).find((f) => !f.off && f.kind === 'tag' && /class|role/i.test(`${f.key} ${f.label}`))?.key;
+  const kinds = useMemo(() => new Map(entries.map((e) => [e.id, joinKind(e, ctx.route)])), [entries, ctx.route]);
+  const values = (key?: string) => key ? [...new Set(entries.map((e) => e.categories[key]).filter(Boolean))].sort() : [];
+  const groups = values(groupKey), classes = values(classKey);
+  const fits = (e: Entry) => {
+    const k = kinds.get(e.id)!.kind;
+    if (join === 'recruit' && k !== 'none') return false;
+    if (join === 'auto' && k !== 'auto' && k !== 'lord') return false;
+    if (join === 'later' && k !== 'later') return false;
+    return (!group || e.categories[groupKey] === group) && (!cls || (classKey !== undefined && e.categories[classKey] === cls));
+  };
+  const shown = entries.filter((e) => (ctx.spoilers || !e.spoiler || party.includes(e.id)) && (!q || e.name.toLowerCase().includes(q)) && fits(e));
   const hidden = entries.filter((e) => e.spoiler && !ctx.spoilers && !party.includes(e.id)).length;
-  const sorted = useMemo(() => [...shown].sort((a, b) => a.name.localeCompare(b.name)), [shown]);
+  const sorted = [...shown].sort((a, b) => a.name.localeCompare(b.name));
   const full = party.length >= size;
+  const select = 'h-9 min-w-0 max-w-[11rem] rounded-full bg-card px-3 text-sm font-bold ring-1 ring-line hover:ring-ink';
 
   return (
     <section aria-label={`Pick from ${roster.title}`} className="mt-3 rounded-2xl bg-card-2 p-3 ring-1 ring-line">
@@ -261,31 +300,56 @@ function Picker({ roster, entries, party, size, color, ctx, onToggle, onDone }: 
         </label>
         <button onClick={onDone} className="btn-primary shrink-0 rounded-full px-4 py-2 text-sm font-bold">Done</button>
       </div>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {JOIN_FILTERS.map((f) => (
+          <button key={f.key} onClick={() => setJoin(f.key)} aria-pressed={join === f.key}
+            className={'h-9 rounded-full px-3 text-sm font-bold ring-1 ' + (join === f.key ? 'bg-ink text-white ring-ink' : 'bg-card ring-line hover:ring-ink')}>{f.label}</button>
+        ))}
+        {groups.length > 1 && (
+          <select value={group} onChange={(e) => setGroup(e.target.value)} aria-label={`Filter by ${groupKey}`} className={select}>
+            <option value="">Any {groupKey.toLowerCase()}</option>
+            {groups.map((g) => <option key={g} value={g}>{g}</option>)}
+          </select>
+        )}
+        {classes.length > 1 && (
+          <select value={cls} onChange={(e) => setCls(e.target.value)} aria-label="Filter by class" className={select}>
+            <option value="">Any class</option>
+            {classes.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
+      </div>
       <p className="mt-2 px-1 text-sm text-muted" aria-live="polite">
         {full ? 'Your party is full: tap someone in it to take them out.' : `Tap to add, tap again to take out. ${party.length} of ${size < 100 ? size : 'any'} picked.`}
       </p>
-      {sorted.length === 0 && <p className="px-1 py-4 text-sm text-muted">Nobody called that on this route.</p>}
+      {sorted.length === 0 && <p className="px-1 py-4 text-sm text-muted">Nobody like that on this route.</p>}
       {sorted.length > 0 && (
-        <div className="mt-2">
-          <ul className="grid grid-cols-[repeat(auto-fill,minmax(4.25rem,1fr))] gap-x-1.5 gap-y-2">
-            {sorted.map((e) => {
-              const on = party.includes(e.id);
-              return (
-                <li key={e.id}>
-                  <button onClick={() => onToggle(e.id)} aria-pressed={on} disabled={!on && full}
-                    className="group grid w-full justify-items-center gap-1 rounded-xl p-1 text-center disabled:opacity-40">
-                    {/* Yellow marks the player's own choice. */}
-                    <span className={'relative rounded-xl p-0.5 ' + (on ? 'bg-signal' : 'group-hover:bg-card')}>
-                      <UnitPiece entry={e} roster={roster} color={color} size={44} />
-                      {on && <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-ink text-white"><Check size={12} strokeWidth={3} aria-hidden="true" /></span>}
+        <ul className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(5.75rem,1fr))] gap-x-1 gap-y-2.5">
+          {sorted.map((e) => {
+            const on = party.includes(e.id);
+            const k = kinds.get(e.id)!;
+            const off = k.kind === 'unplannable' && !on;
+            const sub = [e.categories[groupKey], classKey ? e.categories[classKey] : undefined].filter(Boolean).join(' · ');
+            return (
+              <li key={e.id}>
+                <button onClick={() => onToggle(e.id)} aria-pressed={on} disabled={!on && full} title={k.label}
+                  className={'group grid w-full justify-items-center gap-0.5 rounded-xl p-1 text-center disabled:opacity-40 ' + (off ? 'opacity-50' : '')}>
+                  {/* Yellow marks the player's own choice. */}
+                  <span className={'relative rounded-xl p-0.5 ' + (on ? 'bg-signal' : 'group-hover:bg-card')}>
+                    <UnitPiece entry={e} roster={roster} color={color} size={44} />
+                    {on && <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-ink text-white"><Check size={12} strokeWidth={3} aria-hidden="true" /></span>}
+                  </span>
+                  <span className="line-clamp-2 text-xs font-bold leading-tight">{e.name}</span>
+                  {sub && <span className="line-clamp-1 text-[11px] leading-tight text-muted">{sub}</span>}
+                  {k.label && (
+                    <span className={'mt-0.5 rounded-full px-1.5 py-px text-[10px] font-bold leading-tight ' + (k.kind === 'lord' ? 'bg-signal text-ink' : k.kind === 'unplannable' ? 'bg-card text-muted ring-1 ring-line' : 'bg-card text-ink ring-1 ring-line')}>
+                      {k.label}
                     </span>
-                    <span className="line-clamp-2 text-xs font-bold leading-tight">{e.name}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       )}
       {hidden > 0 && (
         <p className="mt-3 px-1 text-sm text-muted">{hidden} hidden as spoilers. <button onClick={ctx.onShowSpoilers} className="font-bold underline underline-offset-2">Show them</button></p>

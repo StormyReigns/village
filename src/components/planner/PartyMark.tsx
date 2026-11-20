@@ -13,7 +13,8 @@ import { PARTY_EVENT, partyIndexKey } from './useParty';
 // the route picked in the switcher. Tapping it opens that unit's plan on the Party Page. Nothing shows
 // on the Party Page itself, in previews, or for anything not in the plan.
 
-function useIndex(gameId: string) {
+/** The party index on this device, kept current as the Planner changes it. */
+export function usePartyIndex(gameId: string) {
   const [index, setIndex] = useState<PartyIndex | null>(null);
   useEffect(() => {
     if (!gameId) return;
@@ -32,7 +33,7 @@ export function PartyMark({ blockId, entryId }: { blockId: string; entryId: stri
   const gameId = String(useParams<{ game?: string }>()?.game ?? '');
   const path = usePathname();
   const [prefs] = usePlayerPrefs(gameId);
-  const index = useIndex(gameId);
+  const index = usePartyIndex(gameId);
   if (!index || path === index.href) return null;
   const here = index.byRoute[planKey(prefs.route)];
   if (!here) return null;

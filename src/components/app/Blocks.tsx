@@ -1,6 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { byDeadline, choiceOptions, helpsWho } from '@/lib/deadline';
+import { planKey } from '@/lib/planner';
+import { usePartyIndex } from '@/components/planner/PartyMark';
 import Link from 'next/link';
 import { Check, ChevronDown, Hourglass, Plus, Search, Sparkles } from 'lucide-react';
 import type { Block, Entry, Route, Tint } from '@/data/pages';
@@ -348,6 +351,28 @@ function Ring({ done, total, tint }: { done: number; total: number; tint: Tint }
   );
 }
 
+/** A choose-one last chance: each option, what it gives, and who in your party it helps (review, 2026-11-20). */
+function Options({ e, bands, items }: { e: Entry; bands?: Record<string, string[]>; items?: Record<string, string[]> }) {
+  const opts = choiceOptions(e.description);
+  if (!opts.length) return null;
+  return (
+    <div className="mt-2 text-sm">
+      <p className="text-xs font-bold uppercase tracking-wide text-muted">Pick one</p>
+      <ul className="mt-1 grid gap-1">
+        {opts.map((o) => {
+          const who = helpsWho(o.gives, bands, items);
+          return (
+            <li key={o.name} className="rounded-lg bg-card px-2 py-1 ring-1 ring-line">
+              <span className="font-bold">{o.name}</span> <span className="text-muted">gives</span> <RichText text={o.gives} />
+              {who.length > 0 && <span className="block text-xs font-bold text-ink">Helps {who.join(', ')} in your party</span>}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function Checklist({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const { shown, offRoute, spoilers } = useVisible(block, ctx);
   const [ticks, toggle] = useTicks(ctx.gameId);
@@ -362,13 +387,19 @@ function Checklist({ block, ctx }: { block: Block; ctx: BlockContext }) {
     setSnapped(ticks.has(k) ? null : k);
     setTimeout(() => setSnapped((s) => (s === k ? null : s)), 700);
   };
-  const todo = shown.filter((e) => !ticks.has(key(e)) || key(e) === snapped);
-  const done = shown.filter((e) => ticks.has(key(e)) && key(e) !== snapped);
   const t = TINT[ctx.tint];
   const deadline = (e: Entry) => {
     if (ctx.route !== 'all') return e.perRoute?.[ctx.route]?.[0]?.text ?? e.sections.find((s) => s.label === 'Before')?.text;
     return e.sections.find((s) => s.label === 'Before')?.text ?? (e.perRoute ? 'Depends on your Flame Lord. Pick one above.' : undefined);
   };
+  // In the order the deadlines come, so "Next up" really is next (src/lib/deadline.ts). With All
+  // picked, an entry whose deadline differs by route goes by its earliest one.
+  const ordered = byDeadline(shown, ctx.route);
+  // For a choose-one last chance: what each option gives, and who in your party it helps (this route's plan).
+  const index = usePartyIndex(ctx.gameId);
+  const here = ctx.route !== 'all' ? index?.byRoute[planKey(ctx.route)] : undefined;
+  const todo = ordered.filter((e) => !ticks.has(key(e)) || key(e) === snapped);
+  const done = ordered.filter((e) => ticks.has(key(e)) && key(e) !== snapped);
 
   const row = (e: Entry, i: number) => {
     const on = ticks.has(key(e));
@@ -392,6 +423,7 @@ function Checklist({ block, ctx }: { block: Block; ctx: BlockContext }) {
               <Hourglass size={13} className={`mt-1 shrink-0 ${t.text}`} aria-hidden="true" /> <span><RichText text={deadline(e)!.split('\n')[0]} /></span>
             </span>
           )}
+          {!on && <Options e={e} bands={here?.bands} items={here?.items} />}
         </div>
       </li>
     );

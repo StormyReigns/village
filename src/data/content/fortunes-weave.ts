@@ -131,7 +131,7 @@ type Para = [title: string, owner: string, reward: string, windows: [string, str
 const PARALOGUES: Para[] = [
   ['Diversionary Tactics', 'Leda', 'Silver Shield', ['', 'Ch 9, 9/2–9/8', 'Ch 10, 9/2–9/8', ''], 'Unlocks Buccar off-route.'],
   ['Missing Brave-Warrior Statue', 'Theodora', 'Pilum', ['', 'Ch 9, 9/3–9/15', '', ''], 'Starts at the Purification Shrine.'],
-  ['Secret of the Vanished Carriage', 'Talimun', 'Cleansing Blade', ['Ch 10, 9/17–9/22 and 10/1–10/12', 'Ch 9, 9/17–9/19 and 10/1–10/12', 'Ch 11, same dates as Cai', ''], 'Starts at Dragdon Pass. Unlocks Ursula.'],
+  ['Secret of the Vanished Carriage', 'Talimun', 'Cleansing Blade', ['Ch 10, 9/17–9/22 and 10/1–10/12', 'Ch 9, 9/17–9/19 and 10/1–10/12', 'Ch 11, 9/17–9/22 and 10/1–10/12', ''], 'Starts at Dragdon Pass. Unlocks Ursula.'],
   ["Friendly Match with Brigid's King", 'Bertrand', 'Extra Large Bullion', ['Ch 10, 9/17–9/25', 'Ch 9, 9/17 only', 'Ch 11, 9/17–9/25', ''], 'Talk to Gabriel in Dagsion. Unlocks Gaitz and Peppe. Dietrich gets a one-day window.'],
   ['Golden Secret', 'Anna', 'Orichalcum', ['Ch 10, 9/24–10/5', 'Ch 10, 9/29–10/5', 'Ch 11, 9/24–10/5', ''], ''],
   ['Queen of the Erased', 'Anatolia', 'Electron Agitator', ['', 'Ch 11, 10/5–10/17', '', 'Ch 10, 10/5–10/17'], "Starts at Pale Raven's Perch. Unlocks Sha Lan."],

@@ -47,7 +47,8 @@ async function Bar({ params }: { params: LayoutProps<'/g/[game]'>['params'] }) {
       {game && (
         <>
           <span className="hidden h-6 w-px bg-white/20 sm:block" aria-hidden="true" />
-          <Link href={`/g/${id}`} className="min-w-0 truncate font-bold">{game.shortTitle}</Link>
+          {/* Two short lines on a phone rather than "Fortu…" (review, 2026-11-20). */}
+          <Link href={`/g/${id}`} className="line-clamp-2 min-w-0 text-sm font-bold leading-tight sm:truncate sm:text-base">{game.shortTitle}</Link>
         </>
       )}
     </TopBar>
