@@ -268,7 +268,7 @@ export function CharacterInputs({ block, content, set, setField, setStat, show, 
             {placeTo && <NotBuilt name={listItems(v)[0]?.name ?? ''} target={placeTo} />}
             {/* What others already use, one tap away, on one line that scrolls sideways. */}
             {suggestions.length > 0 && (
-              <span className="chip-strip -mx-1 flex gap-1.5 overflow-x-auto px-1">
+              <span className="chip-strip -mx-1 -my-1 flex gap-1.5 overflow-x-auto px-1 py-1">
                 {suggestions.slice(0, 12).map((s) => (
                   <button key={s} type="button" onClick={() => put(s)} className="shrink-0 rounded-full bg-card px-2.5 py-0.5 text-xs font-bold ring-1 ring-line hover:ring-ink">{s}</button>
                 ))}

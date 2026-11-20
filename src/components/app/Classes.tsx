@@ -113,7 +113,7 @@ export function Classes({ block, ctx }: { block: Block; ctx: BlockContext }) {
         )}
       </div>
       {chipTag && chipValues.length > 1 && (
-        <ScrollRow className="-mx-1 mt-3 flex items-center gap-1.5 px-1 pb-1" role="group" label={`Filter by ${chipTag.label}`}>
+        <ScrollRow className="-mx-1 mt-2 flex items-center gap-1.5 px-1 py-1" role="group" label={`Filter by ${chipTag.label}`}>
           <FilterChip on={!pick} tint={ctx.tint} onClick={() => setPick(null)}>All · {shown.length}</FilterChip>
           {chipValues.map(([v, n]) => <FilterChip key={v} on={pick === v} tint={ctx.tint} onClick={() => setPick(pick === v ? null : v)}>{v} · {n}</FilterChip>)}
         </ScrollRow>

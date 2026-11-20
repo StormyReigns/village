@@ -199,7 +199,7 @@ function Collection({ block, ctx }: { block: Block; ctx: BlockContext }) {
         </p>
       )}
       {values.length > 1 && !(isMap && !asList && !query.trim()) && (
-        <ScrollRow className="-mx-1 mt-3 flex gap-1.5 px-1 pb-1" role="group" label={`Filter by ${filter}`}>
+        <ScrollRow className="-mx-1 mt-2 flex gap-1.5 px-1 py-1" role="group" label={`Filter by ${filter}`}>
           <FilterChip on={!pick} tint={ctx.tint} onClick={() => setPick(null)}>All · {shown.length}</FilterChip>
           {values.map(([v, n]) => <FilterChip key={v} on={pick === v} tint={ctx.tint} onClick={() => setPick(pick === v ? null : v)}>{v} · {n}</FilterChip>)}
         </ScrollRow>

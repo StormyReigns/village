@@ -134,7 +134,7 @@ export function Characters({ block, ctx }: { block: Block; ctx: BlockContext }) 
       </div>
       {values.length > 1 && (
         <div ref={chips}>
-        <ScrollRow className="-mx-1 mt-3 flex items-center gap-1.5 px-1 pb-1" role="group" label={`Filter by ${filterLabel}`}>
+        <ScrollRow className="-mx-1 mt-2 flex items-center gap-1.5 px-1 py-1" role="group" label={`Filter by ${filterLabel}`}>
           {/* Which tag the chips filter by, when there's more than one to choose from. */}
           {tags.length > 1 && (
             <label className="shrink-0">

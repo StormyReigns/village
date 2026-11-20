@@ -322,7 +322,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
     
             {!fixing && (
               <div className="mt-3 grid gap-2">
-                <ScrollRow className="-mx-1 flex gap-2 px-1 pb-1" role="group" label="Page">
+                <ScrollRow className="-mx-1 -mt-1 flex gap-2 px-1 py-1" role="group" label="Page">
                   {pages.map((p) => (
                     <button key={p.id} type="button" onClick={() => p.blocks[0] && choose(p.blocks[0].id)} aria-pressed={p.id === page.id} disabled={!p.blocks.length}
                       className={'inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (p.id === page.id ? 'bg-leaf text-paper ring-leaf' : 'bg-card ring-line hover:ring-leaf')}>

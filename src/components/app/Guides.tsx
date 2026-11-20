@@ -164,7 +164,7 @@ export function Guides({ block, ctx }: { block: Block; ctx: BlockContext }) {
         </label>
       )}
       {chips.length > 1 && (
-        <ScrollRow className="-mx-1 mt-2 flex gap-1.5 px-1 pb-1" role="group" label={tag?.label ?? 'Filter'}>
+        <ScrollRow className="-mx-1 mt-1 flex gap-1.5 px-1 py-1" role="group" label={tag?.label ?? 'Filter'}>
           <FilterChip on={!pick} tint={ctx.tint} onClick={() => setPick(null)}>All</FilterChip>
           {chips.map((c) => <FilterChip key={c} on={pick === c} tint={ctx.tint} onClick={() => setPick(pick === c ? null : c)}>{c}</FilterChip>)}
         </ScrollRow>
