@@ -311,12 +311,13 @@ export function MapCanvas({ src, pic, alt, pins, selected, onPin, onSpot, credit
 
   const pinButton = (p: (typeof onScreen)[number]) => (
     <button key={p.id} type="button" data-map-ui onClick={() => onPin?.(p.id)} aria-label={p.name} aria-pressed={p.id === selected}
-      className="absolute grid place-items-center outline-none focus-visible:[filter:drop-shadow(0_0_2px_var(--signal))_drop-shadow(0_0_2px_var(--signal))]"
+      className="group absolute grid place-items-center outline-none hover:z-10 focus-visible:z-10 focus-visible:[filter:drop-shadow(0_0_2px_var(--signal))_drop-shadow(0_0_2px_var(--signal))]"
       style={{ left: p.x, top: p.y, width: PIN + 12, height: pieceHeight(PIN) + 12, transform: 'translate(-50%, -50%)' }}>
       <MapPinShape done={p.done} big={p.id === selected} halo={p.ring || p.id === selected}>{p.done ? <Check size={13} strokeWidth={3.5} aria-hidden="true" /> : p.mark}</MapPinShape>
-      {p.id === selected && (
-        <span className="pointer-events-none absolute top-full mt-0.5 max-w-40 truncate rounded-full bg-card px-2 py-0.5 text-xs font-bold text-ink shadow-soft ring-1 ring-line">{p.name}</span>
-      )}
+      {/* The name under the pin: always for the picked one, and on mouseover (or keyboard focus)
+          for the rest. Hover only counts with a mouse, so a tap on a phone doesn't leave it stuck. */}
+      <span className={'pointer-events-none absolute top-full mt-0.5 max-w-40 truncate whitespace-nowrap rounded-full bg-card px-2 py-0.5 text-xs font-bold text-ink shadow-soft ring-1 ring-line '
+        + (p.id === selected ? '' : 'hidden group-hover:block group-focus-visible:block')}>{p.name}</span>
     </button>
   );
 

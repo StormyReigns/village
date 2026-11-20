@@ -119,10 +119,12 @@ export function PlaceSheet({ entry, block, ctx, clearKey, open, onOpenChange, on
     <>
       {/* All the way up, the rest of the screen dims; a tap there tucks it away again. */}
       {open && <div className="fixed inset-0 z-[89] bg-ink/25" onClick={() => onOpenChange(false)} aria-hidden="true" />}
-      {/* One smooth glide, no overshoot: the curve phones use for sheets. */}
-      <div ref={shell} className={'fixed bottom-0 z-[90] ' + (lane ? '' : 'inset-x-0 mx-auto w-full max-w-xl')} style={lane ? { left: lane.left, width: lane.width } : undefined}>
+      {/* One smooth glide, no overshoot: the curve phones use for sheets. The shell keeps the
+          tray's full height while the tray slides down inside it, so only the tray takes taps:
+          the map shows (and works) through the rest. */}
+      <div ref={shell} className={'pointer-events-none fixed bottom-0 z-[90] ' +(lane ? '' : 'inset-x-0 mx-auto w-full max-w-xl')} style={lane ? { left: lane.left, width: lane.width } : undefined}>
       <div role="dialog" aria-label={entry.name} aria-modal={open}
-        className={'flex max-h-[85dvh] flex-col rounded-t-[1.75rem] bg-card shadow-[0_-6px_24px_rgb(0_0_0/.22)] ring-1 ring-line '
+        className={'pointer-events-auto flex max-h-[85dvh] flex-col rounded-t-[1.75rem] bg-card shadow-[0_-6px_24px_rgb(0_0_0/.22)] ring-1 ring-line '
           + (drag == null ? 'transition-transform duration-[260ms] ease-[cubic-bezier(.32,.72,0,1)] motion-reduce:transition-none' : '')}
         style={{ transform: `translateY(${y})` }}>
         {/* The top: drag it, or tap it. */}
