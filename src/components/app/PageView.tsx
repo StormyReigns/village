@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, ChevronDown, Clock, Eye, EyeOff, Hourglass, Info, Search, Signpost } from 'lucide-react';
 import type { Block, Entry, Page, Route } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
-import { Piece } from '@/components/Piece';
+import { GLITCH, Piece } from '@/components/Piece';
 import { Tip } from '@/components/Tip';
 import { usePlayerPrefs } from '@/components/usePlayerPrefs';
 import { BlockView, type BlockContext } from './Blocks';
@@ -25,9 +25,17 @@ import { EntryIcon, type RouteOption } from './EntryPanel';
 import { colorFor, entryText, onRoute, useRecent, useTicks } from './entries';
 import { closest, rank } from '@/lib/search';
 import { entriesOf } from '@/lib/fields';
+import { completeness } from '@/lib/completeness';
 import { TINT } from './tint';
 import { AllQuestions, AskFromSearch, QuestionBar, type QPage } from '@/components/questions/Questions';
 import { CommunitiesCard } from '@/components/communities/Communities';
+
+/**
+ * A game counts as still being built (its front page says so, with what needs help) until it has this
+ * many entries and this share of them filled in. Fortune's Weave, at 559 and 44% (2026-11-21), is built.
+ */
+const BUILT_COUNT = 100;
+const BUILT_SHARE = 0.3;
 
 export interface AppGame {
   id: string;
@@ -39,8 +47,16 @@ export interface AppGame {
 }
 
 /**
+ * What a game calls its routes, from its question: "Which Flame Lord are you playing?" is "Flame Lord".
+ * Plain "Route" when the question doesn't say.
+ */
+export function routeNoun(question?: string) {
+  return question?.match(/^Which (.{1,24}?) (?:are|is|do|did|will)\b/i)?.[1] ?? 'Route';
+}
+
+/**
  * Pick your route on a Page: one small chip that opens the phone's own picker. Yellow once a
- * Flame Lord is picked (yellow is "your choice"). Remembered on this device.
+ * route is picked (yellow is "your choice"). Remembered on this device.
  */
 function RouteMenu({ game, route, onPick }: { game: AppGame; route: Route | 'all'; onPick: (r: Route | 'all') => void }) {
   const picked = route !== 'all' ? game.routes.find((r) => r.key === route) : undefined;
@@ -48,7 +64,7 @@ function RouteMenu({ game, route, onPick }: { game: AppGame; route: Route | 'all
     <label className={'relative inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-sm font-bold ring-1 focus-within:ring-2 focus-within:ring-sky '
       + (picked ? 'bg-signal text-ink ring-signal' : 'bg-card ring-line hover:ring-ink')}>
       <Signpost size={14} aria-hidden="true" />
-      <span className="hidden opacity-70 sm:inline">Flame Lord</span>
+      <span className="hidden opacity-70 sm:inline">{routeNoun(game.routeQuestion)}</span>
       {picked?.label ?? 'All'}
       <ChevronDown size={14} aria-hidden="true" />
       <select value={route} onChange={(e) => onPick(e.target.value as Route | 'all')} aria-label={game.routeQuestion ?? 'Route'}
@@ -60,11 +76,11 @@ function RouteMenu({ game, route, onPick }: { game: AppGame; route: Route | 'all
   );
 }
 
-/** Pick your route: All, or one Flame Lord. Remembered on this device. */
+/** Pick your route: All, or one of the game's routes. Remembered on this device. */
 function RoutePicker({ game, route, onPick, solid }: { game: AppGame; route: Route | 'all'; onPick: (r: Route | 'all') => void; solid: string }) {
   return (
     <div role="radiogroup" aria-label={game.routeQuestion ?? 'Route'} className="chip-strip flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full bg-card p-1 text-ink ring-1 ring-line">
-      <span className="hidden px-2 text-xs font-bold uppercase tracking-wide text-muted sm:inline">Flame Lord</span>
+      <span className="hidden px-2 text-xs font-bold uppercase tracking-wide text-muted sm:inline">{routeNoun(game.routeQuestion)}</span>
       {[{ key: 'all', label: 'All' } as const, ...game.routes].map((r) => (
         <button key={r.key} role="radio" aria-checked={route === r.key} onClick={() => onPick(r.key)}
           className={'shrink-0 rounded-full px-2.5 py-1.5 text-sm font-bold sm:px-3 ' + (route === r.key ? solid : 'hover:bg-card-2')}>
@@ -148,7 +164,7 @@ export function PageView({ game, page, openOnLoad, scrollTo, links = [], mention
             ))}
             <span className="ml-auto flex items-center gap-1.5">
               {byRoute && (
-                <Tip text="Pick your Flame Lord to see only your route's units, deadlines and story" tint={page.tint}>
+                <Tip text={`Pick your ${routeNoun(game.routeQuestion).replace(/^Route$/, 'route')} to see only what fits your playthrough`} tint={page.tint}>
                   {/* Until this device's route is read, a quiet placeholder rather than a flash of "All". */}
                   {ready ? <RouteMenu game={game} route={prefs.route} onPick={(r) => setPrefs({ route: r })} />
                     : <span className="inline-block h-8 w-24 animate-pulse rounded-full bg-card ring-1 ring-line" aria-hidden="true" />}
@@ -190,6 +206,9 @@ function AppSearch({ gameId, pages }: { gameId: string; pages: Page[] }) {
   const [going, setGoing] = useState<string | null>(null);
   const all = useMemo(() => pages.flatMap((p) => p.blocks.flatMap((b) => b.entries.map((e) => ({ p, b, e })))), [pages]);
   const view = (h: { e: Entry }) => entryText(h.e);
+  // This game's own Pages as the hint ("Search units, items, world…"), never another game's words.
+  const shorts = pages.filter((p) => p.blocks.some((b) => b.entries.length)).map((p) => (p.short || p.title).toLowerCase());
+  const placeholder = shorts.length ? `Search ${shorts.slice(0, 3).join(', ')}…` : 'Search the app…';
   const searching = query.trim().length >= 2;
   const open = all.filter(({ e }) => !e.spoiler);
   const hits = searching ? rank(open, query, view).slice(0, 12) : [];
@@ -218,7 +237,7 @@ function AppSearch({ gameId, pages }: { gameId: string; pages: Page[] }) {
     <div className="relative">
       <label className="flex items-center gap-3 rounded-full bg-card px-4 py-3 ring-1 ring-line focus-within:ring-2 focus-within:ring-sky">
         <Search size={18} className="text-muted" aria-hidden="true" />
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search units, items, places…" aria-label="Search the app"
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={placeholder} aria-label="Search the app"
           className="min-w-0 flex-1 bg-transparent text-lg outline-none placeholder:text-muted" />
       </label>
       {searching && (
@@ -265,6 +284,16 @@ export function AppHome({ game, pages }: { game: AppGame; pages: Page[] }) {
     return null;
   })();
 
+  // How filled in each Page is: the Workshop's "78 of 148 filled in" (src/lib/completeness.ts).
+  const progress = useMemo(() => new Map(pages.map((p) => {
+    let done = 0, total = 0;
+    for (const b of p.blocks) { const c = completeness(b); done += c.done; total += c.total; }
+    return [p.id, { done, total }] as const;
+  })), [pages]);
+  const filled = [...progress.values()].reduce((a, c) => ({ done: a.done + c.done, total: a.total + c.total }), { done: 0, total: 0 });
+  // A game still being built shows it on its front page, so early Builders see where to help.
+  const building = filled.total < BUILT_COUNT || filled.done / filled.total < BUILT_SHARE;
+
   return (
     <div className="mt-3 grid gap-5 lg:mt-0">
       {/* An ink banner, no game art: a few Pages' pieces and one empty slot for what players add next. */}
@@ -295,6 +324,18 @@ export function AppHome({ game, pages }: { game: AppGame; pages: Page[] }) {
           lately and where you left off. Two to a row; a card left on its own fills the row. */}
       <div className="grid gap-3 md:grid-cols-2 md:[&>*:last-child:nth-child(odd)]:col-span-2">
         {/* Your party for this run and what to do next for them (docs/blocks/planner.md). */}
+        {/* Still being built: how much is filled in, and the way to the Workshop. A split outline is "not built yet". */}
+        {building && (
+          <Link href={`/g/${game.id}/workshop?tab=app`} className="lift flex items-center gap-3 rounded-2xl bg-card p-4 ring-1 ring-line">
+            <Piece size={56} outline />
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-bold uppercase tracking-wide" style={{ color: GLITCH.violet }}>Still being built</span>
+              <span className="block font-bold leading-tight">{filled.total ? `${filled.done} of ${filled.total} filled in` : 'Nothing added yet'}</span>
+              <span className="block text-sm text-muted">Players are building {game.shortTitle}. Help in the Workshop; each Page below says what needs it.</span>
+            </span>
+            <ArrowRight size={18} className="mt-1 text-muted" aria-hidden="true" />
+          </Link>
+        )}
         {ready && <PartyHome gameId={game.id} pages={pages} route={prefs.route} />}
         <HelpSolve gameId={game.id} pages={pages} />
           {ready && next && (
@@ -303,7 +344,9 @@ export function AppHome({ game, pages }: { game: AppGame; pages: Page[] }) {
               <span className="min-w-0 flex-1">
                 <span className={`block text-xs font-bold uppercase tracking-wide ${TINT[next.p.tint].text}`}>Your next last chance</span>
                 <span className="block font-bold leading-tight">{next.e.name}</span>
-                <span className="block text-sm text-muted">{next.when ? `Before ${next.when.split('\n')[0]}` : 'Pick your Flame Lord to see the deadline.'}</span>
+                {(next.when || game.routes.length > 0) && (
+                  <span className="block text-sm text-muted">{next.when ? `Before ${next.when.split('\n')[0]}` : `Pick your ${routeNoun(game.routeQuestion).replace(/^Route$/, 'route')} to see the deadline.`}</span>
+                )}
               </span>
               <ArrowRight size={18} className="mt-1 text-muted" aria-hidden="true" />
             </Link>
@@ -331,16 +374,40 @@ export function AppHome({ game, pages }: { game: AppGame; pages: Page[] }) {
       <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {pages.map((p) => {
           const t = TINT[p.tint];
-          // A Page card is a small version of the Page: its color field and its symbol in a piece.
+          const pr = progress.get(p.id) ?? { done: 0, total: 0 };
+          const needy = pr.total - pr.done;
+          // A Party (Planner) or Tier list Page holds players' own plans and rankings, not entries to add.
+          const holdsEntries = p.blocks.some((b) => b.type !== 'planner' && b.type !== 'tierlist');
+          const help = `/g/${game.id}/workshop?page=${p.id}&tab=app`;
+          // A Page card is a small version of the Page: its color field and its symbol in a piece. The
+          // whole card opens the Page; while the game is being built, "needs help" opens it in the Workshop.
           return (
-            <li key={p.id}>
-              <Link href={`/g/${game.id}/${p.id}`} className={`lift flex h-full flex-col rounded-2xl p-4 ${t.soft}`}
-                style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, var(--${p.tint}) 22%, var(--line))` }}>
-                <Piece size={64} color={`var(--${p.tint})`}><BlockIcon name={p.icon} size={19} strokeWidth={2.4} /></Piece>
-                <span className="mt-3 block font-display text-2xl leading-tight">{p.title}</span>
-                <span className="mt-1 block text-sm text-muted">{p.blurb}</span>
+            <li key={p.id} className={`lift relative flex h-full flex-col rounded-2xl p-4 ${t.soft}`}
+              style={{ boxShadow: `inset 0 0 0 1px color-mix(in srgb, var(--${p.tint}) 22%, var(--line))` }}>
+              <Piece size={64} color={`var(--${p.tint})`}><BlockIcon name={p.icon} size={19} strokeWidth={2.4} /></Piece>
+              <Link href={`/g/${game.id}/${p.id}`} className="mt-3 block font-display text-2xl leading-tight after:absolute after:inset-0 after:rounded-2xl">{p.title}</Link>
+              <span className="mt-1 block text-sm text-muted">{p.blurb}</span>
+              {!building ? (
                 <span className="mt-auto pt-3 text-xs font-bold text-muted">{p.blocks.reduce((n, b) => n + entriesOf(b).length, 0)} entries</span>
-              </Link>
+              ) : (
+                <span className="mt-auto flex flex-wrap items-center gap-x-2.5 gap-y-1 pt-3 text-xs">
+                  {pr.total > 0 && (
+                    <>
+                      <span aria-hidden="true" className="h-1.5 w-16 overflow-hidden rounded-full bg-card ring-1 ring-line">
+                        <span className="block h-full rounded-full" style={{ width: `${Math.round((pr.done / pr.total) * 100)}%`, background: `var(--${p.tint})` }} />
+                      </span>
+                      <span className="font-bold">{pr.done} of {pr.total} filled in</span>
+                    </>
+                  )}
+                  {(needy > 0 || (pr.total === 0 && holdsEntries)) && (
+                    <Link href={help} className="relative z-10 inline-flex items-center gap-1.5 rounded-full bg-card px-2.5 py-0.5 font-bold ring-1"
+                      style={{ color: GLITCH.violet, ['--tw-ring-color' as string]: `color-mix(in srgb, ${GLITCH.violet} 45%, transparent)` }}>
+                      <Piece size={14} outline />
+                      {pr.total === 0 ? 'Nothing yet: add the first' : `${needy} need${needy === 1 ? 's' : ''} help`}
+                    </Link>
+                  )}
+                </span>
+              )}
             </li>
           );
         })}

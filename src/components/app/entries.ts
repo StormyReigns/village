@@ -26,9 +26,8 @@ export function tintFor(word: string) {
   return TINTS[h % TINTS.length];
 }
 
-export function initials(name: string) {
-  return name.replace(/[^\p{L}\p{N}\s'-]/gu, '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
-}
+/** The letters inside an entry's piece, skipping small words (src/lib/initials.ts, tested). */
+export { initials } from '@/lib/initials';
 
 /** Does this entry show for the player's route? Entries without routes show everywhere. */
 export function onRoute(e: Entry, route: Route | 'all') {

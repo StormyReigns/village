@@ -342,7 +342,7 @@ export function EntryDetails({ entry, block, route, routes, fixHref, invite, col
       {allRoutes.length > 0 && (
         <div className="mt-4">
           <div className="flex items-center">
-            <p className="flex-1 text-xs font-bold uppercase tracking-wide text-muted">{allRoutes[0][1][0]?.label} by Flame Lord</p>
+            <p className="flex-1 text-xs font-bold uppercase tracking-wide text-muted">{allRoutes[0][1][0]?.label} by route</p>
             {fixHref && <FixPencil href={fixHref('routes')} what="the route details" />}
           </div>
           <dl className="mt-1.5 grid gap-1">

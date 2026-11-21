@@ -52,9 +52,9 @@ of it filled in on the right, and the example takes on your work as you fill it 
   wears your name, line, symbol and the Page's color.
 - **New entries** come from the "+ Add" on each Block, not the top button.
 - **Who:** anyone can fill it in. Moderators add it straight away (today's database rules already
-  allow it). Others can keep it on their device for now.
+  allow it). Signed-in Builders send it as a Draft (slice 2, below); signed out, they can keep it on their device.
 
-### Slice 2: Page and Block Drafts (built 2026-11-15; its SQL waits on the hub and Matt)
+### Slice 2: Page and Block Drafts (built 2026-11-15; live, Matt ran its SQL by 2026-11-21)
 
 Matt chose "any Builder, as a Draft". `20261122000000_page_block_drafts.sql` gives Drafts two more
 actions, `add_page` (a Page with its first Block) and `add_block`, following how removal Drafts were

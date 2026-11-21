@@ -190,6 +190,11 @@ Drafts, and the place form's "Where on the map".
 4. Ticks: Cleared per place and Beaten per foe (drafted), or also a tick per chest?
 5. First slice: Places first (map, Next up, the place card with Found here and Cleared), then
    Foes in slice 2?
+6. **Foes as a Characters Block first?** (Matt's Ocarina early-Builder review, 2026-11-21.) Before
+   building Foes as its own type, try it as a Characters Block with Set up fields: Weakness (list),
+   Where (a place link), and a Boss tag. Builders can make that today without us; a separate type is
+   only worth it for what Characters can't do (the Beaten tick, Found here on places, Drops linking
+   to items). No World Block chat was open to ask, so it waits here.
 
 ## The real map (Matt's idea, 2026-11-09, being worked out)
 

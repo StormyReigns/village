@@ -504,7 +504,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
 
       <label className="grid gap-1">
         <span className="text-sm font-bold">Where can others check this?</span>
-        <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="I saw it myself in chapter 6, or a link" className={input} />
+        <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="I saw it myself in the game, or a link" className={input} />
       </label>
       {WIKI.has(block.type) && <WikiSourceChip gameId={gameId} name={content.name} fix={content.wiki} source={source} onPick={setSource} />}
       <div className={(showAll ? 'flex' : 'hidden') + ' flex-wrap gap-x-5 gap-y-2 text-sm'}>

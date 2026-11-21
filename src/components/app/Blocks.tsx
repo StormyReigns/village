@@ -379,7 +379,7 @@ function Checklist({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const t = TINT[ctx.tint];
   const deadline = (e: Entry) => {
     if (ctx.route !== 'all') return e.perRoute?.[ctx.route]?.[0]?.text ?? e.sections.find((s) => s.label === 'Before')?.text;
-    return e.sections.find((s) => s.label === 'Before')?.text ?? (e.perRoute ? 'Depends on your Flame Lord. Pick one above.' : undefined);
+    return e.sections.find((s) => s.label === 'Before')?.text ?? (e.perRoute ? 'Depends on your route. Pick one above.' : undefined);
   };
   // In the order the deadlines come, so "Next up" really is next (src/lib/deadline.ts). With All
   // picked, an entry whose deadline differs by route goes by its earliest one.

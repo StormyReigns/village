@@ -103,8 +103,9 @@ export function Workshop({ game, pages, routes }: {
   const [openBatch, setOpenBatch] = useState<string | null>(null);
   // The work column shows Drafts or what's in the app. Until you pick, it opens on Drafts
   // when something waits on you.
-  // ?tab=questions (from the app's "Answer in the Workshop") opens the Questions tab.
-  const tabParam = (): 'questions' | null => (params.get('tab') === 'questions' ? 'questions' : null);
+  // ?tab=questions (from the app's "Answer in the Workshop") opens the Questions tab; ?tab=app
+  // (from the app home's "needs help" lines) opens In the app.
+  const tabParam = (): 'questions' | 'app' | null => { const t = params.get('tab'); return t === 'questions' || t === 'app' ? t : null; };
   const [tab, setTab] = useState<'drafts' | 'app' | 'questions' | null>(linked ? 'app' : tabParam());
   // ?draft=… (from the app's "A fix is waiting" note) opens that Draft.
   const [detail, setDetail] = useState<string | null>(params.get('draft'));
