@@ -264,6 +264,14 @@ while reordering; no sideways scroll. Touch dragging needs a real phone (the bro
   "Recruited?"), and a unit still to recruit shows their portrait inside the split outline (bare outlines all looked alike on
   a phone). The party index now also keeps who still has a class to reach in each tier (`bands`), so Last chances can say
   which party members a reward helps.
+- 2026-11-20: **My run**, under the party list (`MyRun.tsx`, logic in `src/lib/my-run.ts`). Matt: "Order by Renown, level".
+  The route's last chances grouped by the chapter of their deadline (Chapter 8, Chapter 11, End of Part I...), then a
+  "When you're ready" group just before the end of Part I: each party member still to recruit (their route's line) and
+  each planned class step (the tier's needs from its list, plus the class's exam), least Renown first, then lowest
+  level. Nothing gets a chapter it doesn't have. A class step waits for its unit's recruit Renown while they're still to
+  recruit, and recruits come first at equal Renown. A ring and "Next: ..." on top; done items fold away under "Show done".
+  The ticks are the same as everywhere: a last chance ticked here is ticked on Last chances, a recruit on Units, a class
+  "Reached" on the unit's plan. The Party Page gets the game's checklists with its roster (`deadlines` on `Roster`).
 
 ## Open questions
 

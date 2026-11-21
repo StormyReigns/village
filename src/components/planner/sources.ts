@@ -1,5 +1,6 @@
 import type { Entry, Route } from '@/data/pages';
-import { bandOf, bandOrder, classShape, rankLine } from '@/lib/classes';
+import { bandOf, bandOrder, choiceFor, classShape, rankLine } from '@/lib/classes';
+import { aboutParts } from '@/lib/fields';
 import type { Source } from '@/lib/planner';
 import { onRoute } from '@/components/app/entries';
 
@@ -17,6 +18,8 @@ export interface ClassLadder {
   bandOf: (e: Entry) => string;
   /** "Swords B · Bows B", or '' when the Block has no skill ranks. */
   exam: (e: Entry) => string;
+  /** What a tier takes ("Level 20 · Renown 4 · Specialty License"): its list choice's first line, else its header card's. */
+  needs: (band: string) => string;
 }
 
 export function ladderOf(src: Source | undefined, route: Route | 'all'): ClassLadder | undefined {
@@ -36,5 +39,12 @@ export function ladderOf(src: Source | undefined, route: Route | 'all'): ClassLa
     inBand: (band) => classes.filter((e) => bandOf(e, shape.band) === band && onRoute(e, route)).sort((a, b) => a.name.localeCompare(b.name)),
     bandOf: (e) => bandOf(e, shape.band),
     exam: (e) => rankLine(e, shape.ranks),
+    needs: (band) => {
+      const fromList = aboutParts(choiceFor(band, shape.choices)?.about).short;
+      if (fromList) return fromList;
+      const card = all.find((e) => e.header && bandOf(e, shape.band) === band);
+      const text = card?.sections.find((x) => /unlock|need|require/i.test(x.label))?.text ?? card?.description ?? '';
+      return text.split('\n')[0].trim();
+    },
   };
 }

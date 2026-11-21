@@ -12,6 +12,7 @@ import { STEP_LABEL, addMember, buildOf, joinKind, moveMember, moveMemberTo, rem
 import { BuildPlan } from './BuildPlan';
 import { useParty } from './useParty';
 import { Runs } from './Runs';
+import { MyRun } from './MyRun';
 import type { ClassLadder } from './sources';
 
 // The Planner Block (docs/blocks/planner.md): your party for this run, picked from the roster (Units),
@@ -240,6 +241,11 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
 
       {picking && <Picker roster={rb} entries={onThisRoute} party={plan.party} size={size} color={color} ctx={ctx}
         onToggle={(id) => setPlan(plan.party.includes(id) ? removeMember(plan, id) : addMember(plan, id, size))} onDone={() => setPicking(false)} />}
+
+      {!picking && !editing && (
+        <MyRun roster={roster} ctx={ctx} members={members} plan={plan} setPlan={setPlan} ladder={ladder} recruits={recruits}
+          recruitKey={recruitKey} ticks={ticks} toggle={toggle} onOpenUnit={(e) => set(`${rb.id}.${e.id}`)} />
+      )}
 
       {opened && (
         <EntryPanel entry={opened} block={rb} list={members.includes(opened) ? members : [opened]} route={ctx.route} routes={ctx.routes} gameId={ctx.gameId}

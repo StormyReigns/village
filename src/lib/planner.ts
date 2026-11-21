@@ -332,6 +332,8 @@ export interface Roster extends Source {
   classes?: Source;
   /** Slot key to its Items Block. */
   slots?: Record<string, Source>;
+  /** The game's checklists of things you can miss (Last chances), for "My run". */
+  deadlines?: Source[];
 }
 
 function findBlock(pages: Page[], id: string | undefined, type: Block['type']): Source | undefined {
@@ -356,7 +358,8 @@ export function plannerRosters(pages: Page[], page: Page): Record<string, Roster
       const src = findBlock(pages, s.from, 'items');
       if (src) slots[s.key] = src;
     }
-    out[b.id] = { ...roster, ...(classes ? { classes } : {}), ...(Object.keys(slots).length ? { slots } : {}) };
+    const deadlines = pages.flatMap((p) => p.blocks.filter((x) => x.type === 'checklist').map((block) => ({ block, page: { id: p.id, title: p.title, tint: p.tint } })));
+    out[b.id] = { ...roster, ...(classes ? { classes } : {}), ...(Object.keys(slots).length ? { slots } : {}), ...(deadlines.length ? { deadlines } : {}) };
   }
   return out;
 }

@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import { byDeadline, choiceOptions, helpsWho } from '@/lib/deadline';
+import { Ring } from './Ring';
 import { planKey } from '@/lib/planner';
 import { usePartyIndex } from '@/components/planner/PartyMark';
 import Link from 'next/link';
 import { Check, ChevronDown, Hourglass, Plus, Search, Sparkles } from 'lucide-react';
-import type { Block, Entry, Route, Tint } from '@/data/pages';
+import type { Block, Entry, Route } from '@/data/pages';
 import { sharePath } from '@/data/pages/links';
 import { ShareButton } from '@/components/ShareButton';
 import { BlockIcon } from '@/components/Icon';
@@ -338,18 +339,6 @@ function Timeline({ block, ctx }: { block: Block; ctx: BlockContext }) {
 
 // ------------------------------------------------------------------ Checklist
 
-function Ring({ done, total, tint }: { done: number; total: number; tint: Tint }) {
-  const r = 22, c = 2 * Math.PI * r, part = total ? done / total : 0;
-  return (
-    <span className="relative grid size-14 shrink-0 place-items-center">
-      <svg viewBox="0 0 52 52" className={`absolute inset-0 -rotate-90 ${TINT[tint].text}`} aria-hidden="true">
-        <circle cx="26" cy="26" r={r} fill="none" stroke="var(--line)" strokeWidth="6" />
-        <circle cx="26" cy="26" r={r} fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeDasharray={`${c * part} ${c}`} />
-      </svg>
-      <span className="text-sm font-bold">{done}/{total}</span>
-    </span>
-  );
-}
 
 /** A choose-one last chance: each option, what it gives, and who in your party it helps (review, 2026-11-20). */
 function Options({ e, bands, items }: { e: Entry; bands?: Record<string, string[]>; items?: Record<string, string[]> }) {
