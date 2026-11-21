@@ -3,21 +3,23 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, CircleHelp, EyeOff, FileText, Flag, GripVertical, Hammer, MapPin, MessageCircle, PanelLeftOpen, Plus, ClipboardPaste,
+  ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, CircleHelp, EyeOff, FileText, Flag, GripVertical, Hammer, MapPin, MessageCircle, PanelLeftOpen, PenLine, Plus, ClipboardPaste,
   RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, X, BookOpenText,
 } from 'lucide-react';
-import type { Page } from '@/data/pages';
+import type { Entry, Page } from '@/data/pages';
 import { BlockIcon, NavSymbol } from '@/components/Icon';
-import { EntryDetails, EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
-import { entryText } from '@/components/app/entries';
+import { EntryDetails, EntryIcon, symbolFor, type RouteOption } from '@/components/app/EntryPanel';
+import { entryText, initials } from '@/components/app/entries';
 import { rank } from '@/lib/search';
-import { byFields, entriesOf } from '@/lib/fields';
+import { byFields, choicesOf, shownFields } from '@/lib/fields';
+import { completeness } from '@/lib/completeness';
+import { groupOrder } from '@/lib/items';
 import { SignInPrompt } from '@/components/SignInPrompt';
 import { ScrollRow } from '@/components/ScrollRow';
 import { Tip } from '@/components/Tip';
 import { ScrollBox } from '@/components/ScrollBox';
 import { useStored } from '@/components/useStored';
-import { Piece } from '@/components/Piece';
+import { GLITCH, Piece } from '@/components/Piece';
 import { HOW_IT_WORKS_PING, HowItWorksButton, MarketDayButton } from '@/components/HowItWorks';
 import { Avatar } from '@/components/Avatar';
 import { useVillager, type Villager } from '@/components/useVillager';
@@ -1370,6 +1372,40 @@ function ReportCard({ r, live, blocks }: { r: ReportGroup; live: WorkshopData; b
 const AZ = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 
 /**
+ * A long list split by its Block's first tag (Sword, Gauntlet, Black Magic…), in the tag's own list order
+ * and then A to Z, with entries that have none last. Null where it wouldn't help: a short list, or one group.
+ */
+function groupsOf(b: Page['blocks'][number], list: Entry[]) {
+  // The tag the app groups and filters this Block by (its filter), as the Items Block does; else its first.
+  const tags = byFields(b) ? shownFields(b).filter((f) => f.kind === 'tag') : [];
+  const tag = tags.find((t) => t.key === b.filters?.[0]) ?? tags[0] ?? (b.filters?.[0] ? { key: b.filters[0], label: b.filters[0] } : undefined);
+  if (!tag || list.length <= 12) return null;
+  const by = new Map<string, Entry[]>();
+  for (const e of list) {
+    const v = e.categories[tag.key]?.trim() ?? '';
+    by.set(v, [...(by.get(v) ?? []), e]);
+  }
+  const named = [...by.keys()].filter(Boolean);
+  if (named.length < 2) return null;
+  // The tag's own list of choices sets the order; without one, letter ranks go best first (groupOrder), else A to Z.
+  const order = choicesOf('choices' in tag ? tag : undefined).map((x) => x.name);
+  const az = groupOrder(named.sort(AZ.compare));
+  const at = (v: string) => (order.includes(v) ? order.indexOf(v) : order.length + az.indexOf(v));
+  named.sort((x, y) => at(x) - at(y));
+  return [...named, ...(by.has('') ? [''] : [])].map((v) => ({
+    label: v || `No ${tag.label.toLowerCase()}`, symbol: v ? b.symbols?.[v] : undefined, entries: by.get(v)!,
+  }));
+}
+
+/** An entry's piece in a Workshop list: solid once it's filled in, a split outline while it still needs
+ *  something (the brand's "solid = built, split outline = not built yet"). */
+function RowPiece({ entry, block, color, done }: { entry: Entry; block: Page['blocks'][number]; color: string; done: boolean }) {
+  const symbol = symbolFor(entry, block);
+  const inner = done && entry.icon ? null : symbol ? <BlockIcon name={symbol} size={8} strokeWidth={2.6} /> : initials(entry.name) || <BlockIcon name={block.icon} size={8} />;
+  return <Piece size={38} color={color} outline={!done} image={done ? entry.icon : undefined}>{inner}</Piece>;
+}
+
+/**
  * "In the app": what's on the selected Page right now, Block by Block, so villagers can
  * pick something to fix or add to without leaving the Workshop.
  */
@@ -1393,6 +1429,9 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSe
     return n;
   }, [drafts]);
   const many = pages.length > 1;
+  // Blocks showing only the entries that still need something ("Needs help").
+  const [needsOnly, setNeedsOnly] = useState<string[]>([]);
+  const toggleNeeds = (id: string) => setNeedsOnly(needsOnly.includes(id) ? needsOnly.filter((x) => x !== id) : [...needsOnly, id]);
   // One Page open, a moderator, and not searching: its Blocks can be dragged into order.
   const single = pages.length === 1 ? pages[0] : null;
   const arrange = Boolean(single && onReorder && !query && single.blocks.length > 1);
@@ -1420,6 +1459,12 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSe
             const list = query ? rank(b.entries, query, entryText) : [...b.entries].sort((x, y) => AZ.compare(x.name, y.name));
             if (query && !list.length) return null;
             const isFolded = folded.includes(b.id) && !query;
+            // What each entry still needs: split outlines where help is wanted, and a progress line.
+            const c = completeness(b);
+            const needy = c.total - c.done;
+            const onlyNeedy = needy > 0 && needsOnly.includes(b.id) && !query;
+            const shown = onlyNeedy ? list.filter((e) => c.missing.get(e.id)?.length) : list;
+            const groups = query ? null : groupsOf(b, shown);
             // A Planner has players' plans, not entries: only its Set up here.
             if (b.type === 'planner') return query ? null : (
               <section key={b.id} ref={arrange ? sort.itemRef(b.id) : undefined} className={'min-w-0 rounded-2xl bg-card p-3' + lifted(b)}
@@ -1446,7 +1491,6 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSe
                   <button onClick={() => fold(b.id)} aria-expanded={!isFolded} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                     <BlockIcon name={b.icon} size={17} className="shrink-0" style={{ color: `var(--${p.tint})` }} />
                     <h4 className="truncate font-bold">{b.title}</h4>
-                    <span className="text-xs text-muted">{entriesOf(b).length}</span>
                     <ChevronDown size={15} className={'shrink-0 text-muted transition ' + (isFolded ? '-rotate-90' : '')} aria-hidden="true" />
                   </button>
                   {byFields(b) && (
@@ -1483,32 +1527,68 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSe
                     </button>
                   </Tip>
                 </div>
+                {/* How much is filled in: a bar in the Page's color, and a way to see only what needs help. */}
+                {c.total > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs">
+                    <span aria-hidden="true" className="h-1.5 w-20 overflow-hidden rounded-full bg-card-2 ring-1 ring-line">
+                      <span className="block h-full rounded-full" style={{ width: `${Math.round((c.done / c.total) * 100)}%`, background: `var(--${p.tint})` }} />
+                    </span>
+                    <span className="font-bold">{c.done} of {c.total} filled in</span>
+                    {needy === 0 ? (
+                      <span className="inline-flex items-center gap-1 font-bold text-leaf"><Check size={13} aria-hidden="true" /> All done</span>
+                    ) : !query && (
+                      <Tip text={onlyNeedy ? `Show everything in ${b.title}` : `Show only what still needs something, with what's missing`} tint="plum">
+                        <button onClick={() => toggleNeeds(b.id)} aria-pressed={onlyNeedy}
+                          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-bold ring-1"
+                          style={onlyNeedy ? { background: GLITCH.violet, color: '#fff', boxShadow: 'none' } : { color: GLITCH.violet, ['--tw-ring-color' as string]: `color-mix(in srgb, ${GLITCH.violet} 45%, transparent)` }}>
+                          <Piece size={14} outline ink={onlyNeedy ? '#fff' : 'var(--ink)'} />
+                          {onlyNeedy ? 'Showing what needs help' : `${needy} need${needy === 1 ? 's' : ''} help`}
+                        </button>
+                      </Tip>
+                    )}
+                  </div>
+                )}
                 {isFolded ? null : list.length === 0 ? (
                   <p className="mt-2 text-sm text-muted">Nothing here yet. Add the first one.</p>
                 ) : (
-                  <ScrollBox as="ul" className="mt-2 grid max-h-80 grid-cols-[minmax(0,1fr)] gap-1 pb-6 pr-1">
-                    {list.map((e) => {
-                      const n = e.ref ? open.get(e.ref.card) ?? 0 : 0;
-                      const on = focus === `${b.id}.${e.id}`;
-                      return (
-                        <li key={e.id}>
-                          <button onClick={() => onFix(b.id, e.id)}
-                            className={'flex w-full items-center gap-2.5 rounded-2xl px-2 py-1.5 text-left hover:bg-card-2 ' + (on ? 'bg-card-2 ring-2 ring-ink' : '')}>
-                            <EntryIcon entry={e} block={b} size="sm" color={`var(--${p.tint})`} />
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-sm font-bold">{e.name}</span>
-                              <span className="block truncate text-xs text-muted">{e.stat ?? Object.values(e.categories)[0] ?? e.description}</span>
-                            </span>
-                            {n > 0 && (
-                              <span role="button" tabIndex={0} onClick={(ev) => { ev.stopPropagation(); onDrafts(e.ref!.card); }}
-                                onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.stopPropagation(); onDrafts(e.ref!.card); } }}
-                                className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold text-ink ring-1 ring-ink hover:bg-card-2">{n} open Draft{n > 1 ? 's' : ''}</span>
-                            )}
-                            <span className="shrink-0 text-xs font-bold text-leaf">Fix</span>
-                          </button>
+                  <ScrollBox as="ul" className="mt-2 grid max-h-80 grid-cols-[minmax(0,1fr)] gap-0.5 pb-6 pr-1">
+                    {(groups ?? [{ label: '', symbol: undefined, entries: shown }]).flatMap((g) => [
+                      // A group's name, kept in view while its entries scroll past.
+                      ...(groups ? [(
+                        <li key={`group:${g.label}`} className="sticky top-0 z-[1] -mx-0.5 flex items-center gap-1.5 bg-card px-2 pb-1 pt-2 text-xs font-bold uppercase tracking-wide text-muted">
+                          {g.symbol && <BlockIcon name={g.symbol} size={13} style={{ color: `var(--${p.tint})` }} />}
+                          <span className="truncate">{g.label}</span>
+                          <span className="font-normal normal-case tracking-normal">{g.entries.length}</span>
                         </li>
-                      );
-                    })}
+                      )] : []),
+                      ...g.entries.map((e) => {
+                        const n = e.ref ? open.get(e.ref.card) ?? 0 : 0;
+                        const on = focus === `${b.id}.${e.id}`;
+                        const miss = c.missing.get(e.id) ?? [];
+                        const done = miss.length === 0;
+                        return (
+                          <li key={e.id}>
+                            <button onClick={() => onFix(b.id, e.id)} aria-label={`Fix ${e.name}${done ? '' : `: needs ${miss.join(', ')}`}`}
+                              className={'group flex w-full items-center gap-2.5 rounded-2xl px-2 py-1 text-left hover:bg-card-2 ' + (on ? 'bg-card-2 ring-2 ring-ink' : '')}>
+                              <RowPiece entry={e} block={b} color={`var(--${p.tint})`} done={done} />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-bold">{e.name}</span>
+                                {done
+                                  ? <span className="block truncate text-xs text-muted">{e.stat ?? (groups ? undefined : Object.values(e.categories)[0]) ?? e.description}</span>
+                                  : <span className="block truncate text-xs font-bold" style={{ color: GLITCH.violet }}>Needs {miss.join(' · ')}</span>}
+                              </span>
+                              {n > 0 && (
+                                <span role="button" tabIndex={0} onClick={(ev) => { ev.stopPropagation(); onDrafts(e.ref!.card); }}
+                                  onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.stopPropagation(); onDrafts(e.ref!.card); } }}
+                                  className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold text-ink ring-1 ring-ink hover:bg-card-2">{n} open Draft{n > 1 ? 's' : ''}</span>
+                              )}
+                              {/* The whole row fixes it; a pencil shows on the one you point at. */}
+                              <PenLine size={14} aria-hidden="true" className="shrink-0 text-muted opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100" />
+                            </button>
+                          </li>
+                        );
+                      }),
+                    ])}
                   </ScrollBox>
                 )}
               </section>

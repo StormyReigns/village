@@ -20,6 +20,12 @@ How the Workshop itself works, apart from any one Block. Each Block's own editor
   (2026-11-15 fix). The preview is drawn at 440px and shrunk to fit, with an "Actual size" switch, and
   the line before it drags to widen it (remembered per device).
 - **The "+" Page tab** is pinned at the right of the tab row; the tabs scroll behind it.
+- **"In the app" shows what needs help** (Matt, 2026-11-21: the lists felt bland and overwhelming, all
+  brown and beige). Each Block has a progress line ("78 of 148 filled in") and a "need help" filter.
+  Entries that still need something are split-outline pieces with "Needs Where to get it" in violet;
+  filled-in ones are solid. A field counts when it's one of its type's core fields or most entries have
+  it (`src/lib/completeness.ts`, tested). Lists over 12 are grouped by the tag the app filters by, in
+  the tag's order (letter ranks best first). The repeated "Fix" became a pencil on hover.
 - **Arranging Blocks** (Matt, 2026-11-15): with one Page open in "In the app", moderators drag a Block by
   the grip at its top left (or use the arrow keys on it) to move it up or down the Page. Saving swaps
   the shown Blocks among the places they hold, so Tier lists (not listed in the Workshop) keep theirs.
