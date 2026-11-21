@@ -54,7 +54,8 @@ phone app, Discord posts and Communities, Spreadsheets download and paste-in bat
 links. The roadmap is in `docs/blocks/README.md`. All migrations up to 20261118000000 are run.
 
 Since 2026-11-12:
-- The bottom bar is one looping, swipeable row of every Page (no More tray).
+- The bottom bar is one looping, swipeable row of every Page (no More tray). Matt kept it on 2026-11-20 when a review
+  asked for a More tray again; don't bring the tray back without asking.
 - The top of every Page is slim: a title row with the questions bar, then one row for Block
   tabs, the route drop-down and the spoiler eye. Page and Block descriptions are no longer shown.
 - **No hourly limit on Drafts** (Matt, 2026-11-14; 20261117120000). The "rate limits from day
@@ -76,7 +77,8 @@ Since 2026-11-12:
 - **Last chances sort by deadline** (2026-11-20): the chapter is read from each deadline's words (`src/lib/deadline.ts`),
   so community edits keep sorting; choose-one items list each option, what it gives and who in your party it helps. Route-based
   screens wait for the saved route instead of flashing "All". 20261126000000 gives Theodora's real dates for Talimun's
-  Paralogue (waits on Matt's run).
+  Paralogue (run 2026-11-20). **My run** on the Party Page: last chances by chapter, then recruits and class steps by
+  Renown and level (docs/blocks/planner.md).
 
 Open, waiting on Matt:
 - **Tests only Matt can do (signed in or on his phone):**
