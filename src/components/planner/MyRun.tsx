@@ -36,9 +36,18 @@ interface Item {
   open: { href: string } | { unit: string };
 }
 
-export function MyRun({ roster, ctx, members, plan, setPlan, ladder, recruits, recruitKey, ticks, toggle, onOpenUnit }: {
+/** Planned gear still to get (from the Party list). */
+export interface Gear { key: string; name: string; needs?: string; done: boolean; toggle: () => void; href: string }
+const NONE: Record<string, string[]> = {};
+const NO_GEAR: Gear[] = [];
+
+export function MyRun({ roster, ctx, members, plan, setPlan, ladder, recruits, recruitKey, ticks, toggle, onOpenUnit, forWhom = NONE, gear = NO_GEAR }: {
   roster: Roster; ctx: BlockContext; members: Entry[]; plan: Plan; setPlan: (p: Plan) => void; ladder?: ClassLadder;
   recruits: boolean; recruitKey: (e: Entry) => string; ticks: Set<string>; toggle: (key: string) => void; onOpenUnit: (e: Entry) => void;
+  /** Party members a last chance is needed for, by its tick key ("for Buccar"). */
+  forWhom?: Record<string, string[]>;
+  /** Planned gear still to get, with the item's own Got it tick. */
+  gear?: Gear[];
 }) {
   const route = ctx.route;
   const [showDone, setShowDone] = useState(false);
@@ -55,7 +64,8 @@ export function MyRun({ roster, ctx, members, plan, setPlan, ladder, recruits, r
       byDeadline(block.entries.filter((e) => (!block.byRoute || onRoute(e, route)) && (ctx.spoilers || !e.spoiler)), route).map((e) => {
         const key = `${block.id}.${e.id}`;
         const text = deadlineText(e, route);
-        return { key, name: e.name, needs: text?.split('\n')[0], done: ticks.has(key), toggle: () => toggle(key), rank: deadlineRank(text), open: { href: `/g/${ctx.gameId}/${page.id}?e=${key}` } };
+        const who = forWhom[key]?.length ? `for ${forWhom[key].join(', ')}` : undefined;
+        return { key, name: e.name, needs: [text?.split('\n')[0], who].filter(Boolean).join(' · ') || undefined, done: ticks.has(key), toggle: () => toggle(key), rank: deadlineRank(text), open: { href: `/g/${ctx.gameId}/${page.id}?e=${key}` } };
       }));
     // Party members to recruit (the usual way, with steps on this route), and their planned classes.
     const recruiting: Item[] = recruits ? members.flatMap((e) => {
@@ -77,10 +87,10 @@ export function MyRun({ roster, ctx, members, plan, setPlan, ladder, recruits, r
     })) : [];
     return {
       dated: deadlines.filter((d) => (d.rank ?? NO_DEADLINE) < NO_DEADLINE),
-      ready: byRenownAndLevel([...recruiting, ...classes]),
+      ready: byRenownAndLevel([...recruiting, ...classes, ...gear.map((g) => ({ key: g.key, name: g.name, needs: g.needs, done: g.done, toggle: g.toggle, open: { href: g.href } }))]),
       later: deadlines.filter((d) => (d.rank ?? NO_DEADLINE) >= NO_DEADLINE),
     };
-  }, [roster.deadlines, route, ctx.spoilers, ctx.gameId, ticks, toggle, recruits, members, recruitKey, ladder, plan, setPlan]);
+  }, [roster.deadlines, route, ctx.spoilers, ctx.gameId, ticks, toggle, recruits, members, recruitKey, ladder, plan, setPlan, forWhom, gear]);
 
   // "When you're ready" sits just before the end of Part I, when recruiting closes.
   const partOneAll = dated.filter((x) => (x.rank ?? 0) < END_OF_PART_ONE);
@@ -111,7 +121,7 @@ export function MyRun({ roster, ctx, members, plan, setPlan, ladder, recruits, r
           <span className="block text-muted">{next ? <>Next: <span className="font-bold text-ink">{next.name}</span></> : 'Everything’s done. Nothing missed!'}</span>
         </p>
       </div>
-      <p className="mt-2 px-1 text-sm text-muted">Last chances by chapter, then your party’s recruits and classes. Tick things off as you go.</p>
+      <p className="mt-2 px-1 text-sm text-muted">Last chances by chapter, then your party’s recruits, classes and gear. A tick here is the same as on Last chances, Units and Items.</p>
 
       <ol className="mt-3 grid gap-4">
         {groups.map((g) => (

@@ -13,6 +13,8 @@ import { BuildPlan } from './BuildPlan';
 import { useParty } from './useParty';
 import { Runs } from './Runs';
 import { MyRun } from './MyRun';
+import { TieChips } from './TieChips';
+import { valueOf } from '@/lib/fields';
 import type { ClassLadder } from './sources';
 
 // The Planner Block (docs/blocks/planner.md): your party for this run, picked from the roster (Units),
@@ -84,8 +86,19 @@ export function Planner({ block, ctx }: { block: Block; ctx: BlockContext }) {
 
 function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: BlockContext }) {
   const color = `var(--${roster.page.tint})`;
-  const { plan, setPlan, save, error, signedIn, shared, share, size, setup, rb, onThisRoute, ladder, slots, ticks, toggle, recruits, recruitKey, byId, members, stepOf } =
-    useParty(ctx.gameId, block, roster, ctx.route, `/g/${ctx.gameId}/${ctx.page.id}`);
+  const { plan, setPlan, save, error, signedIn, shared, share, size, setup, rb, onThisRoute, ladder, slots, ticks, toggle, recruits, recruitKey, byId, members, stepOf, tiesOf, classTiesOf } =
+    useParty(ctx.gameId, block, roster, ctx.route, `/g/${ctx.gameId}/${ctx.page.id}`, ctx.spoilers);
+  // Who each tie is for (My run: "Leda's Paralogue · for Buccar"), while they're still to recruit, and their planned
+  // gear still to get, with the item's own Got it (docs/blocks/planner.md, 2026-11-22).
+  const forWhom: Record<string, string[]> = {};
+  for (const e of members) if (stepOf(e).kind === 'recruit') for (const t of tiesOf(e)) (forWhom[t.key] ??= []).push(e.name);
+  const gear = members.flatMap((e) => slots.flatMap(({ slot, src, where, byId: items }) => (buildOf(plan, e.id).gear?.[slot.key] ?? []).flatMap((id) => {
+    const item = items.get(id);
+    if (!item) return [];
+    const key = `got:${src.block.id}.${id}`;
+    const at = where ? valueOf(item, where).text?.split('\n')[0] : undefined;
+    return [{ key, name: `Get ${item.name} for ${e.name}`, needs: at, done: ticks.has(key), toggle: () => toggle(key), href: `/g/${ctx.gameId}/${src.page.id}?e=${src.block.id}.${id}` }];
+  })));
   const [picking, setPicking] = useState(false);
   const [editing, setEditing] = useState(false);
   const [snapped, setSnapped] = useState<string | null>(null);
@@ -199,6 +212,7 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
                         {STEP_LABEL[step.kind] && <span className="font-bold text-ink">{STEP_LABEL[step.kind]}: </span>}{step.text}
                       </span>
                     )}
+                    {!editing && step.kind === 'recruit' && <TieChips ties={tiesOf(e)} ticks={ticks} toggle={toggle} color={`var(--${ctx.tint})`} label={`${e.name} needs`} />}
                     {!editing && <PlanChips build={buildOf(plan, e.id)} ladder={ladder} slots={slots} name={e.name} onOpen={() => set(`${rb.id}.${e.id}`)} />}
                   </span>
                 </div>
@@ -244,13 +258,13 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
 
       {!picking && !editing && (
         <MyRun roster={roster} ctx={ctx} members={members} plan={plan} setPlan={setPlan} ladder={ladder} recruits={recruits}
-          recruitKey={recruitKey} ticks={ticks} toggle={toggle} onOpenUnit={(e) => set(`${rb.id}.${e.id}`)} />
+          recruitKey={recruitKey} ticks={ticks} toggle={toggle} onOpenUnit={(e) => set(`${rb.id}.${e.id}`)} forWhom={forWhom} gear={gear} />
       )}
 
       {opened && (
         <EntryPanel entry={opened} block={rb} list={members.includes(opened) ? members : [opened]} route={ctx.route} routes={ctx.routes} gameId={ctx.gameId}
           sharePath={`/g/${ctx.gameId}/${roster.page.id}/${rb.id}.${opened.id}`} color={color}
-          lead={(ladder || slots.length > 0) && plan.party.includes(opened.id) ? <BuildPlan unit={opened} roster={roster} setup={setup} ladder={ladder} plan={plan} setPlan={setPlan} ctx={ctx} /> : undefined}
+          lead={(ladder || slots.length > 0) && plan.party.includes(opened.id) ? <BuildPlan unit={opened} roster={roster} setup={setup} ladder={ladder} plan={plan} setPlan={setPlan} ctx={ctx} classTiesOf={classTiesOf} /> : undefined}
           onGo={(e) => set(`${rb.id}.${e.id}`, 'replace')} onClose={close} />
       )}
     </div>

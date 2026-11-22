@@ -334,6 +334,8 @@ export interface Roster extends Source {
   slots?: Record<string, Source>;
   /** The game's checklists of things you can miss (Last chances), for "My run". */
   deadlines?: Source[];
+  /** The game's Items Blocks, for items a recruit or a class unlock asks for (src/lib/ties.ts). */
+  items?: Source[];
 }
 
 function findBlock(pages: Page[], id: string | undefined, type: Block['type']): Source | undefined {
@@ -359,7 +361,8 @@ export function plannerRosters(pages: Page[], page: Page): Record<string, Roster
       if (src) slots[s.key] = src;
     }
     const deadlines = pages.flatMap((p) => p.blocks.filter((x) => x.type === 'checklist').map((block) => ({ block, page: { id: p.id, title: p.title, tint: p.tint } })));
-    out[b.id] = { ...roster, ...(classes ? { classes } : {}), ...(Object.keys(slots).length ? { slots } : {}), ...(deadlines.length ? { deadlines } : {}) };
+    const items = pages.flatMap((p) => p.blocks.filter((x) => x.type === 'items').map((block) => ({ block, page: { id: p.id, title: p.title, tint: p.tint } })));
+    out[b.id] = { ...roster, ...(classes ? { classes } : {}), ...(Object.keys(slots).length ? { slots } : {}), ...(deadlines.length ? { deadlines } : {}), ...(items.length ? { items } : {}) };
   }
   return out;
 }

@@ -7,6 +7,9 @@ import { valueOf, shownFields } from '@/lib/fields';
 import { buildOf, nextStep, partyIndexRoute, partySize, planKey, readPartyIndex, slotCount, slotsOf, type NextStep, type Roster } from '@/lib/planner';
 import { usePlan, type PlanSources } from './usePlan';
 import { ladderOf } from './sources';
+import { tiesFor, wordsOf } from '@/lib/ties';
+import { deadlineText } from '@/lib/deadline';
+import type { Tie } from './TieChips';
 
 // One Planner's party for the player's route, with each member's next step (docs/blocks/planner.md).
 // Shared by the Party Page and the "Your party" card on the game's home. It also keeps a small index
@@ -16,7 +19,7 @@ import { ladderOf } from './sources';
 export const partyIndexKey = (gameId: string) => `village:${gameId}:party`;
 export const PARTY_EVENT = 'village-party';
 
-export function useParty(gameId: string, block: Block, roster: Roster, route: Route | 'all', href: string) {
+export function useParty(gameId: string, block: Block, roster: Roster, route: Route | 'all', href: string, spoilers = false) {
   const size = partySize(block.planSetup);
   const setup = block.planSetup;
   const rb = roster.block;
@@ -69,5 +72,25 @@ export function useParty(gameId: string, block: Block, roster: Roster, route: Ro
     } catch { /* storage unavailable */ }
   }, [ready, plan, rb.id, byId, roster.slots, gameId, route, href]);
 
-  return { ...saving, size, setup, rb, onThisRoute, ladder, slots, ticks, toggle, recruits, recruitKey, byId, members, stepOf };
+  // What each unit's plan hangs on that's ticked elsewhere (src/lib/ties.ts): the route's last chances and the game's
+  // items, by name both ways. Spoilers stay out unless the player shows them.
+  const candidates = useMemo<Tie[]>(() => {
+    const on = (e: Entry, byRoute?: boolean) => !e.header && (!byRoute || onRoute(e, route)) && (spoilers || !e.spoiler);
+    return [
+      ...(roster.deadlines ?? []).flatMap(({ block: b, page: p }) => b.entries.filter((e) => on(e, b.byRoute)).map((e) => ({
+        kind: 'deadline' as const, key: `${b.id}.${e.id}`, name: e.name, text: wordsOf(e), href: `/g/${gameId}/${p.id}?e=${b.id}.${e.id}`,
+        due: deadlineText(e, route)?.split('\n')[0] }))),
+      ...(roster.items ?? []).flatMap(({ block: b, page: p }) => b.entries.filter((e) => on(e, b.byRoute)).map((e) => ({
+        kind: 'item' as const, key: `got:${b.id}.${e.id}`, name: e.name, text: wordsOf(e), href: `/g/${gameId}/${p.id}?e=${b.id}.${e.id}` }))),
+    ];
+  }, [roster.deadlines, roster.items, route, spoilers, gameId]);
+  /** A unit's recruiting ties: what their route's line and their own words name, or what names them. */
+  const tiesOf = (e: Entry) => {
+    const line = route !== 'all' ? (e.perRoute?.[route as Route] ?? []).map((s) => s.text).join(' ') : '';
+    return tiesFor(e.name, `${line}\n${e.description ?? ''}`, candidates) as Tie[];
+  };
+  /** A class's unlock ties: only what its own words name (a class is rarely named by a last chance). */
+  const classTiesOf = (c: Entry) => tiesFor(c.name, wordsOf(c), candidates, { reverse: false }) as Tie[];
+
+  return { ...saving, size, setup, rb, onThisRoute, ladder, slots, ticks, toggle, recruits, recruitKey, byId, members, stepOf, tiesOf, classTiesOf };
 }

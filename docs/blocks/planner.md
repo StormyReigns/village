@@ -274,6 +274,37 @@ while reordering; no sideways scroll. Touch dragging needs a real phone (the bro
   The ticks are the same as everywhere: a last chance ticked here is ticked on Last chances, a recruit on Units, a class
   "Reached" on the unit's plan. The Party Page gets the game's checklists with its roster (`deadlines` on `Roster`).
 
+## What's tracked elsewhere, shown in the Planner (2026-11-22, Matt: "Yes, as proposed")
+
+Matt: "anything tracked outside the Planner is also shown in the planner... without needing to mark it twice". From the
+expanded-design steps. The Planner's job stays one sentence: your party for this run, and the next thing to do for each.
+The app keeps four kinds of ticks, all in one store (`player_marks`): checklist ticks (Last chances), Recruited, Got it
+(items) and Cleared (World places). My run already shows the route's last chances, recruits and class steps with the same
+ticks. What's missing is the link between a tick and the unit it's for.
+
+| Tracked elsewhere | Same moment | How often | Pain if missed | Proposed |
+|---|---|---|---|---|
+| A last chance a party member needs (Buccar: "clear Leda's Paralogue"; Diego: Orchel's Regret) | High | Med | High (missed for good) | **Full**: the row shows it with its deadline and tick; My run says who it's for |
+| An item a recruit needs (Giant's Meat for Goliath, Paradise Fish for Ninae) | High | Med | Med | **Full**: the recruit line ticks it off ("Deliver 3 Giant's Meat ✓ got") with the item's own Got it |
+| Planned gear still to get | High | Med | Low | **Lite**: in My run's "When you're ready", with the item's Got it |
+| A planned class's unlock quest (a secret class) | Med | Low | Med | **Lite**: on the class step, when its unlock names a checklist entry or item |
+| Cleared places (World) | Low | Med | Low | **Leave out**: exploring is a different moment; place names in lines already open the place |
+| Last chances for nobody in the party (weekly activities, supports) | Med | Med | Med | **Already there** in My run; no change |
+
+Links are found by name, both ways (a unit's text names the entry, or the entry names the unit), as the app's text links
+already do, so builders set nothing up. One tick everywhere: ticking it in the Planner ticks it on Last chances or the
+item's card, and the other way round.
+
+**As built:** `src/lib/ties.ts` (tested) finds the links: what a unit's route line and own words name (either side of a
+colon, "Leda's Paralogue"), an entry named after the unit ("Creek"), or one whose text names the unit in a sentence
+about getting them ("Recruits Goliath", "Unlocks Diego"; a gift "really liked by Goliath" doesn't count, found when
+330 gift items made Goliath's row list every gift). `TieChips.tsx` shows each with its tick, name and deadline under a
+unit's recruit line while they're still to recruit, and under a planned class in the unit's plan. My run adds "for
+Buccar" to a last chance and lists planned gear still to get. The Party Page gets the game's Items Blocks with its roster
+(`items` on `Roster`). Checked on a local production build (Theodora, desktop and phone): Goliath with Giant's Meat,
+Diego with Orchel's Paralogue and its deadline, Ninae with Paradise Fish, Buccar with Leda's Paralogue; ticking
+Orchel's from Diego's row counted on Last chances (1 of 10); My run's "for Buccar" and "Get Levin Sword +1 for Goliath".
+
 ## Open questions
 
 - Weapon slot count for Fortune's Weave: 3 to start. Matt can change it.

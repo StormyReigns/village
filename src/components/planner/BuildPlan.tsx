@@ -12,6 +12,7 @@ import { useKin } from '@/components/classes/kin';
 import { classesFor } from '@/lib/class-fit';
 import { groupOrder } from '@/lib/items';
 import { buildOf, setClassStep, slotCount, slotsOf, toggleGear, toggleStepDone, type Plan, type PlanSetup, type PlanSlot, type Roster } from '@/lib/planner';
+import { TieChips, type Tie } from './TieChips';
 import type { ClassLadder } from './sources';
 
 // A party member's plan (docs/blocks/planner.md, slice 2), at the top of their card on the Party Page:
@@ -39,8 +40,10 @@ function Tile({ entry, color, outline, empty, label, sub, on, onClick }: {
   );
 }
 
-export function BuildPlan({ unit, roster, setup, ladder, plan, setPlan, ctx }: {
+export function BuildPlan({ unit, roster, setup, ladder, plan, setPlan, ctx, classTiesOf }: {
   unit: Entry; roster: Roster; setup?: PlanSetup; ladder?: ClassLadder; plan: Plan; setPlan: (p: Plan) => void; ctx: BlockContext;
+  /** What a class's unlock names that's ticked elsewhere (a quest's last chance, an item). */
+  classTiesOf?: (c: Entry) => Tie[];
 }) {
   const [picking, setPicking] = useState<Picking>(null);
   const [ticks, toggle] = useTicks(ctx.gameId);
@@ -77,6 +80,15 @@ export function BuildPlan({ unit, roster, setup, ladder, plan, setPlan, ctx }: {
               );
             })}
           </div>
+          {classTiesOf && shownBands.map((band) => {
+            const step = build.classes?.[band];
+            const cls = step ? ladder.byId.get(step.id) : undefined;
+            const ties = cls ? classTiesOf(cls) : [];
+            return cls && ties.length ? (
+              <div key={band} className="mt-1.5 text-xs"><span className="font-bold">{cls.name} needs</span>
+                <TieChips ties={ties} ticks={ticks} toggle={toggle} color={classColor} label={`${cls.name} needs`} /></div>
+            ) : null;
+          })}
           {hiddenBands > 0 && (
             <p className="mt-1 text-xs text-muted">{hiddenBands} more {hiddenBands === 1 ? 'tier' : 'tiers'} hidden as spoilers. <button onClick={ctx.onShowSpoilers} className="font-bold underline underline-offset-2">Show them</button></p>
           )}
