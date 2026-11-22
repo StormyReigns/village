@@ -1,5 +1,5 @@
 import { getGames } from '@/lib/games-data';
-import type { Game } from '@/data/games';
+import { listed, type Game } from '@/data/games';
 import { MarketDayButton } from '@/components/HowItWorks';
 import { GameBrowser } from '@/components/GameBrowser';
 import { AccountButton } from '@/components/AccountButton';
@@ -14,7 +14,7 @@ import { sharePath } from '@/data/pages/links';
 
 export default async function VillageSquare() {
   // Every game, from the database (docs/games.md); cached, so the page still prerenders.
-  const games = withCovers(await getGames());
+  const games = withCovers(listed(await getGames()));
   return (
     <>
     {/* The village square's header is the banner itself: the logo and your account along

@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { Hammer, Search, X } from 'lucide-react';
+import { Hammer, Plus, Search, X } from 'lucide-react';
+import { Piece } from './Piece';
 import type { Game } from '@/data/games';
 import { GameCover } from './GameCover';
 import { Countdown } from './Countdown';
@@ -84,6 +85,9 @@ export function GameBrowser({ games, entries = [] }: { games: Game[]; entries?: 
           {!found.length && !inside.length && (
             <p className="surface mt-4 rounded-2xl p-6 text-center text-muted">
               Nothing matches “{q.trim()}”. Try a game&apos;s name, or something from inside a game, like <span className="font-bold text-ink">Goliath</span>.
+              <Link href={`/start?name=${encodeURIComponent(q.trim())}`} className="mt-3 flex w-fit items-center gap-1.5 justify-self-center rounded-full bg-card px-4 py-2 font-bold text-ink ring-1 ring-line hover:ring-ink sm:mx-auto">
+                <Plus size={15} aria-hidden="true" /> Not here? Start {q.trim()}
+              </Link>
             </p>
           )}
         </section>
@@ -142,6 +146,15 @@ export function GameBrowser({ games, entries = [] }: { games: Game[]; entries?: 
               ))}
             </div>
           </section>}
+
+          {/* A game that isn't here yet: any Builder can start it (docs/games.md). Its piece is the split outline. */}
+          <Link href="/start" className="surface lift mt-6 flex items-center gap-4 rounded-2xl p-4">
+            <Piece size={56} outline><Plus size={17} strokeWidth={2.6} aria-hidden="true" /></Piece>
+            <span className="min-w-0 flex-1">
+              <span className="block font-display text-lg leading-tight">Don&apos;t see your game? Start it</span>
+              <span className="block text-sm text-muted">Its Workshop opens right away, and it joins this page once players vote for it.</span>
+            </span>
+          </Link>
         </>
       )}
     </>

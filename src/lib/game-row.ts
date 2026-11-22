@@ -31,9 +31,11 @@ function movesOf(v: unknown): Record<string, string> | undefined {
   return Object.keys(out).length ? (out as Record<string, string>) : undefined;
 }
 
-/** A row as a Game, or null when it can't be shown (being built, archived, or no title at all). */
+/** A row as a Game, or null when it can't be shown (archived, or no title at all). A game being built (the table's
+ *  'draft') is 'building': its Workshop and app work by their address, and it isn't listed (`listed` in games.ts). */
 export function gameFromRow(r: Row, starter?: Game): Game | null {
-  const status = one(r.status, STATUSES) ?? (r.status === 'draft' || r.status === 'archived' ? undefined : starter?.status);
+  const status: GameStatus | undefined = r.status === 'draft' ? 'building'
+    : one(r.status, STATUSES) ?? (r.status === 'archived' ? undefined : starter?.status);
   if (!status) return null;
   const title = text(r.title, 120) ?? starter?.title;
   if (!title) return null;

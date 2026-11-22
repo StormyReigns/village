@@ -28,7 +28,7 @@ test('a game the database has and games.ts does not (started by a Builder) stand
   assert.equal(g?.popularity, 100);
 });
 
-test("what isn't ours falls back, and a game being built or archived isn't shown", () => {
+test("what isn't ours falls back; a game being built is 'building', and an archived one isn't shown", () => {
   const odd = gameFromRow({ id: 'fortunes-weave', title: fw.title, status: 'live', shade: 'neon', hue: 'pink', cover: 'https://evil.example/x.png',
     paths: { question: 'Which?', options: [{ key: 'Bad Key', label: 'A' }] }, moved_pages: { 'Old Page': 'units' } }, fw);
   assert.equal(odd?.shade, fw.shade);
@@ -36,7 +36,7 @@ test("what isn't ours falls back, and a game being built or archived isn't shown
   assert.equal(odd?.cover, fw.cover);
   assert.deepEqual(odd?.paths, fw.paths);
   assert.deepEqual(odd?.movedPages, fw.movedPages);
-  assert.equal(gameFromRow({ id: 'x', title: 'X', status: 'draft' }), null);
+  assert.equal(gameFromRow({ id: 'x', title: 'X', status: 'draft' })?.status, 'building');
   assert.equal(gameFromRow({ id: 'x', title: 'X', status: 'archived' }), null);
   assert.equal(gameFromRow({ id: 'x', status: 'live' }), null);
 });

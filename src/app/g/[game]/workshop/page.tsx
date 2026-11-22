@@ -19,7 +19,9 @@ export async function generateMetadata({ params }: PageProps<'/g/[game]/workshop
   if (!game) return { title: 'Workshop' };
   const title = `${game.shortTitle} Workshop`;
   const description = `Help build the ${game.shortTitle} companion app: suggest fixes, add what's missing, and vote.`;
-  return { title, description, openGraph: { title, description, siteName: 'Village' } };
+  return { title, description, openGraph: { title, description, siteName: 'Village' },
+    // Not launched yet (docs/games.md): reachable by its link, kept out of search engines.
+    ...(game.status === 'building' ? { robots: { index: false, follow: false } } : {}) };
 }
 
 // The URL is read inside <Suspense> so navigation can show the shell instantly.

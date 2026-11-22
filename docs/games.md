@@ -1,6 +1,6 @@
 # Starting a game
 
-**Status:** Slice 1 live (2026-11-21; Matt ran 20261130000000); slices 2 to 4 planned · **Chat:** started from the Builder-readiness chat ·
+**Status:** Slice 1 live (2026-11-21); slice 2 built (its SQL, 20261201000000, waits on Matt's run); slices 3 and 4 planned · **Chat:** started from the Builder-readiness chat ·
 **Code:** `src/lib/games-data.ts` (`getGames`, `findGame`, cached), `src/lib/game-row.ts` (a row as a game, tested), `src/components/GamesProvider.tsx` (`useGames`, `useGame` in the browser), `src/data/games.ts` (the `Game` type and the starter games, the fallback)
 
 From Matt's Ocarina early-Builder review, item 1: Builders can't start a game. A game's title, release date,
@@ -47,6 +47,13 @@ where to help while it's being built.
    per person per day, sets the game's status to building (the table's 'draft'), and makes the starter its
    moderator. The front page's "Start it" opens the form; the new game's Workshop opens with "Add your first
    Page".
+   **Built 2026-11-21.** `/start` (`src/app/start/StartGame.tsx`): name, what players call it (filled in from the
+   part after a colon), platform, date, kind of game, and the closest look (guessed from the kind until picked),
+   with its tile as a preview and a warning when the game is already here. "Don't see your game? Start it" sits
+   under the front page's games, and "Not here? Start …" in its search when nothing matches. A game being built
+   is 'building' in the site: readable by everyone (the read rule changed), off the front page, search, share
+   pictures and the app's shortcuts (`listed`), out of search engines, and its app home says it hasn't launched.
+   Tests: `supabase/tests/start-game-check.mjs`.
 3. **Launch.** "I'd use this" votes on a game being built, from signed-in players other than its starter. At
    5, it launches by itself (a trigger, which must never fail the vote). Village moderators get "Launch now"
    and "Take it down" (spam, duplicates, games we shouldn't host).

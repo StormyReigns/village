@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { getGames } from '@/lib/games-data';
+import { listed } from '@/data/games';
 
 // The phone app: "Add to Home Screen" (or Chrome's Install) turns the site into an app with the
 // logo as its icon, opening full screen. Pages you've opened keep working offline (public/sw.js).
@@ -21,6 +22,6 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
       { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
     // Long-press the icon to jump straight into a game.
-    shortcuts: (await getGames()).map((g) => ({ name: g.shortTitle, url: `/g/${g.id}`, icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] })),
+    shortcuts: listed(await getGames()).map((g) => ({ name: g.shortTitle, url: `/g/${g.id}`, icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] })),
   };
 }

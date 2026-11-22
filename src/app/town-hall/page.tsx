@@ -5,6 +5,7 @@ import { AccountButton } from '@/components/AccountButton';
 import { TopBar } from '@/components/Logo';
 import { Piece } from '@/components/Piece';
 import { getGames } from '@/lib/games-data';
+import { listed } from '@/data/games';
 
 export const metadata: Metadata = { title: 'Town Hall' };
 
@@ -26,7 +27,7 @@ export default async function TownHall() {
           Until it is, each game&apos;s Workshop has its own chat, open to everyone signed in.
         </p>
         <ul className="mx-auto mt-6 grid max-w-sm gap-2">
-          {(await getGames()).map((g) => (
+          {listed(await getGames()).map((g) => (
             <li key={g.id}>
               <Link href={`/g/${g.id}/workshop`} className="btn-quiet flex items-center justify-center gap-2 rounded-full px-4 py-2.5 font-bold">
                 <Hammer size={16} className="text-leaf" aria-hidden="true" /> {g.shortTitle} Workshop

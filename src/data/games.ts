@@ -7,7 +7,8 @@
 import type { Route } from '@/data/content/types';
 import type { Shade } from '@/lib/shades';
 
-export type GameStatus = 'prelaunch' | 'launch' | 'live';
+/** 'building': started by a Builder, its Workshop open, not launched for players yet (docs/games.md). */
+export type GameStatus = 'building' | 'prelaunch' | 'launch' | 'live';
 
 export interface Game {
   id: string;
@@ -77,6 +78,9 @@ export const STARTER_GAMES: Game[] = [
   },
 ];
 
+
+/** The games players see listed (the front page, search, share pictures): not ones still being built. */
+export const listed = (games: Game[]) => games.filter((g) => g.status !== 'building');
 
 export function daysUntil(isoDate: string, from = new Date()): number {
   const target = new Date(isoDate + 'T00:00:00');

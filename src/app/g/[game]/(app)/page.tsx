@@ -13,7 +13,9 @@ export async function generateMetadata({ params }: PageProps<'/g/[game]'>): Prom
   const game = await findGame((await params).game);
   if (!game) return { title: 'Game' };
   const description = `The ${game.shortTitle} companion app, built and checked by players.`;
-  return { title: game.shortTitle, description, openGraph: { title: game.title, description, siteName: 'Village' } };
+  return { title: game.shortTitle, description, openGraph: { title: game.title, description, siteName: 'Village' },
+    // Not launched yet (docs/games.md): reachable by its link, kept out of search engines.
+    ...(game.status === 'building' ? { robots: { index: false, follow: false } } : {}) };
 }
 
 // The game app's front door. The URL is read inside <Suspense> so navigation is instant.
@@ -32,7 +34,7 @@ async function Home({ params }: { params: PageProps<'/g/[game]'>['params'] }) {
   const game = found;
   const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
   return (
-    <AppHome game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question }}
+    <AppHome game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question, building: game.status === 'building' }}
       pages={pages} />
   );
 }

@@ -44,6 +44,8 @@ export interface AppGame {
   routes: RouteOption[];
   /** "Which Flame Lord are you playing?" */
   routeQuestion?: string;
+  /** Started by a Builder and not launched for players yet (docs/games.md). */
+  building?: boolean;
 }
 
 /**
@@ -292,7 +294,7 @@ export function AppHome({ game, pages }: { game: AppGame; pages: Page[] }) {
   })), [pages]);
   const filled = [...progress.values()].reduce((a, c) => ({ done: a.done + c.done, total: a.total + c.total }), { done: 0, total: 0 });
   // A game still being built shows it on its front page, so early Builders see where to help.
-  const building = filled.total < BUILT_COUNT || filled.done / filled.total < BUILT_SHARE;
+  const building = game.building || filled.total < BUILT_COUNT || filled.done / filled.total < BUILT_SHARE;
 
   return (
     <div className="mt-3 grid gap-5 lg:mt-0">
@@ -329,9 +331,11 @@ export function AppHome({ game, pages }: { game: AppGame; pages: Page[] }) {
           <Link href={`/g/${game.id}/workshop?tab=app`} className="lift flex items-center gap-3 rounded-2xl bg-card p-4 ring-1 ring-line">
             <Piece size={56} outline />
             <span className="min-w-0 flex-1">
-              <span className="block text-xs font-bold uppercase tracking-wide" style={{ color: GLITCH.violet }}>Still being built</span>
+              <span className="block text-xs font-bold uppercase tracking-wide" style={{ color: GLITCH.violet }}>{game.building ? 'Not launched yet' : 'Still being built'}</span>
               <span className="block font-bold leading-tight">{filled.total ? `${filled.done} of ${filled.total} filled in` : 'Nothing added yet'}</span>
-              <span className="block text-sm text-muted">Players are building {game.shortTitle}. Help in the Workshop; each Page below says what needs it.</span>
+              <span className="block text-sm text-muted">{game.building
+                ? `Players have just started ${game.shortTitle}. It isn't on the front page yet, so share its link. Help in the Workshop.`
+                : `Players are building ${game.shortTitle}. Help in the Workshop; each Page below says what needs it.`}</span>
             </span>
             <ArrowRight size={18} className="mt-1 text-muted" aria-hidden="true" />
           </Link>
