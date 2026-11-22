@@ -89,7 +89,8 @@ Since 2026-11-12:
   2026-11-21. **Starting a game** (docs/games.md): slice 1, games read from the database, is live (20261130000000, run
   by Matt 2026-11-21; the site falls back to `src/data/games.ts` for anything missing). Slice 2, Builders start a game
   at `/start` (20261201000000, run by Matt 2026-11-22), is live, and so is slice 3, launching at 5 votes or by a Village
-  moderator (20261203000000, run 2026-11-22). Slice 4 (game settings as Drafts) is next.
+  moderator (20261203000000, run 2026-11-22). Slice 4, game settings as Drafts (20261204000000, run
+  2026-11-22), is live too: every item from the Ocarina early-Builder review is built.
 
 Open, waiting on Matt:
 - **Tests only Matt can do (signed in or on his phone):**
