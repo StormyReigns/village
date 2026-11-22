@@ -61,6 +61,11 @@ Top to bottom on a phone:
 
 The big dark banner with the title and route radio buttons is gone: the top bar already names the game.
 
+**Checked** on a local production build and live (6a022e0, 2026-11-22), phone (375 px): search first, "Dancer"
+showing "Flame Lord: Leda only" and opening its card over the home, Back returning to the results, Recent filled
+from a pop-up, the yellow route line with none picked, Done and Undo moving the last chance on, three party steps
+with "1 more to do", eight Page tiles, no sideways scroll, no console errors. Not checked: a real phone's touch.
+
 ## Later
 
 - **Slice 2: every Page's top.** One search and a route bar that stay at the top while scrolling; builder
