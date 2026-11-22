@@ -159,7 +159,8 @@ one unit's plan). What it sets, all in `plan_setup`:
 - **Gear slots**: add, rename, remove; each with its Items Block, an optional tag limit (Type: Weapon) and a count
   from 1 to 10. A slot's key never changes once made, so renaming keeps everyone's plans.
 Moderators save it, like every setup (they already write `game_blocks` directly, as Field setup and the map do),
-so Set up needs no new SQL. Worth asking the hub whether `plan_setup` should get a shape check in the database.
+so Set up needs no new SQL. (2026-11-21: anyone else signed in sends it as a setup Draft, and publishing rebuilds
+`plan_setup` from checked parts: 20261127000000, docs/workshop.md.)
 
 **Share a party.** A Share button in the Party list's header, like a tier list's: it makes this route's plan
 readable by its link and opens the phone's share menu (or copies the link). The link opens a read-only party in

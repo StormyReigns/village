@@ -118,7 +118,7 @@ there" lines split into Chests and Materials (they're already "Chests: …" and 
 
 As in Characters and Items: **Set up** on a Places or Foes Block opens the field setup on the
 Workbench, with a sample place ("Old Mine") or foe ("Cave Troll") as the preview. Adding or
-fixing a place or foe uses the same entry form. Moderators save setups for now.
+fixing a place or foe uses the same entry form. Moderators save setups; anyone else signed in sends one as a Draft for votes (2026-11-21, docs/workshop.md).
 
 ## Checked (2026-11-09)
 

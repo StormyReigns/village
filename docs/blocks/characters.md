@@ -122,7 +122,7 @@ own, with a thin line between them; on a phone the sheet opens at the size it wa
   space, and it suits future integrations. (Replaced 2026-10-31, below.)
 - 2026-10-29: every field is optional; builders pick from common fields and add their own.
 - 2026-10-29: voting on field setups, and a "Community take" section, are left out for now.
-  Moderators save setups until voting exists.
+  Moderators save setups until voting exists. (2026-11-21: setups can now be sent as Drafts for votes, docs/workshop.md.)
 - 2026-10-29: game art is preferred, credited, and left out only for legal reasons.
 - 2026-10-29: the card swipes sideways and keeps the page still. Why: on a phone, swiping
   through the cast is the natural move.
@@ -191,7 +191,7 @@ own, with a thin line between them; on a phone the sheet opens at the size it wa
 ## Open questions
 
 - Whether characters missing a note for the chosen route should hide on that route.
-- Voting on Block setups: how long the vote runs, and who approves.
+- Voting on Block setups: built 2026-11-21 as setup Drafts (docs/workshop.md). Up and down votes, a moderator approves; how long a vote runs is still open.
 - The Classes Block on the same Page has no stats or skills data yet.
 
 ## Later

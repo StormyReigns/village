@@ -74,6 +74,27 @@ added. Tests: `supabase/tests/structure-check.mjs`.
   Block in the game. It builds the Tier list and Planner settings itself rather than copying them, and
   makes keys that never clash. The chat says "<title> is now in the app."; Discord skips these.
 
+## Setups as Drafts (built 2026-11-21; its SQL waits on the hub and Matt)
+
+From Matt's Ocarina early-Builder review: Builders should build a game without Matt or moderators. Set up
+(a Block's fields), a Planner's setup and a map picture saved for moderators only. Now anyone signed in
+sends one as a Draft. `20261127000000_setup_drafts.sql` adds the action `setup`; tests:
+`supabase/tests/setup-check.mjs`. Content and the "what changes" words: `src/lib/setup-draft.ts` (tested).
+
+- **Sending:** signed in and not a moderator, Set up's and the Planner setup's button is "Submit for
+  votes", and the map's is "Submit map for votes" (anyone signed in can now upload a map picture into
+  their own folder). The Draft is titled "New setup for Units" or "New map for Places", and opens in
+  Drafts once sent. Moderators still save directly.
+- **What it carries:** the setup, and the Block's setup when it was sent ("before"). Publishing refuses
+  if the Block's setup has changed since, rather than overwrite it; the card says so up front.
+- **The card** (`SetupDraftCard` in `Workshop.tsx`, sharing `ProposalCard` with Page and Block Drafts):
+  what it changes in words ("Renames Kind to Type", "Adds Weakness (list)"), the picture for a map, and
+  "See it in Set up", which opens the editor with the suggestion and its preview (nothing to save there).
+  Up and down votes. Moderators get "Approve and publish".
+- **Publishing** (`ship_setup`) checks fields (60 at most, names, known kinds, links into this game,
+  capped choice lists and stats), rebuilds a Planner's setup from checked parts (its Blocks in this game,
+  sizes clamped), and takes a map only from the author's or a moderator's upload for this game.
+
 ### Rough spots
 
 - Tier list and Planner previews show their empty starting state, not a filled-in example (a Tier

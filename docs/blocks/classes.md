@@ -172,7 +172,7 @@ from the old tier cards, which Matt removed). The eight secret classes keep thei
 
 As in Items: **Set up** on a Classes Block opens the field setup with a sample class beside it.
 **Adding or fixing a class** uses the same form: Exam needs as rows, growth modifiers as a grid,
-the live preview. Moderators save setups for now.
+the live preview. Moderators save setups; anyone else signed in sends one as a Draft for votes (2026-11-21, docs/workshop.md).
 
 ## Build plan
 

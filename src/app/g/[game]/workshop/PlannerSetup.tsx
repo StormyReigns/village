@@ -13,11 +13,14 @@ import { appChanged } from '@/app/actions';
 import { DESCRIPTION, isCategory, shownFields } from '@/lib/fields';
 import { MAX_SLOT, STEP_LABEL, nextStep, slotKeyFor, tidySetup, type PlanSetup, type PlanSlot } from '@/lib/planner';
 import { bandOrder, classShape } from '@/lib/classes';
+import { setupContent } from '@/lib/setup-draft';
+import type { NewDraft } from './useWorkshop';
 
 // Set up for a Planner Block (docs/blocks/planner.md, slice 3), on the Workbench: which Characters Block a
 // party comes from, its size, the fields that say how to get a unit, the Classes Block for class steps,
 // and the gear slots. The preview is the app's look: a sample party of three and one unit's plan.
-// Moderators save it, as with every setup (game_blocks.plan_setup).
+// Moderators save it, as with every setup (game_blocks.plan_setup); anyone else signed in sends it as a
+// Draft for votes (20261127000000_setup_drafts.sql). Opened from a setup Draft's card, it shows that one.
 
 type Placed = Block & { page: Page };
 
@@ -30,17 +33,24 @@ const Label = ({ children, hint }: { children: React.ReactNode; hint?: string })
   </div>
 );
 
-export function PlannerSetup({ gameId, block, blocks, canSave, onClose }: {
-  gameId: string; block: Placed; blocks: Placed[]; canSave: boolean; onClose: () => void;
+export function PlannerSetup({ gameId, block, blocks, canSave, signedIn = false, postDraft, onSubmitted, proposal, onClose }: {
+  gameId: string; block: Placed; blocks: Placed[]; canSave: boolean;
+  /** Not a moderator but signed in: "Submit for votes" sends the setup as a Draft. */
+  signedIn?: boolean;
+  postDraft?: (d: NewDraft) => Promise<{ error?: string; id?: string }>;
+  onSubmitted?: (draftId: string) => void;
+  /** A setup Draft being looked at, and who suggested it. */
+  proposal?: { plan: PlanSetup; author: string };
+  onClose: () => void;
 }) {
   const router = useRouter();
   const start = useMemo<PlanSetup>(() => block.planSetup ?? { roster: blocks.find((b) => b.type === 'characters')?.id ?? '' }, [block.planSetup, blocks]);
-  const [setup, setSetup] = useState<PlanSetup>(start);
+  const [setup, setSetup] = useState<PlanSetup>(proposal?.plan ?? start);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [newSlot, setNewSlot] = useState('');
   const baseline = JSON.stringify(tidySetup(start));
-  const dirty = JSON.stringify(tidySetup(setup)) !== baseline;
+  const dirty = !proposal && JSON.stringify(tidySetup(setup)) !== baseline;
 
   const characters = blocks.filter((b) => b.type === 'characters');
   const classesBlocks = blocks.filter((b) => b.type === 'classes');
@@ -67,6 +77,20 @@ export function PlannerSetup({ gameId, block, blocks, canSave, onClose }: {
     setNote(error ? `Couldn't save: ${error.message}` : 'Saved. The app shows the new setup now.');
   };
 
+  // Not a moderator: the setup goes to the Workshop as a Draft, with the setup it started from.
+  const submit = async () => {
+    if (!setup.roster) { setNote('Pick the Block a party comes from.'); return; }
+    if (slots.some((s) => !s.label.trim())) { setNote('Every gear slot needs a name.'); return; }
+    if (!dirty) { setNote('Change something first: this is the setup the app has now.'); return; }
+    if (!postDraft) return;
+    setBusy(true);
+    const content = setupContent(block, { plan: tidySetup(setup) });
+    const res = await postDraft({ blockKey: block.id, kind: 'opinion', title: content.name, content: content as never, source: '', theory: false, action: 'setup' });
+    setBusy(false);
+    if (res.error || !res.id) { setNote(/action_check/.test(res.error ?? '') ? 'Suggesting setups is almost ready: the database needs one more update.' : res.error ?? "Couldn't send it. Try again in a moment."); return; }
+    onSubmitted?.(res.id);
+  };
+
   return (
     <EditorShell
       label={`Set up ${block.title}`}
@@ -78,11 +102,16 @@ export function PlannerSetup({ gameId, block, blocks, canSave, onClose }: {
           </button>
         </Tip>
       }
-      actions={canSave && (
+      actions={proposal ? undefined : canSave ? (
         <button type="button" onClick={save} disabled={busy} className="btn-primary rounded-full px-4 py-2 text-sm font-bold disabled:opacity-60">{busy ? 'Saving…' : 'Save setup'}</button>
-      )}
+      ) : signedIn && postDraft ? (
+        <button type="button" onClick={submit} disabled={busy} className="btn-primary rounded-full px-4 py-2 text-sm font-bold disabled:opacity-60">
+          {busy ? 'Sending…' : <><span className="sm:hidden">Submit</span><span className="hidden sm:inline">Submit for votes</span></>}
+        </button>
+      ) : undefined}
       note={note ? <p role="status" className={note.startsWith('Saved') ? 'text-leaf' : 'text-berry'}>{note}</p>
-        : !canSave ? <p className="text-muted">Only the game&apos;s moderators can save a setup for now. Try changes here and see them in the preview.</p> : undefined}
+        : proposal ? <p className="text-muted">{proposal.author}&apos;s suggestion, with its preview. Vote on it in Drafts.</p>
+        : !canSave ? <p className="text-muted">{signedIn ? 'A setup changes it for everyone. Submit yours for votes, and a moderator puts it in the app.' : 'Try changes here and see them in the preview. Sign in to submit yours for votes.'}</p> : undefined}
       onClose={onClose}
       dirty={dirty}
       onSaveDraft={onClose}

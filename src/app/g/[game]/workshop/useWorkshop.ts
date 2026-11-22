@@ -61,13 +61,14 @@ export interface ChatEvent {
   reason?: string | null;
 }
 
-export type DraftAction = 'edit' | 'remove' | 'add_page' | 'add_block';
+export type DraftAction = 'edit' | 'remove' | 'add_page' | 'add_block' | 'setup';
 
 export interface LiveDraft extends DraftStats {
   blockKey: string;
   kind: 'fact' | 'opinion';
   /** 'remove': asks for the entry to leave the app; its source is the reason. 'add_page' and 'add_block'
-   *  suggest a new Page (with its first Block) or Block; content holds it (20261122000000, AddBlock.tsx). */
+   *  suggest a new Page (with its first Block) or Block; content holds it (20261122000000, AddBlock.tsx).
+   *  'setup' suggests a Block's setup: its fields, a Planner's setup or a map (20261127000000, src/lib/setup-draft.ts). */
   action: DraftAction;
   title: string;
   content: EntryContent;
@@ -377,7 +378,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined, wan
       const sc = scores.get(r.id as string);
       return {
         id: r.id as string, blockKey: r.block_key as string, kind: r.kind === 'opinion' ? 'opinion' : 'fact',
-        action: r.action === 'remove' || r.action === 'add_page' || r.action === 'add_block' ? r.action : 'edit',
+        action: r.action === 'remove' || r.action === 'add_page' || r.action === 'add_block' || r.action === 'setup' ? r.action : 'edit',
         title: r.title as string, content: ((c: Partial<EntryContent>) => ({ ...c, name: c.name ?? (r.title as string), sections: c.sections ?? [], categories: c.categories ?? {} }))(r.content as Partial<EntryContent>), source: (r.source as string) ?? null,
         cardId: (r.card_id as string) ?? null, baseRevision: (r.base_revision_id as number) ?? null,
         theory: Boolean(r.theory), status: r.status as string, declineReason: (r.decline_reason as string) ?? null,

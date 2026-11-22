@@ -39,6 +39,8 @@ import { FieldSetup } from './FieldSetup';
 import { MapSetup } from './MapSetup';
 import { PlannerSetup } from './PlannerSetup';
 import { AddBlock, StructurePreview, structureOf, type StructureContent } from './AddBlock';
+import { kindOf, setupChanges, setupOf, type SetupContent } from '@/lib/setup-draft';
+import { mapPictureUrl } from '@/components/world/PictureMap';
 import { useDragSort } from './useDragSort';
 import { browserClient } from '@/lib/supabase/browser';
 import { appChanged } from '@/app/actions';
@@ -93,6 +95,8 @@ export function Workshop({ game, pages, routes }: {
   // A Block being set up: a Characters (Items, Guides) Block's fields, or a Places Block's map
   // (?pins=block, from "not on the map yet" in the app).
   const [setup, setSetup] = useState<string | null>(() => { const b = params.get('pins'); return b && placeOf(b)?.look === 'map' ? b : null; });
+  // A setup Draft opened in its editor ("See it in Set up" on its card), to look at with its preview.
+  const [trying, setTrying] = useState<LiveDraft | null>(null);
   // Rows pasted from a spreadsheet into a Block (?paste=block, from the app's Download menu).
   const [pasting, setPasting] = useState<string | null>(() => { const b = params.get('paste'); return b && placeOf(b) ? b : null; });
   // A Block's wiki links: what to check, and the game's wiki (docs/blocks/wiki-links.md).
@@ -396,7 +400,12 @@ export function Workshop({ game, pages, routes }: {
   const editLabel = editing === 'add' ? (adding?.newPage ? 'New Page' : 'Add a Block') : editing === 'form'
     ? (form?.entryId ? `Fix: ${editBlock?.entries.find((e) => e.id === form.entryId)?.name ?? 'an entry'}` : `New in ${editBlock?.title ?? 'the app'}`)
     : setupBlock ? (setupBlock.look === 'map' ? `Map: ${setupBlock.title}` : `Set up ${setupBlock.title}`) : pasteBlock ? `Paste into ${pasteBlock.title}` : wikiBlock ? `Wiki links: ${wikiBlock.title}` : '';
-  const editKey = editing ? `${editing}:${form?.blockId}.${form?.entryId}:${setup}:${pasting}:${wikiFor}:${adding?.newPage}` : null;
+  const editKey = editing ? `${editing}:${form?.blockId}.${form?.entryId}:${setup}:${trying?.id}:${pasting}:${wikiFor}:${adding?.newPage}` : null;
+  // The setup Draft being looked at, if it's for the Block open in Set up; closing goes back to its card.
+  const tried = trying && trying.blockKey === setup ? setupOf(trying.content) : null;
+  const closeSetup = () => { if (trying) { setTab('drafts'); setDetail(trying.id); } setSetup(null); setTrying(null); };
+  // A setup sent as a Draft: show it in Drafts, on its Page.
+  const setupSent = (id: string) => { const page = setupBlock?.page.id; setSetup(null); setTrying(null); if (page) setChip(page); setTab('drafts'); setDetail(id); };
 
   // Threads: what each is about, and the one open beside the chat.
   const threads = useThreads(blocks, drafts, live.messages);
@@ -479,6 +488,7 @@ export function Workshop({ game, pages, routes }: {
     <ChatLinks.Provider value={{ gameId: game.id, threads, open: openThread, routes, me: myId, jump }}>
     <AnsweringQuestion.Provider value={questionBody}>
     <WorkshopGame.Provider value={{ gameId: game.id, pages }}>
+    <TrySetup.Provider value={(d) => { setTrying(d); setSetup(d.blockKey); }}>
     {/* On phones the Chat tab fills the screen like the wide layout: messages scroll inside it
         and the message box stays at the bottom (page.tsx sizes the screen from data-phone-chat). */}
     <main data-phone-chat={phoneTab === 'chat' || undefined}
@@ -617,12 +627,14 @@ export function Workshop({ game, pages, routes }: {
                 <WikiCheck gameId={game.id} block={wikiBlock!} mod={live.mod} onClose={() => setWikiFor(null)}
                   onFix={(entryId, wiki) => setForm({ blockId: wikiBlock!.id, entryId, field: 'wiki', wiki })} />
               ) : setupBlock!.type === 'planner' ? (
-                <PlannerSetup gameId={game.id} block={setupBlock!} blocks={blocks} canSave={live.mod} onClose={() => setSetup(null)} />
+                <PlannerSetup gameId={game.id} block={setupBlock!} blocks={blocks} canSave={live.mod} signedIn={Boolean(me)} postDraft={live.postDraft} onSubmitted={setupSent}
+                  proposal={tried?.setup.plan && trying ? { plan: tried.setup.plan, author: trying.author.name } : undefined} onClose={closeSetup} />
               ) : setupBlock!.look === 'map' ? (
                 <MapSetup gameId={game.id} block={setupBlock!} me={me} mod={live.mod} drafts={drafts} postDraft={live.postDraft} sendBatch={batchData.send}
-                  onBatch={(id) => { const page = setupBlock!.page.id; setSetup(null); setChip(page); setTab('drafts'); setOpenBatch(id); }} onClose={() => setSetup(null)} />
+                  onBatch={(id) => { const page = setupBlock!.page.id; setSetup(null); setChip(page); setTab('drafts'); setOpenBatch(id); }} onSubmitted={setupSent} onClose={closeSetup} />
               ) : (
-                <FieldSetup gameId={game.id} block={setupBlock!} blocks={blocks} routes={routes} canSave={live.mod} onClose={() => setSetup(null)} />
+                <FieldSetup gameId={game.id} block={setupBlock!} blocks={blocks} routes={routes} canSave={live.mod} signedIn={Boolean(me)} postDraft={live.postDraft} onSubmitted={setupSent}
+                  proposal={tried?.setup.fields && trying ? { setup: tried.setup, author: trying.author.name } : undefined} onClose={closeSetup} />
               )}
             </EditorChat.Provider>
           ) : (
@@ -900,6 +912,7 @@ export function Workshop({ game, pages, routes }: {
         </Sheet>
       )}
     </main>
+    </TrySetup.Provider>
     </WorkshopGame.Provider>
     </AnsweringQuestion.Provider>
     </ChatLinks.Provider>
@@ -1006,6 +1019,8 @@ function DraftModTools({ draft, live, inApp }: { draft: LiveDraft; live: Worksho
           <>
             {removal
               ? <Tip text="Takes the entry out of the app now. Its versions are kept, so it can come back" tint="berry"><SmallButton tone="bad" disabled={busy} onClick={publish} icon={<Trash2 size={13} aria-hidden="true" />}>{busy ? 'Removing…' : 'Approve and remove'}</SmallButton></Tip>
+              : draft.action === 'setup'
+              ? <Tip text="Changes how the Block is set up in the app now. If its setup changed since this was sent, it says so instead" tint="leaf"><SmallButton tone="good" disabled={busy} onClick={publish} icon={<Check size={13} aria-hidden="true" />}>{busy ? 'Publishing…' : 'Approve and publish'}</SmallButton></Tip>
               : draft.action === 'add_page' || draft.action === 'add_block'
               ? <Tip text={draft.action === 'add_page' ? 'Adds the Page and its first Block to the app now' : 'Adds the Block to its Page now'} tint="leaf"><SmallButton tone="good" disabled={busy} onClick={publish} icon={<Check size={13} aria-hidden="true" />}>{busy ? 'Adding…' : 'Approve and add'}</SmallButton></Tip>
               : <Tip text="Puts it in the app now, as the entry's new version. Earlier versions are kept" tint="leaf"><SmallButton tone="good" disabled={busy} onClick={publish} icon={<Check size={13} aria-hidden="true" />}>{busy ? 'Publishing…' : 'Approve and publish'}</SmallButton></Tip>}
@@ -1044,6 +1059,8 @@ function DraftModTools({ draft, live, inApp }: { draft: LiveDraft; live: Worksho
 const AnsweringQuestion = createContext<(id: string) => string | undefined>(() => undefined);
 /** The game and its Pages, for a Draft that suggests a Page or Block (its preview reads them). */
 const WorkshopGame = createContext<{ gameId: string; pages: Page[] }>({ gameId: '', pages: [] });
+/** Opens a setup Draft in its editor, to see it with its preview. */
+const TrySetup = createContext<(d: LiveDraft) => void>(() => {});
 
 function DraftCard({ draft, place, routes, me, chatCount, onChat, live, startOpen = false }: {
   draft: LiveDraft; place?: Placed; routes: RouteOption[]; me: Villager | null | undefined;
@@ -1058,6 +1075,9 @@ function DraftCard({ draft, place, routes, me, chatCount, onChat, live, startOpe
   // A suggested Page or Block has no entry, and its own card (20261122000000_page_block_drafts.sql).
   const structure = draft.action === 'add_page' || draft.action === 'add_block' ? structureOf(draft.content) : null;
   if (structure) return <StructureDraftCard draft={draft} structure={structure} me={me} chatCount={chatCount} onChat={onChat} live={live} startOpen={startOpen} />;
+  // A Block's setup has no entry either (20261127000000_setup_drafts.sql).
+  const setupDraft = draft.action === 'setup' ? setupOf(draft.content) : null;
+  if (setupDraft) return <SetupDraftCard draft={draft} setup={setupDraft} place={place} me={me} chatCount={chatCount} onChat={onChat} live={live} startOpen={startOpen} />;
   if (!place) return null;
   const block = place;
   const stable = draft.cardId ? block.entries.find((e) => e.ref?.card === draft.cardId) : undefined;
@@ -1172,19 +1192,17 @@ function DraftCard({ draft, place, routes, me, chatCount, onChat, live, startOpe
  * its author saw, up and down votes (whether the app should have it is a matter of opinion), and a
  * moderator's Approve and add.
  */
-function StructureDraftCard({ draft, structure, me, chatCount, onChat, live, startOpen }: {
-  draft: LiveDraft; structure: StructureContent; me: Villager | null | undefined;
-  chatCount: number; onChat: () => void; live: WorkshopData; startOpen: boolean;
+/**
+ * A Draft that changes the app's shape rather than an entry: a new Page or Block, or a Block's setup.
+ * Up and down votes (whether the app should have it is an opinion), its thread, reports, and the
+ * moderator's buttons. `children` is what it does, shown when it's opened.
+ */
+function ProposalCard({ draft, me, chatCount, onChat, live, startOpen, piece, badge, badgeTip, sub, children }: ProposalProps & {
+  piece: React.ReactNode; badge: string; badgeTip: string; sub: string; children: React.ReactNode;
 }) {
-  const { gameId, pages } = useContext(WorkshopGame);
   const [open, setOpen] = useState(startOpen);
   const [reporting, setReporting] = useState(false);
   const [error, setError] = useState('');
-  const b = structure.block;
-  const info = blockTypeInfo(b.type);
-  const target = structure.pageKey ? pages.find((p) => p.id === structure.pageKey) : undefined;
-  const tint = structure.page?.tint ?? target?.tint ?? 'leaf';
-  const newPage = draft.action === 'add_page';
   const mine = me?.id === draft.author.id && !me.practice;
   const reported = live.myReports.has(targetKey({ draftId: draft.id }));
   const total = draft.ups + draft.downs;
@@ -1192,40 +1210,29 @@ function StructureDraftCard({ draft, structure, me, chatCount, onChat, live, sta
   const cast = async (v: 0 | 1 | -1) => setError((await live.vote(draft.id, v)) ?? '');
   const expand = () => { if (!open) live.view(draft.id); setOpen(!open); };
   const needsVote = Boolean(me && !mine && !draft.myVote && (draft.status === 'open' || draft.status === 'checking'));
-  const where = newPage ? `a new Page, ${structure.page?.title ?? ''}` : target ? `the ${target.title} Page` : 'a Page that\'s no longer in the app';
 
   return (
     <li className={'rise rounded-3xl bg-card p-3 ' + (needsVote ? 'ring-1 ring-ink/40 ' : 'ring-1 ring-line ') + (draft.status === 'removed' ? 'opacity-60' : '')}>
       <button onClick={expand} className="flex w-full items-start gap-3 text-left" aria-expanded={open}>
-        <Piece size={40} color={`var(--${tint})`}><BlockIcon name={newPage ? structure.page?.icon ?? b.icon : b.icon} size={15} strokeWidth={2.4} /></Piece>
+        {piece}
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-2">
             <span className="font-display text-lg leading-tight">{draft.title}</span>
-            <Tip text={newPage ? 'Suggests a new Page for the app, with its first Block' : 'Suggests a new Block for a Page'} tint="plum">
-              <span className="rounded-full bg-plum-soft px-2 py-0.5 text-xs font-bold text-plum">{newPage ? 'new Page' : 'new Block'}</span>
+            <Tip text={badgeTip} tint="plum">
+              <span className="rounded-full bg-plum-soft px-2 py-0.5 text-xs font-bold text-plum">{badge}</span>
             </Tip>
             {needsVote && <span className="rounded-full px-2 py-0.5 text-xs font-bold text-ink ring-1 ring-ink">Needs your vote</span>}
           </span>
           <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm text-muted">
             <Avatar name={draft.author.name} url={draft.author.avatarUrl} size={18} />
-            {info?.name ?? b.type} · {draft.author.name} · {ago(draft.createdAt)} · {STATUS[draft.status] ?? draft.status}
+            {sub} · {draft.author.name} · {ago(draft.createdAt)} · {STATUS[draft.status] ?? draft.status}
           </span>
         </span>
       </button>
       {draft.status === 'declined' && draft.declineReason && (
         <p className="mt-2 rounded-2xl bg-card-2 px-3 py-2 text-sm ring-1 ring-line"><span className="font-bold">Declined:</span> {draft.declineReason}</p>
       )}
-      {open && (
-        <div className="mt-3 grid gap-2">
-          <p className="text-sm">
-            Adds a <span className="font-bold">{info?.name ?? b.type}</span> Block called <span className="font-bold">{b.title}</span> to {where}.
-            {b.intro && <span className="text-muted"> “{b.intro}”</span>}
-          </p>
-          <div className="rounded-2xl p-3" style={{ background: `var(--${tint}-soft)` }}>
-            <StructurePreview content={structure} pages={pages} gameId={gameId} />
-          </div>
-        </div>
-      )}
+      {open && <div className="mt-3 grid gap-2">{children}</div>}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {me === null ? <SignInPrompt>Sign in to vote</SignInPrompt> : !me ? null : mine ? (
           <span className="text-sm text-muted">Your Draft · {total >= 5 ? `${draft.ups} up · ${draft.downs} down` : leaning}</span>
@@ -1256,6 +1263,71 @@ function StructureDraftCard({ draft, structure, me, chatCount, onChat, live, sta
       {reporting && !reported && <ReportForm target={{ draftId: draft.id }} live={live} onDone={() => setReporting(false)} />}
       {live.mod && <DraftModTools draft={draft} live={live} inApp={false} />}
     </li>
+  );
+}
+
+type ProposalProps = { draft: LiveDraft; me: Villager | null | undefined; chatCount: number; onChat: () => void; live: WorkshopData; startOpen: boolean };
+
+function StructureDraftCard({ structure, ...props }: ProposalProps & { structure: StructureContent }) {
+  const { gameId, pages } = useContext(WorkshopGame);
+  const { draft } = props;
+  const b = structure.block;
+  const info = blockTypeInfo(b.type);
+  const target = structure.pageKey ? pages.find((p) => p.id === structure.pageKey) : undefined;
+  const tint = structure.page?.tint ?? target?.tint ?? 'leaf';
+  const newPage = draft.action === 'add_page';
+  const where = newPage ? `a new Page, ${structure.page?.title ?? ''}` : target ? `the ${target.title} Page` : 'a Page that\'s no longer in the app';
+  return (
+    <ProposalCard {...props} sub={info?.name ?? b.type}
+      piece={<Piece size={40} color={`var(--${tint})`}><BlockIcon name={newPage ? structure.page?.icon ?? b.icon : b.icon} size={15} strokeWidth={2.4} /></Piece>}
+      badge={newPage ? 'new Page' : 'new Block'} badgeTip={newPage ? 'Suggests a new Page for the app, with its first Block' : 'Suggests a new Block for a Page'}>
+      <p className="text-sm">
+        Adds a <span className="font-bold">{info?.name ?? b.type}</span> Block called <span className="font-bold">{b.title}</span> to {where}.
+        {b.intro && <span className="text-muted"> “{b.intro}”</span>}
+      </p>
+      <div className="rounded-2xl p-3" style={{ background: `var(--${tint}-soft)` }}>
+        <StructurePreview content={structure} pages={pages} gameId={gameId} />
+      </div>
+    </ProposalCard>
+  );
+}
+
+/** A Block's setup as a Draft (20261127000000): what it changes, in words, and a way to see it with its preview. */
+function SetupDraftCard({ setup, place, ...props }: ProposalProps & { setup: SetupContent; place?: Placed }) {
+  const { pages } = useContext(WorkshopGame);
+  const tryIt = useContext(TrySetup);
+  const { draft } = props;
+  const kind = kindOf(setup.setup);
+  const name = (key: string) => pages.flatMap((p) => p.blocks).find((b) => b.id === key)?.title ?? key;
+  // What it changes from the setup it started from, so it still reads right once it's decided.
+  const was = place && { type: place.type, fields: setup.before.fields ?? undefined, stats: setup.before.stats ?? undefined, planSetup: setup.before.plan ?? undefined, map: setup.before.map ?? undefined };
+  const changes = was ? setupChanges(was, setup.setup, name) : [];
+  // Publishing refuses once the Block's setup has moved on from where this started; say so up front.
+  const part = (b: { fields?: unknown; stats?: unknown; plan?: unknown; map?: unknown }) =>
+    JSON.stringify(kind === 'fields' ? [b.fields ?? null, b.stats ?? null] : kind === 'plan' ? b.plan ?? null : b.map ?? null);
+  const stale = Boolean(place) && (draft.status === 'open' || draft.status === 'checking')
+    && part({ fields: place?.fields, stats: place?.stats, plan: place?.planSetup, map: place?.map }) !== part(setup.before);
+  const tint = place?.page.tint ?? 'slate';
+  return (
+    <ProposalCard {...props} sub={place ? (place.page.title === place.title ? place.title : `${place.page.title} · ${place.title}`) : 'A Block that\'s no longer in the app'}
+      piece={<Piece size={40} color={`var(--${tint})`}><BlockIcon name={place?.icon ?? 'SlidersHorizontal'} size={15} strokeWidth={2.4} /></Piece>}
+      badge={kind === 'map' ? 'map' : 'setup'} badgeTip={kind === 'map' ? 'Suggests a map picture for this Block' : 'Suggests how this Block is set up: its fields, or what it picks from'}>
+      {changes.length ? (
+        <ul className="grid gap-1 text-sm">
+          {changes.map((c, i) => <li key={i} className="flex gap-2"><span aria-hidden="true" className="mt-2 size-1.5 shrink-0 rounded-full" style={{ background: `var(--${tint})` }} />{c}</li>)}
+        </ul>
+      ) : <p className="text-sm text-muted">Nothing changes from the setup it started from.</p>}
+      {kind === 'map' && setup.setup.map?.picture && (
+        // eslint-disable-next-line @next/next/no-img-element -- a community upload of any size, shown as it is
+        <img src={mapPictureUrl(setup.setup.map.picture)} alt={`The suggested map for ${place?.title ?? 'this Block'}`} className="max-h-64 w-fit max-w-full rounded-xl ring-1 ring-line" />
+      )}
+      {stale && <p className="rounded-xl bg-sun-soft px-3 py-2 text-sm"><span className="font-bold">The setup changed since this was sent,</span> so it can&apos;t be published as it is. Its author can open Set up and send it again.</p>}
+      {kind !== 'map' && place && (
+        <button type="button" onClick={() => tryIt(draft)} className="inline-flex w-fit items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-sm font-bold ring-1 ring-line hover:ring-ink">
+          <SlidersHorizontal size={14} aria-hidden="true" /> See it in Set up
+        </button>
+      )}
+    </ProposalCard>
   );
 }
 

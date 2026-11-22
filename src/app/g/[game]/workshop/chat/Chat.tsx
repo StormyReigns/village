@@ -1216,7 +1216,7 @@ export function ThreadPanel({ info, messages, me, live, gameId, onBack, onFold, 
           <li className="mx-3 my-0.5 flex items-center gap-2.5 rounded-xl bg-card px-3 py-2 text-sm ring-1 ring-line">
             <FileText size={16} className="shrink-0 text-muted" aria-hidden="true" />
             <span className="min-w-0 flex-1">
-              <span className="font-bold">{x.d.author.name}</span> posted {x.d.action === 'add_page' ? 'a new Page' : x.d.action === 'add_block' ? 'a new Block' : x.d.action === 'remove' ? 'a request to remove it' : x.d.cardId ? 'a fix' : 'a new entry'}
+              <span className="font-bold">{x.d.author.name}</span> posted {x.d.action === 'add_page' ? 'a new Page' : x.d.action === 'add_block' ? 'a new Block' : x.d.action === 'remove' ? 'a request to remove it' : x.d.action === 'setup' ? 'a new setup' : x.d.cardId ? 'a fix' : 'a new entry'}
               <span className="text-muted"> · {ago(x.d.createdAt)} · {DRAFT_STATUS[x.d.status] ?? x.d.status}</span>
             </span>
             <button onClick={() => onDraft(x.d.id)} className="shrink-0 rounded-full bg-card px-2.5 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">

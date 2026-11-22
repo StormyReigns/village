@@ -20,6 +20,8 @@ import { classShape } from '@/lib/classes';
 import { ChoiceList } from './ChoiceList';
 import { useDragSort } from './useDragSort';
 import { backOf, bothOf, incomingFields, pointsAway, withFromRows } from '@/lib/entry-links';
+import { setupContent, type SetupPart } from '@/lib/setup-draft';
+import type { NewDraft } from './useWorkshop';
 
 const input = 'w-full rounded-xl bg-card px-2.5 py-1.5 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-sky';
 const slug = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_]+/g, '-');
@@ -28,14 +30,22 @@ const slug = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/
  * Setting up a Characters or Items Block: which fields its cards have, what they're called,
  * their order, and which are spoilers, with "John Doe" (or a sample item, with its tile)
  * filled in beside it so builders see the card their choices make. Items also choose what
- * goes on the tile. Changing a Block changes it for everyone, so for now only the
- * game's moderators can save; anyone can try a setup and see the preview.
+ * goes on the tile. Changing a Block changes it for everyone: moderators save it, and anyone
+ * else signed in sends it as a Draft for votes (20261127000000_setup_drafts.sql). Opened from a
+ * setup Draft's card, it shows that suggestion with its preview, to look at, not to save.
  */
-export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClose }: {
+export function FieldSetup({ gameId, block, blocks = [], routes, canSave, signedIn = false, postDraft, onSubmitted, proposal, onClose }: {
   gameId: string; block: Block & { page: Page };
   /** Every Block in the game, for what a links field can point at and what points here. */
   blocks?: (Block & { page: Page })[];
-  routes: RouteOption[]; canSave: boolean; onClose: () => void;
+  routes: RouteOption[]; canSave: boolean;
+  /** Not a moderator but signed in: "Submit for votes" sends the setup as a Draft. */
+  signedIn?: boolean;
+  postDraft?: (d: NewDraft) => Promise<{ error?: string; id?: string }>;
+  onSubmitted?: (draftId: string) => void;
+  /** A setup Draft being looked at: its fields and stats, and who suggested it. */
+  proposal?: { setup: SetupPart; author: string };
+  onClose: () => void;
 }) {
   const incoming = incomingFields(blocks, block.id);
   const router = useRouter();
@@ -45,16 +55,19 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
   // Common fields added since this Block was set up are offered too, switched off.
   // Other sides shown here from links set up elsewhere get rows too, where builders put them (docs/blocks/entry-links.md).
   const start = () => withFromRows(withCommon(fieldsOf(block), block.type), block.fields, incoming);
-  const [fields, setFields] = useState<FieldDef[]>(() => saved?.fields ?? start().map((f) => ({ ...f })));
+  const proposed = proposal?.setup.fields ? { ...block, fields: proposal.setup.fields, stats: proposal.setup.stats ?? undefined } : null;
+  const [fields, setFields] = useState<FieldDef[]>(() => proposed
+    ? withFromRows(withCommon(fieldsOf(proposed), block.type), proposed.fields, incoming).map((f) => ({ ...f }))
+    : saved?.fields ?? start().map((f) => ({ ...f })));
   // Each chart's stat names as typed, by the chart's key.
-  const [names, setNames] = useState<Record<string, string>>(() => saved?.names ?? Object.fromEntries(fieldsOf(block).filter((f) => f.kind === 'chart')
-    .map((f) => [f.key, chartDefs(block, f).map((d) => d.label).join(', ')])));
+  const [names, setNames] = useState<Record<string, string>>(() => (!proposed && saved?.names) || Object.fromEntries(fieldsOf(proposed ?? block).filter((f) => f.kind === 'chart')
+    .map((f) => [f.key, chartDefs(proposed ?? block, f).map((d) => d.label).join(', ')])));
   const [adding, setAdding] = useState<{ label: string; kind: FieldKind }>({ label: '', kind: 'text' });
   const [view, setView] = useState<'profile' | 'row'>('profile');
   // The tag whose list of choices is open in its panel, by its place in `fields`.
   const [listing, setListing] = useState<number | null>(null);
   const wide = useWide();
-  const [note, setNote] = useState(saved ? 'Picked up the setup you saved as a draft.' : '');
+  const [note, setNote] = useState(proposal ? '' : saved ? 'Picked up the setup you saved as a draft.' : '');
   const [busy, setBusy] = useState(false);
   const color = `var(--${block.page.tint})`;
   // Items: tiles, and their own words, kinds and stat suggestions.
@@ -78,7 +91,8 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
   const onTile = fields.filter((f) => !f.off && f.tile && canTile(f)).length;
   // What the Block has now, to tell whether anything would be lost by closing.
   const [baseline, setBaseline] = useState(() => JSON.stringify({ fields: start(), stats: block.stats ?? [] }));
-  const dirty = JSON.stringify({ fields: drafted, stats }) !== baseline;
+  // A suggestion being looked at has nothing of yours to lose.
+  const dirty = !proposal && JSON.stringify({ fields: drafted, stats }) !== baseline;
 
   const patch = (i: number, p: Partial<FieldDef>) => { setFields(fields.map((f, j) => (j === i ? { ...f, ...p } : f))); setNote(''); };
   const move = (i: number, by: -1 | 1) => {
@@ -128,6 +142,21 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
     setNote(error ? `Couldn't save: ${error.message}` : 'Saved. The app shows the new setup now.');
   };
 
+  // Not a moderator: the setup goes to the Workshop as a Draft, with the setup it started from, so a
+  // moderator never publishes it over a newer one.
+  const submit = async () => {
+    if (fields.some((f) => !f.label.trim())) { setNote('Every field needs a name.'); return; }
+    if (!dirty) { setNote('Change something first: this is the setup the app has now.'); return; }
+    if (!postDraft) return;
+    setBusy(true);
+    const content = setupContent(block, { fields: drafted.map((f) => ({ ...f, label: f.label.trim() })), stats: stats.length ? stats : null });
+    const res = await postDraft({ blockKey: block.id, kind: 'opinion', title: content.name, content: content as never, source: '', theory: false, action: 'setup' });
+    setBusy(false);
+    if (res.error || !res.id) { setNote(/action_check/.test(res.error ?? '') ? 'Suggesting setups is almost ready: the database needs one more update.' : res.error ?? "Couldn't send it. Try again in a moment."); return; }
+    forgetDraft(draftKey);
+    onSubmitted?.(res.id);
+  };
+
   return (
     <EditorShell
       label={`Set up ${block.title}`}
@@ -139,10 +168,15 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
           </button>
         </Tip>
       }
-      actions={canSave && (
+      actions={proposal ? undefined : canSave ? (
         <button type="button" onClick={save} disabled={busy} className="btn-primary rounded-full px-4 py-2 text-sm font-bold disabled:opacity-60">{busy ? 'Saving…' : 'Save setup'}</button>
-      )}
-      note={note && <p role="status" className={/^(Saved|Picked)/.test(note) ? 'text-leaf' : 'text-berry'}>{note}</p>}
+      ) : signedIn && postDraft ? (
+        <button type="button" onClick={submit} disabled={busy} className="btn-primary rounded-full px-4 py-2 text-sm font-bold disabled:opacity-60">
+          {busy ? 'Sending…' : <><span className="sm:hidden">Submit</span><span className="hidden sm:inline">Submit for votes</span></>}
+        </button>
+      ) : undefined}
+      note={note ? <p role="status" className={/^(Saved|Picked)/.test(note) ? 'text-leaf' : 'text-berry'}>{note}</p>
+        : proposal ? <p className="text-muted">{proposal.author}&apos;s suggestion, with its preview. Vote on it in Drafts.</p> : undefined}
       onClose={onClose}
       dirty={dirty}
       onSaveDraft={() => { writeDraft(draftKey, { fields, names }); onClose(); }}
@@ -293,8 +327,10 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, onClos
           <KindExample {...adding} block={block} routes={routes} color={color} className="md:hidden" />
         </div>
 
-          {!canSave && (
-            <p className="text-sm text-muted">A Block&apos;s setup changes it for everyone, so a moderator saves it. Try things here and see the preview; suggesting a setup for votes comes later.</p>
+          {!canSave && !proposal && (
+            <p className="text-sm text-muted">{signedIn
+              ? "A Block's setup changes it for everyone. Submit yours for votes, and a moderator puts it in the app."
+              : "A Block's setup changes it for everyone. Try things here and see the preview; sign in to submit yours for votes."}</p>
           )}
           {listing !== null && fields[listing] && (() => {
             const f = fields[listing];

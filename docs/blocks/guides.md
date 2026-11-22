@@ -133,7 +133,7 @@ of a line, so words that happen to look like one are kept as words.
 - **Set up** on a Guides Block (in the Workshop's "In the app" tab) opens the same field
   setup as Characters and Items, on the Workbench, with a sample guide ("Beat the bridge
   fort") as the preview, a spoiler step included. Adding a field shows an example with
-  guide-like names (What you get, Missable, See also). Moderators save setups for now.
+  guide-like names (What you get, Missable, See also). Moderators save setups; anyone else signed in sends one as a Draft for votes (2026-11-21, docs/workshop.md).
 - **Writing or fixing a guide** uses the same form as characters and items: fields in the
   guide's order, "In short" with the hint "What would you tell a friend, in two lines?",
   Watch out as one box per row, then "How do you want to write it?" with two choices, Quick

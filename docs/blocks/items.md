@@ -196,7 +196,7 @@ button on the rest is dimmed and says the tile is full. Stat names have item sug
 field uses item names (Element, Ingredients, Lore...).
 **Adding or fixing an item** uses the same form as characters: fields in the full view's
 order, inputs by kind, "Made from" as rows of "Which item" and "How many, or a note" with
-names offered from the Block, and the live preview. Moderators save setups for now.
+names offered from the Block, and the live preview. Moderators save setups; anyone else signed in sends one as a Draft for votes (2026-11-21, docs/workshop.md).
 
 ## Decisions
 

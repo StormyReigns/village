@@ -16,6 +16,7 @@ import { EditorShell } from './EditorShell';
 import { contentOf } from './EntryForm';
 import { uploadPicture, type LiveDraft, type NewDraft } from './useWorkshop';
 import type { NewBatch } from './useBatches';
+import { setupContent } from '@/lib/setup-draft';
 
 const input = 'w-full rounded-xl bg-card px-2.5 py-1.5 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-sky';
 
@@ -26,18 +27,21 @@ const same = (a: Spot | null | undefined, b: Spot | null | undefined) => (a ?? n
 const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 
 /**
- * A Places Block's map (docs/blocks/world.md): moderators set the picture and its credit, and
- * anyone signed in places pins. Each pin is a Draft for its place (Matt), sent together with
+ * A Places Block's map (docs/blocks/world.md): moderators set the picture and its credit (anyone else
+ * signed in sends a picture as a Draft for votes, 20261127000000_setup_drafts.sql), and anyone signed in
+ * places pins. Each pin is a Draft for its place (Matt), sent together with
  * "Submit": two or more go as one batch (a folder of Drafts voted on once). Pins not sent yet
  * stay on this device.
  */
-export function MapSetup({ gameId, block, me, mod, drafts, postDraft, sendBatch, onBatch, onClose }: {
+export function MapSetup({ gameId, block, me, mod, drafts, postDraft, sendBatch, onBatch, onSubmitted, onClose }: {
   gameId: string; block: Block & { page: Page }; me: Villager | null | undefined; mod: boolean;
   drafts: LiveDraft[];
   postDraft: (d: NewDraft) => Promise<{ error?: string; id?: string }>;
   sendBatch: (b: NewBatch) => Promise<{ id?: string; error?: string }>;
   /** Everything went as one batch: show it in Drafts. */
   onBatch: (id: string) => void;
+  /** A map picture went as a Draft: show it in Drafts. */
+  onSubmitted?: (draftId: string) => void;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -119,10 +123,11 @@ export function MapSetup({ gameId, block, me, mod, drafts, postDraft, sendBatch,
     setBusy('upload');
     const res = await uploadPicture('map-pictures', gameId, me.id, f, MAP_MAX_SIDE);
     setBusy(null);
-    if (typeof res === 'string') { setNote(res); return; }
+    if (typeof res === 'string') { setNote(!mod && /security|policy|permission/i.test(res) ? 'Suggesting a map is almost ready: the database needs one more update.' : res); return; }
     if (!res.w || !res.h) { setNote("That picture couldn't be read. Try a PNG, JPEG or WebP."); return; }
     setPicture({ picture: res.path, w: res.w, h: res.h });
-    setNote(saved ? 'New picture ready. Pins keep their place as a share of the picture, so use one of the same area. Save map to use it.' : 'Picture ready. Save map to use it.');
+    const use = mod ? 'Save map to use it.' : 'Submit it for votes to use it.';
+    setNote(saved ? `New picture ready. Pins keep their place as a share of the picture, so use one of the same area. ${use}` : `Picture ready. ${use}`);
   };
 
   const saveMap = async () => {
@@ -134,6 +139,18 @@ export function MapSetup({ gameId, block, me, mod, drafts, postDraft, sendBatch,
     if (!error) { await appChanged(gameId); router.refresh(); }
     setBusy(null);
     setNote(error ? (/column/i.test(error.message) ? 'Maps are almost ready: the database needs one more update.' : `Couldn't save: ${error.message}`) : 'Saved. The app shows the map now.');
+  };
+
+  // Not a moderator: the picture goes to the Workshop as a Draft, with the map it started from.
+  const submitMap = async () => {
+    if (!picture) return;
+    setBusy('save');
+    const value: BlockMap = { picture: picture.picture, w: picture.w, h: picture.h, ...(credit.trim() ? { credit: credit.trim().slice(0, CREDIT_MAX) } : {}) };
+    const content = setupContent(block, { map: value });
+    const res = await postDraft({ blockKey: block.id, kind: 'opinion', title: content.name, content: content as never, source: '', theory: false, action: 'setup' });
+    setBusy(null);
+    if (res.error || !res.id) { setNote(/action_check/.test(res.error ?? '') ? 'Suggesting a map is almost ready: the database needs one more update.' : res.error ?? "Couldn't send it. Try again in a moment."); return; }
+    onSubmitted?.(res.id);
   };
 
   // Placing a pin moves on to the next place that isn't on the map yet, so a whole map is just
@@ -267,12 +284,13 @@ export function MapSetup({ gameId, block, me, mod, drafts, postDraft, sendBatch,
       tint={block.page.tint}
       editor={
         <div className="grid gap-4">
-          {/* The picture: moderators set it, like a Block's setup. */}
+          {/* The picture: moderators set it, like a Block's setup; anyone else signed in suggests one. */}
           <section className="grid gap-2 rounded-2xl bg-card p-3 ring-1 ring-line">
             <h3 className="font-bold">Map picture</h3>
-            {mod ? (
+            {mod || me ? (
               <>
-                <p className="text-sm text-muted">Any picture of the world: the game&apos;s map, or one drawn by the community. Big is good: players zoom in.</p>
+                <p className="text-sm text-muted">Any picture of the world: the game&apos;s map, or one drawn by the community. Big is good: players zoom in.{!mod && ' Submit it for votes, and a moderator puts it in the app.'}</p>
+                {!mod && saved && <p className="text-xs text-muted">Now: set{saved.credit ? ` · ${saved.credit}` : ''}.</p>}
                 <input ref={file} type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
                   onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void upload(f); }} />
                 <div className="flex flex-wrap items-center gap-2">
@@ -287,12 +305,12 @@ export function MapSetup({ gameId, block, me, mod, drafts, postDraft, sendBatch,
                   <input value={credit} maxLength={CREDIT_MAX} onChange={(e) => setCredit(e.target.value)} placeholder="Map: Game8, or Drawn by stormyreigns" className={input} />
                   <span className="text-xs text-muted">Shown small under the map. Say where the picture comes from.</span>
                 </label>
-                {pictureDirty && (
-                  <button type="button" onClick={saveMap} disabled={busy !== null} className="btn-primary w-fit rounded-full px-4 py-2 text-sm font-bold disabled:opacity-60">{busy === 'save' ? 'Saving…' : 'Save map'}</button>
-                )}
+                {pictureDirty && (mod
+                  ? <button type="button" onClick={saveMap} disabled={busy !== null} className="btn-primary w-fit rounded-full px-4 py-2 text-sm font-bold disabled:opacity-60">{busy === 'save' ? 'Saving…' : 'Save map'}</button>
+                  : <button type="button" onClick={submitMap} disabled={busy !== null} className="btn-primary w-fit rounded-full px-4 py-2 text-sm font-bold disabled:opacity-60">{busy === 'save' ? 'Sending…' : 'Submit map for votes'}</button>)}
               </>
             ) : (
-              <p className="text-sm text-muted">{saved ? `Set by the moderators${saved.credit ? ` · ${saved.credit}` : ''}.` : 'A moderator adds the map picture first. Ask in the chat.'}</p>
+              <p className="text-sm text-muted">{saved ? `Set by the moderators${saved.credit ? ` · ${saved.credit}` : ''}.` : 'No map picture yet. Sign in to suggest one.'}</p>
             )}
           </section>
 
