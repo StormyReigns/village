@@ -44,7 +44,7 @@ designed properly), **Idea** (not built).
 | – | Spreadsheets (integration) | Live (2026-11-10): download, paste-in batches | Every Block with entries; Workshop | [spreadsheets.md](spreadsheets.md) |
 | – | Phone app (integration) | Live (2026-11-09): install, offline reading | The whole site | |
 | – | Collection: slots and rows | Live, first version | Foes | |
-| – | Checklist | Live, first version | Last chances | |
-| – | Timeline | Live, first version | Story | |
+| – | Checklist | Live, first version; Set up (2026-11-21) | Last chances; Ocarina · Hearts and Skulltulas | [checklist.md](checklist.md) |
+| – | Timeline | Live, first version; Set up (2026-11-21) | Story; Ocarina · Dungeons | [timeline.md](timeline.md) |
 
 Pick the next Block with Matt, give it a number here, and start its file from the template.

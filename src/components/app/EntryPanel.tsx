@@ -19,6 +19,7 @@ import { GuideCard } from './Guides';
 import { Videos, cardIdOf } from '@/components/videos/Videos';
 import { WikiLink } from '@/components/wiki/WikiLink';
 import { EntryLink } from './Peek';
+import { DESCRIPTION, fieldsOf, listLook } from '@/lib/fields';
 
 interface OpenFix { id: string; theory: boolean; text: string; who: string }
 type Profile = { display_name?: string; username?: string } | null;
@@ -292,6 +293,14 @@ export function EntryDetails({ entry, block, route, routes, fixHref, invite, col
   if (block.type === 'items' || block.type === 'classes') return <CharacterCard entry={entry} block={block} route={route} routes={routes} color={color} fixHref={fixHref} onGo={onGo} size={96} />;
   if (block.type === 'guide') return <GuideCard entry={entry} block={block} route={route} routes={routes} color={color} />;
   const name = (r: Route) => routes.find((o) => o.key === r)?.label ?? r;
+  // A Checklist or Timeline set up with fields: its parts take the names Set up gives them, in Set up's order,
+  // and switched-off fields stay out (docs/blocks/checklist.md). Without a Set up, as before.
+  const setUp = block.type && listLook({ type: block.type }) && block.fields?.length ? fieldsOf({ type: block.type, fields: block.fields }) : null;
+  const labelOf = (key: string) => setUp?.find((f) => f.key === key)?.label ?? key;
+  const sections = setUp
+    ? [...setUp.filter((f) => !f.off && f.key !== DESCRIPTION).flatMap((f) => entry.sections.filter((s) => s.label === f.key)),
+       ...entry.sections.filter((s) => !setUp.some((f) => f.key === s.label))]
+    : entry.sections;
   const mine = route !== 'all' ? entry.perRoute?.[route] : undefined;
   // In the game's own route order (the database keeps object keys in its own order).
   const allRoutes = route === 'all' && entry.perRoute
@@ -326,7 +335,7 @@ export function EntryDetails({ entry, block, route, routes, fixHref, invite, col
       {mine && (
         <div className="mt-4 rounded-2xl bg-leaf-soft p-3">
           <p className="text-xs font-bold uppercase tracking-wide text-leaf">As {name(route as Route)}</p>
-          {mine.map((s) => <p key={s.label} className="mt-1"><span className="font-bold">{s.label}:</span> <RichText text={s.text} skip={entry.name} /></p>)}
+          {mine.map((s) => <p key={s.label} className="mt-1"><span className="font-bold">{labelOf(s.label)}:</span> <RichText text={s.text} skip={entry.name} /></p>)}
         </div>
       )}
 
@@ -342,7 +351,7 @@ export function EntryDetails({ entry, block, route, routes, fixHref, invite, col
       {allRoutes.length > 0 && (
         <div className="mt-4">
           <div className="flex items-center">
-            <p className="flex-1 text-xs font-bold uppercase tracking-wide text-muted">{allRoutes[0][1][0]?.label} by route</p>
+            <p className="flex-1 text-xs font-bold uppercase tracking-wide text-muted">{labelOf(allRoutes[0][1][0]?.label ?? '')} by route</p>
             {fixHref && <FixPencil href={fixHref('routes')} what="the route details" />}
           </div>
           <dl className="mt-1.5 grid gap-1">
@@ -358,10 +367,10 @@ export function EntryDetails({ entry, block, route, routes, fixHref, invite, col
       {fixHref && invite?.description && <Invite label="About" href={fixHref('description')} />}
       {fixHref && invite && block.stats?.length && !entry.stats ? <Invite label="Stats" href={fixHref('stats')} /> : null}
 
-      {entry.sections.map((s) => (
+      {sections.map((s) => (
         <section key={s.label} className="mt-4">
           <div className="flex items-center">
-            <h3 className="flex-1 text-xs font-bold uppercase tracking-wide text-muted">{s.label}</h3>
+            <h3 className="flex-1 text-xs font-bold uppercase tracking-wide text-muted">{labelOf(s.label)}</h3>
             {fixHref && <FixPencil href={fixHref(`section:${s.label}`)} what={s.label} />}
           </div>
           <div className="mt-1"><Lines text={s.text} skip={entry.name} /></div>

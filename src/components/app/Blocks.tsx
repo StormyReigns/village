@@ -33,6 +33,8 @@ import { FilterChip, HiddenNote, OpenPanel, useVisible, type BlockContext } from
 
 export type { BlockContext } from './blockParts';
 import { byStat } from '@/lib/stats';
+import { DEADLINE, extraFields, groupField, rowFields } from '@/lib/fields';
+import { FieldChips, FieldLines, groupsBy, hasDeadlines } from './ListFields';
 
 export function BlockView({ block, ctx: page }: { block: Block; ctx: BlockContext }) {
   const Cmp = { collection: Collection, timeline: Timeline, checklist: Checklist, guide: Guides, characters: Characters, items: Items, classes: Classes, tierlist: TierList, planner: Planner }[block.type];
@@ -306,6 +308,8 @@ function Timeline({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const steps = [...shown].sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name));
   const name = (r: Route) => ctx.routes.find((o) => o.key === r)?.label ?? r;
   const t = TINT[ctx.tint];
+  // Fields from Set up (Boss, You get...): short lines under the title. None until a Builder sets them up.
+  const extra = extraFields(block);
   return (
     <>
       <ol className="relative mt-5 grid gap-4 pl-12">
@@ -326,6 +330,7 @@ function Timeline({ block, ctx }: { block: Block; ctx: BlockContext }) {
                   </div>
                   <ShareButton path={sharePath(ctx.gameId, ctx.page, block, e)} title={e.name} what="entry" tint={ctx.tint} quiet />
                 </div>
+                <FieldLines entry={e} fields={extra} route={ctx.route} />
                 {e.description && <div className="mt-1.5 leading-relaxed"><Lines text={e.description} /></div>}
               </article>
             </li>
@@ -389,10 +394,15 @@ function Checklist({ block, ctx }: { block: Block; ctx: BlockContext }) {
   const here = ctx.route !== 'all' ? index?.byRoute[planKey(ctx.route)] : undefined;
   const todo = ordered.filter((e) => !ticks.has(key(e)) || key(e) === snapped);
   const done = ordered.filter((e) => ticks.has(key(e)) && key(e) !== snapped);
+  // Fields from Set up on each row (two at most), and groups by a place or tag when nothing has a deadline
+  // ("Deku Tree · 1 of 3 left"). With no Set up, the list is as it always was.
+  const chips = rowFields(block);
+  const by = groupField(block);
+  const groups = by && !hasDeadlines(block, DEADLINE) ? groupsBy(shown, by) : null;
 
   const row = (e: Entry, i: number) => {
     const on = ticks.has(key(e));
-    const next = !on && i === 0;
+    const next = !on && i === 0 && !groups;
     return (
       <li key={e.id} className={'flex items-start gap-3 rounded-2xl p-3 ring-1 ' + (next ? 'bg-signal/15 ring-signal' : 'bg-card-2 ring-line') + (on ? ' opacity-60' : '')}>
         <Tip text={on ? 'Done. Tap to untick' : 'Tick it once it\'s done'} tint={ctx.tint} className="shrink-0">
@@ -412,6 +422,7 @@ function Checklist({ block, ctx }: { block: Block; ctx: BlockContext }) {
               <Hourglass size={13} className={`mt-1 shrink-0 ${t.text}`} aria-hidden="true" /> <span><RichText text={deadline(e)!.split('\n')[0]} /></span>
             </span>
           )}
+          {chips.length > 0 && !on && <div className="flex flex-wrap gap-x-1.5"><FieldChips entry={e} fields={chips} route={ctx.route} tint={`var(--${ctx.tint})`} /></div>}
           {!on && <Options e={e} bands={here?.bands} items={here?.items} />}
         </div>
       </li>
@@ -429,7 +440,18 @@ function Checklist({ block, ctx }: { block: Block; ctx: BlockContext }) {
           </span>
         </p>
       </div>
-      <ul className="mt-3 grid gap-2">{todo.map(row)}</ul>
+      {groups ? groups.map((g) => {
+        const left = g.items.filter((e) => todo.includes(e));
+        return (
+          <section key={g.name} className="mt-4" aria-label={g.name}>
+            <h3 className="flex items-baseline gap-2 px-1 text-sm">
+              <span className="font-bold">{g.name}</span>
+              <span className="text-muted">{left.length ? `${left.length} of ${g.items.length} left` : 'All done'}</span>
+            </h3>
+            {left.length > 0 && <ul className="mt-2 grid gap-2">{left.map((e) => row(e, -1))}</ul>}
+          </section>
+        );
+      }) : <ul className="mt-3 grid gap-2">{todo.map(row)}</ul>}
       {done.length > 0 && (
         <>
           <button onClick={() => setShowDone(!showDone)} aria-expanded={showDone} className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-muted hover:text-ink">

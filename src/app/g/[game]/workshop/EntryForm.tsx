@@ -12,7 +12,7 @@ import { CharacterCard } from '@/components/app/CharacterCard';
 import { GuideCard } from '@/components/app/Guides';
 import { entryText } from '@/components/app/entries';
 import { rank } from '@/lib/search';
-import { byFields, entriesOf, fieldsOf } from '@/lib/fields';
+import { entriesOf, fieldForm, fieldsOf, listLook } from '@/lib/fields';
 import { referrers, renameIn } from '@/lib/entry-links';
 import { CharacterInputs } from './CharacterInputs';
 import { useWide } from './split';
@@ -216,8 +216,9 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
     if (v.trim() === '' || !Number.isFinite(Number(v))) delete next[key]; else next[key] = Number(v);
     set({ stats: Object.keys(next).length ? next : undefined });
   };
-  // Characters and Items: each field is asked for by name; its value is the section (or tag) under the field's key.
-  const people = byFields(block);
+  // Characters and Items (and a Checklist or Timeline once set up): each field is asked for by name; its value is
+  // the section (or tag) under the field's key.
+  const people = fieldForm(block);
   const fieldKeys = new Set(people ? fieldsOf(block).map((f) => f.key) : []);
   const setField = (key: string, text: string) => set({ sections: content.sections.some((s) => s.label === key)
     ? content.sections.map((s) => (s.label === key ? { ...s, text } : s)) : [...content.sections, { label: key, text }] });
@@ -570,7 +571,7 @@ export function EntryForm({ gameId, pages, routes, start, restore, me, postDraft
         ? <p className="text-sm text-muted">Start with a name, and the entry appears here.</p>
         : block.type === 'guide'
           ? <GuideCard entry={cleaned} block={block} route="all" routes={routes} color={`var(--${page.tint})`} />
-        : people
+        : people && !listLook(block)
           ? <CharacterCard entry={cleaned} block={block} route="all" routes={routes} color={`var(--${page.tint})`} size={wide ? 120 : 76} />
           : <EntryDetails entry={cleaned} block={block} route="all" routes={routes} color={`var(--${page.tint})`} />}
     </div>

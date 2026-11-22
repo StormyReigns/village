@@ -11,7 +11,7 @@ import { BlockIcon, NavSymbol } from '@/components/Icon';
 import { EntryDetails, EntryIcon, symbolFor, type RouteOption } from '@/components/app/EntryPanel';
 import { entryText, initials } from '@/components/app/entries';
 import { rank } from '@/lib/search';
-import { byFields, choicesOf, shownFields } from '@/lib/fields';
+import { byFields, choicesOf, hasFieldSetup, shownFields } from '@/lib/fields';
 import { completeness } from '@/lib/completeness';
 import { groupOrder } from '@/lib/items';
 import { SignInPrompt } from '@/components/SignInPrompt';
@@ -1566,8 +1566,10 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSe
                     <h4 className="truncate font-bold">{b.title}</h4>
                     <ChevronDown size={15} className={'shrink-0 text-muted transition ' + (isFolded ? '-rotate-90' : '')} aria-hidden="true" />
                   </button>
-                  {byFields(b) && (
-                    <Tip text={b.type === 'items' ? `Choose what ${b.title} tiles and full views show, with a preview` : b.type === 'classes' ? `Choose the fields ${b.title} cards show, with a sample class` : `Choose the fields ${b.title} cards show, with a preview`} tint={p.tint} className="shrink-0">
+                  {hasFieldSetup(b) && (
+                    <Tip text={b.type === 'items' ? `Choose what ${b.title} tiles and full views show, with a preview` : b.type === 'classes' ? `Choose the fields ${b.title} cards show, with a sample class`
+                      : b.type === 'checklist' ? `Choose what each row of ${b.title} shows, with a preview` : b.type === 'timeline' ? `Choose what each part of ${b.title} shows, with a preview`
+                      : `Choose the fields ${b.title} cards show, with a preview`} tint={p.tint} className="shrink-0">
                       <button onClick={() => onSetup(b.id)} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">
                         <SlidersHorizontal size={13} aria-hidden="true" /> Set up
                       </button>

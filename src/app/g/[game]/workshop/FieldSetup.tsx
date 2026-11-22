@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, GripVertical, Info, LayoutGrid, Link2, ListPlus, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, Eye, EyeOff, GripVertical, Hourglass, Info, LayoutGrid, Link2, ListPlus, Plus, Rows3, Trash2 } from 'lucide-react';
 import type { Block, FieldDef, FieldKind, Page, StatDef } from '@/data/pages';
 import type { RouteOption } from '@/components/app/EntryPanel';
 import { CharacterCard } from '@/components/app/CharacterCard';
@@ -21,6 +21,9 @@ import { ChoiceList } from './ChoiceList';
 import { useDragSort } from './useDragSort';
 import { backOf, bothOf, incomingFields, pointsAway, withFromRows } from '@/lib/entry-links';
 import { setupContent, type SetupPart } from '@/lib/setup-draft';
+import { DEADLINE, ROW_MAX, extraFields, groupField, listLook, rowFields } from '@/lib/fields';
+import { FieldChips, FieldLines, fieldText } from '@/components/app/ListFields';
+import { EntryDetails } from '@/components/app/EntryPanel';
 import type { NewDraft } from './useWorkshop';
 
 const input = 'w-full rounded-xl bg-card px-2.5 py-1.5 text-sm ring-1 ring-line outline-none focus:ring-2 focus:ring-sky';
@@ -74,6 +77,10 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, signed
   const item = block.type === 'items';
   // Guides: the sample is a guide, shown as players read it.
   const guide = block.type === 'guide';
+  // Checklists and Timelines: their own row or card, with the fields set up here added to it.
+  const list = listLook(block);
+  const check = block.type === 'checklist';
+  const onRow = fields.filter((f) => !f.off && f.tile && f.key !== DEADLINE && f.key !== DESCRIPTION).length;
   const kinds = kindsFor(block.type);
 
   // Stat names become each chart's columns. Names already in use keep their key, so
@@ -89,6 +96,8 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, signed
   const draft = { ...block, fields: drafted, stats };
   const sample = johnDoe(draft);
   const onTile = fields.filter((f) => !f.off && f.tile && canTile(f)).length;
+  // A Checklist groups by one field at most: picking one clears the others.
+  const groupBy = (i: number, on: boolean) => { setFields(fields.map((f, j) => ({ ...f, group: j === i && on ? true : undefined }))); setNote(''); };
   // What the Block has now, to tell whether anything would be lost by closing.
   const [baseline, setBaseline] = useState(() => JSON.stringify({ fields: start(), stats: block.stats ?? [] }));
   // A suggestion being looked at has nothing of yours to lose.
@@ -183,7 +192,7 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, signed
       onDiscard={() => { forgetDraft(draftKey); onClose(); }}
       draftHint="Save draft keeps this setup on this device, ready the next time you open Set up. Discard throws the changes away."
       tint={block.page.tint}
-      sheetExtra={item || guide ? undefined :
+      sheetExtra={item || guide || list ? undefined :
         <div role="group" aria-label="Preview as" className="flex rounded-full bg-card p-0.5 text-xs font-bold ring-1 ring-line">
           {([['profile', 'Profile'], ['row', 'List row']] as const).map(([v, label]) => (
             <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v}
@@ -195,7 +204,7 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, signed
         <>
         <ul className="grid rounded-2xl bg-card ring-1 ring-line">
           <li className="flex items-center gap-2 rounded-t-2xl bg-card-2 px-3 py-2 text-sm">
-            <span className="w-[62px] shrink-0" /><span className="font-bold">Name</span><span className="ml-auto text-xs text-muted">{item ? 'Every item has one: under its tile, and the title of its full view' : block.type === 'classes' ? 'Every class has one: under its piece on the ladder, and the title of its card' : guide ? 'Every guide has one: its title in the list and at the top' : 'Every character has one: the big title on their card'}</span>
+            <span className="w-[62px] shrink-0" /><span className="font-bold">Name</span><span className="ml-auto text-xs text-muted">{check ? 'Everything on the list has one: the bold line by its tick box' : block.type === 'timeline' ? 'Every part has one: the title of its card ("Part I: The mine" puts Part I above it)' : item ? 'Every item has one: under its tile, and the title of its full view' : block.type === 'classes' ? 'Every class has one: under its piece on the ladder, and the title of its card' : guide ? 'Every guide has one: its title in the list and at the top' : 'Every character has one: the big title on their card'}</span>
           </li>
           {rows.map(({ f, i }) => f.key.startsWith(FROM) ? (
             // An other side from a links field elsewhere: on or off, and where it sits; named over there.
@@ -240,6 +249,15 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, signed
                     <LayoutGrid size={15} aria-hidden="true" />
                   </button>
                 ) : <span className="size-8 shrink-0" title="Too long for the tile: full view only" />)}
+                {/* Checklists: whether it shows on each row too (two at most), beside the deadline. */}
+                {check && (f.key === DEADLINE || f.key === DESCRIPTION || f.kind === 'longtext' ? <span className="size-8 shrink-0" title={f.key === DEADLINE ? 'The deadline is always on the row' : 'Too long for the row: shown when it\'s tapped'} /> : (
+                  <button type="button" onClick={() => patch(i, { tile: !f.tile || undefined })} aria-pressed={Boolean(f.tile)} aria-label={`${f.label} on each row`}
+                    disabled={!f.tile && onRow >= ROW_MAX}
+                    title={f.tile ? 'On each row, and when it\'s tapped' : onRow >= ROW_MAX ? `The row is full (${ROW_MAX} things). Take one off to put this on` : 'Shown when tapped. Tap to put it on each row too'}
+                    className={'grid size-8 shrink-0 place-items-center rounded-full disabled:opacity-30 ' + (f.tile && !f.off ? 'bg-signal text-ink' : 'text-muted/60 hover:text-ink')}>
+                    <Rows3 size={15} aria-hidden="true" />
+                  </button>
+                ))}
                 {f.kind === 'tier' ? <span className={'size-8 shrink-0' + (item ? ' sm:w-16' : '')} /> : <button type="button" onClick={() => patch(i, { spoiler: !f.spoiler || undefined })} aria-pressed={Boolean(f.spoiler)} aria-label={`${f.label} is a spoiler`}
                   title={f.spoiler ? 'Spoiler: hidden until tapped' : 'Not a spoiler'}
                   className={'grid size-8 shrink-0 place-items-center rounded-full ' + (f.spoiler ? 'text-berry' : 'text-muted/60 hover:text-ink')}>
@@ -247,7 +265,7 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, signed
                 </button>}
                 <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move ${f.label} up`} className="grid size-8 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink disabled:opacity-30"><ArrowUp size={15} aria-hidden="true" /></button>
                 <button type="button" onClick={() => move(i, 1)} disabled={i === fields.length - 1} aria-label={`Move ${f.label} down`} className="grid size-8 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink disabled:opacity-30"><ArrowDown size={15} aria-hidden="true" /></button>
-                {f.key !== DESCRIPTION && f.key !== STATS && f.kind !== 'tier' && !used(f) && (
+                {f.key !== DESCRIPTION && f.key !== STATS && f.kind !== 'tier' && !(check && f.key === DEADLINE) && !used(f) && (
                   <button type="button" onClick={() => setFields(fields.filter((_, j) => j !== i))} aria-label={`Remove ${f.label}`} className="grid size-8 shrink-0 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-berry"><Trash2 size={15} aria-hidden="true" /></button>
                 )}
               </div>
@@ -273,7 +291,14 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, signed
                   </div>
                 </div>
               )}
-              {(f.kind === 'list' || f.kind === 'links' || f.kind === 'place') && !f.off && !guide && (
+              {/* Checklists: group the list by a place or tag when nothing in it has a deadline. */}
+              {check && (f.kind === 'place' || f.kind === 'tag') && !f.off && (
+                <label className="flex items-center gap-1.5 pl-[70px] text-xs text-muted">
+                  <input type="checkbox" checked={Boolean(f.group)} onChange={(e) => groupBy(i, e.target.checked)} className="size-3.5 accent-[var(--color-ink)]" />
+                  Group the list by {f.label} when nothing on it has a deadline
+                </label>
+              )}
+              {(f.kind === 'list' || f.kind === 'links' || f.kind === 'place') && !f.off && !guide && !list && (
                 <LinkSetup f={f} block={block} blocks={blocks} onChange={(p) => patch(i, p)} />
               )}
               {f.kind === 'tag' && !f.off && (() => {
@@ -324,7 +349,7 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, signed
           </div>
           <p className="text-xs text-muted">{kinds.find((k) => k.kind === adding.kind)?.hint}.</p>
           {/* On a phone the example sits right here; on wider screens it's under the preview. */}
-          <KindExample {...adding} block={block} routes={routes} color={color} className="md:hidden" />
+          {!list && <KindExample {...adding} block={block} routes={routes} color={color} className="md:hidden" />}
         </div>
 
           {!canSave && !proposal && (
@@ -348,7 +373,21 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, signed
           })()}
         </>
       }
-      preview={guide ? (
+      preview={list ? (
+        // A Checklist row or a Timeline card as the app draws it, then what tapping it shows.
+        <div className="grid gap-3">
+          <div className="rounded-2xl bg-card p-3 ring-1 ring-line">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">{check ? 'On the list' : 'In order'}</p>
+            {check ? <SampleChecklistRow sample={sample} draft={draft} color={color} /> : <SampleTimelineCard sample={sample} draft={draft} color={color} />}
+          </div>
+          {check && (
+            <div className="rounded-2xl bg-card p-3 ring-1 ring-line md:p-4">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">Tapped</p>
+              <EntryDetails entry={sample} block={draft} route="all" routes={routes} color={color} />
+            </div>
+          )}
+        </div>
+      ) : guide ? (
         <div className="rounded-2xl bg-card p-3 ring-1 ring-line md:p-4">
           <GuideCard entry={sample} block={draft} route="all" routes={routes} color={color} sample />
         </div>
@@ -378,10 +417,51 @@ export function FieldSetup({ gameId, block, blocks = [], routes, canSave, signed
       aside={
         <>
           <p className="text-xs text-muted">Made-up values, so you can see each field&apos;s place. Spoiler fields show covered, the way players first see them.{item && ' The grid button on a field puts it on the tile too.'}</p>
-          <KindExample {...adding} block={block} routes={routes} color={color} />
+          {!list && <KindExample {...adding} block={block} routes={routes} color={color} />}
         </>
       }
     />
+  );
+}
+
+/** A Checklist's sample row, as the app draws it: the tick box, the name, the deadline and the row's fields. */
+function SampleChecklistRow({ sample, draft, color }: { sample: ReturnType<typeof johnDoe>; draft: Block; color: string }) {
+  const deadline = fieldsOf(draft).find((f) => f.key === DEADLINE && !f.off);
+  const when = deadline ? fieldText(sample, deadline) : '';
+  const by = groupField(draft);
+  return (
+    <div className="grid gap-2">
+      {by && <p className="px-1 text-sm"><span className="font-bold">{fieldText(sample, by) || by.label}</span> <span className="text-muted">1 of 3 left (when nothing has a deadline)</span></p>}
+      <div className="flex items-start gap-3 rounded-2xl bg-card-2 p-3 ring-1 ring-line">
+        <Piece size={44} color={color} outline />
+        <div className="min-w-0 flex-1">
+          <span className="block font-bold leading-tight">{sample.name}</span>
+          {when && (
+            <span className="mt-1 inline-flex items-start gap-1 rounded-lg bg-card px-2 py-0.5 text-sm ring-1 ring-line">
+              <Hourglass size={13} className="mt-1 shrink-0" style={{ color }} aria-hidden="true" /> <span>{when}</span>
+            </span>
+          )}
+          <div className="flex flex-wrap gap-x-1.5"><FieldChips entry={sample} fields={rowFields(draft)} tint={color} /></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** A Timeline's sample card, as the app draws it: its place in the order, the title, the fields, the description. */
+function SampleTimelineCard({ sample, draft, color }: { sample: ReturnType<typeof johnDoe>; draft: Block; color: string }) {
+  const [part, title] = sample.name.includes(': ') ? sample.name.split(/: (.*)/) : ['', sample.name];
+  const about = fieldsOf(draft).find((f) => f.key === DESCRIPTION && !f.off);
+  return (
+    <div className="relative pl-12">
+      <span className="absolute left-0 top-3"><Piece size={44} color={color}>{sample.order}</Piece></span>
+      <article className="rounded-2xl bg-card-2 p-4 ring-1 ring-line">
+        {part && <p className="text-xs font-bold uppercase tracking-wide" style={{ color }}>{part}</p>}
+        <h3 className="font-display text-xl leading-tight">{title}</h3>
+        <FieldLines entry={sample} fields={extraFields(draft)} />
+        {about && sample.description && <p className="mt-1.5 leading-relaxed">{sample.description}</p>}
+      </article>
+    </div>
   );
 }
 

@@ -29,7 +29,8 @@ for (const f of files) {
   try { await db.exec(readFileSync(join(process.argv[2], f), 'utf8')); } catch (e) { console.log(`MIGRATION ERROR in ${f}: ${e.message}`); process.exit(1); }
 }
 await db.exec(readFileSync(join(process.argv[2], files.find((f) => f.includes('setup_drafts'))), 'utf8'));
-ok('migrations applied, and the setup Drafts SQL runs twice');
+await db.exec(readFileSync(join(process.argv[2], files.find((f) => f.includes('list_setups'))), 'utf8'));
+ok('migrations applied, and the setup Drafts SQL runs twice (re-running it after 20261128000000 too, so that comes again)');
 
 const B = '22222222-2222-2222-2222-222222222222', C = '44444444-4444-4444-4444-444444444444', FWMOD = '77777777-7777-7777-7777-777777777777';
 const U1 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -42,7 +43,8 @@ await db.exec(`
   insert into public.game_blocks (game_id, block_key, title, page_key, type, position, look) values
     ('fw', 'units', 'Units', 'units', 'characters', 0, null), ('fw', 'classes', 'Classes', 'units', 'classes', 1, null),
     ('fw', 'gear', 'Gear', 'units', 'items', 2, null), ('fw', 'party', 'Party', 'units', 'planner', 3, null),
-    ('fw', 'places', 'Places', 'units', 'collection', 4, 'map'), ('oot', 'items', 'Items', 'items', 'items', 0, null);
+    ('fw', 'places', 'Places', 'units', 'collection', 4, 'map'), ('oot', 'items', 'Items', 'items', 'items', 0, null),
+    ('fw', 'chances', 'Last chances', 'units', 'checklist', 5, null), ('fw', 'story', 'Story', 'units', 'timeline', 6, null);
   update public.game_blocks set fields = '[{"key":"Kind","label":"Kind","kind":"tag"}]', stats = '[{"key":"hp","label":"HP","better":"high"}]'
   where game_id = 'fw' and block_key = 'units';
   update public.game_blocks set plan_setup = '{"roster":"units"}' where game_id = 'fw' and block_key = 'party';
@@ -153,6 +155,15 @@ await refused('places', { map: { picture: pic('oot', B), w: 100, h: 100 } }, "an
 await refused('places', { map: { picture: 'https://example.com/map.png', w: 100, h: 100 } }, 'a web address is never a map picture', 'isn');
 await refused('places', { map: { picture: pic('fw', B), w: 'big', h: 100 } }, 'a map needs its size', 'size');
 await refused('units', { map: { picture: pic('fw', B), w: 100, h: 100 } }, 'only a map Block takes a map', 'no map');
+
+// Checklists and Timelines take a Set up too (20261128000000) -----------------------------------------------
+const lc = await send('chances', { fields: [{ key: 'Before', label: 'Deadline', kind: 'when' }, { key: 'Where', label: 'Where', kind: 'place', tile: true, group: true }] });
+await ship(lc);
+(await block('chances')).fields?.[1]?.group === true ? ok("a Checklist's fields publish, with its row and group choices") : bad('checklist ' + JSON.stringify(await block('chances')));
+const tl = await send('story', { fields: [{ key: 'Boss', label: 'Boss', kind: 'text' }] });
+await ship(tl);
+(await block('story')).fields?.[0]?.key === 'Boss' ? ok("and a Timeline's") : bad('timeline');
+await refused('places', { fields: [{ key: 'A', label: 'A', kind: 'text' }] }, "a Collection still isn't set up by fields", 'set up by fields');
 
 // Another game's moderator, and the action rules ----------------------------------------------------------
 const elsewhere = await send('items', { fields: [{ key: 'A', label: 'A', kind: 'text' }] }, { game: 'oot' });

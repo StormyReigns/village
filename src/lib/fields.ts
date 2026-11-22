@@ -39,11 +39,37 @@ const GUIDE_KINDS = [
 /** The kinds as a Classes Block offers them: links point at other classes there. */
 const CLASS_KINDS = FIELD_KINDS.map((k) => (k.kind === 'links' ? { ...k, label: 'Other classes', hint: 'Other classes, one per line: "Name: why"' } : k));
 
-export const kindsFor = (type?: BlockType) => (type === 'items' ? ITEM_KINDS : type === 'guide' ? GUIDE_KINDS : type === 'classes' ? CLASS_KINDS : FIELD_KINDS);
+/** The kinds a Checklist or Timeline offers: no charts, links or toggles (their rows and cards are short). */
+const LIST_KINDS = FIELD_KINDS.filter((k) => !['chart', 'links', 'playable'].includes(k.kind));
+
+export const kindsFor = (type?: BlockType) => (type === 'items' ? ITEM_KINDS : type === 'guide' ? GUIDE_KINDS : type === 'classes' ? CLASS_KINDS
+  : type === 'checklist' || type === 'timeline' ? LIST_KINDS : FIELD_KINDS);
 export const kindLabel = (k: FieldKind, type?: BlockType) => (k === 'tier' ? 'Community tier' : kindsFor(type).find((x) => x.kind === k)?.label ?? k);
 
 /** Blocks whose entries are laid out by their fields (Characters, Items, Classes, Guides), not a Collection's fixed parts. */
 export const byFields = (block: Pick<Block, 'type'>) => block.type === 'characters' || block.type === 'items' || block.type === 'classes' || block.type === 'guide';
+
+/**
+ * Checklists and Timelines keep their own look (a tick row, a chapter card), and a Set up can add fields to it
+ * (docs/blocks/checklist.md, timeline.md). Until a Builder sets one up, they're exactly as before.
+ */
+export const listLook = (block: Pick<Block, 'type'>) => block.type === 'checklist' || block.type === 'timeline';
+/** Blocks with a Set up for their fields. */
+export const hasFieldSetup = (block: Pick<Block, 'type'>) => byFields(block) || listLook(block);
+/** Entries asked for field by field in the entry form: a fields Block, or a Checklist or Timeline once set up. */
+export const fieldForm = (block: Pick<Block, 'type' | 'fields'>) => byFields(block) || (listLook(block) && Boolean(block.fields?.some((f) => !f.key.startsWith(FROM))));
+
+/** A Checklist's deadline: the section every Last chance already keeps it in, whatever Set up calls it. */
+export const DEADLINE = 'Before';
+/** How many fields a Checklist row shows beside the deadline; the rest show when it's tapped. */
+export const ROW_MAX = 2;
+
+/** A Checklist's or Timeline's own fields that show on its rows or cards (not its description or deadline). */
+export const extraFields = (block: Pick<Block, 'fields' | 'type'>) => (block.fields?.length ? shownFields(block) : []).filter((f) => f.key !== DESCRIPTION && f.key !== DEADLINE);
+/** The fields on a Checklist's rows: the ones put on the row in Set up, two at most. */
+export const rowFields = (block: Pick<Block, 'fields' | 'type'>) => extraFields(block).filter((f) => f.tile && !f.spoiler).slice(0, ROW_MAX);
+/** The tag or place a Checklist is grouped by when nothing in it has a deadline. */
+export const groupField = (block: Pick<Block, 'fields' | 'type'>) => extraFields(block).find((f) => f.group && (f.kind === 'tag' || f.kind === 'place'));
 
 /** A Block's entries without its header cards (a Classes tier's card): what counts as its classes,
  *  characters or items for Compare, tier lists, spreadsheets, wiki links and suggestions. */
@@ -167,8 +193,30 @@ export const CLASS_FIELDS: FieldDef[] = [
   { key: DESCRIPTION, label: 'Description', kind: 'longtext' },
 ];
 
+/**
+ * A Checklist's fields (docs/blocks/checklist.md): today's deadline and description, then starters a Builder
+ * switches on. The deadline keeps the key every Last chance already uses, so it keeps its sorting and "Next up".
+ */
+export const CHECKLIST_FIELDS: FieldDef[] = [
+  { key: DEADLINE, label: 'Deadline', kind: 'when' },
+  { key: 'Where', label: 'Where', kind: 'place', off: true, tile: true },
+  { key: 'How to get it', label: 'How to get it', kind: 'longtext', off: true },
+  { key: 'Reward', label: 'Reward', kind: 'list', off: true },
+  { key: DESCRIPTION, label: 'Description', kind: 'longtext' },
+];
+
+/** A Timeline's fields (docs/blocks/timeline.md): today's description, then starters a Builder switches on. */
+export const TIMELINE_FIELDS: FieldDef[] = [
+  { key: 'When', label: 'When', kind: 'when', off: true },
+  { key: 'Where', label: 'Where', kind: 'place', off: true },
+  { key: 'Boss', label: 'Boss', kind: 'text', off: true },
+  { key: 'You get', label: 'You get', kind: 'list', off: true },
+  { key: DESCRIPTION, label: 'Description', kind: 'longtext' },
+];
+
 /** The common fields for a Block type: Items, Classes and Guides have their own, Characters the set above. */
-export const commonFor = (type?: BlockType) => (type === 'items' ? ITEM_FIELDS : type === 'classes' ? CLASS_FIELDS : type === 'guide' ? GUIDE_FIELDS : COMMON_FIELDS);
+export const commonFor = (type?: BlockType) => (type === 'items' ? ITEM_FIELDS : type === 'classes' ? CLASS_FIELDS : type === 'guide' ? GUIDE_FIELDS
+  : type === 'checklist' ? CHECKLIST_FIELDS : type === 'timeline' ? TIMELINE_FIELDS : COMMON_FIELDS);
 
 /** A Block's own fields plus any common field it doesn't have yet (switched off), so a Block
  *  set up before a common field existed can still switch it on. The community tier is the one
@@ -267,6 +315,14 @@ const CLASS_SAMPLE: Partial<Record<string, string>> = {
   'How to unlock': 'Finish a quest in Chapter 9.', 'Who can take it': 'Anyone', Skills: 'Skill name: What it does.\nAnother skill',
 };
 
+/** Made-up values for a Checklist's and a Timeline's sample, for their starter fields. */
+const CHECKLIST_SAMPLE: Partial<Record<string, string>> = {
+  [DEADLINE]: 'Before you leave the old mine', Where: 'Old mine, lower floor', 'How to get it': 'Break the cracked wall with a bomb.', Reward: 'A silver token',
+};
+const TIMELINE_SAMPLE: Partial<Record<string, string>> = {
+  When: 'After the festival', Where: 'Old mine', Boss: 'Cave Troll', 'You get': 'Lantern\nMine key',
+};
+
 /** Made-up values for the builder's preview, one per kind. */
 const SAMPLE: Record<FieldKind, string> = {
   text: 'Sample', number: '12', tag: 'Tag', place: 'Some town', when: 'Chapter 3', chart: '',
@@ -298,14 +354,19 @@ export function johnDoe(block: Pick<Block, 'fields' | 'stats'> & Partial<Pick<Bl
   // A Guides Block's sample is a guide, and a Classes Block's a class.
   const guide = block.type === 'guide';
   const klass = block.type === 'classes';
+  // A Checklist's sample is something to tick off, and a Timeline's a chapter.
+  const check = block.type === 'checklist';
+  const story = block.type === 'timeline';
   for (const f of shownFields(block)) {
     if (f.kind === 'chart' || f.kind === 'tier') continue;
     if (f.key === DESCRIPTION) {
       description = guide ? 'Bring two archers and take out the healers first. The boss never moves, so you can rest before the last push.'
-        : item ? 'A line or two of flavor or extra notes goes here.' : klass ? 'What the class is good at, in a line or two.' : 'A few lines about who they are and why you would bring them along go here.';
+        : item ? 'A line or two of flavor or extra notes goes here.' : klass ? 'What the class is good at, in a line or two.'
+        : check ? 'Behind the cracked wall on the lower floor.' : story ? 'The mine has gone quiet, and the town wants to know why. A line or two about this part goes here.'
+        : 'A few lines about who they are and why you would bring them along go here.';
       continue;
     }
-    const v = (item ? ITEM_SAMPLE[f.key] : guide ? GUIDE_SAMPLE[f.key] : klass ? CLASS_SAMPLE[f.key] : undefined) ?? (/\bage\b/i.test(f.label) ? '30' : f.kind === 'tag' ? f.label : f.kind === 'playable' ? toggleOptions(f)[0]
+    const v = (item ? ITEM_SAMPLE[f.key] : guide ? GUIDE_SAMPLE[f.key] : klass ? CLASS_SAMPLE[f.key] : check ? CHECKLIST_SAMPLE[f.key] : story ? TIMELINE_SAMPLE[f.key] : undefined) ?? (/\bage\b/i.test(f.label) ? '30' : f.kind === 'tag' ? f.label : f.kind === 'playable' ? toggleOptions(f)[0]
       : item && f.kind === 'links' ? 'Sample part: 2' : SAMPLE[f.kind]);
     if (isCategory(f)) categories[f.key] = v;
     else sections.push({ label: f.key, text: v });
@@ -313,5 +374,5 @@ export function johnDoe(block: Pick<Block, 'fields' | 'stats'> & Partial<Pick<Bl
   const defs = shownFields(block).filter((f) => f.kind === 'chart').flatMap((f) => chartDefs(block, f));
   // A class's numbers are modifiers, so some are below zero.
   const stats = defs.length ? Object.fromEntries(defs.map((d, i) => [d.key, klass ? ((i * 7) % 6) * 5 - 5 : 8 + ((i * 7) % 13)])) : undefined;
-  return { name: item ? 'Sample item' : guide ? 'Beat the bridge fort' : klass ? 'Sample class' : 'John Doe', description, sections, categories, stats };
+  return { name: item ? 'Sample item' : guide ? 'Beat the bridge fort' : klass ? 'Sample class' : check ? 'Silver token' : story ? 'Chapter 3: The old mine' : 'John Doe', description, sections, categories, stats, ...(story ? { order: 3 } : {}) };
 }

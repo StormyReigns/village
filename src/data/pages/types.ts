@@ -69,6 +69,9 @@ export interface FieldDef {
   choices?: Choice[];
   /** Items: shown on the item's tile as well as in its full view (three at most). */
   tile?: boolean;
+  /** Checklists: a tag or place the list is grouped by when nothing in it has a deadline ("Deku Tree · 1 of
+   *  3 left"). One field at most; a list with deadlines keeps deadline order (docs/blocks/checklist.md). */
+  group?: boolean;
   /** Links: the Block it points at (a Block id in this game). Missing: the Block it's on, as every
    *  links field before 2026-11-12 (docs/blocks/entry-links.md). */
   to?: string;
