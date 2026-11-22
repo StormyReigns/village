@@ -7,7 +7,7 @@ import { browserClient } from '@/lib/supabase/browser';
 import { avatarOf } from '@/lib/avatar';
 import { canModerate, type Villager } from '@/components/useVillager';
 import type { EntryContent } from '@/data/pages';
-import { appChanged } from '@/app/actions';
+import { appChanged, gamesChanged } from '@/app/actions';
 import type { DraftStats } from '@/lib/standouts';
 import { toPoll, type Poll, type PollVote } from '@/lib/polls';
 
@@ -64,14 +64,15 @@ export interface ChatEvent {
   reason?: string | null;
 }
 
-export type DraftAction = 'edit' | 'remove' | 'add_page' | 'add_block' | 'setup';
+export type DraftAction = 'edit' | 'remove' | 'add_page' | 'add_block' | 'setup' | 'game';
 
 export interface LiveDraft extends DraftStats {
   blockKey: string;
   kind: 'fact' | 'opinion';
   /** 'remove': asks for the entry to leave the app; its source is the reason. 'add_page' and 'add_block'
    *  suggest a new Page (with its first Block) or Block; content holds it (20261122000000, AddBlock.tsx).
-   *  'setup' suggests a Block's setup: its fields, a Planner's setup or a map (20261127000000, src/lib/setup-draft.ts). */
+   *  'setup' suggests a Block's setup: its fields, a Planner's setup or a map (20261127000000, src/lib/setup-draft.ts).
+   *  'game' suggests the game's settings; its blockKey is '@game' (20261204000000, src/lib/game-settings.ts). */
   action: DraftAction;
   title: string;
   content: EntryContent;
@@ -395,7 +396,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined, wan
       const sc = scores.get(r.id as string);
       return {
         id: r.id as string, blockKey: r.block_key as string, kind: r.kind === 'opinion' ? 'opinion' : 'fact',
-        action: r.action === 'remove' || r.action === 'add_page' || r.action === 'add_block' || r.action === 'setup' ? r.action : 'edit',
+        action: r.action === 'remove' || r.action === 'add_page' || r.action === 'add_block' || r.action === 'setup' || r.action === 'game' ? r.action : 'edit',
         title: r.title as string, content: ((c: Partial<EntryContent>) => ({ ...c, name: c.name ?? (r.title as string), sections: c.sections ?? [], categories: c.categories ?? {} }))(r.content as Partial<EntryContent>), source: (r.source as string) ?? null,
         cardId: (r.card_id as string) ?? null, baseRevision: (r.base_revision_id as number) ?? null,
         theory: Boolean(r.theory), status: r.status as string, declineReason: (r.decline_reason as string) ?? null,
@@ -775,9 +776,11 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined, wan
     const { error } = await db.rpc('ship_draft', { draft: draftId });
     if (error) return plainError(error.message);
     await appChanged(gameId);
+    // A game's settings change the games list too (its name, cover, routes), so the front page shows them.
+    if (drafts.find((d) => d.id === draftId)?.action === 'game') await gamesChanged(gameId);
     router.refresh();
     return finish(null);
-  }, [meId, gameId, router, finish]);
+  }, [meId, gameId, router, finish, drafts]);
 
   /** Brings back an entry a removal took out of the app, as its newest version (20261120120000). */
   const restore = useCallback(async (draftId: string) => {

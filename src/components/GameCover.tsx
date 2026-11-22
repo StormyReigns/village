@@ -2,6 +2,7 @@ import Image from 'next/image';
 import type { Game } from '@/data/games';
 import { Piece } from './Piece';
 import { initials } from '@/lib/initials';
+import { coverSrc } from '@/lib/cover';
 
 const SOFT: Record<Game['hue'], string> = {
   berry: 'bg-berry-soft',
@@ -19,7 +20,7 @@ export function GameCover({ game, className = '', compact = false }: { game: Gam
   return (
     <div className={'relative aspect-[16/9] overflow-hidden rounded-2xl ' + className}>
       {game.cover ? (
-        <Image src={game.cover} alt="" fill sizes="(min-width: 640px) 340px, 85vw" className="object-cover" />
+        <Image src={coverSrc(game.cover)} alt="" fill sizes="(min-width: 640px) 340px, 85vw" className="object-cover" />
       ) : (
         <div className={'absolute inset-0 grid place-items-center ' + SOFT[game.hue]}>
           <Piece size={compact ? 44 : 96} color={`var(--${game.hue})`}>{initials(game.shortTitle)}</Piece>

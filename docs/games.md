@@ -1,6 +1,6 @@
 # Starting a game
 
-**Status:** Slice 1 live (2026-11-21); slice 2 live (Matt ran 20261201000000); slice 3 live (Matt ran 20261203000000); slice 4 planned · **Chat:** started from the Builder-readiness chat ·
+**Status:** Slice 1 live (2026-11-21); slice 2 live (Matt ran 20261201000000); slice 3 live (Matt ran 20261203000000); slice 4 built (its SQL, 20261204000000, waits on Matt's run) · **Chat:** started from the Builder-readiness chat ·
 **Code:** `src/lib/games-data.ts` (`getGames`, `findGame`, cached), `src/lib/game-row.ts` (a row as a game, tested), `src/components/GamesProvider.tsx` (`useGames`, `useGame` in the browser), `src/data/games.ts` (the `Game` type and the starter games, the fallback)
 
 From Matt's Ocarina early-Builder review, item 1: Builders can't start a game. A game's title, release date,
@@ -64,6 +64,12 @@ where to help while it's being built.
    or live by its date), and `gameLaunchCheck` refreshes the front page. Tests: `supabase/tests/launch-check.mjs`.
 4. **Game settings as Drafts.** In the game's Workshop: cover picture, routes and their question, wiki,
    genre, name and date, sent as setup Drafts like a Block's setup, published by the game's moderators.
+   **Built 2026-11-22.** "Game settings" in the Workshop header opens `GameSettings.tsx`: name, short name,
+   platform, date, kind, look, a cover upload (guide-pictures, shown through `src/lib/cover.ts`), and routes (a
+   question and 2 to 8; routes the game has can be renamed, not removed, since entries depend on them). The game's
+   moderators save directly; anyone else signed in sends a Draft (action 'game', block '@game'), shown on its card
+   with what changes in words and the new cover. `ship_game` checks it all and refuses settings changed since they
+   were sent. The wiki keeps its own editor (WikiCheck). Tests: `supabase/tests/game-settings-check.mjs`.
 
 Later: new games start with no Pages, instead of prebuilt ones like `src/data/pages/ocarina-of-time.ts`.
 

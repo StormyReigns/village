@@ -41,6 +41,9 @@ import { PlannerSetup } from './PlannerSetup';
 import { AddBlock, StructurePreview, structureOf, type StructureContent } from './AddBlock';
 import { kindOf, setupChanges, setupOf, type SetupContent } from '@/lib/setup-draft';
 import { ChangeType } from './ChangeType';
+import { GameSettingsEditor } from './GameSettings';
+import { gameSettingsOf, settingsChanges, type GameSettingsContent } from '@/lib/game-settings';
+import { coverSrc } from '@/lib/cover';
 import { TypePreview } from './AddBlock';
 import { retypeProblem } from '@/lib/block-types';
 import { mapPictureUrl } from '@/components/world/PictureMap';
@@ -102,6 +105,8 @@ export function Workshop({ game, pages, routes }: {
   const [trying, setTrying] = useState<LiveDraft | null>(null);
   // An empty Block whose type is being changed (ChangeType.tsx).
   const [retyping, setRetyping] = useState<string | null>(null);
+  // The game's own settings (GameSettings.tsx): name, date, kind, look, cover, routes.
+  const [gameSettings, setGameSettings] = useState(false);
   // Rows pasted from a spreadsheet into a Block (?paste=block, from the app's Download menu).
   const [pasting, setPasting] = useState<string | null>(() => { const b = params.get('paste'); return b && placeOf(b) ? b : null; });
   // A Block's wiki links: what to check, and the game's wiki (docs/blocks/wiki-links.md).
@@ -402,11 +407,11 @@ export function Workshop({ game, pages, routes }: {
   const pasteBlock = pasting ? blocks.find((b) => b.id === pasting) : undefined;
   const wikiBlock = wikiFor ? blocks.find((b) => b.id === wikiFor) : undefined;
   const retypeBlock = retyping ? blocks.find((b) => b.id === retyping) : undefined;
-  const editing = adding ? 'add' : form && blocks.length > 0 ? 'form' : setupBlock ? 'setup' : pasteBlock ? 'paste' : wikiBlock ? 'wiki' : retypeBlock ? 'type' : null;
+  const editing = adding ? 'add' : form && blocks.length > 0 ? 'form' : setupBlock ? 'setup' : pasteBlock ? 'paste' : wikiBlock ? 'wiki' : retypeBlock ? 'type' : gameSettings ? 'game' : null;
   const editLabel = editing === 'add' ? (adding?.newPage ? 'New Page' : 'Add a Block') : editing === 'form'
     ? (form?.entryId ? `Fix: ${editBlock?.entries.find((e) => e.id === form.entryId)?.name ?? 'an entry'}` : `New in ${editBlock?.title ?? 'the app'}`)
-    : setupBlock ? (setupBlock.look === 'map' ? `Map: ${setupBlock.title}` : `Set up ${setupBlock.title}`) : pasteBlock ? `Paste into ${pasteBlock.title}` : wikiBlock ? `Wiki links: ${wikiBlock.title}` : retypeBlock ? `Change the type of ${retypeBlock.title}` : '';
-  const editKey = editing ? `${editing}:${form?.blockId}.${form?.entryId}:${setup}:${trying?.id}:${retyping}:${pasting}:${wikiFor}:${adding?.newPage}` : null;
+    : setupBlock ? (setupBlock.look === 'map' ? `Map: ${setupBlock.title}` : `Set up ${setupBlock.title}`) : pasteBlock ? `Paste into ${pasteBlock.title}` : wikiBlock ? `Wiki links: ${wikiBlock.title}` : retypeBlock ? `Change the type of ${retypeBlock.title}` : gameSettings ? 'Game settings' : '';
+  const editKey = editing ? `${editing}:${form?.blockId}.${form?.entryId}:${setup}:${trying?.id}:${retyping}:${gameSettings}:${pasting}:${wikiFor}:${adding?.newPage}` : null;
   // The setup Draft being looked at, if it's for the Block open in Set up; closing goes back to its card.
   const tried = trying && trying.blockKey === setup ? setupOf(trying.content) : null;
   const closeSetup = () => { if (trying) { setTab('drafts'); setDetail(trying.id); } setSetup(null); setTrying(null); };
@@ -511,6 +516,13 @@ export function Workshop({ game, pages, routes }: {
         <MarketDayButton className="hidden bg-sun-soft text-sun sm:inline-flex" />
         <HowItWorksButton className="hidden sm:inline-flex" />
         <div className="ml-auto flex shrink-0 items-center gap-2">
+          {/* The game's own settings: name, date, look, cover, routes (docs/games.md, slice 4). */}
+          <Tip text={`${game.shortTitle}'s name, date, look, cover and routes`} className="shrink-0">
+            <button type="button" onClick={() => setGameSettings(true)} aria-label="Game settings"
+              className="inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-sm font-bold ring-1 ring-line hover:ring-ink">
+              <SlidersHorizontal size={14} aria-hidden="true" /><span className="hidden sm:inline">Game settings</span>
+            </button>
+          </Tip>
           <HowItWorksButton compact className="inline-flex sm:hidden" />
         </div>
       </header>
@@ -629,6 +641,9 @@ export function Workshop({ game, pages, routes }: {
               ) : editing === 'paste' ? (
                 <PasteSheet gameId={game.id} block={pasteBlock!} routes={routes} me={me} data={batchData} onClose={closePaste}
                   onSent={(id) => { const page = pasteBlock!.page.id; closePaste(); setChip(page); setTab('drafts'); setOpenBatch(id); }} />
+              ) : editing === 'game' ? (
+                <GameSettingsEditor gameId={game.id} mod={live.mod} me={me} postDraft={live.postDraft}
+                  onSubmitted={(id) => { setGameSettings(false); setChip('all'); setTab('drafts'); setDetail(id); }} onClose={() => setGameSettings(false)} />
               ) : editing === 'type' ? (
                 <ChangeType gameId={game.id} block={retypeBlock!} blocks={blocks} mod={live.mod} signedIn={Boolean(me)} postDraft={live.postDraft}
                   onSubmitted={(id) => { const page = retypeBlock!.page.id; setRetyping(null); setChip(page); setTab('drafts'); setDetail(id); }} onClose={() => setRetyping(null)} />
@@ -1084,6 +1099,9 @@ function DraftCard({ draft, place, routes, me, chatCount, onChat, live, startOpe
   // A suggested Page or Block has no entry, and its own card (20261122000000_page_block_drafts.sql).
   const structure = draft.action === 'add_page' || draft.action === 'add_block' ? structureOf(draft.content) : null;
   if (structure) return <StructureDraftCard draft={draft} structure={structure} me={me} chatCount={chatCount} onChat={onChat} live={live} startOpen={startOpen} />;
+  // A game's settings have no entry or Block (20261204000000_game_settings.sql).
+  const gameDraft = draft.action === 'game' ? gameSettingsOf(draft.content) : null;
+  if (gameDraft) return <GameSettingsDraftCard draft={draft} settings={gameDraft} me={me} chatCount={chatCount} onChat={onChat} live={live} startOpen={startOpen} />;
   // A Block's setup has no entry either (20261127000000_setup_drafts.sql).
   const setupDraft = draft.action === 'setup' ? setupOf(draft.content) : null;
   if (setupDraft) return <SetupDraftCard draft={draft} setup={setupDraft} place={place} me={me} chatCount={chatCount} onChat={onChat} live={live} startOpen={startOpen} />;
@@ -1297,6 +1315,24 @@ function StructureDraftCard({ structure, ...props }: ProposalProps & { structure
       <div className="rounded-2xl p-3" style={{ background: `var(--${tint}-soft)` }}>
         <StructurePreview content={structure} pages={pages} gameId={gameId} />
       </div>
+    </ProposalCard>
+  );
+}
+
+/** A game's settings as a Draft (20261204000000): what they change, in words, and a new cover if there is one. */
+function GameSettingsDraftCard({ settings, ...props }: ProposalProps & { settings: GameSettingsContent }) {
+  const changes = settingsChanges(settings.before, settings.game);
+  return (
+    <ProposalCard {...props} sub="Game settings"
+      piece={<Piece size={40} color="var(--ink)"><SlidersHorizontal size={15} strokeWidth={2.4} className="text-white" aria-hidden="true" /></Piece>}
+      badge="game" badgeTip="Suggests the game's own settings: its name, date, look, cover or routes">
+      <ul className="grid gap-1 text-sm">
+        {changes.map((c, i) => <li key={i} className="flex gap-2"><span aria-hidden="true" className="mt-2 size-1.5 shrink-0 rounded-full bg-ink" />{c}</li>)}
+      </ul>
+      {settings.game.cover && (
+        // eslint-disable-next-line @next/next/no-img-element -- a Builder's upload, shown as it is
+        <img src={coverSrc(settings.game.cover)} alt="The suggested cover" className="aspect-[16/9] max-h-56 w-fit max-w-full rounded-xl object-cover ring-1 ring-line" />
+      )}
     </ProposalCard>
   );
 }
