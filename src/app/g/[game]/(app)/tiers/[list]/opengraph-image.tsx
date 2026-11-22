@@ -1,4 +1,4 @@
-import { getGame } from '@/data/games';
+import { findGame } from '@/lib/games-data';
 import { getSharedList } from '@/lib/tier-share';
 import { OG_SIZE, villageCard } from '@/lib/og-card';
 import { tierCard } from '@/lib/og-tiers';
@@ -10,7 +10,7 @@ export const contentType = 'image/png';
 
 export default async function Image({ params }: { params: Promise<{ game: string; list: string }> }) {
   const { game: gameId, list } = await params;
-  const game = getGame(gameId);
+  const game = await findGame(gameId);
   const shared = game ? await getSharedList(gameId, list) : null;
   if (!game || !shared) return villageCard({ tint: 'leaf', kicker: 'Village', title: 'Not found' });
   const rows = Object.fromEntries(shared.tiers.map((t) => [t.key, (shared.list.rows[t.key] ?? []).map((id) => shared.entries.get(id)?.name).filter((n): n is string => Boolean(n))]));

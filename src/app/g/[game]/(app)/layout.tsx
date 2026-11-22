@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { Hammer } from 'lucide-react';
-import { getGame } from '@/data/games';
+import { findGame } from '@/lib/games-data';
 import { getApp } from '@/lib/app-data';
 import { AppNav } from '@/components/app/AppNav';
 import { AccountButton } from '@/components/AccountButton';
@@ -33,7 +33,7 @@ export default function AppLayout({ children, params }: LayoutProps<'/g/[game]'>
 /** The ink bar: the game's name (back to the app's front page), the Workshop and your account. */
 async function Bar({ params }: { params: LayoutProps<'/g/[game]'>['params'] }) {
   const { game: id } = await params;
-  const game = getGame(id);
+  const game = await findGame(id);
   return (
     <TopBar compact actions={
       <>
@@ -57,7 +57,7 @@ async function Bar({ params }: { params: LayoutProps<'/g/[game]'>['params'] }) {
 
 async function Nav({ params }: { params: LayoutProps<'/g/[game]'>['params'] }) {
   const { game: id } = await params;
-  const found = getGame(id);
+  const found = await findGame(id);
   if (!found) return null;
   const [game] = withCovers([found]);
   const pages = (await getApp(id)).map((p) => ({

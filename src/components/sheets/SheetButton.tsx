@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Check, ClipboardCopy, ClipboardPaste, FileSpreadsheet, FileText, Sheet as SheetIcon, X } from 'lucide-react';
 import type { Block } from '@/data/pages';
 import { sharePath } from '@/data/pages/links';
-import { getGame } from '@/data/games';
+import { useGame } from '@/components/GamesProvider';
 import { Tip } from '@/components/Tip';
 import type { BlockContext } from '@/components/app/blockParts';
 import { aboutRows, blockSheet, fileName, spoilerCount, toCsv, toTsv } from '@/lib/sheets';
@@ -43,6 +43,7 @@ function copyOld(text: string) {
 }
 
 export function SheetButton({ block, ctx }: { block: Block; ctx: BlockContext }) {
+  const gameName = useGame(ctx.gameId)?.shortTitle ?? ctx.gameId;
   const [open, setOpen] = useState(false);
   const [spoilers, setSpoilers] = useState(ctx.spoilers);
   const [done, setDone] = useState<string | null>(null);
@@ -80,7 +81,7 @@ export function SheetButton({ block, ctx }: { block: Block; ctx: BlockContext })
   const excel = () => {
     const s = sheet();
     const about = aboutRows({
-      game: getGame(ctx.gameId)?.shortTitle ?? ctx.gameId, page: ctx.pageTitle, block: block.title, spoilers, rows: s.rows.length,
+      game: gameName, page: ctx.pageTitle, block: block.title, spoilers, rows: s.rows.length,
       link: window.location.origin + sharePath(ctx.gameId, ctx.page, block), date: new Date().toISOString().slice(0, 10),
     });
     const bytes = xlsx([{ ...s, table: true }, { name: 'About', columns: ['About this sheet', ''], rows: about, table: false, widths: [16, 100] }]);

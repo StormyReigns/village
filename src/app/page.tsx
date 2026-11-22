@@ -1,4 +1,5 @@
-import { GAMES } from '@/data/games';
+import { getGames } from '@/lib/games-data';
+import type { Game } from '@/data/games';
 import { MarketDayButton } from '@/components/HowItWorks';
 import { GameBrowser } from '@/components/GameBrowser';
 import { AccountButton } from '@/components/AccountButton';
@@ -11,7 +12,9 @@ import type { EntryHit } from '@/components/GameBrowser';
 import { getApp } from '@/lib/app-data';
 import { sharePath } from '@/data/pages/links';
 
-export default function VillageSquare() {
+export default async function VillageSquare() {
+  // Every game, from the database (docs/games.md); cached, so the page still prerenders.
+  const games = withCovers(await getGames());
   return (
     <>
     {/* The village square's header is the banner itself: the logo and your account along
@@ -43,8 +46,8 @@ export default function VillageSquare() {
     </header>
     <main className="mx-auto w-full max-w-5xl px-4 pb-16 pt-5 sm:px-6">
 
-      <Suspense fallback={<GameBrowser games={withCovers(GAMES)} />}>
-        <SearchableBrowser />
+      <Suspense fallback={<GameBrowser games={games} />}>
+        <SearchableBrowser games={games} />
       </Suspense>
 
       {/* Town Hall and "Your games" come back here once they have something to show. */}
@@ -58,8 +61,8 @@ export default function VillageSquare() {
 }
 
 // The home search also looks inside every game's app. Spoilers stay out.
-async function SearchableBrowser() {
-  const lists = await Promise.all(GAMES.map(async (g) => (await getApp(g.id)).flatMap((p) =>
+async function SearchableBrowser({ games }: { games: Game[] }) {
+  const lists = await Promise.all(games.map(async (g) => (await getApp(g.id)).flatMap((p) =>
     p.blocks.flatMap((b) => b.entries.filter((e) => !e.spoiler).map((e): EntryHit => ({
       key: `${g.id}.${b.id}.${e.id}`, game: g.shortTitle, name: e.name,
       where: p.title === b.title ? p.title : `${p.title} · ${b.title}`,
@@ -67,5 +70,5 @@ async function SearchableBrowser() {
       text: [e.description, ...e.sections.map((x) => x.text), ...Object.values(e.categories)].join(' '),
     }))),
   )));
-  return <GameBrowser games={withCovers(GAMES)} entries={lists.flat()} />;
+  return <GameBrowser games={games} entries={lists.flat()} />;
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Leaf, Sparkles, Star } from 'lucide-react';
-import { GAMES } from '@/data/games';
+import { useGames } from '@/components/GamesProvider';
 import { Piece } from '@/components/Piece';
 import { Tip } from '@/components/Tip';
 import { browserClient } from '@/lib/supabase/browser';
@@ -95,7 +95,8 @@ export function TitleChip({ data, tip }: { data: Standing | null; tip: string })
  * still waiting (left out when the villager hides it). `only` keeps just the games they've started.
  */
 export function GameBadges({ data, planted, only = false, you = true }: { data: Standing | null; planted: boolean; only?: boolean; you?: boolean }) {
-  const games = GAMES.map((g) => {
+  const all = useGames();
+  const games = all.map((g) => {
     const mine = data?.drafts.filter((d) => d.game_id === g.id && d.status !== 'removed') ?? [];
     const shipped = mine.filter((d) => d.status === 'stable');
     const isLive = shipped.some((d) => data?.live.has(d.id));

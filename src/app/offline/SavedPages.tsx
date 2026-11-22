@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { GAMES } from '@/data/games';
+import { useGames } from '@/components/GamesProvider';
+import type { Game } from '@/data/games';
 
 /** "/g/fortunes-weave/units-and-classes" → "Fortune's Weave · Units and classes". */
-function label(path: string) {
+function label(path: string, games: Game[]) {
   const parts = path.split('/').filter(Boolean);
   if (parts.length === 0) return 'Village square';
   if (parts[0] !== 'g') return parts.map(words).join(' · ');
-  const game = GAMES.find((g) => g.id === parts[1])?.shortTitle ?? words(parts[1] ?? '');
+  const game = games.find((g) => g.id === parts[1])?.shortTitle ?? words(parts[1] ?? '');
   const rest = parts.slice(2).map(words);
   return [game, ...(rest.length ? rest : ['App home'])].join(' · ');
 }
@@ -16,6 +17,7 @@ const words = (slug: string) => { const s = decodeURIComponent(slug).replace(/[-
 
 /** The pages the service worker has kept, newest first, as links that open without a connection. */
 export function SavedPages() {
+  const games = useGames();
   const [paths, setPaths] = useState<string[] | null>(null);
   useEffect(() => {
     (async () => {
@@ -40,7 +42,7 @@ export function SavedPages() {
         {paths.map((p) => (
           <li key={p}>
             {/* A plain link, so the browser asks the service worker for the kept copy. */}
-            <a href={p} className="block rounded-xl px-2 py-1.5 font-bold hover:bg-card-2">{label(p.split('?')[0])}</a>
+            <a href={p} className="block rounded-xl px-2 py-1.5 font-bold hover:bg-card-2">{label(p.split('?')[0], games)}</a>
           </li>
         ))}
       </ul>

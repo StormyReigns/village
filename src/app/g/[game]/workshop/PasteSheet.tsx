@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, ChevronDown, Download, FileUp, Info } from 'lucide-react';
 import type { Entry } from '@/data/pages';
-import { getGame } from '@/data/games';
+import { useGame } from '@/components/GamesProvider';
 import { sharePath } from '@/data/pages/links';
 import { SignInPrompt } from '@/components/SignInPrompt';
 import type { Villager } from '@/components/useVillager';
@@ -49,6 +49,7 @@ export function PasteSheet({ gameId, block, routes, me, data, onClose, onSent }:
   gameId: string; block: Placed; routes: RouteOption[]; me: Villager | null | undefined; data: BatchData;
   onClose: () => void; onSent: (batchId: string) => void;
 }) {
+  const gameName = useGame(gameId)?.shortTitle ?? gameId;
   const wide = useWide();
   const [text, setText] = useState('');
   const [book, setBook] = useState<{ file: string; sheets: ReadSheet[]; at: number } | null>(null);
@@ -120,7 +121,7 @@ export function PasteSheet({ gameId, block, routes, me, data, onClose, onSent }:
 
   const ownSheet = () => {
     const s = blockSheet(block, { ...sheetOpts, spoilers: true });
-    const about = aboutRows({ game: getGame(gameId)?.shortTitle ?? gameId, page: block.page.title, block: block.title, spoilers: true, rows: s.rows.length,
+    const about = aboutRows({ game: gameName, page: block.page.title, block: block.title, spoilers: true, rows: s.rows.length,
       link: window.location.origin + sharePath(gameId, block.page, block), date: new Date().toISOString().slice(0, 10) });
     save(xlsx([{ ...s, table: true }, { name: 'About', columns: ['About this sheet', ''], rows: about, table: false, widths: [16, 100] }]),
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', fileName(gameId, block, true, 'xlsx'));

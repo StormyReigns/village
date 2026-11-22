@@ -1,16 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { browserClient } from '@/lib/supabase/browser';
 import { missingTable } from '@/lib/questions';
 import { mentionsIn, plainRefs } from '@/lib/refs';
-import { GAMES } from '@/data/games';
+import { useGames } from '@/components/GamesProvider';
 import { INBOX_COLUMNS, toInboxItem, type InboxContext, type InboxItem, type Plain } from '@/lib/inbox';
 import { useVillager } from '../useVillager';
 
 type Row = Record<string, unknown>;
-const GAME_NAMES = new Map(GAMES.map((g) => [g.id, g.shortTitle]));
-const emptyCtx = (): InboxContext => ({ questions: new Map(), messages: new Map(), people: new Map(), games: GAME_NAMES });
+const emptyCtx = (): InboxContext => ({ questions: new Map(), messages: new Map(), people: new Map(), games: new Map() });
 
 /**
  * Your inbox, kept live: the newest `size` items, and what's needed to describe them (the words of
@@ -124,5 +123,8 @@ export function useInbox(size: number) {
   const plain: Plain = useCallback((body: string) =>
     plainRefs(body, (r) => r.key.split('.').pop()!.replace(/[-_]+/g, ' '), (id) => ctx.people.get(id) ?? 'someone').replace(/\s+/g, ' ').trim(), [ctx]);
 
-  return { me, items, ctx, more, plain, markAllRead, markRead, setRead, hide, reload: load };
+  // Game names come from the games list (docs/games.md), so a game started yesterday is named too.
+  const games = useGames();
+  const named = useMemo(() => ({ ...ctx, games: new Map(games.map((g) => [g.id, g.shortTitle])) }), [ctx, games]);
+  return { me, items, ctx: named, more, plain, markAllRead, markRead, setRead, hide, reload: load };
 }

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ArrowLeft, ArrowUpRight, Inbox, LogOut, Moon } from 'lucide-react';
-import { GAMES } from '@/data/games';
+import { useGames } from '@/components/GamesProvider';
 import { Avatar } from '@/components/Avatar';
 import { ProfileForm } from '@/components/ProfileDialog';
 import { SignInPrompt } from '@/components/SignInPrompt';
@@ -62,6 +62,7 @@ function Ladder({ ladder, value, unit, tint, extra }: { ladder: Step[]; value: n
 }
 
 export function Profile() {
+  const games = useGames();
   const me = useVillager();
   const [data, setData] = useStanding(me?.id);
 
@@ -150,7 +151,7 @@ export function Profile() {
                 <li key={d.id}>
                   <Link href={draftHref(d, data)} className="flex items-center gap-3 rounded-2xl bg-card-2 px-3 py-2 ring-1 ring-line hover:ring-ink">
                     <span className="min-w-0 flex-1 truncate font-bold">{d.title}</span>
-                    <span className="shrink-0 text-xs text-muted">{GAMES.find((g) => g.id === d.game_id)?.shortTitle}</span>
+                    <span className="shrink-0 text-xs text-muted">{games.find((g) => g.id === d.game_id)?.shortTitle}</span>
                     <span className={'shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ' + (d.status === 'stable' ? 'bg-leaf-soft text-leaf' : d.status === 'declined' ? 'bg-berry-soft text-berry' : 'bg-sky-soft text-sky')}>
                       {STATUS[d.status] ?? d.status}
                     </span>

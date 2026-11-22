@@ -1,5 +1,5 @@
 import { cacheLife } from 'next/cache';
-import { getGame } from '@/data/games';
+import { findGame } from '@/lib/games-data';
 import { getApp } from '@/lib/app-data';
 import { gameWiki } from '@/lib/wiki-server';
 import { choose, knownWikiHost, queryUrl, readAnswer, titlesFor, wikiFixOf, wikiOf, type PageFound, type WikiAnswer } from '@/lib/wiki';
@@ -78,7 +78,7 @@ async function answerFor(gameId: string, cardId: string): Promise<WikiAnswer> {
 
 export async function GET(_req: Request, ctx: RouteContext<'/api/wiki/[game]/[card]'>) {
   const { game, card } = await ctx.params;
-  if (!getGame(game) || !CARD_ID.test(card)) return Response.json({ ok: false, reason: 'missing' } satisfies WikiAnswer, { status: 400 });
+  if (!await findGame(game) || !CARD_ID.test(card)) return Response.json({ ok: false, reason: 'missing' } satisfies WikiAnswer, { status: 400 });
   try {
     const answer = await answerFor(game, card);
     // Short at the edge, so a renamed entry or a new wiki shows within the hour; the wiki's own

@@ -1,16 +1,16 @@
 import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { GAMES, getGame } from '@/data/games';
+import { findGame, getGames } from '@/lib/games-data';
 import { getApp } from '@/lib/app-data';
 import { AppHome } from '@/components/app/PageView';
 
-export function generateStaticParams() {
-  return GAMES.map((g) => ({ game: g.id }));
+export async function generateStaticParams() {
+  return (await getGames()).map((g) => ({ game: g.id }));
 }
 
 export async function generateMetadata({ params }: PageProps<'/g/[game]'>): Promise<Metadata> {
-  const game = getGame((await params).game);
+  const game = await findGame((await params).game);
   if (!game) return { title: 'Game' };
   const description = `The ${game.shortTitle} companion app, built and checked by players.`;
   return { title: game.shortTitle, description, openGraph: { title: game.title, description, siteName: 'Village' } };
@@ -26,7 +26,7 @@ export default function AppHomePage({ params }: PageProps<'/g/[game]'>) {
 }
 
 async function Home({ params }: { params: PageProps<'/g/[game]'>['params'] }) {
-  const found = getGame((await params).game);
+  const found = await findGame((await params).game);
   if (!found) notFound();
   const pages = await getApp(found.id);
   const game = found;

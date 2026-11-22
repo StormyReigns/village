@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
-import { GAMES, getGame } from '@/data/games';
+import { findGame, getGames } from '@/lib/games-data';
 import { getApp } from '@/lib/app-data';
 import { classKin } from '@/lib/class-fit';
 import { PageView } from '@/components/app/PageView';
@@ -12,13 +12,13 @@ import { questionsPage } from '@/lib/questions';
 import { plannerRosters } from '@/lib/planner';
 
 export async function generateStaticParams() {
-  const all = await Promise.all(GAMES.map(async (g) => (await getApp(g.id)).map((p) => ({ game: g.id, page: p.id }))));
+  const all = await Promise.all((await getGames()).map(async (g) => (await getApp(g.id)).map((p) => ({ game: g.id, page: p.id }))));
   return all.flat();
 }
 
 export async function generateMetadata({ params }: PageProps<'/g/[game]/[page]'>): Promise<Metadata> {
   const { game, page } = await params;
-  const g = getGame(game);
+  const g = await findGame(game);
   const p = (await getApp(game)).find((x) => x.id === page);
   if (!p || !g) return { title: 'Page' };
   const title = `${p.title} · ${g.shortTitle}`;
@@ -45,7 +45,7 @@ export default function AppPage({ params, searchParams }: PageProps<'/g/[game]/[
 
 async function Loaded({ params, searchParams }: { params: PageProps<'/g/[game]/[page]'>['params']; searchParams: PageProps<'/g/[game]/[page]'>['searchParams'] }) {
   const { game: gameId, page: pageId } = await params;
-  const game = getGame(gameId);
+  const game = await findGame(gameId);
   const pages = await getApp(gameId);
   const page = pages.find((p) => p.id === pageId);
   if (!game) notFound();

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Pencil, ShieldCheck } from 'lucide-react';
-import { GAMES } from '@/data/games';
+import { useGames } from '@/components/GamesProvider';
 import { Avatar } from '@/components/Avatar';
 import { Tip } from '@/components/Tip';
 import { useVillager } from '@/components/useVillager';
@@ -34,10 +34,10 @@ function usePerson(username: string) {
   return person;
 }
 
-const gameName = (id: string) => GAMES.find((g) => g.id === id)?.shortTitle ?? id;
-
 /** A short list of Drafts: published ones open their entry in the app, others the Draft itself. */
 function DraftList({ drafts, data, tag }: { drafts: TheirDraft[]; data: Standing | null; tag: (d: TheirDraft) => React.ReactNode }) {
+  const games = useGames();
+  const gameName = (id: string) => games.find((g) => g.id === id)?.shortTitle ?? id;
   return (
     <ul className="mt-3 grid gap-1.5">
       {drafts.map((d) => (

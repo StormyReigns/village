@@ -6,16 +6,16 @@ import { OpenAppLink } from '@/components/PageLinks';
 import { TopBar } from '@/components/Logo';
 import { GameShade } from '@/components/GameShade';
 import type { Metadata } from 'next';
-import { GAMES, getGame } from '@/data/games';
+import { findGame, getGames } from '@/lib/games-data';
 import { getApp } from '@/lib/app-data';
 import { Workshop } from './Workshop';
 
-export function generateStaticParams() {
-  return GAMES.map((g) => ({ game: g.id }));
+export async function generateStaticParams() {
+  return (await getGames()).map((g) => ({ game: g.id }));
 }
 
 export async function generateMetadata({ params }: PageProps<'/g/[game]/workshop'>): Promise<Metadata> {
-  const game = getGame((await params).game);
+  const game = await findGame((await params).game);
   if (!game) return { title: 'Workshop' };
   const title = `${game.shortTitle} Workshop`;
   const description = `Help build the ${game.shortTitle} companion app: suggest fixes, add what's missing, and vote.`;
@@ -32,7 +32,7 @@ export default function WorkshopPage({ params }: PageProps<'/g/[game]/workshop'>
 }
 
 async function LoadedWorkshop({ params }: { params: PageProps<'/g/[game]/workshop'>['params'] }) {
-  const game = getGame((await params).game);
+  const game = await findGame((await params).game);
   if (!game) notFound();
   // A Tier list Block has no entries of its own to add or fix, so the Workshop leaves it out. A Planner
   // stays, for its Set up (docs/blocks/planner.md), though it has no entries either.

@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import type { Game } from '@/data/games';
 import { Piece } from './Piece';
+import { initials } from '@/lib/initials';
 
 const SOFT: Record<Game['hue'], string> = {
   berry: 'bg-berry-soft',
@@ -9,7 +10,6 @@ const SOFT: Record<Game['hue'], string> = {
   sun: 'bg-sun-soft',
 };
 
-const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 
 /**
  * A game's cover picture, or until we have our own art, the game's piece on its color:

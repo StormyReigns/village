@@ -1,7 +1,7 @@
 # Starting a game
 
-**Status:** Planned (2026-11-21), not built · **Chat:** started from the Builder-readiness chat ·
-**Code today:** `src/data/games.ts` (every game's name, date, cover, routes and shade), read by about 30 files
+**Status:** Slice 1 built (2026-11-21; its SQL, 20261130000000, waits on Matt's run); slices 2 to 4 planned · **Chat:** started from the Builder-readiness chat ·
+**Code:** `src/lib/games-data.ts` (`getGames`, `findGame`, cached), `src/lib/game-row.ts` (a row as a game, tested), `src/components/GamesProvider.tsx` (`useGames`, `useGame` in the browser), `src/data/games.ts` (the `Game` type and the starter games, the fallback)
 
 From Matt's Ocarina early-Builder review, item 1: Builders can't start a game. A game's title, release date,
 cover, routes and genre shade live in code. The goal is that Builders can build a game without Matt.
@@ -38,7 +38,10 @@ where to help while it's being built.
    release_date, status, preset and wiki) gains what `games.ts` holds: short title, genre, shade, cover,
    routes (paths), next, popularity, moved pages. A migration fills in Fortune's Weave and Ocarina from
    `games.ts`. The site reads games through one cached loader, like `src/lib/app-data.ts`, refreshed when a
-   game changes. No change anyone can see. Needs a hub review.
+   game changes. No change anyone can see.
+   **Built 2026-11-21.** The root layout reads the games (cached for days, tag `games`) and hands them to the
+   browser side. Anything a row lacks comes from `games.ts`, so the site is the same before and after the SQL
+   runs. Pages now refresh daily, since every page's shell reads the games.
 2. **Start a game.** A `start_game` database function: signed in, checks every box (lengths, the genre is one
    of ours, the date), makes the game's address from its name and refuses a near-duplicate, gives one new game
    per person per day, sets the game's status to building (the table's 'draft'), and makes the starter its

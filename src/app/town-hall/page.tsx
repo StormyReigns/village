@@ -4,13 +4,13 @@ import { Hammer, Landmark } from 'lucide-react';
 import { AccountButton } from '@/components/AccountButton';
 import { TopBar } from '@/components/Logo';
 import { Piece } from '@/components/Piece';
-import { GAMES } from '@/data/games';
+import { getGames } from '@/lib/games-data';
 
 export const metadata: Metadata = { title: 'Town Hall' };
 
 // Platform-wide square. Not built yet: until it is, this page says so plainly and points
 // to where conversations happen today, each game's Workshop chat.
-export default function TownHall() {
+export default async function TownHall() {
   return (
     <>
     <TopBar actions={<AccountButton quiet dark />} />
@@ -26,7 +26,7 @@ export default function TownHall() {
           Until it is, each game&apos;s Workshop has its own chat, open to everyone signed in.
         </p>
         <ul className="mx-auto mt-6 grid max-w-sm gap-2">
-          {GAMES.map((g) => (
+          {(await getGames()).map((g) => (
             <li key={g.id}>
               <Link href={`/g/${g.id}/workshop`} className="btn-quiet flex items-center justify-center gap-2 rounded-full px-4 py-2.5 font-bold">
                 <Hammer size={16} className="text-leaf" aria-hidden="true" /> {g.shortTitle} Workshop

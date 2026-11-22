@@ -2,7 +2,7 @@
 
 import type { CSSProperties, ReactNode } from 'react';
 import { useParams } from 'next/navigation';
-import { getGame } from '@/data/games';
+import { useGame } from '@/components/GamesProvider';
 import { shadeVars } from '@/lib/shades';
 
 /**
@@ -12,5 +12,6 @@ import { shadeVars } from '@/lib/shades';
  */
 export function GameShade({ children, className = '' }: { children: ReactNode; className?: string }) {
   const { game } = useParams<{ game: string }>();
-  return <div className={className} style={shadeVars(getGame(game)?.shade) as CSSProperties}>{children}</div>;
+  const shade = useGame(game)?.shade;
+  return <div className={className} style={shadeVars(shade) as CSSProperties}>{children}</div>;
 }

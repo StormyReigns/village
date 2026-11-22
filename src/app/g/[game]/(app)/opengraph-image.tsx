@@ -1,4 +1,4 @@
-import { getGame } from '@/data/games';
+import { findGame } from '@/lib/games-data';
 import { getApp } from '@/lib/app-data';
 import { OG_SIZE, villageCard } from '@/lib/og-card';
 
@@ -8,7 +8,7 @@ export const size = OG_SIZE;
 export const contentType = 'image/png';
 
 export default async function Image({ params }: { params: Promise<{ game: string }> }) {
-  const game = getGame((await params).game);
+  const game = await findGame((await params).game);
   if (!game) return villageCard({ tint: 'leaf', kicker: 'Village', title: 'Not found' });
   const pages = await getApp(game.id);
   return villageCard({

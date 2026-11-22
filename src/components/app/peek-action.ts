@@ -1,7 +1,7 @@
 'use server';
 
 import type { Block, Entry, Tint } from '@/data/pages';
-import { getGame } from '@/data/games';
+import { findGame } from '@/lib/games-data';
 import { getApp } from '@/lib/app-data';
 import { classKin, type Kin } from '@/lib/class-fit';
 import { blockLinks, withLinkMentions, type BlockLinks } from '@/lib/entry-links';
@@ -29,7 +29,7 @@ const ID = /^[a-z0-9-]{1,80}$/;
  */
 export async function peekEntry(gameId: string, pageId: string, item: string): Promise<Peeked | null> {
   if (!ID.test(gameId) || !ID.test(pageId) || item.length > 200) return null;
-  const game = getGame(gameId);
+  const game = await findGame(gameId);
   if (!game) return null;
   const pages = await getApp(gameId);
   const page = pages.find((p) => p.id === pageId);

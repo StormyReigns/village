@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import type { Block, Entry } from '@/data/pages';
-import { GAMES, getGame } from '@/data/games';
+import { findGame, getGames } from '@/lib/games-data';
 import { Piece } from '@/components/Piece';
 import { BlockIcon } from '@/components/Icon';
 import { symbolFor } from '@/components/app/symbols';
@@ -19,12 +19,12 @@ type Params = Promise<{ game: string; plan: string }>;
 // Parties are made by players, so none is known at build time. One placeholder per game gives Next a
 // shell to build (it shows "Not found"); real ones render on their first visit and are kept.
 export async function generateStaticParams() {
-  return GAMES.map((g) => ({ game: g.id, plan: NO_PLAN }));
+  return (await getGames()).map((g) => ({ game: g.id, plan: NO_PLAN }));
 }
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { game: gameId, plan } = await params;
-  const game = getGame(gameId);
+  const game = await findGame(gameId);
   const shared = game ? await getSharedPlan(gameId, plan) : null;
   if (!game || !shared) return { title: 'Not found' };
   const title = `${shared.maker}’s ${shared.title} · ${game.shortTitle}`;
@@ -57,7 +57,7 @@ function Mark({ e, block, px }: { e: Entry; block: Block; px: number }) {
 
 async function Loaded({ params }: { params: Params }) {
   const { game: gameId, plan } = await params;
-  const game = getGame(gameId);
+  const game = await findGame(gameId);
   const shared = game ? await getSharedPlan(gameId, plan) : null;
   if (!game || !shared) notFound();
   const { page, roster, members } = shared;

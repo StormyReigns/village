@@ -1,5 +1,8 @@
-// The games in the village: names, dates, colors and routes. Each game's app (its Pages,
-// Blocks and entries) lives in the database; see src/lib/app-data.ts.
+// What a game is (names, dates, colors and routes), and the starter games. Games live in the database
+// (src/lib/games-data.ts, docs/games.md): read them with getGames / findGame on the server, or useGames /
+// useGame in the browser (src/components/GamesProvider.tsx). The list below is the fallback for anything a game's
+// row doesn't have yet, and was copied into the database by 20261130000000_games_in_db.sql. Each game's app (its
+// Pages, Blocks and entries) lives in the database too; see src/lib/app-data.ts.
 
 import type { Route } from '@/data/content/types';
 import type { Shade } from '@/lib/shades';
@@ -33,7 +36,8 @@ export interface Game {
   movedPages?: Record<string, string>;
 }
 
-export const GAMES: Game[] = [
+/** The two launch games, as they were before games moved to the database: the fallback, never the list to read. */
+export const STARTER_GAMES: Game[] = [
   {
     id: 'fortunes-weave',
     title: "Fire Emblem: Fortune's Weave",
@@ -73,9 +77,6 @@ export const GAMES: Game[] = [
   },
 ];
 
-export function getGame(id: string): Game | undefined {
-  return GAMES.find((g) => g.id === id);
-}
 
 export function daysUntil(isoDate: string, from = new Date()): number {
   const target = new Date(isoDate + 'T00:00:00');

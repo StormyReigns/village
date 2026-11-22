@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { Users } from 'lucide-react';
 import type { Block, Entry } from '@/data/pages';
-import { GAMES, getGame } from '@/data/games';
+import { findGame, getGames } from '@/lib/games-data';
 import { Piece } from '@/components/Piece';
 import { BlockIcon } from '@/components/Icon';
 import { symbolFor } from '@/components/app/symbols';
@@ -22,12 +22,12 @@ type Params = Promise<{ game: string; list: string }>;
 // Lists are made by players, so none is known at build time. One placeholder per game gives Next
 // a shell to build (it shows "Not found"); real lists render on their first visit and are kept.
 export async function generateStaticParams() {
-  return GAMES.map((g) => ({ game: g.id, list: NO_LIST }));
+  return (await getGames()).map((g) => ({ game: g.id, list: NO_LIST }));
 }
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { game: gameId, list } = await params;
-  const game = getGame(gameId);
+  const game = await findGame(gameId);
   const shared = game ? await getSharedList(gameId, list) : null;
   if (!game || !shared) return { title: 'Not found' };
   const title = `${shared.maker}’s ${shared.title} list · ${game.shortTitle}`;
@@ -60,7 +60,7 @@ function Mark({ e, block, px }: { e: Entry; block: Block; px: number }) {
 
 async function Loaded({ params }: { params: Params }) {
   const { game: gameId, list: listId } = await params;
-  const game = getGame(gameId);
+  const game = await findGame(gameId);
   const shared = game ? await getSharedList(gameId, listId) : null;
   if (!game || !shared) notFound();
   const { page, block, ranked, tiers, list, entries } = shared;

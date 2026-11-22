@@ -2,7 +2,7 @@ import 'server-only';
 import { cacheLife, cacheTag } from 'next/cache';
 import { createClient } from '@supabase/supabase-js';
 import type { Block, Entry, Page } from '@/data/pages';
-import { getGame } from '@/data/games';
+import { findGame } from '@/lib/games-data';
 import { getApp } from './app-data';
 import { SUPABASE_ANON_KEY, SUPABASE_URL, supabaseConfigured } from './supabase/config';
 import { bandOf, bandOrder, classShape } from './classes';
@@ -83,6 +83,6 @@ export async function getSharedPlan(gameId: string, planId: string): Promise<Sha
 
   const who = await db.from('profiles').select('display_name, username').eq('id', row.profile_id as string).maybeSingle();
   const maker = (who.data?.display_name as string | undefined)?.trim() || (who.data?.username as string | undefined) || 'A villager';
-  const route = getGame(gameId)?.paths?.options.find((o) => o.key === row.route)?.label;
+  const route = (await findGame(gameId))?.paths?.options.find((o) => o.key === row.route)?.label;
   return { page, block, roster, members, maker, title: route ? `${route} run` : 'party', updatedAt: row.updated_at as string };
 }

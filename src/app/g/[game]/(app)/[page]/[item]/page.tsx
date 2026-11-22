@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
-import { GAMES, getGame } from '@/data/games';
+import { findGame, getGames } from '@/lib/games-data';
 import { getApp } from '@/lib/app-data';
 import { classKin } from '@/lib/class-fit';
 import { PageView } from '@/components/app/PageView';
@@ -14,7 +14,7 @@ import { shadeHex } from '@/lib/shades';
 // preview: a title, a short summary, the Page's color, and a picture (opengraph-image).
 
 export async function generateStaticParams() {
-  const all = await Promise.all(GAMES.map(async (g) => (await getApp(g.id)).flatMap((p) =>
+  const all = await Promise.all((await getGames()).map(async (g) => (await getApp(g.id)).flatMap((p) =>
     p.blocks.flatMap((b) => [b.id, ...b.entries.map((e) => itemParam(p, b, e))]).map((item) => ({ game: g.id, page: p.id, item })),
   )));
   return all.flat();
@@ -22,7 +22,7 @@ export async function generateStaticParams() {
 
 async function find(params: PageProps<'/g/[game]/[page]/[item]'>['params']) {
   const { game: gameId, page: pageId, item } = await params;
-  const game = getGame(gameId);
+  const game = await findGame(gameId);
   const page = (await getApp(gameId)).find((p) => p.id === pageId);
   const hit = page ? resolveItem(page, item) : null;
   return { game, page, hit };
