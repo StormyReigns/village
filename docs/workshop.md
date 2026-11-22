@@ -74,7 +74,7 @@ added. Tests: `supabase/tests/structure-check.mjs`.
   Block in the game. It builds the Tier list and Planner settings itself rather than copying them, and
   makes keys that never clash. The chat says "<title> is now in the app."; Discord skips these.
 
-## Setups as Drafts (built 2026-11-21; its SQL waits on the hub and Matt)
+## Setups as Drafts (live 2026-11-21: Matt ran its SQL)
 
 From Matt's Ocarina early-Builder review: Builders should build a game without Matt or moderators. Set up
 (a Block's fields), a Planner's setup and a map picture saved for moderators only. Now anyone signed in

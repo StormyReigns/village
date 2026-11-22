@@ -79,6 +79,12 @@ Since 2026-11-12:
   screens wait for the saved route instead of flashing "All". 20261126000000 gives Theodora's real dates for Talimun's
   Paralogue (run 2026-11-20). **My run** on the Party Page: last chances by chapter, then recruits and class steps by
   Renown and level (docs/blocks/planner.md).
+- **Builder readiness** (Matt's Ocarina early-Builder review, 2026-11-21; plan in docs/workshop.md): Page and Block
+  Drafts (20261122000000) turned out to be run already. **Setups as Drafts** (20261127000000, run by Matt 2026-11-21
+  without a hub review, since no hub chat was open): Builders submit Set up, Planner setup and map pictures for votes;
+  `ship_setup` checks and rebuilds them and refuses a setup that changed since it was sent. Tests:
+  `supabase/tests/setup-check.mjs`. Still to plan with Matt: Checklist and Timeline Set up, changing a Block's type,
+  and starting a game (a `games` table already exists from 20261020000000 but the app reads `src/data/games.ts`).
 
 Open, waiting on Matt:
 - **Tests only Matt can do (signed in or on his phone):**
@@ -91,7 +97,7 @@ Open, waiting on Matt:
 - **The Notice Board:** the idea of showing it to moderators only and renaming it "Reports" was never answered.
 - **Patch watch:** waits for a game that patches.
 - **Classes slice 3** and **World Foes:** next in their specs, when Matt wants them.
-- **Later:** voting on Block setups, dark mode, banner art, measurement and a weekly report.
+- **Later:** dark mode, banner art, measurement and a weekly report.
 
 ## Chats
 
