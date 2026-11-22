@@ -5,15 +5,15 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { LogOut, UserPen, X } from 'lucide-react';
 import { hasPowers, seenAs, signOut, useAccount, type Villager } from './useVillager';
-import { useViewAsSetting } from './viewAs';
+import { useViewAsSetting, type ViewAs } from './viewAs';
 import { ModPowers, ViewAsReminder } from './ModPowers';
 import { SignInForm } from './SignInForm';
 import { Avatar } from './Avatar';
 import { InboxBell } from './Inbox';
 
 /**
- * "Sign in" when signed out; your avatar with a small menu when signed in. Moderators
- * also get their powers menu beside it, and see what the "see it as" choice shows.
+ * "Sign in" when signed out; your avatar with a small menu when signed in. Moderators find their
+ * powers (the Staff room, "see the site as") in that menu, and see what the "see it as" choice shows.
  */
 /**
  * `quiet` shows "Sign in" as a plain text link, for headers where it shouldn't compete.
@@ -24,15 +24,14 @@ export function AccountButton({ quiet = false, dark = false }: { quiet?: boolean
   const view = useViewAsSetting();
   if (!hasPowers(real)) return <Account villager={real} quiet={quiet} dark={dark} />;
   return (
-    <div className="flex items-center gap-2">
-      <ModPowers view={view} />
-      <Account villager={seenAs(real, view)} quiet={quiet} dark={dark} />
+    <>
+      <Account villager={seenAs(real, view)} quiet={quiet} dark={dark} powers={view} />
       <ViewAsReminder view={view} />
-    </div>
+    </>
   );
 }
 
-function Account({ villager, quiet, dark }: { villager: Villager | null | undefined; quiet: boolean; dark: boolean }) {
+function Account({ villager, quiet, dark, powers }: { villager: Villager | null | undefined; quiet: boolean; dark: boolean; powers?: ViewAs }) {
   const path = usePathname() || '/';
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -41,8 +40,10 @@ function Account({ villager, quiet, dark }: { villager: Villager | null | undefi
   useEffect(() => {
     if (!open && !menu) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); setMenu(false); } };
+    const onClick = (e: MouseEvent) => { if (menu && !box.current?.contains(e.target as Node)) setMenu(false); };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('mousedown', onClick);
+    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('mousedown', onClick); };
   }, [open, menu]);
 
   if (villager === undefined) return <span className={'inline-block h-9 w-20 rounded-full ' + (dark ? 'bg-white/10' : 'bg-card-2')} aria-hidden="true" />;
@@ -83,7 +84,7 @@ function Account({ villager, quiet, dark }: { villager: Villager | null | undefi
         <span className="hidden max-w-28 truncate sm:inline">{villager.displayName}</span>
       </button>
       {menu && (
-        <div className="surface pop absolute right-0 top-full z-40 mt-2 w-56 rounded-2xl p-2 text-sm text-ink">
+        <div className={'surface pop absolute right-0 top-full z-40 mt-2 max-h-[calc(100dvh-5rem)] overflow-y-auto rounded-2xl p-2 text-sm text-ink ' + (powers ? 'w-72' : 'w-56')}>
           <p className="px-3 py-2">
             <span className="block font-bold">{villager.displayName}</span>
             <span className="block text-muted">@{villager.username}{villager.isFounder ? ' · Founder' : ''}</span>
@@ -95,6 +96,7 @@ function Account({ villager, quiet, dark }: { villager: Villager | null | undefi
           <button onClick={async () => { await signOut(); setMenu(false); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left font-bold hover:bg-card-2">
             <LogOut size={16} aria-hidden="true" /> Sign out
           </button>
+          {powers && <ModPowers view={powers} close={() => setMenu(false)} />}
         </div>
       )}
     </div>

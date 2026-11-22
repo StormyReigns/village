@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Check, ChevronDown, Eye, ShieldCheck, Users } from 'lucide-react';
+import { Check, Eye, Users } from 'lucide-react';
 import { setViewAs, type ViewAs } from './viewAs';
 
 const VIEWS: { key: ViewAs; label: string; note: string }[] = [
@@ -11,60 +10,36 @@ const VIEWS: { key: ViewAs; label: string; note: string }[] = [
   { key: 'visitor', label: 'A visitor', note: 'Not signed in. Read-only, with sign-in prompts.' },
 ];
 
-const SHORT: Record<ViewAs, string> = { self: 'Moderator', villager: 'As a villager', visitor: 'As a visitor' };
-
-/** Moderator powers, next to the account button. Only shown to moderators and the Founder. */
-export function ModPowers({ view }: { view: ViewAs }) {
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    const onClick = (e: MouseEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
-    window.addEventListener('keydown', onKey);
-    window.addEventListener('mousedown', onClick);
-    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('mousedown', onClick); };
-  }, [open]);
-
-  const away = view !== 'self';
+/**
+ * Moderator powers, as a section of the account menu (top right). Only shown to moderators and the
+ * Founder. `close` shuts the menu after a choice.
+ */
+export function ModPowers({ view, close }: { view: ViewAs; close: () => void }) {
   return (
-    <div ref={box} className="relative">
-      <button onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="true"
-        className={'inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-bold ring-1 ' +
-          (away ? 'bg-sun-soft text-sun ring-sun' : 'bg-card text-ink ring-line hover:ring-ink')}>
-        {away ? <Eye size={16} aria-hidden="true" /> : <ShieldCheck size={16} aria-hidden="true" />}
-        <span className="hidden sm:inline">{SHORT[view]}</span>
-        <span className="sr-only sm:hidden">Moderator powers</span>
-        <ChevronDown size={14} aria-hidden="true" />
-      </button>
-      {open && (
-        <div className="surface pop absolute right-0 top-full z-40 mt-2 w-72 rounded-2xl p-2 text-sm text-ink">
-          <p className="px-3 pb-1 pt-2 text-xs font-bold uppercase tracking-wide text-muted">Moderator powers</p>
-          {/* The staff's shared room: tools, the staff chat and the site feed (docs/staff.md). */}
-          <Link href="/staff" onClick={() => setOpen(false)} className="mb-1 flex items-center gap-2 rounded-xl px-3 py-2 font-bold hover:bg-card-2">
-            <Users size={16} className="text-leaf" aria-hidden="true" /> Staff room
-          </Link>
-          <p className="px-3 pb-2 font-bold">See the site as</p>
-          <ul role="radiogroup" aria-label="See the site as" className="grid gap-1">
-            {VIEWS.map((v) => (
-              <li key={v.key}>
-                <button role="radio" aria-checked={view === v.key} onClick={() => { setViewAs(v.key); setOpen(false); }}
-                  className={'flex w-full items-start gap-2 rounded-xl px-3 py-2 text-left hover:bg-card-2 ' + (view === v.key ? 'bg-card-2' : '')}>
-                  <span className={'mt-0.5 grid size-4 shrink-0 place-items-center rounded-full ring-1 ' + (view === v.key ? 'bg-leaf text-paper ring-leaf' : 'ring-line')}>
-                    {view === v.key && <Check size={11} aria-hidden="true" />}
-                  </span>
-                  <span>
-                    <span className="block font-bold">{v.label}</span>
-                    <span className="block text-muted">{v.note}</span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          <p className="px-3 pb-1 pt-2 text-xs text-muted">Only changes this browser. Nobody else is affected.</p>
-        </div>
-      )}
+    <div className="mt-1 border-t border-line pt-1">
+      <p className="px-3 pb-1 pt-2 text-xs font-bold uppercase tracking-wide text-muted">Moderator</p>
+      {/* The staff's shared room: tools, the staff chat and the site feed (docs/staff.md). */}
+      <Link href="/staff" onClick={close} className="flex items-center gap-2 rounded-xl px-3 py-2 font-bold hover:bg-card-2">
+        <Users size={16} className="text-leaf" aria-hidden="true" /> Staff room
+      </Link>
+      <p className="px-3 pb-1 pt-2 font-bold">See the site as</p>
+      <ul role="radiogroup" aria-label="See the site as" className="grid gap-1">
+        {VIEWS.map((v) => (
+          <li key={v.key}>
+            <button role="radio" aria-checked={view === v.key} onClick={() => { setViewAs(v.key); close(); }}
+              className={'flex w-full items-start gap-2 rounded-xl px-3 py-2 text-left hover:bg-card-2 ' + (view === v.key ? 'bg-card-2' : '')}>
+              <span className={'mt-0.5 grid size-4 shrink-0 place-items-center rounded-full ring-1 ' + (view === v.key ? 'bg-leaf text-paper ring-leaf' : 'ring-line')}>
+                {view === v.key && <Check size={11} aria-hidden="true" />}
+              </span>
+              <span>
+                <span className="block font-bold">{v.label}</span>
+                <span className="block text-xs text-muted">{v.note}</span>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      <p className="px-3 pb-1 pt-2 text-xs text-muted">Only changes this browser. Nobody else is affected.</p>
     </div>
   );
 }

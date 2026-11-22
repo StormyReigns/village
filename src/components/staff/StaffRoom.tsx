@@ -181,7 +181,7 @@ function Tools({ stats }: { stats: Stats | null }) {
           <li><Link href="/start" className="flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-bold hover:bg-card"><Plus size={15} aria-hidden="true" /> Start a game</Link></li>
           <li><Link href="/town-hall" className="flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-bold hover:bg-card"><Landmark size={15} aria-hidden="true" /> Town Hall</Link></li>
         </ul>
-        <p className="mt-2 px-1 text-xs text-muted">“See the site as” a villager or a visitor is in the Moderator menu at the top.</p>
+        <p className="mt-2 px-1 text-xs text-muted">“See the site as” a villager or a visitor is in your account menu, top right.</p>
       </div>
     </div>
   );

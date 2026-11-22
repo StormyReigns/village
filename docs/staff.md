@@ -4,7 +4,7 @@
 **Code:** `src/app/staff/page.tsx`, `src/components/staff/StaffRoom.tsx` · **Database:**
 `supabase/migrations/20261205000000_staff_room.sql`, tested in `supabase/tests/staff-check.mjs`
 
-One shared place for everyone who moderates, at `/staff`, linked from the Moderator menu in the top bar.
+One shared place for everyone who moderates, at `/staff`, linked from the account menu (your avatar, top right).
 
 ## What it's for
 
