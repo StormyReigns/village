@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { createContext, Fragment, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Check, CornerUpLeft, Link2, EyeOff, FileText, Flag, ImagePlus, MessageCircle, MoreHorizontal, PanelLeftClose, PanelRight, PenLine, Play, ExternalLink, RotateCcw, Send, SmilePlus, Sparkles, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ChartBarBig, Check, CornerUpLeft, Link2, EyeOff, FileText, Flag, ImagePlus, MessageCircle, MoreHorizontal, PanelLeftClose, PanelRight, PenLine, Play, ExternalLink, RotateCcw, Send, SmilePlus, Sparkles, Trash2, X } from 'lucide-react';
 import type { Block, Entry, EntryContent, Page } from '@/data/pages';
 import { BlockIcon } from '@/components/Icon';
 import { EntryIcon, type RouteOption } from '@/components/app/EntryPanel';
@@ -25,6 +25,8 @@ import { ChangeList } from '../EntryForm';
 import { ago, carriesOn, clock, dayLabel, fullTime, timeOf, ReportForm, sameDay, showInList, useAction } from './bits';
 import { Popover } from './Popover';
 import { Lightbox } from './Lightbox';
+import { PollCard, PollForm, type DraftChoice } from './Poll';
+import { DEFAULT_HOURS, pollProblem, pollToSend, type PollOption } from '@/lib/polls';
 
 // The Workshop's chat (docs/chat.md): one stream for the whole game, and a thread for each
 // thing being built. A thread shows in the stream as a card at its newest message, with a
@@ -473,7 +475,7 @@ export function Message({ m, me, live, compact = false, small = false, grouped =
             <time dateTime={m.createdAt} title={fullTime(m.createdAt)} className="text-xs text-muted">{clock(m.createdAt)}</time>
           </p>
           {m.spoiler ? <p className="text-muted">Spoiler · open the thread to read it</p>
-            : <p className={'line-clamp-2 break-words ' + (system ? 'text-muted' : '')}><MessageText body={m.body} /></p>}
+            : <p className={'line-clamp-2 break-words ' + (system ? 'text-muted' : '')}>{m.poll && <b>Poll: </b>}<MessageText body={m.body} /></p>}
         </div>
       </li>
     );
@@ -514,7 +516,8 @@ export function Message({ m, me, live, compact = false, small = false, grouped =
           </button>
         ) : (
           <>
-            {m.body && <p className={'whitespace-pre-wrap break-words ' + (small ? 'text-sm' : 'text-[15px] leading-snug')}><MessageText body={m.body} /></p>}
+            {m.poll ? <PollCard m={m} me={me} live={live} small={small} />
+              : m.body && <p className={'whitespace-pre-wrap break-words ' + (small ? 'text-sm' : 'text-[15px] leading-snug')}><MessageText body={m.body} /></p>}
             <Pictures list={m.attachments} m={m} />
             <LinkedCard body={m.body} />
           </>
@@ -741,11 +744,12 @@ function LinkedCard({ body }: { body: string }) {
 }
 
 /** What a message carries besides its words. */
-export interface Extra { attachments: Attachment[]; replyTo: number | null }
+export interface Extra { attachments: Attachment[]; replyTo: number | null; poll?: { options: PollOption[]; ends_at: string } | null }
 
 /** The first words of a message, for a quote or a "Replying to" line. */
 const gist = (m: ChatMessage, links: { threads: Threads } | null) => {
   const words = plainRefs(m.body, (r) => (links ? links.threads.info(links.threads.resolve(r.key)).title : 'a thread'), (id) => links?.threads.personName(id) ?? 'someone').trim();
+  if (m.poll) return `Poll: ${words}`;
   return words || (m.attachments.length ? (m.attachments.length > 1 ? `${m.attachments.length} pictures` : 'A picture') : '');
 };
 
@@ -777,6 +781,9 @@ export function Composer({ me, placeholder, onSend, id, compact = false, replyTo
   const [sel, setSel] = useState(0);
   const [hidden, setHidden] = useState(false);
   const [pictures, setPictures] = useState<{ file: File; preview: string }[]>([]);
+  // A poll being written: its choices and how long it runs. The question is the box's words.
+  const [pollChoices, setPollChoices] = useState<DraftChoice[] | null>(null);
+  const [hours, setHours] = useState<number>(DEFAULT_HOURS);
 
   const listId = useId();
   const typed = links ? typedMark(text, caret) : null;
@@ -825,21 +832,39 @@ export function Composer({ me, placeholder, onSend, id, compact = false, replyTo
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const body = encodeRefs(text.trim(), picked);
-    if ((!body && !pictures.length) || busy || !me || !links) return;
+    if (busy || !me || !links) return;
+    if (pollChoices) {
+      const problem = pollProblem(text, pollChoices);
+      if (problem) { setError(problem); return; }
+    } else if (!body && !pictures.length) return;
     setBusy(true);
     const attachments: Attachment[] = [];
-    for (const p of pictures) {
+    for (const p of pollChoices ? [] : pictures) {
       const up = await uploadChatImage(links.gameId, me.id, p.file);
       if (typeof up === 'string') { setBusy(false); setError(up); return; }
       attachments.push(up);
     }
-    const err = await onSend(body, spoiler, { attachments, replyTo: replyTo?.id ?? null });
+    // A poll's choices: their pictures go up first, then the poll goes with the question.
+    let poll: Extra['poll'] = null;
+    if (pollChoices) {
+      const options: PollOption[] = [];
+      for (const c of pollChoices.filter((x) => x.label.trim())) {
+        if (!c.file) { options.push({ label: c.label }); continue; }
+        const up = await uploadChatImage(links.gameId, me.id, c.file);
+        if (typeof up === 'string') { setBusy(false); setError(up); return; }
+        options.push({ label: c.label, image: up });
+      }
+      poll = pollToSend(options, hours);
+    }
+    const err = await onSend(body, spoiler, { attachments, replyTo: replyTo?.id ?? null, poll });
     setBusy(false);
     setError(err ?? '');
     if (!err) {
       setText(''); setSpoiler(false); setPicked([]); setCaret(0);
       pictures.forEach((p) => URL.revokeObjectURL(p.preview));
       setPictures([]);
+      pollChoices?.forEach((c) => c.preview && URL.revokeObjectURL(c.preview));
+      setPollChoices(null); setHours(DEFAULT_HOURS);
       onCancelReply?.();
     }
   };
@@ -848,7 +873,18 @@ export function Composer({ me, placeholder, onSend, id, compact = false, replyTo
   // Enter sends and Shift+Enter starts a new line. On a phone (no hover, an on-screen keyboard)
   // Enter starts a new line, and the Send button sends.
   const enterSends = () => typeof window !== 'undefined' && !window.matchMedia('(hover: none)').matches;
-  const canSend = Boolean(text.trim() || pictures.length);
+  const canSend = Boolean(text.trim() || (pictures.length && !pollChoices));
+  const startPoll = () => {
+    setPollChoices([{ label: '' }, { label: '' }]);
+    setError('');
+    // The box is already there, so the cursor goes straight into it for the question.
+    field.current?.focus();
+  };
+  const endPoll = () => {
+    pollChoices?.forEach((c) => c.preview && URL.revokeObjectURL(c.preview));
+    setPollChoices(null);
+    setError('');
+  };
 
   return (
     <div className={'relative ' + (compact ? '' : 'mt-auto p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]')}>
@@ -921,16 +957,23 @@ export function Composer({ me, placeholder, onSend, id, compact = false, replyTo
             else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setHidden(true); }
           }}
           role="combobox" aria-expanded={picking} aria-controls={listId} aria-autocomplete="list"
-          className={'max-h-40 min-w-0 flex-1 resize-none self-center overflow-y-auto bg-transparent outline-none placeholder:text-muted ' + (compact ? 'px-2.5 py-1 text-sm leading-5' : 'w-full self-stretch px-3 pb-0.5 pt-2 leading-6')} placeholder={placeholder} aria-label={placeholder} />
+          className={'max-h-40 min-w-0 flex-1 resize-none self-center overflow-y-auto bg-transparent outline-none placeholder:text-muted ' + (compact ? 'px-2.5 py-1 text-sm leading-5' : 'w-full self-stretch px-3 pb-0.5 pt-2 leading-6')} placeholder={pollChoices ? 'Ask your question' : placeholder} aria-label={pollChoices ? 'The poll question' : placeholder} />
+        {pollChoices && !compact && <PollForm choices={pollChoices} onChoices={setPollChoices} hours={hours} onHours={setHours} onRemove={endPoll} />}
         <div className={compact ? 'contents' : 'flex items-center gap-0.5 px-1 pb-1'}>
         {!compact && (
           <>
             <input ref={files} type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple className="hidden"
               onChange={(e) => { if (e.target.files) addPictures(e.target.files); e.target.value = ''; }} />
             <Tip text="Add a picture (or paste one)" className="shrink-0">
-              <button type="button" onClick={() => files.current?.click()} disabled={pictures.length >= 4}
+              <button type="button" onClick={() => files.current?.click()} disabled={pictures.length >= 4 || Boolean(pollChoices)}
                 className={'grid place-items-center rounded-lg text-muted hover:bg-card-2 hover:text-ink disabled:opacity-40 ' + size}>
                 <ImagePlus size={16} aria-hidden="true" /><span className="sr-only">Add a picture</span>
+              </button>
+            </Tip>
+            <Tip text={pollChoices ? 'Remove the poll' : 'Make a poll: ask, and let people pick'} className="shrink-0">
+              <button type="button" onClick={pollChoices ? endPoll : startPoll} aria-pressed={Boolean(pollChoices)} disabled={pictures.length > 0}
+                className={'grid place-items-center rounded-lg disabled:opacity-40 ' + size + ' ' + (pollChoices ? 'bg-ink text-paper' : 'text-muted hover:bg-card-2 hover:text-ink')}>
+                <ChartBarBig size={16} aria-hidden="true" /><span className="sr-only">Poll</span>
               </button>
             </Tip>
           </>
@@ -948,7 +991,7 @@ export function Composer({ me, placeholder, onSend, id, compact = false, replyTo
           </button>
         ) : (
           <button disabled={busy || !canSend} className="btn-primary ml-auto inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-sm font-bold disabled:opacity-50">
-            {busy ? 'Sending…' : 'Send'}<Send size={14} aria-hidden="true" />
+            {busy ? 'Sending…' : pollChoices ? 'Post poll' : 'Send'}<Send size={14} aria-hidden="true" />
           </button>
         )}
         </div>

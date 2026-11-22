@@ -266,6 +266,30 @@ GIFs, polls and files left out for now):
 - Needs `20261101180000_chat_images_replies.sql` for pictures and replies; links, YouTube
   cards, several lines and mentions work without it.
 
+## Step 5: polls (built 2026-11-21)
+
+"Design A or Design B?" Matt's choices: words or pictures, counts always shown, the asker picks
+when it ends, votes named.
+- **Posting**: the poll button (a bar chart) beside the picture button opens the poll part of
+  the box. The words typed in the box are the question; 2 to 4 choices, each a short name (80
+  letters at most) and, if wanted, a picture; Enter in a choice moves to the next or adds one.
+  It ends in 1 hour, 1 day (the default) or 3 days. Send becomes "Post poll". Pictures on the
+  message itself step aside while a poll is open. Works in the main chat and in threads.
+- **In the chat**: the question in bold with the poll mark, then the choices: rows of words, or
+  picture tiles two across (the corner button opens a picture full size without voting). Each
+  has a bar, its count and who picked it ("You, Theo and 3 more"; hover for everyone). Your
+  pick has the yellow ring and a tick. One tap votes, another tap moves your vote, tapping yours
+  takes it back. Under it: "4 votes · ends in 21h", and "End poll now" for the asker and moderators.
+- **Ended**: no more taps; the winner gets a trophy and the line says "Ended · Head only won · 3 of
+  4 votes", a tie, or no votes. It ends on time by itself, without a reload.
+- Quotes, "Replying to" lines and thread rows show "Poll: <question>".
+- **Data**: `chat_messages.poll` (choices and `ends_at`, tidied and limited to 3 days by the
+  database), `chat_poll_votes` (one per person per poll, live for everyone), `close_poll()`.
+  Votes can't change after a poll ends. Removing a message deletes its choices' pictures too.
+  Needs `20261202000000_chat_polls.sql`; before it, the chat works as before and posting a poll
+  says the database needs an update. (`src/lib/polls.ts`, `chat/Poll.tsx`)
+- Not yet: a note in the chat when a poll ends, or a ping to the asker.
+
 ## Proposal: one stream, threads that surface (2026-11-01, step 1 built)
 
 The answer to "each thing gets its own chat" vs "split chats go quiet":

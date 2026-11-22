@@ -9,6 +9,7 @@ import { canModerate, type Villager } from '@/components/useVillager';
 import type { EntryContent } from '@/data/pages';
 import { appChanged } from '@/app/actions';
 import type { DraftStats } from '@/lib/standouts';
+import { toPoll, type Poll, type PollVote } from '@/lib/polls';
 
 // Everything the Workshop reads and writes: chat, Drafts, votes, views, reports and
 // moderator actions, kept live with Supabase Realtime. Row-level security in the
@@ -30,6 +31,8 @@ export interface ChatMessage {
   attachments: Attachment[];
   /** The message this one answers, quoted above it. */
   replyTo: number | null;
+  /** A poll, asking the message's words (src/lib/polls.ts). */
+  poll: Poll | null;
   spoiler: boolean;
   /** Only moderators ever see removed messages. */
   removed: boolean;
@@ -142,12 +145,15 @@ type Row = Record<string, unknown>;
 // nothing breaks before it is.
 const PROFILE = '*';
 const MESSAGE_COLUMNS = 'id, body, block_key, linked_draft_id, thread_key, spoiler, removed_at, created_at, author_id';
-const MESSAGE = `${MESSAGE_COLUMNS}, kind, event, attachments, reply_to, author:profiles!chat_messages_author_id_fkey(${PROFILE})`;
+const MESSAGE = `${MESSAGE_COLUMNS}, kind, event, attachments, reply_to, poll, author:profiles!chat_messages_author_id_fkey(${PROFILE})`;
 // Until the system-notes SQL (20261101120000_chat_reactions_system.sql) is run, the database
 // has no kind or event, so the chat reads without them rather than going dark.
 const DRAFT_COLUMNS = `id, block_key, kind, title, content, card_id, base_revision_id, source, theory, status, decline_reason, created_at, author_id, author:profiles!drafts_author_id_fkey(${PROFILE})`;
-const OLD_MESSAGE = MESSAGE.replace('kind, event, attachments, reply_to, ', '');
-const missingColumn = (e: { message?: string } | null) => Boolean(e && /(kind|event|thread_key|attachments|reply_to)\b.*does not exist|does not exist.*(kind|event|attachments|reply_to)/.test(e.message ?? ''));
+// Before the polls SQL (20261202000000_chat_polls.sql) the chat reads without polls, and before
+// the system-notes SQL without those too.
+const NO_POLL = MESSAGE.replace('reply_to, poll, ', 'reply_to, ');
+const OLD_MESSAGE = NO_POLL.replace('kind, event, attachments, reply_to, ', '');
+const missingColumn = (e: { message?: string } | null) => Boolean(e && /(kind|event|thread_key|attachments|reply_to|poll)\b.*does not exist|does not exist.*(kind|event|attachments|reply_to|poll)/.test(e.message ?? ''));
 
 function toAuthor(p: Row | null | undefined, id: string): Author {
   const username = (p?.username as string) ?? 'villager';
@@ -160,6 +166,7 @@ function toMessage(r: Row, author: Author): ChatMessage {
     draftId: (r.linked_draft_id as string) ?? null, threadKey: (r.thread_key as string) ?? null,
     kind: r.kind === 'system' ? 'system' : 'chat', event: (r.event as ChatEvent | null) ?? null,
     attachments: Array.isArray(r.attachments) ? (r.attachments as Attachment[]) : [], replyTo: (r.reply_to as number) ?? null,
+    poll: toPoll(r.poll),
     spoiler: Boolean(r.spoiler), removed: Boolean(r.removed_at),
     createdAt: r.created_at as string, author,
   };
@@ -177,6 +184,12 @@ function dropReaction(map: Map<number, Reaction[]>, messageId: number, by: strin
   const list = map.get(messageId);
   if (!list) return map;
   return new Map(map).set(messageId, list.filter((x) => !(x.by === by && x.emoji === emoji)));
+}
+
+/** Sets one person's vote on a poll (or takes it away with null). */
+function setVote(map: Map<number, PollVote[]>, messageId: number, by: string, v: PollVote | null) {
+  const list = (map.get(messageId) ?? []).filter((x) => x.by !== by);
+  return new Map(map).set(messageId, v ? [...list, v] : list);
 }
 
 /** Turns database errors into words a villager can act on. */
@@ -250,6 +263,8 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined, wan
   const [myReports, setMyReports] = useState<Set<string>>(new Set());
   /** Reactions on each message, oldest first. */
   const [reactions, setReactions] = useState<Map<number, Reaction[]>>(new Map());
+  /** Votes on each poll, in the order they came. */
+  const [pollVotes, setPollVotes] = useState<Map<number, PollVote[]>>(new Map());
   const [state, setState] = useState<'loading' | 'ready' | 'offline'>('loading');
   const authors = useRef(new Map<string, Author>());
   const channel = useRef<RealtimeChannel | null>(null);
@@ -287,6 +302,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined, wan
       return q;
     };
     let { data, error } = await read(MESSAGE);
+    if (missingColumn(error)) ({ data, error } = await read(NO_POLL));
     if (missingColumn(error)) ({ data, error } = await read(OLD_MESSAGE));
     if (error) throw error;
     const list = ((data ?? []) as unknown as Row[]).reverse().map((r) => {
@@ -322,6 +338,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined, wan
       return q;
     };
     let { data, error } = await read(MESSAGE);
+    if (missingColumn(error)) ({ data, error } = await read(NO_POLL));
     if (missingColumn(error)) ({ data, error } = await read(OLD_MESSAGE));
     if (error) return;
     const found = ((data ?? []) as unknown as Row[]).map((r) => {
@@ -452,6 +469,23 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined, wan
   }, [gameId, meId, mod]);
 
   /** Everyone's reactions in this game. Before the reactions SQL is run there are none. */
+  /** Everyone's poll votes in this game. Before the polls SQL is run there are none. */
+  const loadPollVotes = useCallback(async () => {
+    const db = browserClient();
+    if (!db) return;
+    const { data, error } = await db.from('chat_poll_votes')
+      .select('message_id, choice, profile_id, profile:profiles!chat_poll_votes_profile_id_fkey(username, display_name)')
+      .eq('game_id', gameId).order('voted_at').limit(5000);
+    if (error) return;
+    const next = new Map<number, PollVote[]>();
+    for (const r of (data ?? []) as Row[]) {
+      const list = next.get(r.message_id as number) ?? [];
+      list.push({ choice: r.choice as number, by: r.profile_id as string, name: toAuthor(r.profile as Row, r.profile_id as string).name });
+      next.set(r.message_id as number, list);
+    }
+    setPollVotes(next);
+  }, [gameId]);
+
   const loadReactions = useCallback(async () => {
     const db = browserClient();
     if (!db) return;
@@ -469,8 +503,8 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined, wan
   }, [gameId]);
 
   const reloadAll = useCallback(async () => {
-    await Promise.all([loadMessages(), loadDrafts(), loadReports(), loadReactions()]);
-  }, [loadMessages, loadDrafts, loadReports, loadReactions]);
+    await Promise.all([loadMessages(), loadDrafts(), loadReports(), loadReactions(), loadPollVotes()]);
+  }, [loadMessages, loadDrafts, loadReports, loadReactions, loadPollVotes]);
 
   const authorFor = useCallback(async (id: string): Promise<Author> => {
     const known = authors.current.get(id);
@@ -494,6 +528,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined, wan
     if (!db) return null;
     const read = (columns: string) => db.from('chat_messages').select(columns).eq('game_id', gameId).eq('id', id).maybeSingle();
     let { data, error } = await read(MESSAGE);
+    if (missingColumn(error)) ({ data, error } = await read(NO_POLL));
     if (missingColumn(error)) ({ data, error } = await read(OLD_MESSAGE));
     if (error || !data) return null;
     const r = data as unknown as Row;
@@ -523,7 +558,7 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined, wan
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: `game_id=eq.${gameId}` }, ({ new: r }) => {
         setMessages((list) => (r.removed_at && !mod
           ? list.filter((m) => m.id !== r.id)
-          : list.map((m) => (m.id === r.id ? { ...m, spoiler: Boolean(r.spoiler), removed: Boolean(r.removed_at) } : m))));
+          : list.map((m) => (m.id === r.id ? { ...m, spoiler: Boolean(r.spoiler), removed: Boolean(r.removed_at), poll: toPoll(r.poll) ?? m.poll } : m))));
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'drafts', filter: `game_id=eq.${gameId}` }, soon(loadDrafts))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'draft_votes' }, soon(loadDrafts))
@@ -539,6 +574,12 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined, wan
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'chat_reactions', filter: `game_id=eq.${gameId}` }, ({ old: r }) => {
         setReactions((map) => dropReaction(map, r.message_id as number, r.profile_id as string, r.emoji as string));
       })
+      // Poll votes: a new vote, a changed one, or one taken back.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_poll_votes', filter: `game_id=eq.${gameId}` }, async ({ eventType, new: n, old: o }) => {
+        if (eventType === 'DELETE') { setPollVotes((map) => setVote(map, o.message_id as number, o.profile_id as string, null)); return; }
+        const a = await authorFor(n.profile_id as string);
+        setPollVotes((map) => setVote(map, n.message_id as number, a.id, { choice: n.choice as number, by: a.id, name: a.name }));
+      })
       .subscribe();
     channel.current = ch;
 
@@ -550,16 +591,17 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined, wan
   }, []);
 
   /** Posts a chat message. Returns an error in plain words, or null. */
-  const send = useCallback(async (body: string, opts: { blockKey?: string | null; draftId?: string | null; threadKey?: string | null; spoiler?: boolean; attachments?: Attachment[]; replyTo?: number | null } = {}) => {
+  const send = useCallback(async (body: string, opts: { blockKey?: string | null; draftId?: string | null; threadKey?: string | null; spoiler?: boolean; attachments?: Attachment[]; replyTo?: number | null; poll?: { options: Poll['options']; ends_at: string } | null } = {}) => {
     const db = browserClient();
     if (!db || !meId) return 'Sign in to chat.';
     const row: Row = { game_id: gameId, author_id: meId, body, block_key: opts.blockKey ?? null, linked_draft_id: opts.draftId ?? null, spoiler: Boolean(opts.spoiler) };
     if (opts.threadKey) row.thread_key = opts.threadKey;
     if (opts.attachments?.length) row.attachments = opts.attachments;
     if (opts.replyTo) row.reply_to = opts.replyTo;
+    if (opts.poll) row.poll = opts.poll;
     const { data, error } = await db.from('chat_messages').insert(row)
-      .select(MESSAGE_COLUMNS).single();
-    if (missingColumn(error)) return 'Pictures and replies are almost ready: the database needs one more update.';
+      .select(opts.poll ? `${MESSAGE_COLUMNS}, poll` : MESSAGE_COLUMNS).single();
+    if (missingColumn(error)) return /poll/.test(error?.message ?? '') ? 'Polls are almost ready: the database needs one more update.' : 'Pictures and replies are almost ready: the database needs one more update.';
     if (error) return plainError(error.message);
     addMessage({ ...toMessage(data as unknown as Row, await authorFor(meId)), attachments: opts.attachments ?? [], replyTo: opts.replyTo ?? null });
     return null;
@@ -635,6 +677,38 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined, wan
     return /chat_reactions/.test(error.message) ? 'Reactions are almost ready: the database needs one more update.' : plainError(error.message);
   }, [meId, reactions, authorFor]);
 
+  /**
+   * Votes in a poll: picks a choice, moves your vote to another, or takes it back when you pick
+   * the one you already have. Shows at once, and goes back if the database says no.
+   */
+  const votePoll = useCallback(async (messageId: number, choice: number) => {
+    const db = browserClient();
+    if (!db || !meId) return 'Sign in to vote.';
+    const before = (pollVotes.get(messageId) ?? []).find((v) => v.by === meId) ?? null;
+    const a = await authorFor(meId);
+    const next = before?.choice === choice ? null : { choice, by: meId, name: a.name };
+    setPollVotes((map) => setVote(map, messageId, meId, next));
+    const { error } = !next
+      ? await db.from('chat_poll_votes').delete().eq('message_id', messageId).eq('profile_id', meId)
+      : before
+        ? await db.from('chat_poll_votes').update({ choice }).eq('message_id', messageId).eq('profile_id', meId)
+        : await db.from('chat_poll_votes').insert({ message_id: messageId, profile_id: meId, choice });
+    if (!error) return null;
+    setPollVotes((map) => setVote(map, messageId, meId, before));
+    return /chat_poll_votes/.test(error.message) ? 'Polls are almost ready: the database needs one more update.' : plainError(error.message);
+  }, [meId, pollVotes, authorFor]);
+
+  /** Ends a poll now (the asker, or a moderator). */
+  const closePoll = useCallback(async (messageId: number) => {
+    const db = browserClient();
+    if (!db || !meId) return 'Sign in first.';
+    const { error } = await db.rpc('close_poll', { mid: messageId });
+    if (error) return plainError(error.message);
+    const now = new Date().toISOString();
+    setMessages((list) => list.map((m) => (m.id === messageId && m.poll ? { ...m, poll: { ...m.poll, endsAt: now } } : m)));
+    return null;
+  }, [meId]);
+
   /** Reports a message or Draft to the moderators. */
   const report = useCallback(async (t: Target, reason: ReportReason, note: string) => {
     const db = browserClient();
@@ -676,7 +750,8 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined, wan
       await closeReports({ messageId: id }, 'resolved');
       // The pictures bucket is public, so a removed message's pictures are deleted too, or
       // they'd stay reachable by their address. (Restoring the message can't bring them back.)
-      const paths = messages.find((m) => m.id === id)?.attachments.map((a) => a.path) ?? [];
+      const gone = messages.find((m) => m.id === id);
+      const paths = [...(gone?.attachments.map((a) => a.path) ?? []), ...(gone?.poll?.options.flatMap((o) => (o.image ? [o.image.path] : [])) ?? [])];
       if (paths.length) await db.storage.from('chat-images').remove(paths);
     }
     return finish(error);
@@ -761,8 +836,8 @@ export function useWorkshop(gameId: string, me: Villager | null | undefined, wan
   }, [closeReports, finish]);
 
   return {
-    state, messages, reactions, drafts: shownDrafts, reports, myReports, mod,
-    send, loadThread, loadMessage, react, postDraft, vote, view, report, loadDrafts,
+    state, messages, reactions, pollVotes, drafts: shownDrafts, reports, myReports, mod,
+    send, loadThread, loadMessage, react, votePoll, closePoll, postDraft, vote, view, report, loadDrafts,
     moderate: { removeMessage, markSpoiler, publish, restore, decide, dismissReports, removeQuestion, removeVideo, removeTierReason },
   };
 }
