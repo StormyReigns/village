@@ -1,6 +1,6 @@
 # The Staff room
 
-**Status:** First version built 2026-11-22 (waits on Matt's run of `20261205000000_staff_room.sql`) ·
+**Status:** First version live 2026-11-22 (Matt ran `20261205000000_staff_room.sql`) ·
 **Code:** `src/app/staff/page.tsx`, `src/components/staff/StaffRoom.tsx` · **Database:**
 `supabase/migrations/20261205000000_staff_room.sql`, tested in `supabase/tests/staff-check.mjs`
 

@@ -93,7 +93,7 @@ Since 2026-11-12:
   2026-11-22), is live too: every item from the Ocarina early-Builder review is built.
 
 - **The Staff room** (Matt, 2026-11-22; docs/staff.md): /staff for every moderator: tools and numbers, a staff-only chat,
-  and a site feed read from what the database already records. 20261205000000 (waits on Matt's run; tests:
+  and a site feed read from what the database already records. 20261205000000 (run 2026-11-22; tests:
   supabase/tests/staff-check.mjs).
 
 Open, waiting on Matt:
