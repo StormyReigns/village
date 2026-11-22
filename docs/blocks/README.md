@@ -37,6 +37,7 @@ designed properly), **Idea** (not built).
 | 7 | World: Places (a real map), then Foes | Building (2026-11-09): the map, designed with Matt | Fortune's Weave · World · Dungeons and places | [world.md](world.md) |
 | 8 | Classes | Live, first slice (2026-11-11, designed with Matt): the tier ladder and class card | Fortune's Weave · Classes | [classes.md](classes.md) |
 | 9 | Planner | Live (2026-11-14, designed with Matt): the party list, class steps and gear | Fortune's Weave · Party | [planner.md](planner.md) |
+| – | The app's feel (shared): home, Page tops, routes | Slice 1 built (2026-11-22): the search-first home | Every game's home | [../app-design.md](../app-design.md) |
 | – | Links between Blocks (shared) | Live (2026-11-12): slices 1 to 3 | Every Block with a links field | [entry-links.md](entry-links.md) |
 | – | Wiki links (integration) | Live (2026-11-10) | Every character, item and class card | [wiki-links.md](wiki-links.md) |
 | – | Discord posts and Communities (integration) | Live (2026-11-10) | Notice Board (moderators); each game's home | [discord.md](discord.md) |

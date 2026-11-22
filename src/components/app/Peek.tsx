@@ -9,7 +9,7 @@ import { KinProvider } from '@/components/classes/kin';
 import { EntryPanel, type RouteOption } from './EntryPanel';
 import { LinksProvider } from './EntryLinks';
 import { clearKey } from '@/components/world/PictureMap';
-import { onRoute } from './entries';
+import { onRoute, rememberEntry } from './entries';
 import { peekEntry, type Peeked } from './peek-action';
 
 // Pop-ups never switch Pages (Matt, 2026-11-17). A link to an entry, inside a card or a pop-up,
@@ -125,6 +125,10 @@ function PeekPanel({ peeked, gameId, route, routes, spoilers, local, onGo, onClo
   onGo: (e: Entry) => void; onClose: () => void;
 }) {
   const { block, entry } = peeked;
+  // A card opened in a pop-up counts as looked at, for the home's Recent chips (docs/app-design.md).
+  useEffect(() => {
+    rememberEntry(gameId, { href: `/g/${gameId}/${peeked.page.id}?e=${block.id}.${entry.id}`, name: entry.name, where: peeked.page.title === block.title ? block.title : `${peeked.page.title} · ${block.title}` });
+  }, [gameId, peeked.page.id, peeked.page.title, block.id, block.title, entry.id, entry.name]);
   // The arrows step through the entries the player would see on that Page.
   const list = block.entries.filter((e) => e.id === entry.id || ((!block.byRoute || onRoute(e, route)) && (spoilers || !e.spoiler)));
   const panel = (
