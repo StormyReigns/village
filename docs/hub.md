@@ -86,8 +86,8 @@ Since 2026-11-12:
   `supabase/tests/setup-check.mjs`. **Checklist and Timeline Set up** (docs/blocks/checklist.md, timeline.md):
   20261128000000 lets setup Drafts change their fields (one line in `ship_setup`), run by Matt 2026-11-21.
   **Changing an empty Block's type** (docs/workshop.md): 20261129000000 adds a type part to `ship_setup`, run by Matt
-  2026-11-21. Starting a game is planned with Matt in docs/games.md, not built yet (a `games` table already exists from 20261020000000 but the
-  app reads `src/data/games.ts`).
+  2026-11-21. **Starting a game** (docs/games.md): slice 1, games read from the database, is live (20261130000000, run
+  by Matt 2026-11-21; the site falls back to `src/data/games.ts` for anything missing). Slices 2 to 4 are next.
 
 Open, waiting on Matt:
 - **Tests only Matt can do (signed in or on his phone):**

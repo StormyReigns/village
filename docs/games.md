@@ -1,6 +1,6 @@
 # Starting a game
 
-**Status:** Slice 1 built (2026-11-21; its SQL, 20261130000000, waits on Matt's run); slices 2 to 4 planned · **Chat:** started from the Builder-readiness chat ·
+**Status:** Slice 1 live (2026-11-21; Matt ran 20261130000000); slices 2 to 4 planned · **Chat:** started from the Builder-readiness chat ·
 **Code:** `src/lib/games-data.ts` (`getGames`, `findGame`, cached), `src/lib/game-row.ts` (a row as a game, tested), `src/components/GamesProvider.tsx` (`useGames`, `useGame` in the browser), `src/data/games.ts` (the `Game` type and the starter games, the fallback)
 
 From Matt's Ocarina early-Builder review, item 1: Builders can't start a game. A game's title, release date,
