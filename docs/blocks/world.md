@@ -194,7 +194,8 @@ Drafts, and the place form's "Where on the map".
    building Foes as its own type, try it as a Characters Block with Set up fields: Weakness (list),
    Where (a place link), and a Boss tag. Builders can make that today without us; a separate type is
    only worth it for what Characters can't do (the Beaten tick, Found here on places, Drops linking
-   to items). No World Block chat was open to ask, so it waits here.
+   to items). No World Block chat was open to ask, so it waits here. (2026-11-21: an empty Collection, like
+   Ocarina's Foes, can now become a Characters Block with the Type button in the Workshop.)
 
 ## The real map (Matt's idea, 2026-11-09, being worked out)
 

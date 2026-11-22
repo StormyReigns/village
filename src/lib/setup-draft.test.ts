@@ -63,3 +63,13 @@ test('a Planner and a map', () => {
   assert.deepEqual(setupChanges({ type: 'collection' }, { map: { picture: 'a', w: 1, h: 1, credit: 'Map: Game8' } }), ['Adds a map picture', 'Credit: Map: Game8']);
   assert.deepEqual(setupChanges({ type: 'collection', map: { picture: 'a', w: 1, h: 1 } }, { map: { picture: 'b', w: 1, h: 1 } }), ['A new map picture']);
 });
+
+test('a new type: its title, what it changes, and what it started from', () => {
+  assert.equal(setupTitle('Foes', 'type', 'characters'), 'Foes as a Characters Block');
+  assert.equal(setupTitle('Bag', 'type', 'items'), 'Bag as an Items Block');
+  const c = setupContent({ title: 'Items', type: 'collection' }, { type: 'items' });
+  assert.deepEqual(c.before, { type: 'collection' });
+  assert.equal(c.name, 'Items as an Items Block');
+  assert.ok(setupOf({ setup: { type: 'items' } }));
+  assert.deepEqual(setupChanges({ type: 'collection' }, { type: 'items' }), ["Makes it an Items Block (it was a Collection). Set it up once it's in"]);
+});

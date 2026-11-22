@@ -446,7 +446,7 @@ function PreviewBody({ gameId, type, tint, title, icon, intro, page, note }: {
 }
 
 /** The Block type, as a dropdown. Moving through it (hover or arrow keys) shows that type's example. */
-function TypePicker({ type, open, setOpen, peek, setPeek, blocked, onPick }: {
+export function TypePicker({ type, open, setOpen, peek, setPeek, blocked, onPick }: {
   type: BlockType | null; open: boolean; setOpen: (v: boolean) => void;
   peek: BlockType | null; setPeek: (t: BlockType | null) => void;
   blocked: (t: BlockType) => string | null; onPick: (t: BlockType) => void;
@@ -536,3 +536,10 @@ function SymbolPicker({ value, color, onPick, label: name }: { value: string; co
   );
 }
 
+
+/** A type's example, filled with the made-up game and wearing a Block's own name, symbol and color: Add Block's
+ *  preview, also used when an empty Block changes its type (ChangeType.tsx). */
+export function TypePreview({ gameId, type, tint, title, icon }: { gameId: string; type: BlockType; tint: Tint; title: string; icon: string }) {
+  return <PreviewBody gameId={gameId} type={type} tint={tint} title={title} icon={icon} intro="" page={null}
+    note="Example entries from a made-up game, laid out as this type would be. It starts empty, ready to fill in." />;
+}

@@ -95,6 +95,22 @@ sends one as a Draft. `20261127000000_setup_drafts.sql` adds the action `setup`;
   capped choice lists and stats), rebuilds a Planner's setup from checked parts (its Blocks in this game,
   sizes clamped), and takes a map only from the author's or a moderator's upload for this game.
 
+## Changing a Block's type (built 2026-11-21; its SQL waits on Matt's run)
+
+Matt's Ocarina review, item 6: Ocarina's Items and Foes started as Collections, an old type. A Block with
+nothing in it yet can become another type: Characters, Items, Classes, Guides, Checklist or Timeline.
+
+- **Where:** a "Type" button on the Block in In the app, shown only while the Block is empty, isn't a Tier list,
+  Planner or map, and no Tier list or Planner uses it (`retypeProblem` in `src/lib/block-types.ts`, tested).
+- **The editor** (`ChangeType.tsx`): Add Block's type list, and the picked type's example wearing the Block's
+  name, symbol and color. Moderators change it straight away; anyone else signed in sends it as a setup Draft
+  ("Foes as a Characters Block"), shown on its card with the same example.
+- **Publishing** (`ship_setup`, `20261129000000_block_type_drafts.sql`, tests in `setup-check.mjs`): the type on
+  its own, checked again (empty, not a map, nothing uses it, unchanged since sent). The old type's fields, look
+  and settings go; the new type gets its usual filter. Set up comes after.
+- **Later:** changing a Block that has entries (converting them), and new games starting with no Pages instead of
+  prebuilt ones (`src/data/pages/ocarina-of-time.ts`; Ocarina's empty starters can stay or go, Matt's call).
+
 ### Rough spots
 
 - Tier list and Planner previews show their empty starting state, not a filled-in example (a Tier

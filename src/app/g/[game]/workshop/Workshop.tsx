@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, CircleHelp, EyeOff, FileText, Flag, GripVertical, Hammer, MapPin, MessageCircle, PanelLeftOpen, PenLine, Plus, ClipboardPaste,
+  Shapes, ArrowDown, ArrowRight, ArrowUp, Check, ChevronDown, CircleHelp, EyeOff, FileText, Flag, GripVertical, Hammer, MapPin, MessageCircle, PanelLeftOpen, PenLine, Plus, ClipboardPaste,
   RotateCcw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, TriangleAlert, X, BookOpenText,
 } from 'lucide-react';
 import type { Entry, Page } from '@/data/pages';
@@ -40,6 +40,9 @@ import { MapSetup } from './MapSetup';
 import { PlannerSetup } from './PlannerSetup';
 import { AddBlock, StructurePreview, structureOf, type StructureContent } from './AddBlock';
 import { kindOf, setupChanges, setupOf, type SetupContent } from '@/lib/setup-draft';
+import { ChangeType } from './ChangeType';
+import { TypePreview } from './AddBlock';
+import { retypeProblem } from '@/lib/block-types';
 import { mapPictureUrl } from '@/components/world/PictureMap';
 import { useDragSort } from './useDragSort';
 import { browserClient } from '@/lib/supabase/browser';
@@ -97,6 +100,8 @@ export function Workshop({ game, pages, routes }: {
   const [setup, setSetup] = useState<string | null>(() => { const b = params.get('pins'); return b && placeOf(b)?.look === 'map' ? b : null; });
   // A setup Draft opened in its editor ("See it in Set up" on its card), to look at with its preview.
   const [trying, setTrying] = useState<LiveDraft | null>(null);
+  // An empty Block whose type is being changed (ChangeType.tsx).
+  const [retyping, setRetyping] = useState<string | null>(null);
   // Rows pasted from a spreadsheet into a Block (?paste=block, from the app's Download menu).
   const [pasting, setPasting] = useState<string | null>(() => { const b = params.get('paste'); return b && placeOf(b) ? b : null; });
   // A Block's wiki links: what to check, and the game's wiki (docs/blocks/wiki-links.md).
@@ -396,11 +401,12 @@ export function Workshop({ game, pages, routes }: {
   const setupBlock = setup ? blocks.find((b) => b.id === setup) : undefined;
   const pasteBlock = pasting ? blocks.find((b) => b.id === pasting) : undefined;
   const wikiBlock = wikiFor ? blocks.find((b) => b.id === wikiFor) : undefined;
-  const editing = adding ? 'add' : form && blocks.length > 0 ? 'form' : setupBlock ? 'setup' : pasteBlock ? 'paste' : wikiBlock ? 'wiki' : null;
+  const retypeBlock = retyping ? blocks.find((b) => b.id === retyping) : undefined;
+  const editing = adding ? 'add' : form && blocks.length > 0 ? 'form' : setupBlock ? 'setup' : pasteBlock ? 'paste' : wikiBlock ? 'wiki' : retypeBlock ? 'type' : null;
   const editLabel = editing === 'add' ? (adding?.newPage ? 'New Page' : 'Add a Block') : editing === 'form'
     ? (form?.entryId ? `Fix: ${editBlock?.entries.find((e) => e.id === form.entryId)?.name ?? 'an entry'}` : `New in ${editBlock?.title ?? 'the app'}`)
-    : setupBlock ? (setupBlock.look === 'map' ? `Map: ${setupBlock.title}` : `Set up ${setupBlock.title}`) : pasteBlock ? `Paste into ${pasteBlock.title}` : wikiBlock ? `Wiki links: ${wikiBlock.title}` : '';
-  const editKey = editing ? `${editing}:${form?.blockId}.${form?.entryId}:${setup}:${trying?.id}:${pasting}:${wikiFor}:${adding?.newPage}` : null;
+    : setupBlock ? (setupBlock.look === 'map' ? `Map: ${setupBlock.title}` : `Set up ${setupBlock.title}`) : pasteBlock ? `Paste into ${pasteBlock.title}` : wikiBlock ? `Wiki links: ${wikiBlock.title}` : retypeBlock ? `Change the type of ${retypeBlock.title}` : '';
+  const editKey = editing ? `${editing}:${form?.blockId}.${form?.entryId}:${setup}:${trying?.id}:${retyping}:${pasting}:${wikiFor}:${adding?.newPage}` : null;
   // The setup Draft being looked at, if it's for the Block open in Set up; closing goes back to its card.
   const tried = trying && trying.blockKey === setup ? setupOf(trying.content) : null;
   const closeSetup = () => { if (trying) { setTab('drafts'); setDetail(trying.id); } setSetup(null); setTrying(null); };
@@ -623,6 +629,9 @@ export function Workshop({ game, pages, routes }: {
               ) : editing === 'paste' ? (
                 <PasteSheet gameId={game.id} block={pasteBlock!} routes={routes} me={me} data={batchData} onClose={closePaste}
                   onSent={(id) => { const page = pasteBlock!.page.id; closePaste(); setChip(page); setTab('drafts'); setOpenBatch(id); }} />
+              ) : editing === 'type' ? (
+                <ChangeType gameId={game.id} block={retypeBlock!} blocks={blocks} mod={live.mod} signedIn={Boolean(me)} postDraft={live.postDraft}
+                  onSubmitted={(id) => { const page = retypeBlock!.page.id; setRetyping(null); setChip(page); setTab('drafts'); setDetail(id); }} onClose={() => setRetyping(null)} />
               ) : editing === 'wiki' ? (
                 <WikiCheck gameId={game.id} block={wikiBlock!} mod={live.mod} onClose={() => setWikiFor(null)}
                   onFix={(entryId, wiki) => setForm({ blockId: wikiBlock!.id, entryId, field: 'wiki', wiki })} />
@@ -868,7 +877,7 @@ export function Workshop({ game, pages, routes }: {
                     onAnswer={(a) => setForm({ blockId: a.blockId, entryId: a.entryId, question: a.question })} onOpenDraft={setDetail} />
                 ) : (
                   <AppContents pages={current ? [current] : pages} drafts={drafts} query={query} onReorder={live.mod ? reorderBlocks : undefined} focus={form?.entryId ? `${form.blockId}.${form.entryId}` : undefined}
-                    onFix={(blockId, entryId) => setForm({ blockId, entryId })} onAdd={(blockId) => setForm({ blockId })} onSetup={setSetup} onPaste={setPasting} onWiki={setWikiFor}
+                    onFix={(blockId, entryId) => setForm({ blockId, entryId })} onAdd={(blockId) => setForm({ blockId })} onSetup={setSetup} onRetype={setRetyping} onPaste={setPasting} onWiki={setWikiFor}
                     onDrafts={(cardId) => { const d = drafts.find((x) => x.cardId === cardId && isOpen(x)); if (d) setDetail(d.id); }} />
                 )}
               </>
@@ -1294,24 +1303,25 @@ function StructureDraftCard({ structure, ...props }: ProposalProps & { structure
 
 /** A Block's setup as a Draft (20261127000000): what it changes, in words, and a way to see it with its preview. */
 function SetupDraftCard({ setup, place, ...props }: ProposalProps & { setup: SetupContent; place?: Placed }) {
-  const { pages } = useContext(WorkshopGame);
+  const { gameId, pages } = useContext(WorkshopGame);
   const tryIt = useContext(TrySetup);
   const { draft } = props;
   const kind = kindOf(setup.setup);
   const name = (key: string) => pages.flatMap((p) => p.blocks).find((b) => b.id === key)?.title ?? key;
   // What it changes from the setup it started from, so it still reads right once it's decided.
-  const was = place && { type: place.type, fields: setup.before.fields ?? undefined, stats: setup.before.stats ?? undefined, planSetup: setup.before.plan ?? undefined, map: setup.before.map ?? undefined };
+  const was = place && { type: setup.before.type ?? place.type, fields: setup.before.fields ?? undefined, stats: setup.before.stats ?? undefined, planSetup: setup.before.plan ?? undefined, map: setup.before.map ?? undefined };
   const changes = was ? setupChanges(was, setup.setup, name) : [];
   // Publishing refuses once the Block's setup has moved on from where this started; say so up front.
-  const part = (b: { fields?: unknown; stats?: unknown; plan?: unknown; map?: unknown }) =>
-    JSON.stringify(kind === 'fields' ? [b.fields ?? null, b.stats ?? null] : kind === 'plan' ? b.plan ?? null : b.map ?? null);
+  const part = (b: { fields?: unknown; stats?: unknown; plan?: unknown; map?: unknown; type?: unknown }) =>
+    JSON.stringify(kind === 'fields' ? [b.fields ?? null, b.stats ?? null] : kind === 'plan' ? b.plan ?? null : kind === 'type' ? b.type ?? null : b.map ?? null);
   const stale = Boolean(place) && (draft.status === 'open' || draft.status === 'checking')
-    && part({ fields: place?.fields, stats: place?.stats, plan: place?.planSetup, map: place?.map }) !== part(setup.before);
+    && part({ fields: place?.fields, stats: place?.stats, plan: place?.planSetup, map: place?.map, type: place?.type }) !== part(setup.before);
   const tint = place?.page.tint ?? 'slate';
   return (
     <ProposalCard {...props} sub={place ? (place.page.title === place.title ? place.title : `${place.page.title} · ${place.title}`) : 'A Block that\'s no longer in the app'}
       piece={<Piece size={40} color={`var(--${tint})`}><BlockIcon name={place?.icon ?? 'SlidersHorizontal'} size={15} strokeWidth={2.4} /></Piece>}
-      badge={kind === 'map' ? 'map' : 'setup'} badgeTip={kind === 'map' ? 'Suggests a map picture for this Block' : 'Suggests how this Block is set up: its fields, or what it picks from'}>
+      badge={kind === 'map' ? 'map' : kind === 'type' ? 'type' : 'setup'}
+      badgeTip={kind === 'map' ? 'Suggests a map picture for this Block' : kind === 'type' ? 'Suggests another type for this Block, while nothing is in it' : 'Suggests how this Block is set up: its fields, or what it picks from'}>
       {changes.length ? (
         <ul className="grid gap-1 text-sm">
           {changes.map((c, i) => <li key={i} className="flex gap-2"><span aria-hidden="true" className="mt-2 size-1.5 shrink-0 rounded-full" style={{ background: `var(--${tint})` }} />{c}</li>)}
@@ -1321,8 +1331,13 @@ function SetupDraftCard({ setup, place, ...props }: ProposalProps & { setup: Set
         // eslint-disable-next-line @next/next/no-img-element -- a community upload of any size, shown as it is
         <img src={mapPictureUrl(setup.setup.map.picture)} alt={`The suggested map for ${place?.title ?? 'this Block'}`} className="max-h-64 w-fit max-w-full rounded-xl ring-1 ring-line" />
       )}
+      {kind === 'type' && setup.setup.type && place && (
+        <div className="rounded-2xl p-3" style={{ background: `var(--${tint}-soft)` }}>
+          <TypePreview gameId={gameId} type={setup.setup.type} tint={tint} title={place.title} icon={place.icon} />
+        </div>
+      )}
       {stale && <p className="rounded-xl bg-sun-soft px-3 py-2 text-sm"><span className="font-bold">The setup changed since this was sent,</span> so it can&apos;t be published as it is. Its author can open Set up and send it again.</p>}
-      {kind !== 'map' && place && (
+      {kind !== 'map' && kind !== 'type' && place && (
         <button type="button" onClick={() => tryIt(draft)} className="inline-flex w-fit items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-sm font-bold ring-1 ring-line hover:ring-ink">
           <SlidersHorizontal size={14} aria-hidden="true" /> See it in Set up
         </button>
@@ -1482,19 +1497,23 @@ function RowPiece({ entry, block, color, done }: { entry: Entry; block: Page['bl
  * "In the app": what's on the selected Page right now, Block by Block, so villagers can
  * pick something to fix or add to without leaving the Workshop.
  */
-function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSetup, onPaste, onWiki, onReorder }: {
+function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSetup, onRetype, onPaste, onWiki, onReorder }: {
   pages: Page[]; drafts: LiveDraft[]; query: string; focus?: string;
   /** Moderators: saves a new order for a Page's Blocks, dragged by the grip at each Block's top left. */
   onReorder?: (pageId: string, blockIds: string[]) => void;
   onFix: (blockId: string, entryId: string) => void; onAdd: (blockId: string) => void; onDrafts: (cardId: string) => void;
   /** Characters and Items Blocks: open their field setup. Places Blocks: their map. */
   onSetup: (blockId: string) => void;
+  /** An empty Block: change its type (ChangeType.tsx). */
+  onRetype: (blockId: string) => void;
   /** Paste rows from a spreadsheet (docs/blocks/spreadsheets.md). */
   onPaste: (blockId: string) => void;
   /** Characters, Items and Collections: their wiki links (docs/blocks/wiki-links.md). */
   onWiki: (blockId: string) => void;
 }) {
   const [folded, setFolded] = useStored<string[]>('village:workshop:folded-blocks', []);
+  // Every Block in the game, for whether a Tier list or Planner uses one (then its type stays).
+  const allBlocks = useMemo(() => pages.flatMap((p) => p.blocks), [pages]);
   const fold = (id: string) => setFolded(folded.includes(id) ? folded.filter((x) => x !== id) : [...folded, id]);
   const open = useMemo(() => {
     const n = new Map<string, number>();
@@ -1566,6 +1585,14 @@ function AppContents({ pages, drafts, query, focus, onFix, onAdd, onDrafts, onSe
                     <h4 className="truncate font-bold">{b.title}</h4>
                     <ChevronDown size={15} className={'shrink-0 text-muted transition ' + (isFolded ? '-rotate-90' : '')} aria-hidden="true" />
                   </button>
+                  {/* Nothing in it yet: it can still become another type (Ocarina's Items was a Collection). */}
+                  {!retypeProblem(b, allBlocks) && (
+                    <Tip text={`Make ${b.title} another type of Block, while nothing is in it`} tint={p.tint} className="shrink-0">
+                      <button onClick={() => onRetype(b.id)} aria-label={`Change the type of ${b.title}`} className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-3 py-1 text-xs font-bold ring-1 ring-line hover:ring-ink">
+                        <Shapes size={13} aria-hidden="true" /><span className="hidden sm:inline">Type</span>
+                      </button>
+                    </Tip>
+                  )}
                   {hasFieldSetup(b) && (
                     <Tip text={b.type === 'items' ? `Choose what ${b.title} tiles and full views show, with a preview` : b.type === 'classes' ? `Choose the fields ${b.title} cards show, with a sample class`
                       : b.type === 'checklist' ? `Choose what each row of ${b.title} shows, with a preview` : b.type === 'timeline' ? `Choose what each part of ${b.title} shows, with a preview`

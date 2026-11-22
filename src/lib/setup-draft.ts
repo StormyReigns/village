@@ -2,9 +2,10 @@
 // fields, a Planner's setup, or a map picture, sent by any Builder for votes and published by a moderator.
 // This is the Draft's content, and what it changes in plain words for its card ("Renames Kind to Type").
 
-import type { Block, BlockMap, FieldDef, StatDef } from '../data/pages/types.ts';
+import type { Block, BlockMap, BlockType, FieldDef, StatDef } from '../data/pages/types.ts';
 import type { PlanSetup } from './planner.ts';
 import { FIELD_KINDS, FROM, fieldsOf } from './fields.ts';
+import { typeName } from './block-types.ts';
 
 /** What a setup Draft holds: the setup it suggests, and the Block's setup when it was sent. Publishing
  *  refuses if the Block's setup has changed since, rather than overwrite someone else's. */
@@ -20,28 +21,31 @@ export interface SetupPart {
   stats?: StatDef[] | null;
   plan?: PlanSetup | null;
   map?: BlockMap | null;
+  /** A new type for a Block with nothing in it yet (20261129000000), sent on its own. */
+  type?: BlockType | null;
 }
-export type SetupKind = 'fields' | 'plan' | 'map';
+export type SetupKind = 'fields' | 'plan' | 'map' | 'type';
 
 /** The Draft's title: "New setup for Units", or "New map for Places". The chat adds "is now in the app." */
-export const setupTitle = (blockTitle: string, kind: SetupKind) => `New ${kind === 'map' ? 'map' : 'setup'} for ${blockTitle}`;
+export const setupTitle = (blockTitle: string, kind: SetupKind, type?: BlockType | null) =>
+  kind === 'type' && type ? `${blockTitle} as ${typeName(type)} Block` : `New ${kind === 'map' ? 'map' : 'setup'} for ${blockTitle}`;
 
 /** A setup Draft's content, with the Block's setup as it is now (exactly as the database has it). */
-export function setupContent(block: Pick<Block, 'title' | 'fields' | 'stats' | 'planSetup' | 'map'>, setup: SetupPart): SetupContent {
+export function setupContent(block: Pick<Block, 'title' | 'fields' | 'stats' | 'planSetup' | 'map'> & Partial<Pick<Block, 'type'>>, setup: SetupPart): SetupContent {
   const kind = kindOf(setup);
   const before: SetupPart = kind === 'fields' ? { fields: block.fields ?? null, stats: block.stats ?? null }
-    : kind === 'plan' ? { plan: block.planSetup ?? null } : { map: block.map ?? null };
-  return { name: setupTitle(block.title, kind), sections: [], categories: {}, setup, before };
+    : kind === 'plan' ? { plan: block.planSetup ?? null } : kind === 'type' ? { type: block.type ?? null } : { map: block.map ?? null };
+  return { name: setupTitle(block.title, kind, setup.type), sections: [], categories: {}, setup, before };
 }
 
-export const kindOf = (s: SetupPart): SetupKind => (s.map !== undefined ? 'map' : s.plan !== undefined ? 'plan' : 'fields');
+export const kindOf = (s: SetupPart): SetupKind => (s.type !== undefined ? 'type' : s.map !== undefined ? 'map' : s.plan !== undefined ? 'plan' : 'fields');
 
 /** A Draft's content as a setup, or null when it isn't one. */
 export function setupOf(content: unknown): SetupContent | null {
   const c = content as Partial<SetupContent> | null;
   if (!c || typeof c !== 'object' || !c.setup || typeof c.setup !== 'object') return null;
   const s = c.setup;
-  if (!Array.isArray(s.fields) && !(s.plan && typeof s.plan === 'object') && !(s.map && typeof s.map === 'object')) return null;
+  if (!Array.isArray(s.fields) && !(s.plan && typeof s.plan === 'object') && !(s.map && typeof s.map === 'object') && typeof s.type !== 'string') return null;
   return { ...(c as SetupContent), before: c.before && typeof c.before === 'object' ? c.before : {} };
 }
 
@@ -55,6 +59,7 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stri
  */
 export function setupChanges(block: Pick<Block, 'type' | 'fields' | 'stats' | 'planSetup' | 'map'>, setup: SetupPart, name: (blockKey: string) => string = (k) => k): string[] {
   const out: string[] = [];
+  if (setup.type) out.push(`Makes it ${typeName(setup.type)} Block${block.type && block.type !== setup.type ? ` (it was ${typeName(block.type)})` : ''}. Set it up once it's in`);
   if (Array.isArray(setup.fields)) {
     const was = fieldsOf(block);
     const now = setup.fields.filter((f) => !f.key.startsWith(FROM));

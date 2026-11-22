@@ -3,7 +3,7 @@
 // Foes will replace it (docs/blocks/world.md). Checklist and Timeline are first versions that
 // haven't had their design pass yet (docs/blocks/README.md).
 
-import type { BlockType } from '@/data/pages/types';
+import type { Block, BlockType } from '../data/pages/types.ts';
 
 export interface BlockTypeInfo {
   type: BlockType;
@@ -31,6 +31,28 @@ export const BLOCK_TYPES: BlockTypeInfo[] = [
 ];
 
 export const blockTypeInfo = (type: BlockType) => BLOCK_TYPES.find((t) => t.type === type);
+
+/** Our name for a type, with "a" or "an" ("a Collection" for the old type Add Block no longer offers). */
+export const typeName = (type: BlockType) => {
+  const name = type === 'collection' ? 'Collection' : blockTypeInfo(type)?.name ?? type;
+  return `${/^[AEIOU]/.test(name) ? 'an' : 'a'} ${name}`;
+};
+
+/** The types an empty Block can change to (item 6 of Matt's Ocarina review): Add Block's, apart from the
+ *  ones whose settings point at other Blocks. ship_setup in 20261129000000_block_type_drafts.sql keeps the
+ *  same lists. */
+export const RETYPE_TO: BlockType[] = ['characters', 'items', 'classes', 'guide', 'checklist', 'timeline'];
+const RETYPE_FROM: BlockType[] = ['collection', ...RETYPE_TO];
+
+/** Why a Block can't change its type now, in a Builder's words, or null when it can. */
+export function retypeProblem(block: Pick<Block, 'id' | 'type' | 'title' | 'entries'> & Partial<Pick<Block, 'look'>>, blocks: Pick<Block, 'id' | 'tierSetup' | 'planSetup'>[]): string | null {
+  if (!RETYPE_FROM.includes(block.type)) return "A Tier list's or Planner's type can't be changed.";
+  if (block.look === 'map') return 'A map Block keeps its type: Places on a map are their own kind of Block.';
+  if (block.entries.length) return `Only a Block with nothing in it yet can change its type, and ${block.title} has entries.`;
+  const uses = blocks.some((o) => o.id !== block.id && (o.tierSetup?.ranks === block.id || o.planSetup?.roster === block.id
+    || o.planSetup?.classes === block.id || (o.planSetup?.slots ?? []).some((x) => x.from === block.id)));
+  return uses ? `A Tier list or Planner uses ${block.title}, so its type can't change.` : null;
+}
 
 /** Blocks a Tier list can rank: ones with pieces of their own. */
 export const RANKABLE: BlockType[] = ['characters', 'items', 'classes'];

@@ -30,6 +30,7 @@ for (const f of files) {
 }
 await db.exec(readFileSync(join(process.argv[2], files.find((f) => f.includes('setup_drafts'))), 'utf8'));
 await db.exec(readFileSync(join(process.argv[2], files.find((f) => f.includes('list_setups'))), 'utf8'));
+await db.exec(readFileSync(join(process.argv[2], files.find((f) => f.includes('block_type_drafts'))), 'utf8'));
 ok('migrations applied, and the setup Drafts SQL runs twice (re-running it after 20261128000000 too, so that comes again)');
 
 const B = '22222222-2222-2222-2222-222222222222', C = '44444444-4444-4444-4444-444444444444', FWMOD = '77777777-7777-7777-7777-777777777777';
@@ -44,7 +45,8 @@ await db.exec(`
     ('fw', 'units', 'Units', 'units', 'characters', 0, null), ('fw', 'classes', 'Classes', 'units', 'classes', 1, null),
     ('fw', 'gear', 'Gear', 'units', 'items', 2, null), ('fw', 'party', 'Party', 'units', 'planner', 3, null),
     ('fw', 'places', 'Places', 'units', 'collection', 4, 'map'), ('oot', 'items', 'Items', 'items', 'items', 0, null),
-    ('fw', 'chances', 'Last chances', 'units', 'checklist', 5, null), ('fw', 'story', 'Story', 'units', 'timeline', 6, null);
+    ('fw', 'chances', 'Last chances', 'units', 'checklist', 5, null), ('fw', 'story', 'Story', 'units', 'timeline', 6, null),
+    ('fw', 'foes', 'Foes', 'units', 'collection', 7, 'rows');
   update public.game_blocks set fields = '[{"key":"Kind","label":"Kind","kind":"tag"}]', stats = '[{"key":"hp","label":"HP","better":"high"}]'
   where game_id = 'fw' and block_key = 'units';
   update public.game_blocks set plan_setup = '{"roster":"units"}' where game_id = 'fw' and block_key = 'party';
@@ -164,6 +166,26 @@ const tl = await send('story', { fields: [{ key: 'Boss', label: 'Boss', kind: 't
 await ship(tl);
 (await block('story')).fields?.[0]?.key === 'Boss' ? ok("and a Timeline's") : bad('timeline');
 await refused('places', { fields: [{ key: 'A', label: 'A', kind: 'text' }] }, "a Collection still isn't set up by fields", 'set up by fields');
+
+// An empty Block changes its type (20261129000000) ---------------------------------------------------------
+const retype = await send('foes', { type: 'characters' }, { was: { type: 'collection' } });
+await ship(retype);
+const fo = (await db.query(`select type, look, filters, fields from public.game_blocks where game_id = 'fw' and block_key = 'foes'`)).rows[0];
+fo.type === 'characters' && fo.look === null && fo.filters[0] === 'Role or class' && fo.fields === null
+  ? ok('an empty Collection becomes a Characters Block, with its usual filter and no old look') : bad('retype ' + JSON.stringify(fo));
+(await status(retype)) === 'stable' ? ok('and the Draft is published') : bad('retype status');
+await refused('foes', { type: 'items' }, 'a type sent from an older type is refused', 'changed since', { was: { type: 'collection' } });
+await refused('foes', { type: 'characters' }, 'the same type again', 'already', { was: { type: 'characters' } });
+await refused('foes', { type: 'items', fields: [] }, 'a type changes on its own, before its Set up', 'on its own', { was: { type: 'characters' } });
+await refused('foes', { type: 'tierlist' }, "a Block can't become a Tier list this way", "can't be chosen", { was: { type: 'characters' } });
+await refused('foes', { type: 'collection' }, "nor go back to a Collection", "can't be chosen", { was: { type: 'characters' } });
+await refused('party', { type: 'characters' }, "a Planner's type can't change", 'Planner', { was: { type: 'planner' } });
+await refused('places', { type: 'characters' }, 'a map Block keeps its type', 'map Block', { was: { type: 'collection' } });
+await refused('units', { type: 'items' }, 'a Block a Planner picks from keeps its type', 'uses', { was: { type: 'characters' } });
+const cls = (await asUser(B, `insert into public.drafts (game_id, block_key, kind, title, content, author_id)
+  values ('fw', 'classes', 'fact', 'Knight', '{"name":"Knight","sections":[],"categories":{}}', '${B}') returning id`)).rows[0].id;
+await ship(cls);
+await refused('classes', { type: 'items' }, 'a Block with entries in the app keeps its type', 'has entries', { was: { type: 'classes' } });
 
 // Another game's moderator, and the action rules ----------------------------------------------------------
 const elsewhere = await send('items', { fields: [{ key: 'A', label: 'A', kind: 'text' }] }, { game: 'oot' });
