@@ -305,6 +305,25 @@ Buccar" to a last chance and lists planned gear still to get. The Party Page get
 Diego with Orchel's Paralogue and its deadline, Ninae with Paradise Fish, Buccar with Leda's Paralogue; ticking
 Orchel's from Diego's row counted on Last chances (1 of 10); My run's "for Buccar" and "Get Levin Sword +1 for Goliath".
 
+## The Party Page, reshaped (2026-11-22, Matt: "Yes, rebuild it")
+
+Matt: "I'm just scrolling through lists and it doesn't feel intuitive regarding what I'm doing." A walkthrough on the live
+site (Theodora, a party of five, 375 px) found the page 3,078 px tall (nearly four phone screens), saying most things twice
+(each party row's "To recruit…", then My run's "Recruit Goliath" again), with "Next:" 1.4 screens down, and every row the
+same weight (ten empty dashed "+ Classes / + Weapons" chips for five units; "Recruited?" on Theodora, the Flame Lord).
+
+Now, top to bottom (`MyRun.tsx` renders all three, the party strip handed in from `Planner.tsx`):
+1. **Next up**: the one next open item, big, in yellow ("your choice"), with its group ("Next up · Chapter 8"), why it
+   matters (who it's for), its ties and its tick.
+2. **Your party**: a strip of faces, names under them like app icons, the split outline for anyone still to recruit, "→
+   Myrmidon" under a unit heading for a class, and "Add". A tap opens the unit's card with their plan. Share, Reorder or
+   remove, and the save state sit behind "⋯"; Reorder turns the strip into rows with a grip, up, down and remove.
+3. **Your run**: the one timeline. The next four open items in order, plus the party's own steps ("When you're ready":
+   recruits, classes, gear) always; "Later · N more" folds the rest, "Show done" the done ones. A recruit's ties (Giant's
+   Meat) sit under it. The rows' recruit lines, tie chips, plan chips and Recruited ticks are gone: a recruit is ticked in
+   the timeline (the same tick as on Units), and a Flame Lord or a unit who joins on their own has nothing to tick.
+The page came to about 1,700 px (two phone screens, from nearly four) for the same party, with Next up in the top third of the first screen. Both grids are pinned to the screen width, so a long chip truncates instead of widening the page.
+
 ## Open questions
 
 - Weapon slot count for Fortune's Weave: 3 to start. Matt can change it.

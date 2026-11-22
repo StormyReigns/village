@@ -1,62 +1,24 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Check, GripVertical, Plus, Search, Share2, Shield, Swords, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, GripVertical, MoreHorizontal, Plus, Search, Share2, X } from 'lucide-react';
 import type { Block, Entry } from '@/data/pages';
 import { Piece } from '@/components/Piece';
 import { BlockIcon } from '@/components/Icon';
 import { EntryPanel, symbolFor } from '@/components/app/EntryPanel';
 import { initials, rememberEntry, useOpenEntry } from '@/components/app/entries';
 import type { BlockContext } from '@/components/app/blockParts';
-import { STEP_LABEL, addMember, buildOf, joinKind, moveMember, moveMemberTo, removeMember, slotCount, type Build, type PlanSlot, type Roster } from '@/lib/planner';
+import { addMember, buildOf, joinKind, moveMember, moveMemberTo, removeMember, type Roster } from '@/lib/planner';
 import { BuildPlan } from './BuildPlan';
 import { useParty } from './useParty';
 import { Runs } from './Runs';
 import { MyRun } from './MyRun';
-import { TieChips } from './TieChips';
 import { valueOf } from '@/lib/fields';
-import type { ClassLadder } from './sources';
 
 // The Planner Block (docs/blocks/planner.md): your party for this run, picked from the roster (Units),
 // each with the next thing to do for them: recruit, get their gear, reach their next class. Saved on
 // this device, and in your account when signed in. Tapping a unit opens their card over the Party
 // Page, with your plan for them (class steps and gear) at the top.
-
-/**
- * What else there is to plan for a unit, as chips under their line: their classes and each gear slot,
- * "+" while nothing's picked (Matt, 2026-11-15: it wasn't clear there was more to do for each one).
- * A tap opens their card with the plan at the top.
- */
-function PlanChips({ build, ladder, slots, onOpen, name }: {
-  build: Build; ladder?: ClassLadder; slots: { slot: PlanSlot }[]; onOpen: () => void; name: string;
-}) {
-  const steps = ladder ? ladder.bands.map((b) => build.classes?.[b]).filter(Boolean) : [];
-  const last = steps.length ? ladder?.byId.get(steps[steps.length - 1]!.id)?.name : undefined;
-  const chip = 'inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ';
-  const empty = chip + 'border border-dashed border-ink/40 text-muted hover:border-ink hover:text-ink';
-  const full = chip + 'border border-line bg-card-2 text-ink hover:border-ink';
-  if (!ladder && !slots.length) return null;
-  return (
-    <span className="mt-1.5 flex flex-wrap gap-1.5">
-      {ladder && (
-        <button onClick={onOpen} className={last ? full : empty} aria-label={last ? `${name}'s classes: ${last}` : `Plan ${name}'s classes`}>
-          {last ? <Shield size={12} aria-hidden="true" /> : <Plus size={12} aria-hidden="true" />}
-          <span className="truncate">{last ? `${last} · ${steps.length} of ${ladder.bands.length}` : 'Classes'}</span>
-        </button>
-      )}
-      {slots.map(({ slot }) => {
-        const n = build.gear?.[slot.key]?.length ?? 0;
-        const of = slotCount(slot);
-        return (
-          <button key={slot.key} onClick={onOpen} className={n ? full : empty} aria-label={n ? `${name}'s ${slot.label}: ${n} of ${of}` : `Plan ${name}'s ${slot.label}`}>
-            {n ? <Swords size={12} aria-hidden="true" /> : <Plus size={12} aria-hidden="true" />}
-            <span className="truncate">{slot.label}{n ? ` · ${n} of ${of}` : ''}</span>
-          </button>
-        );
-      })}
-    </span>
-  );
-}
 
 /** A unit as a piece: solid once they're yours, the split outline while they're still to recruit. */
 function UnitPiece({ entry, roster, color, outline, size = 52 }: { entry: Entry; roster: Block; color: string; outline?: boolean; size?: number }) {
@@ -101,7 +63,6 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
   })));
   const [picking, setPicking] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [snapped, setSnapped] = useState<string | null>(null);
   const full = members.length >= size;
 
   // Share: makes this route's party readable by its link (docs/blocks/planner.md, slice 3), then the
@@ -143,28 +104,34 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
   const saveLine = !signedIn ? 'Kept on this device. Sign in to keep it on every device.'
     : save === 'saving' ? 'Saving…' : save === 'error' ? error ?? 'Couldn’t save to your account.' : save === 'saved' ? 'Saved to your account' : 'Kept on this device';
 
-  return (
-    <div className="mt-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="font-bold">{block.planSetup?.size ? `${members.length} of ${size}` : members.length} in your party</p>
-        {members.length > 0 && !editing && (
-          <button onClick={shareParty} className="ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold ring-1 ring-line hover:ring-ink">
-            <Share2 size={14} aria-hidden="true" /> Share
-          </button>
-        )}
-        {members.length > 1 && (
-          <button onClick={() => setEditing(!editing)} aria-pressed={editing}
-            className={'rounded-full px-3 py-1.5 text-sm font-bold ring-1 ' + (editing ? 'ml-auto bg-ink text-white ring-ink' : 'ring-line hover:ring-ink')}>
-            {editing ? 'Done' : 'Reorder or remove'}
+  // The party as a strip of faces (Matt, 2026-11-22: party rows and My run said everything twice, and "what's
+  // next" sat at the bottom). Their steps live in Next up and Your run; their classes and gear on their card.
+  const [menu, setMenu] = useState(false);
+  const lastClass = (e: Entry) => {
+    const steps = ladder ? ladder.bands.map((b) => buildOf(plan, e.id).classes?.[b]).filter(Boolean) : [];
+    return steps.length ? ladder?.byId.get(steps[steps.length - 1]!.id)?.name : undefined;
+  };
+  const partyStrip = (
+    <section aria-label="Your party" className="rounded-2xl bg-card p-3 ring-1 ring-line">
+      <div className="flex items-center gap-2">
+        <h3 className="flex-1 text-xs font-bold uppercase tracking-wide text-muted">Your party · {block.planSetup?.size ? `${members.length} of ${size}` : members.length}</h3>
+        {editing ? (
+          <button onClick={() => setEditing(false)} className="rounded-full bg-ink px-3 py-1.5 text-sm font-bold text-white">Done</button>
+        ) : members.length > 0 && (
+          <button onClick={() => setMenu(!menu)} aria-expanded={menu} aria-label="Party options" className="grid size-9 place-items-center rounded-full text-muted hover:bg-card-2 hover:text-ink">
+            <MoreHorizontal size={18} aria-hidden="true" />
           </button>
         )}
       </div>
-      <p className={'text-sm ' + (save === 'error' ? 'text-berry' : 'text-muted')} aria-live="polite">{saveLine}</p>
-      {members.length > 0 && !editing && (ladder || slots.length > 0) && (
-        <p className="mt-1 text-sm font-bold">Tap a unit to plan their {ladder && slots.length ? 'classes and gear' : ladder ? 'classes' : 'gear'}.</p>
+      {menu && !editing && (
+        <div className="mt-2 grid gap-0.5 rounded-xl bg-card-2 p-1.5 text-sm">
+          <button onClick={() => { setMenu(false); shareParty(); }} className="flex items-center gap-2 rounded-lg px-2 py-2 text-left font-bold hover:bg-card"><Share2 size={15} aria-hidden="true" /> Share this party</button>
+          {members.length > 1 && <button onClick={() => { setMenu(false); setEditing(true); }} className="flex items-center gap-2 rounded-lg px-2 py-2 text-left font-bold hover:bg-card"><GripVertical size={15} aria-hidden="true" /> Reorder or remove</button>}
+          <p className={'px-2 py-1 text-xs ' + (save === 'error' ? 'text-berry' : 'text-muted')} aria-live="polite">{saveLine}</p>
+        </div>
       )}
       {(shareNote || shared) && (
-        <p className="text-sm text-muted" aria-live="polite">
+        <p className="mt-1 text-sm text-muted" aria-live="polite">
           {shareNote && <span className="break-all">{shareNote} </span>}
           {shared && (
             <>
@@ -174,91 +141,83 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
           )}
         </p>
       )}
+      {save === 'error' && !menu && <p className="mt-1 text-sm text-berry">{saveLine}</p>}
 
-      {members.length === 0 && !picking ? (
-        <div className="mt-3 grid justify-items-center gap-2 rounded-2xl bg-card-2 px-4 py-8 text-center">
-          <Piece size={56} outline><Plus size={18} aria-hidden="true" /></Piece>
-          <p className="font-display text-lg">Plan your party</p>
-          <p className="max-w-xs text-sm text-muted">Pick who you’ll take on this run. Each one shows what to do next to get them{size < 100 ? `, up to ${size}` : ''}.</p>
-          <button onClick={() => setPicking(true)} className="btn-primary mt-1 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold">
-            <Plus size={15} aria-hidden="true" /> Pick your first unit
-          </button>
+      {members.length === 0 ? (
+        <div className="mt-2 flex items-center gap-3">
+          <Piece size={48} outline><Plus size={16} aria-hidden="true" /></Piece>
+          <p className="min-w-0 flex-1 text-sm text-muted">Pick who you’ll take on this run{size < 100 ? `, up to ${size}` : ''}. Each one’s steps show up in your run.</p>
+          {!picking && <button onClick={() => setPicking(true)} className="btn-primary shrink-0 rounded-full px-4 py-2 text-sm font-bold">Pick units</button>}
         </div>
+      ) : editing ? (
+        <ul ref={list} className="mt-2 divide-y divide-line overflow-hidden rounded-xl ring-1 ring-line">
+          {members.map((e, i) => (
+            <li key={e.id} data-member={e.id} className={'flex items-center gap-2 px-2 py-1.5 ' + (dragging === e.id ? 'relative z-10 bg-signal/20' : '')}>
+              <span aria-hidden="true" title="Drag to move"
+                className="grid h-11 w-7 shrink-0 cursor-grab touch-none place-items-center rounded-lg text-muted hover:bg-card-2 hover:text-ink active:cursor-grabbing"
+                onPointerDown={(ev) => { ev.currentTarget.setPointerCapture(ev.pointerId); setDragging(e.id); }}
+                onPointerMove={(ev) => { if (dragging === e.id) dragTo(e.id, ev.clientY); }}
+                onPointerUp={() => setDragging(null)} onPointerCancel={() => setDragging(null)}>
+                <GripVertical size={18} />
+              </span>
+              <UnitPiece entry={e} roster={rb} color={color} outline={stepOf(e).kind === 'recruit'} size={36} />
+              <span className="min-w-0 flex-1 truncate font-bold">{e.name}</span>
+              <button onClick={() => setPlan(moveMember(plan, e.id, -1))} disabled={i === 0} aria-label={`Move ${e.name} up`}
+                className="grid size-11 shrink-0 place-items-center rounded-full ring-1 ring-line hover:ring-ink disabled:opacity-30"><ArrowUp size={16} aria-hidden="true" /></button>
+              <button onClick={() => setPlan(moveMember(plan, e.id, 1))} disabled={i === members.length - 1} aria-label={`Move ${e.name} down`}
+                className="grid size-11 shrink-0 place-items-center rounded-full ring-1 ring-line hover:ring-ink disabled:opacity-30"><ArrowDown size={16} aria-hidden="true" /></button>
+              <button onClick={() => setPlan(removeMember(plan, e.id))} aria-label={`Take ${e.name} out of your party`}
+                className="grid size-11 shrink-0 place-items-center rounded-full ring-1 ring-line hover:text-berry hover:ring-berry"><X size={16} aria-hidden="true" /></button>
+            </li>
+          ))}
+        </ul>
       ) : (
-        <ul ref={list} className="mt-3 divide-y divide-line overflow-hidden rounded-2xl bg-card ring-1 ring-line">
-          {members.map((e, i) => {
-            const step = stepOf(e);
-            const got = recruits ? ticks.has(recruitKey(e)) : true;
+        <ul className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(4.25rem,1fr))] gap-x-1.5 gap-y-2">
+          {members.map((e) => {
+            const cls = lastClass(e);
             return (
-              <li key={e.id} data-member={e.id} className={'flex items-center gap-2 px-3 py-2.5 sm:gap-3 ' + (dragging === e.id ? 'relative z-10 bg-signal/20' : '')}>
-                {editing && (
-                  <span aria-hidden="true" title="Drag to move"
-                    className="-ml-1 grid h-11 w-7 shrink-0 cursor-grab touch-none place-items-center rounded-lg text-muted hover:bg-card-2 hover:text-ink active:cursor-grabbing"
-                    onPointerDown={(ev) => { ev.currentTarget.setPointerCapture(ev.pointerId); setDragging(e.id); }}
-                    onPointerMove={(ev) => { if (dragging === e.id) dragTo(e.id, ev.clientY); }}
-                    onPointerUp={() => setDragging(null)} onPointerCancel={() => setDragging(null)}>
-                    <GripVertical size={18} />
-                  </span>
-                )}
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <button onClick={() => set(`${rb.id}.${e.id}`)} className="shrink-0" aria-label={`Open ${e.name}`}>
-                    <UnitPiece entry={e} roster={rb} color={color} outline={step.kind === 'recruit'} size={editing ? 40 : 48} />
-                  </button>
-                  <span className="min-w-0">
-                    <button onClick={() => set(`${rb.id}.${e.id}`)} className="block text-left font-bold leading-tight hover:underline">{e.name}</button>
-                    {step.text && (
-                      // While reordering on a phone, just the name, so the row has room for its buttons.
-                      <span className={'mt-0.5 text-sm leading-snug text-muted ' + (editing ? 'hidden sm:block' : 'block')}>
-                        {STEP_LABEL[step.kind] && <span className="font-bold text-ink">{STEP_LABEL[step.kind]}: </span>}{step.text}
-                      </span>
-                    )}
-                    {!editing && step.kind === 'recruit' && <TieChips ties={tiesOf(e)} ticks={ticks} toggle={toggle} color={`var(--${ctx.tint})`} label={`${e.name} needs`} />}
-                    {!editing && <PlanChips build={buildOf(plan, e.id)} ladder={ladder} slots={slots} name={e.name} onOpen={() => set(`${rb.id}.${e.id}`)} />}
-                  </span>
-                </div>
-                {editing ? (
-                  <span className="flex shrink-0 items-center gap-1">
-                    <button onClick={() => setPlan(moveMember(plan, e.id, -1))} disabled={i === 0} aria-label={`Move ${e.name} up`}
-                      className="grid size-11 place-items-center rounded-full ring-1 ring-line hover:ring-ink disabled:opacity-30"><ArrowUp size={16} aria-hidden="true" /></button>
-                    <button onClick={() => setPlan(moveMember(plan, e.id, 1))} disabled={i === members.length - 1} aria-label={`Move ${e.name} down`}
-                      className="grid size-11 place-items-center rounded-full ring-1 ring-line hover:ring-ink disabled:opacity-30"><ArrowDown size={16} aria-hidden="true" /></button>
-                    <button onClick={() => setPlan(removeMember(plan, e.id))} aria-label={`Take ${e.name} out of your party`}
-                      className="grid size-11 place-items-center rounded-full ring-1 ring-line hover:text-berry hover:ring-berry"><X size={16} aria-hidden="true" /></button>
-                  </span>
-                ) : recruits && (
-                  // The Recruited tick, the same one as on the unit's card: a piece that snaps solid.
-                  // Its word under it, so it reads as "Recruited" without a hover (review, 2026-11-20).
-                  <button onClick={() => { if (!got) setSnapped(e.id); toggle(recruitKey(e)); }} aria-pressed={got} aria-label={`${e.name} recruited`}
-                    className="grid w-16 shrink-0 justify-items-center gap-0.5 py-1" title={got ? 'Recruited. Tap to undo' : 'Mark as recruited'}>
-                    {got ? <Piece size={30} color={color} snap={snapped === e.id}><Check size={13} strokeWidth={3} aria-hidden="true" /></Piece>
-                      : <Piece size={30} outline />}
-                    <span className={'text-[11px] font-bold leading-tight ' + (got ? 'text-ink' : 'text-muted')}>{got ? 'Recruited' : 'Recruited?'}</span>
-                  </button>
-                )}
+              <li key={e.id}>
+                <button onClick={() => set(`${rb.id}.${e.id}`)} aria-label={`Open ${e.name}${cls ? `, heading for ${cls}` : ''}`}
+                  className="grid w-full justify-items-center gap-0.5 rounded-xl p-1 text-center hover:bg-card-2">
+                  <UnitPiece entry={e} roster={rb} color={color} outline={stepOf(e).kind === 'recruit'} size={48} />
+                  <span className="line-clamp-1 text-xs font-bold leading-tight">{e.name}</span>
+                  {cls && <span className="line-clamp-1 text-[11px] leading-tight text-muted">→ {cls}</span>}
+                </button>
               </li>
             );
           })}
-          {!picking && (
+          {!full && !picking && (
             <li>
-              {full ? (
-                <p className="px-3 py-3 text-sm text-muted">Your party is full: swap someone out to add another.</p>
-              ) : (
-                <button onClick={() => setPicking(true)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-card-2">
-                  <Piece size={48} outline><Plus size={16} aria-hidden="true" /></Piece>
-                  <span className="font-bold">Add a unit</span>
-                </button>
-              )}
+              <button onClick={() => setPicking(true)} className="grid w-full justify-items-center gap-0.5 rounded-xl p-1 text-center hover:bg-card-2">
+                <Piece size={48} outline><Plus size={16} aria-hidden="true" /></Piece>
+                <span className="text-xs font-bold leading-tight">Add</span>
+              </button>
             </li>
           )}
         </ul>
       )}
+      {members.length > 0 && !editing && (
+        <p className="mt-2 text-xs text-muted">
+          {members.some((e) => stepOf(e).kind === 'recruit') && 'Outline: still to recruit. '}
+          {(ladder || slots.length > 0) && `Tap a face for their ${ladder && slots.length ? 'classes and gear' : ladder ? 'classes' : 'gear'}.`}
+          {full && ' Your party is full: swap someone out to add another.'}
+        </p>
+      )}
+    </section>
+  );
 
-      {picking && <Picker roster={rb} entries={onThisRoute} party={plan.party} size={size} color={color} ctx={ctx}
-        onToggle={(id) => setPlan(plan.party.includes(id) ? removeMember(plan, id) : addMember(plan, id, size))} onDone={() => setPicking(false)} />}
-
-      {!picking && !editing && (
+  return (
+    <div className="mt-2">
+      {picking ? (
+        <>
+          {partyStrip}
+          <Picker roster={rb} entries={onThisRoute} party={plan.party} size={size} color={color} ctx={ctx}
+            onToggle={(id) => setPlan(plan.party.includes(id) ? removeMember(plan, id) : addMember(plan, id, size))} onDone={() => setPicking(false)} />
+        </>
+      ) : (
         <MyRun roster={roster} ctx={ctx} members={members} plan={plan} setPlan={setPlan} ladder={ladder} recruits={recruits}
-          recruitKey={recruitKey} ticks={ticks} toggle={toggle} onOpenUnit={(e) => set(`${rb.id}.${e.id}`)} forWhom={forWhom} gear={gear} />
+          recruitKey={recruitKey} ticks={ticks} toggle={toggle} onOpenUnit={(e) => set(`${rb.id}.${e.id}`)} forWhom={forWhom} gear={gear}
+          tiesOf={tiesOf} party={partyStrip} />
       )}
 
       {opened && (
