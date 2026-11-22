@@ -29,6 +29,7 @@ import { completeness } from '@/lib/completeness';
 import { TINT } from './tint';
 import { AllQuestions, AskFromSearch, QuestionBar, type QPage } from '@/components/questions/Questions';
 import { CommunitiesCard } from '@/components/communities/Communities';
+import { LaunchCard } from './LaunchCard';
 
 /**
  * A game counts as still being built (its front page says so, with what needs help) until it has this
@@ -46,6 +47,8 @@ export interface AppGame {
   routeQuestion?: string;
   /** Started by a Builder and not launched for players yet (docs/games.md). */
   building?: boolean;
+  /** Who started it (they can't vote to launch their own game). */
+  createdBy?: string;
 }
 
 /**
@@ -327,15 +330,15 @@ export function AppHome({ game, pages }: { game: AppGame; pages: Page[] }) {
       <div className="grid gap-3 md:grid-cols-2 md:[&>*:last-child:nth-child(odd)]:col-span-2">
         {/* Your party for this run and what to do next for them (docs/blocks/planner.md). */}
         {/* Still being built: how much is filled in, and the way to the Workshop. A split outline is "not built yet". */}
+        {/* Not launched yet: the votes that launch it (docs/games.md, slice 3). */}
+        {game.building && <LaunchCard gameId={game.id} shortTitle={game.shortTitle} createdBy={game.createdBy} />}
         {building && (
           <Link href={`/g/${game.id}/workshop?tab=app`} className="lift flex items-center gap-3 rounded-2xl bg-card p-4 ring-1 ring-line">
             <Piece size={56} outline />
             <span className="min-w-0 flex-1">
-              <span className="block text-xs font-bold uppercase tracking-wide" style={{ color: GLITCH.violet }}>{game.building ? 'Not launched yet' : 'Still being built'}</span>
+              <span className="block text-xs font-bold uppercase tracking-wide" style={{ color: GLITCH.violet }}>Still being built</span>
               <span className="block font-bold leading-tight">{filled.total ? `${filled.done} of ${filled.total} filled in` : 'Nothing added yet'}</span>
-              <span className="block text-sm text-muted">{game.building
-                ? `Players have just started ${game.shortTitle}. It isn't on the front page yet, so share its link. Help in the Workshop.`
-                : `Players are building ${game.shortTitle}. Help in the Workshop; each Page below says what needs it.`}</span>
+              <span className="block text-sm text-muted">{`Players are building ${game.shortTitle}. Help in the Workshop; each Page below says what needs it.`}</span>
             </span>
             <ArrowRight size={18} className="mt-1 text-muted" aria-hidden="true" />
           </Link>

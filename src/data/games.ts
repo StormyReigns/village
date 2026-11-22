@@ -33,6 +33,8 @@ export interface Game {
   popularity: number;
   /** Games with separate routes or paths: the question and the choices. */
   paths?: { question: string; options: { key: Route; label: string; note: string }[] };
+  /** Who started it, for a game a Builder started (docs/games.md): they can't vote to launch their own game. */
+  createdBy?: string;
   /** Page addresses that have moved, old → new, so old links and bookmarks still land. */
   movedPages?: Record<string, string>;
 }

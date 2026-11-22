@@ -30,3 +30,15 @@ export async function gamesChanged(gameId: string) {
   const { data: isMod } = await db.rpc('is_moderator', { g: gameId });
   if (isMod) { updateTag(GAMES_TAG); updateTag(appTag(gameId)); }
 }
+
+/**
+ * After a vote or a moderator's "Launch now" / "Take it down" (docs/games.md, slice 3): if the game is no longer
+ * waiting to launch, refresh the games list so the front page shows it (or stops showing it). Anyone can ask; it
+ * only refreshes when the game really has changed.
+ */
+export async function gameLaunchCheck(gameId: string) {
+  const db = await serverClient();
+  if (!db || !/^[a-z0-9-]{2,48}$/.test(gameId)) return;
+  const { data } = await db.from('games').select('status').eq('id', gameId).maybeSingle();
+  if (!data || data.status !== 'draft') { updateTag(GAMES_TAG); updateTag(appTag(gameId)); }
+}

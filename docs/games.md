@@ -1,6 +1,6 @@
 # Starting a game
 
-**Status:** Slice 1 live (2026-11-21); slice 2 live (Matt ran 20261201000000); slices 3 and 4 planned · **Chat:** started from the Builder-readiness chat ·
+**Status:** Slice 1 live (2026-11-21); slice 2 live (Matt ran 20261201000000); slice 3 built (its SQL, 20261203000000, waits on Matt's run); slice 4 planned · **Chat:** started from the Builder-readiness chat ·
 **Code:** `src/lib/games-data.ts` (`getGames`, `findGame`, cached), `src/lib/game-row.ts` (a row as a game, tested), `src/components/GamesProvider.tsx` (`useGames`, `useGame` in the browser), `src/data/games.ts` (the `Game` type and the starter games, the fallback)
 
 From Matt's Ocarina early-Builder review, item 1: Builders can't start a game. A game's title, release date,
@@ -57,6 +57,11 @@ where to help while it's being built.
 3. **Launch.** "I'd use this" votes on a game being built, from signed-in players other than its starter. At
    5, it launches by itself (a trigger, which must never fail the vote). Village moderators get "Launch now"
    and "Take it down" (spam, duplicates, games we shouldn't host).
+   **Built 2026-11-22.** `LaunchCard.tsx` on the app home of a game that hasn't launched: "3 of 5 players would use
+   it", five pieces (solid for each vote, split outlines for the rest), "I'd use this" (take it back while it
+   waits), "Help build it". Its starter sees "Share its link" instead of a vote. Village moderators see "Launch now"
+   and "Take it down" (archives it; only for games that haven't launched). The fifth vote launches it (prelaunch
+   or live by its date), and `gameLaunchCheck` refreshes the front page. Tests: `supabase/tests/launch-check.mjs`.
 4. **Game settings as Drafts.** In the game's Workshop: cover picture, routes and their question, wiki,
    genre, name and date, sent as setup Drafts like a Block's setup, published by the game's moderators.
 

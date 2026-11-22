@@ -34,7 +34,7 @@ async function Home({ params }: { params: PageProps<'/g/[game]'>['params'] }) {
   const game = found;
   const routes = game.paths?.options.map((o) => ({ key: o.key, label: o.label })) ?? [];
   return (
-    <AppHome game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question, building: game.status === 'building' }}
+    <AppHome game={{ id: game.id, shortTitle: game.shortTitle, title: game.title, routes, routeQuestion: game.paths?.question, building: game.status === 'building', createdBy: game.createdBy }}
       pages={pages} />
   );
 }

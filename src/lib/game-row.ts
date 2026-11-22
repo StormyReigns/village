@@ -56,5 +56,6 @@ export function gameFromRow(r: Row, starter?: Game): Game | null {
     popularity: typeof r.popularity === 'number' ? r.popularity : starter?.popularity ?? 100,
     paths: pathsOf(r.paths) ?? starter?.paths,
     movedPages: movesOf(r.moved_pages) ?? starter?.movedPages,
+    ...(typeof r.created_by === 'string' ? { createdBy: r.created_by } : {}),
   };
 }
