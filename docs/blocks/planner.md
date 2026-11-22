@@ -324,6 +324,14 @@ Now, top to bottom (`MyRun.tsx` renders all three, the party strip handed in fro
    the timeline (the same tick as on Units), and a Flame Lord or a unit who joins on their own has nothing to tick.
 The page came to about 1,700 px (two phone screens, from nearly four) for the same party, with Next up in the top third of the first screen. Both grids are pinned to the screen width, so a long chip truncates instead of widening the page.
 
+- 2026-11-22: **the party as a deployment board** (Matt: "more fun and interactive, with larger images"; the strip of
+  48 px faces looked "small and formless"). Each unit on a card of their own: a 72 px portrait (outline with the portrait
+  inside while still to recruit, and a yellow "To recruit" tag), the name in heavy type, their class path as small pieces in
+  the Classes color (solid once reached, outline while planned) with "→ Myrmidon" for the class they're heading for, and a
+  weapons count. Cards lift when pressed; "Add a unit" is a dashed card of the same size, with the spots left. Three cards
+  to a row on a phone, four or five on a computer. The heading says "7 · 3 still to recruit". A light fill sits under a
+  portrait while it loads, so it doesn't flash a dark blob.
+
 ## Open questions
 
 - Weapon slot count for Fortune's Weave: 3 to start. Matt can change it.

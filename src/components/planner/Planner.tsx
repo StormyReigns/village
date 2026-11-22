@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Check, GripVertical, MoreHorizontal, Plus, Search, Share2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, GripVertical, MoreHorizontal, Plus, Search, Share2, Swords, X } from 'lucide-react';
 import type { Block, Entry } from '@/data/pages';
 import { Piece } from '@/components/Piece';
 import { BlockIcon } from '@/components/Icon';
@@ -30,7 +30,8 @@ function UnitPiece({ entry, roster, color, outline, size = 52 }: { entry: Entry;
     return (
       <span className="relative inline-grid shrink-0 place-items-center">
         <Piece size={size} outline />
-        <span className="absolute inset-0 grid place-items-center"><Piece size={Math.round(size * 0.74)} image={entry.icon} className="opacity-90" /></span>
+        {/* A light fill under the portrait, so it doesn't show as a dark blob while the picture loads. */}
+        <span className="absolute inset-0 grid place-items-center"><Piece size={Math.round(size * 0.74)} image={entry.icon} color="var(--line)" className="opacity-90" /></span>
       </span>
     );
   }
@@ -107,14 +108,22 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
   // The party as a strip of faces (Matt, 2026-11-22: party rows and My run said everything twice, and "what's
   // next" sat at the bottom). Their steps live in Next up and Your run; their classes and gear on their card.
   const [menu, setMenu] = useState(false);
-  const lastClass = (e: Entry) => {
-    const steps = ladder ? ladder.bands.map((b) => buildOf(plan, e.id).classes?.[b]).filter(Boolean) : [];
-    return steps.length ? ladder?.byId.get(steps[steps.length - 1]!.id)?.name : undefined;
-  };
+  // Each unit's planned class steps in ladder order, for the little path of pieces on their card.
+  const pathOf = (e: Entry) => (ladder ? ladder.bands.flatMap((b) => {
+    const step = buildOf(plan, e.id).classes?.[b];
+    const cls = step ? ladder.byId.get(step.id) : undefined;
+    return step && cls ? [{ band: b, name: cls.name, done: Boolean(step.done) }] : [];
+  }) : []);
+  const gearOf = (e: Entry) => Object.values(buildOf(plan, e.id).gear ?? {}).reduce((n, x) => n + x.length, 0);
+  const classColor = roster.classes ? `var(--${roster.classes.page.tint})` : 'var(--indigo)';
+  const toRecruit = members.filter((e) => stepOf(e).kind === 'recruit').length;
   const partyStrip = (
     <section aria-label="Your party" className="rounded-2xl bg-card p-3 ring-1 ring-line">
       <div className="flex items-center gap-2">
-        <h3 className="flex-1 text-xs font-bold uppercase tracking-wide text-muted">Your party · {block.planSetup?.size ? `${members.length} of ${size}` : members.length}</h3>
+        <h3 className="min-w-0 flex-1">
+          <span className="block font-display text-lg leading-tight">Your party</span>
+          <span className="block text-xs text-muted">{block.planSetup?.size ? `${members.length} of ${size}` : members.length}{toRecruit ? ` · ${toRecruit} still to recruit` : ''}</span>
+        </h3>
         {editing ? (
           <button onClick={() => setEditing(false)} className="rounded-full bg-ink px-3 py-1.5 text-sm font-bold text-white">Done</button>
         ) : members.length > 0 && (
@@ -172,25 +181,45 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
           ))}
         </ul>
       ) : (
-        <ul className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(4.25rem,1fr))] gap-x-1.5 gap-y-2">
+        // A deployment board (Matt, 2026-11-22: "more fun and interactive, with larger images"): each unit on a card of
+        // their own with a big portrait, a yellow "To recruit" tag while they're still to get, and their class path as
+        // small pieces (solid once reached). Cards lift under a press; a tap opens their classes and gear.
+        <ul className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(5.25rem,1fr))] gap-2 sm:grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] sm:gap-2.5">
           {members.map((e) => {
-            const cls = lastClass(e);
+            const recruit = stepOf(e).kind === 'recruit';
+            const path = pathOf(e);
+            const gearN = gearOf(e);
+            const heading = path.find((x) => !x.done) ?? path[path.length - 1];
             return (
               <li key={e.id}>
-                <button onClick={() => set(`${rb.id}.${e.id}`)} aria-label={`Open ${e.name}${cls ? `, heading for ${cls}` : ''}`}
-                  className="grid w-full justify-items-center gap-0.5 rounded-xl p-1 text-center hover:bg-card-2">
-                  <UnitPiece entry={e} roster={rb} color={color} outline={stepOf(e).kind === 'recruit'} size={48} />
-                  <span className="line-clamp-1 text-xs font-bold leading-tight">{e.name}</span>
-                  {cls && <span className="line-clamp-1 text-[11px] leading-tight text-muted">→ {cls}</span>}
+                <button onClick={() => set(`${rb.id}.${e.id}`)}
+                  aria-label={`Open ${e.name}${recruit ? ', still to recruit' : ''}${heading ? `, heading for ${heading.name}` : ''}`}
+                  className="lift relative grid h-full w-full justify-items-center gap-1 rounded-2xl bg-card-2 px-1.5 pb-2.5 pt-3 text-center ring-1 ring-line transition hover:ring-ink active:scale-[0.97]">
+                  {recruit && <span className="absolute left-1.5 top-1.5 z-10 rounded-full bg-signal px-1.5 py-0.5 text-[10px] font-bold leading-none text-ink">To recruit</span>}
+                  <UnitPiece entry={e} roster={rb} color={color} outline={recruit} size={72} />
+                  <span className="line-clamp-1 w-full font-display text-sm leading-tight sm:text-base">{e.name}</span>
+                  {path.length > 0 ? (
+                    <span className="grid justify-items-center gap-0.5">
+                      <span className="flex items-center gap-1" aria-hidden="true">
+                        {path.map((x) => <Piece key={x.band} size={13} color={classColor} outline={!x.done} />)}
+                      </span>
+                      {heading && <span className="line-clamp-1 text-[11px] font-bold leading-tight text-muted">→ {heading.name}</span>}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] leading-tight text-muted">{ladder ? 'Plan classes' : slots.length ? 'Plan gear' : ' '}</span>
+                  )}
+                  {gearN > 0 && <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-muted"><Swords size={11} aria-hidden="true" />{gearN}</span>}
                 </button>
               </li>
             );
           })}
           {!full && !picking && (
             <li>
-              <button onClick={() => setPicking(true)} className="grid w-full justify-items-center gap-0.5 rounded-xl p-1 text-center hover:bg-card-2">
-                <Piece size={48} outline><Plus size={16} aria-hidden="true" /></Piece>
-                <span className="text-xs font-bold leading-tight">Add</span>
+              <button onClick={() => setPicking(true)}
+                className="lift grid h-full min-h-40 w-full content-center justify-items-center gap-1.5 rounded-2xl border-2 border-dashed border-line px-1.5 py-3 text-center hover:border-ink">
+                <Piece size={56} outline><Plus size={18} aria-hidden="true" /></Piece>
+                <span className="font-display text-sm leading-tight sm:text-base">Add a unit</span>
+                {block.planSetup?.size ? <span className="text-[11px] text-muted">{size - members.length} spots left</span> : null}
               </button>
             </li>
           )}
@@ -198,8 +227,8 @@ function Party({ block, roster, ctx }: { block: Block; roster: Roster; ctx: Bloc
       )}
       {members.length > 0 && !editing && (
         <p className="mt-2 text-xs text-muted">
-          {members.some((e) => stepOf(e).kind === 'recruit') && 'Outline: still to recruit. '}
-          {(ladder || slots.length > 0) && `Tap a face for their ${ladder && slots.length ? 'classes and gear' : ladder ? 'classes' : 'gear'}.`}
+          
+          {(ladder || slots.length > 0) && `Tap a unit for their ${ladder && slots.length ? 'classes and gear' : ladder ? 'classes' : 'gear'}.`}
           {full && ' Your party is full: swap someone out to add another.'}
         </p>
       )}
