@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, Eye, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
+import { Check, ChevronDown, Eye, ShieldCheck, Users } from 'lucide-react';
 import { setViewAs, type ViewAs } from './viewAs';
 
 const VIEWS: { key: ViewAs; label: string; note: string }[] = [
@@ -40,6 +41,10 @@ export function ModPowers({ view }: { view: ViewAs }) {
       {open && (
         <div className="surface pop absolute right-0 top-full z-40 mt-2 w-72 rounded-2xl p-2 text-sm text-ink">
           <p className="px-3 pb-1 pt-2 text-xs font-bold uppercase tracking-wide text-muted">Moderator powers</p>
+          {/* The staff's shared room: tools, the staff chat and the site feed (docs/staff.md). */}
+          <Link href="/staff" onClick={() => setOpen(false)} className="mb-1 flex items-center gap-2 rounded-xl px-3 py-2 font-bold hover:bg-card-2">
+            <Users size={16} className="text-leaf" aria-hidden="true" /> Staff room
+          </Link>
           <p className="px-3 pb-2 font-bold">See the site as</p>
           <ul role="radiogroup" aria-label="See the site as" className="grid gap-1">
             {VIEWS.map((v) => (

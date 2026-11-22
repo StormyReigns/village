@@ -92,6 +92,10 @@ Since 2026-11-12:
   moderator (20261203000000, run 2026-11-22). Slice 4, game settings as Drafts (20261204000000, run
   2026-11-22), is live too: every item from the Ocarina early-Builder review is built.
 
+- **The Staff room** (Matt, 2026-11-22; docs/staff.md): /staff for every moderator: tools and numbers, a staff-only chat,
+  and a site feed read from what the database already records. 20261205000000 (waits on Matt's run; tests:
+  supabase/tests/staff-check.mjs).
+
 Open, waiting on Matt:
 - **Tests only Matt can do (signed in or on his phone):**
   - the new bottom bar and the slim Page top on a real phone, and the iPhone home-swipe gap;
