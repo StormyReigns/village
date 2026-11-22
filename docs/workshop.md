@@ -95,7 +95,7 @@ sends one as a Draft. `20261127000000_setup_drafts.sql` adds the action `setup`;
   capped choice lists and stats), rebuilds a Planner's setup from checked parts (its Blocks in this game,
   sizes clamped), and takes a map only from the author's or a moderator's upload for this game.
 
-## Changing a Block's type (built 2026-11-21; its SQL waits on Matt's run)
+## Changing a Block's type (live 2026-11-21: Matt ran its SQL)
 
 Matt's Ocarina review, item 6: Ocarina's Items and Foes started as Collections, an old type. A Block with
 nothing in it yet can become another type: Characters, Items, Classes, Guides, Checklist or Timeline.
