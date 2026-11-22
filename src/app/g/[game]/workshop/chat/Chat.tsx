@@ -795,11 +795,14 @@ export function Composer({ me, placeholder, onSend, id, compact = false, replyTo
   const picking = Boolean(typed && !hidden && choices.length);
   // "@" with no one to pick says why, so it doesn't look broken.
   const nobody = Boolean(typed && typed.mark === '@' && !hidden && !choices.length && links);
-  // The box grows with what's written, up to about six lines, then scrolls.
+  // The box grows with what's written, up to about six lines, then scrolls. An empty box keeps
+  // its natural one-line size: a box drawn while hidden (a phone's Build tab, the chat still
+  // loading) measures nothing, and pinning that would leave it squashed until you typed.
   useEffect(() => {
     const el = field.current;
     if (!el) return;
     el.style.height = 'auto';
+    if (!text || !el.scrollHeight) return;
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, [text]);
   // Choosing Reply puts the cursor in the box.
@@ -957,7 +960,7 @@ export function Composer({ me, placeholder, onSend, id, compact = false, replyTo
             else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setHidden(true); }
           }}
           role="combobox" aria-expanded={picking} aria-controls={listId} aria-autocomplete="list"
-          className={'max-h-40 min-w-0 flex-1 resize-none self-center overflow-y-auto bg-transparent outline-none placeholder:text-muted ' + (compact ? 'px-2.5 py-1 text-sm leading-5' : 'w-full self-stretch px-3 pb-0.5 pt-2 leading-6')} placeholder={pollChoices ? 'Ask your question' : placeholder} aria-label={pollChoices ? 'The poll question' : placeholder} />
+          className={'max-h-40 min-w-0 flex-1 resize-none self-center overflow-y-auto bg-transparent outline-none placeholder:text-muted ' + (compact ? 'px-2.5 py-1 text-sm leading-5' : 'min-h-10 w-full self-stretch px-3 pb-0.5 pt-2 leading-6')} placeholder={pollChoices ? 'Ask your question' : placeholder} aria-label={pollChoices ? 'The poll question' : placeholder} />
         {pollChoices && !compact && <PollForm choices={pollChoices} onChoices={setPollChoices} hours={hours} onHours={setHours} onRemove={endPoll} />}
         <div className={compact ? 'contents' : 'flex items-center gap-0.5 px-1 pb-1'}>
         {!compact && (
