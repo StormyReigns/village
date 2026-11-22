@@ -87,7 +87,8 @@ Since 2026-11-12:
   20261128000000 lets setup Drafts change their fields (one line in `ship_setup`), run by Matt 2026-11-21.
   **Changing an empty Block's type** (docs/workshop.md): 20261129000000 adds a type part to `ship_setup`, run by Matt
   2026-11-21. **Starting a game** (docs/games.md): slice 1, games read from the database, is live (20261130000000, run
-  by Matt 2026-11-21; the site falls back to `src/data/games.ts` for anything missing). Slices 2 to 4 are next.
+  by Matt 2026-11-21; the site falls back to `src/data/games.ts` for anything missing). Slice 2, Builders start a game
+  at `/start` (20261201000000, run by Matt 2026-11-22), is live. Slices 3 (launch) and 4 (game settings) are next.
 
 Open, waiting on Matt:
 - **Tests only Matt can do (signed in or on his phone):**
